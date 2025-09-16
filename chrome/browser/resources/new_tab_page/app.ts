@@ -44,9 +44,13 @@ import type {PageCallbackRouter, PageHandlerRemote, Theme} from './new_tab_page.
 import {IphFeature, NtpBackgroundImageSource} from './new_tab_page.mojom-webui.js';
 import {NewTabPageProxy} from './new_tab_page_proxy.js';
 import type {MicrosoftAuthUntrustedDocumentRemote} from './ntp_microsoft_auth_shared_ui.mojom-webui.js';
+import {ShowNtpPromosResult} from './ntp_promo.mojom-webui.js';
 import {$$} from './utils.js';
 import {Action as VoiceAction, recordVoiceAction} from './voice_search_overlay.js';
 import {WindowProxy} from './window_proxy.js';
+
+const MODULE_LOAD_IN_PROGRESS = -2;
+const MODULE_LOAD_NOT_ATTEMPTED = -1;
 
 interface ExecutePromoBrowserCommandData {
   commandId: Command;
@@ -133,6 +137,12 @@ function ensureLazyLoaded() {
   document.body.appendChild(script);
 }
 
+function recordShowBrowserPromosResult(result: ShowNtpPromosResult) {
+  recordEnumeration(
+      'UserEducation.NtpPromos.ShowResult', result,
+      ShowNtpPromosResult.MAX_VALUE + 1);
+}
+
 const AppElementBase = HelpBubbleMixinLit(CrLitElement);
 
 export interface AppElement {
@@ -207,15 +217,14 @@ export class AppElement extends AppElementBase {
         notify: true,
       },
 
-      closingComposebox: {
-        type: Boolean,
-        reflect: true,
-      },
       composeboxCloseByClickOutside_: {type: Boolean},
       composeboxEnabled: {type: Boolean},
       composeButtonEnabled: {type: Boolean},
 
-      browserPromosEnabled_: {type: Boolean},
+      browserPromoType_: {type: String},
+      browserPromoLimit_: {type: Number},
+      browserPromoCompletedLimit_: {type: Number},
+
       realboxShown_: {type: Boolean},
       logoEnabled_: {type: Boolean},
       oneGoogleBarEnabled_: {type: Boolean},
@@ -223,7 +232,7 @@ export class AppElement extends AppElementBase {
       middleSlotPromoEnabled_: {type: Boolean},
       modulesEnabled_: {type: Boolean},
       middleSlotPromoLoaded_: {type: Boolean},
-      modulesLoaded_: {type: Boolean},
+      modulesLoaded_: {type: Number},
 
       modulesShownToUser: {
         type: Boolean,
@@ -300,10 +309,14 @@ export class AppElement extends AppElementBase {
       loadTimeData.getBoolean('middleSlotPromoEnabled');
   protected accessor modulesEnabled_: boolean =
       loadTimeData.getBoolean('modulesEnabled');
-  protected accessor browserPromosEnabled_: boolean =
-      loadTimeData.getBoolean('browserPromosEnabled');
+  protected accessor browserPromoType_: string =
+      loadTimeData.getString('browserPromoType');
+  protected accessor browserPromoLimit_: number =
+      loadTimeData.getInteger('browserPromoLimit');
+  protected accessor browserPromoCompletedLimit_: number =
+      loadTimeData.getInteger('browserPromoCompletedLimit');
   private accessor middleSlotPromoLoaded_: boolean = false;
-  private accessor modulesLoaded_: boolean = false;
+  private accessor modulesLoaded_: number = MODULE_LOAD_IN_PROGRESS;
   protected accessor modulesShownToUser: boolean = false;
   protected accessor microsoftModuleEnabled_: boolean =
       loadTimeData.getBoolean('microsoftModuleEnabled');
@@ -317,7 +330,6 @@ export class AppElement extends AppElementBase {
   protected accessor wallpaperSearchButtonEnabled_: boolean =
       loadTimeData.getBoolean('wallpaperSearchButtonEnabled');
   protected accessor showWallpaperSearchButton_: boolean = false;
-  accessor closingComposebox: boolean = false;
   accessor composeButtonEnabled: boolean =
       loadTimeData.getBoolean('searchboxShowComposeEntrypoint');
   protected accessor composeboxCloseByClickOutside_: boolean =
@@ -342,6 +354,9 @@ export class AppElement extends AppElementBase {
   private backgroundImageLoadStartEpoch_: number = 0;
   private backgroundImageLoadStart_: number = 0;
   private showWebstoreToastListenerId_: number|null = null;
+
+  // Protected for testing only.
+  protected browserPromoMetricsRecorded_: boolean = false;
 
   constructor() {
     performance.mark('app-creation-start');
@@ -603,26 +618,13 @@ export class AppElement extends AppElementBase {
         changedPrivateProperties.has('showComposebox_')) {
       this.updateOneGoogleBarAppearance_();
     }
-
-    if (changedPrivateProperties.has('showComposebox_')) {
-      if (this.showComposebox_) {
-        // Set Timeout since browser needs time to render the initial
-        // state before the final state is applied to run the transition.
-        setTimeout(() => {
-          const composeboxScrim =
-              this.shadowRoot.querySelector<HTMLElement>('#composeboxScrim');
-          assert(composeboxScrim);
-          composeboxScrim.classList.add('fade');
-        }, 0);
-      }
-    }
   }
 
   // Called to update the OGB of relevant NTP state changes.
   private updateOneGoogleBarAppearance_() {
     if (this.oneGoogleBarLoaded_) {
       let isNtpDarkTheme;
-      if (this.isComposeboxVisible_()) {
+      if (this.showComposebox_) {
         isNtpDarkTheme = this.theme_ && this.theme_.isDark;
       } else {
         isNtpDarkTheme = this.theme_ &&
@@ -660,13 +662,14 @@ export class AppElement extends AppElementBase {
   private computeRealboxShown_(): boolean {
     // Do not show the realbox if the upload dialog is showing.
     return !!this.theme_ && !this.showLensUploadDialog_ &&
-        !this.isComposeboxVisible_();
+        !this.showComposebox_;
   }
 
   private computePromoAndModulesLoaded_(): boolean {
     return (!loadTimeData.getBoolean('middleSlotPromoEnabled') ||
             this.middleSlotPromoLoaded_) &&
-        (!loadTimeData.getBoolean('modulesEnabled') || this.modulesLoaded_);
+        (!loadTimeData.getBoolean('modulesEnabled') ||
+         this.modulesLoaded_ >= 0);
   }
 
   private onRealboxCanShowSecondarySideChanged_(e: MediaQueryListEvent) {
@@ -721,31 +724,10 @@ export class AppElement extends AppElementBase {
         this.shadowRoot.querySelector<ComposeboxElement>('#composebox');
     assert(composebox);
     composebox.resetText();
-    this.fadeoutScrim_();
-  }
-
-  private fadeoutScrim_() {
-    const composeboxScrim =
-        this.shadowRoot.querySelector<HTMLElement>('#composeboxScrim');
-    assert(composeboxScrim);
-    composeboxScrim.addEventListener('transitionend', (e: TransitionEvent) => {
-      if (e.propertyName === 'opacity') {  // Match the animation name
-        this.toggleComposebox_();
-        this.closingComposebox = false;
-      }
-    });
-    composeboxScrim.classList.remove('fade');
-    const composebox = this.shadowRoot.querySelector('#composebox');
-    assert(composebox);
-    composebox.classList.add('fade-out');
-    this.closingComposebox = true;
+    this.toggleComposebox_();
     this.logoColor_ = this.computeLogoColor_();
     this.singleColoredLogo_ = this.computeSingleColoredLogo_();
     this.updateOneGoogleBarAppearance_();
-  }
-
-  private isComposeboxVisible_() {
-    return this.showComposebox_ && !this.closingComposebox;
   }
 
   protected onOpenVoiceSearch_() {
@@ -909,7 +891,7 @@ export class AppElement extends AppElementBase {
       return null;
     }
 
-    if (this.isComposeboxVisible_()) {
+    if (this.showComposebox_) {
       return this.theme_.isDark ? hexColorToSkColor('#ffffff') : null;
     }
 
@@ -918,7 +900,7 @@ export class AppElement extends AppElementBase {
   }
 
   private computeSingleColoredLogo_(): boolean {
-    if (this.isComposeboxVisible_()) {
+    if (this.showComposebox_) {
       return !!this.theme_ && this.theme_.isDark;
     }
     return !!this.theme_ && (!!this.theme_.logoColor || this.theme_.isDark);
@@ -1023,8 +1005,41 @@ export class AppElement extends AppElementBase {
     this.middleSlotPromoLoaded_ = true;
   }
 
-  protected onModulesLoaded_() {
-    this.modulesLoaded_ = true;
+  protected onModulesLoaded_(e: CustomEvent<number|null>) {
+    this.modulesLoaded_ =
+        e.detail === null ? MODULE_LOAD_NOT_ATTEMPTED : e.detail;
+  }
+
+  protected getBrowserPromoType_(): string {
+    let result: string = '';
+    if (!this.modulesEnabled_ ||
+        this.modulesLoaded_ === MODULE_LOAD_NOT_ATTEMPTED ||
+        this.modulesLoaded_ === 0) {
+      // If we know for sure there are no modules to show, the promo can show.
+      result = this.browserPromoType_;
+    } else if (this.modulesLoaded_ > 0) {
+      // If at least one module was loaded, block the promo.
+      result = 'blocked';
+    }
+    if (result !== '' && !this.browserPromoMetricsRecorded_) {
+      this.browserPromoMetricsRecorded_ = true;
+      switch (result) {
+        case 'blocked':
+          recordShowBrowserPromosResult(
+              ShowNtpPromosResult.kNotShownDueToPolicy);
+          break;
+        case 'empty':
+          recordShowBrowserPromosResult(ShowNtpPromosResult.kNotShownNoPromos);
+          break;
+        case 'simple':
+        case 'setuplist':
+          recordShowBrowserPromosResult(ShowNtpPromosResult.kShown);
+          break;
+        default:
+          break;
+      }
+    }
+    return result;
   }
 
   protected onCustomizeModule_() {

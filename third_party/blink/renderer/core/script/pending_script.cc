@@ -37,6 +37,7 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/loader/render_blocking_resource_manager.h"
+#include "third_party/blink/renderer/core/scheduler/task_attribution_util.h"
 #include "third_party/blink/renderer/core/script/ignore_destructive_write_count_incrementer.h"
 #include "third_party/blink/renderer/core/script/script_element_base.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
@@ -164,13 +165,8 @@ void PendingScript::ExecuteScriptBlock() {
   }
 
   std::optional<scheduler::TaskAttributionTracker::TaskScope>
-      task_attribution_scope;
-  if (auto* tracker =
-          scheduler::TaskAttributionTracker::From(context->GetIsolate())) {
-    task_attribution_scope = tracker->CreateTaskScope(
-        task_state_,
-        scheduler::TaskAttributionTracker::TaskScopeType::kScriptExecution);
-  }
+      task_attribution_scope(SetCurrentTaskStateIfTopLevel(
+          task_state_, context, TaskScopeType::kScriptExecution));
 
   Script* script = GetSource();
 
@@ -342,7 +338,6 @@ bool PendingScript::IsControlledByScriptRunner() const {
 
     case ScriptSchedulingType::kInOrder:
     case ScriptSchedulingType::kAsync:
-    case ScriptSchedulingType::kForceInOrder:
       return true;
   }
 }

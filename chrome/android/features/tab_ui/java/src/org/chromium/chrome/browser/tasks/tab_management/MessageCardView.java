@@ -19,8 +19,10 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.theme.SurfaceColorUpdateUtils;
 import org.chromium.chrome.tab_ui.R;
+import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.ui.widget.ButtonCompat;
 import org.chromium.ui.widget.ChromeImageView;
+import org.chromium.ui.widget.OutlineOverlayHelper;
 import org.chromium.ui.widget.TextViewWithLeading;
 
 import java.lang.ref.WeakReference;
@@ -38,20 +40,21 @@ class MessageCardView extends LinearLayout {
         void fetchIconDrawable(Callback<Drawable> drawable);
     }
 
-    /** An interface to handle the review action. */
-    public interface ReviewActionProvider {
-        void review();
+    /** An interface to handle a message action. */
+    public interface ActionProvider {
+        void action();
     }
 
     /** An interface to handle the dismiss action. */
-    public interface DismissActionProvider {
-        void dismiss(@MessageService.MessageType int messageType);
+    public interface ServiceDismissActionProvider<T> {
+        void dismiss(T messageType);
     }
 
     private ChromeImageView mIcon;
     private TextViewWithLeading mDescription;
     private ButtonCompat mActionButton;
     private ChromeImageView mCloseButton;
+    private OutlineOverlayHelper mOutlineOverlayHelper;
 
     public MessageCardView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -76,6 +79,9 @@ class MessageCardView extends LinearLayout {
                                     bitmap, closeButtonSize, closeButtonSize, true));
         }
         mCloseButton.setImageBitmap(sCloseButtonBitmapWeakRef.get());
+        mOutlineOverlayHelper = OutlineOverlayHelper.attach(this);
+        mOutlineOverlayHelper.setStrokeColor(
+                ChromeColors.getKeyboardFocusRingColor(getContext(), false));
     }
 
     /**
@@ -189,6 +195,9 @@ class MessageCardView extends LinearLayout {
         MessageCardViewUtils.setActionButtonTextAppearance(
                 mActionButton, isIncognito, /* isLargeMessageCard= */ false);
         MessageCardViewUtils.setCloseButtonTint(mCloseButton, isIncognito);
+
+        mOutlineOverlayHelper.setStrokeColor(
+                ChromeColors.getKeyboardFocusRingColor(getContext(), isIncognito));
     }
 
     /**

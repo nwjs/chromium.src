@@ -261,6 +261,12 @@ const char kEnableBookmarkUndo[] = "enable-bookmark-undo";
 // Proxy component within the service process.
 const char kEnableCloudPrintProxy[] = "enable-cloud-print-proxy";
 
+#if BUILDFLAG(IS_CHROMEOS)
+// If enabled, DevTools will allow creating pwa_handler, to enable executing
+// CDP methods (i.e. PWA.install) on browsers connected remotely
+const char kEnableDevToolsPwaHandler[] = "enable-devtools-pwa-handler";
+#endif
+
 // Enables Domain Reliability Monitoring.
 const char kEnableDomainReliability[] = "enable-domain-reliability";
 
@@ -933,6 +939,9 @@ const char kGlicAllowedOrigins[] = "glic-webui-allowed-origins";
 const char kGlicAutomation[] = "glic-automation";
 // Dev mode for glic only exposed via command line flag.
 const char kGlicDev[] = "glic-dev";
+// If this flag is set, then the page navigating will not trigger a reload.
+const char kGlicSkipReloadAfterNavigation[] =
+    "glic-skip-reload-after-navigation";
 // Whether additional logging is enabled in the glic api host.
 const char kGlicHostLogging[] = "glic-host-logging";
 #endif

@@ -20,6 +20,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gtest_util.h"
@@ -46,7 +47,6 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
-#include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
@@ -56,8 +56,10 @@
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/file_access/scoped_file_access.h"
 #include "components/file_access/test/mock_scoped_file_access_delegate.h"
+#include "components/fingerprinting_protection_filter/interventions/common/interventions_features.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/policy/core/common/policy_pref_names.h"
+#include "components/prefs/testing_pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/tracking_protection_prefs.h"
 #include "components/search_engines/template_url_service.h"
@@ -70,6 +72,7 @@
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/storage_partition.h"
@@ -89,6 +92,7 @@
 #include "net/ssl/ssl_info.h"
 #include "net/test/cert_test_util.h"
 #include "net/test/test_data_directory.h"
+#include "pdf/buildflags.h"
 #include "services/network/test/test_network_context.h"
 #include "services/video_effects/public/cpp/buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -101,6 +105,7 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
@@ -158,6 +163,7 @@
 #if BUILDFLAG(IS_WIN)
 #include "base/test/mock_entropy_provider.h"
 #include "chrome/test/base/scoped_metrics_service_for_synthetic_trials.h"
+#include "ui/accessibility/accessibility_features.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -166,11 +172,22 @@
 #include "third_party/blink/public/common/features.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
+#if BUILDFLAG(ENABLE_PDF)
+#include "content/public/test/mock_navigation_handle.h"
+#include "content/public/test/test_renderer_host.h"
+#include "pdf/pdf_features.h"
+#endif  // BUILDFLAG(ENABLE_PDF)
+
 using ::content::BrowsingDataFilterBuilder;
 using ::testing::_;
 using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::NotNull;
+
+#if BUILDFLAG(ENABLE_PDF)
+using ::testing::NiceMock;
+using ::testing::Return;
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 class ChromeContentBrowserClientTest : public testing::Test {
  public:
@@ -531,6 +548,49 @@ TEST_F(ChromeContentBrowserClientWindowTest,
   EXPECT_TRUE(browser_client.IsServiceWorkerSyntheticResponseAllowed(
       browser()->profile(), GURL("https://example.com/test?q=test")));
 }
+
+TEST_F(ChromeContentBrowserClientWindowTest,
+       IsURLAccessibleByHistoryNavigation) {
+  ChromeContentBrowserClient client;
+  const GURL url1("https://a.com");
+  const GURL url2("https://b.org");
+  const GURL url3("https://c.com");
+
+  // No tabs.
+  EXPECT_FALSE(client.IsURLAccessibleByHistoryNavigation(url1));
+
+  // One tab, one entry, URL matches.
+  AddTab(browser(), url1);
+  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url1));
+
+  // One tab, one entry, URL does not match.
+  EXPECT_FALSE(client.IsURLAccessibleByHistoryNavigation(url2));
+
+  // One tab, multiple entries, URL matches the latest entry.
+  NavigateAndCommitActiveTab(url2);
+  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url2));
+
+  // One tab, multiple entries, URL matches a previous entry.
+  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url1));
+
+  // Multiple tabs, URL in one of them.
+  AddTab(browser(), url3);
+  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url1));
+  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url2));
+  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url3));
+
+  // Multiple tabs, URL not in any of them.
+  EXPECT_FALSE(
+      client.IsURLAccessibleByHistoryNavigation(GURL("https://notfound.com")));
+
+  // Multiple browser windows.
+  std::unique_ptr<Browser> new_browser(
+      CreateBrowser(profile(), Browser::TYPE_NORMAL, /*hosted_app=*/false));
+  const GURL url4("https://d.com");
+  AddTab(new_browser.get(), url4);
+  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url4));
+  new_browser->tab_strip_model()->CloseAllTabs();
+}
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // NOTE: Any updates to the expectations in these tests should also be done in
@@ -595,8 +655,7 @@ class BlinkSettingsFieldTrialTest : public testing::Test {
   static const char kFakeGroupName[];
 
   BlinkSettingsFieldTrialTest()
-      : command_line_(base::CommandLine::NO_PROGRAM),
-        testing_local_state_(TestingBrowserProcess::GetGlobal()) {}
+      : command_line_(base::CommandLine::NO_PROGRAM) {}
 
   void SetUp() override {
     command_line_.AppendSwitchASCII(switches::kProcessType,
@@ -639,7 +698,6 @@ class BlinkSettingsFieldTrialTest : public testing::Test {
   base::CommandLine command_line_;
 
   content::BrowserTaskEnvironment task_environment_;
-  ScopedTestingLocalState testing_local_state_;
 };
 
 const char BlinkSettingsFieldTrialTest::kDisallowFetchFieldTrialName[] =
@@ -887,23 +945,7 @@ TEST_F(ChromeContentBrowserClientTest, PreferenceRankVideoDeviceInfos) {
 
 #if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 
-#if BUILDFLAG(USE_NSS_CERTS)
-TEST_F(ChromeContentBrowserClientTest, RedirectCertManagerFeatureOff) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kEnableCertManagementUIV2);
-  TestChromeContentBrowserClient test_content_browser_client;
-  GURL settings_cert_url(chrome::kChromeUICertificateRedirectURL);
-  test_content_browser_client.HandleWebUI(&settings_cert_url, &profile_);
-  // No redirection, feature is off.
-  EXPECT_EQ(GURL(chrome::kChromeUICertificateRedirectURL), settings_cert_url);
-}
-#endif  // BUILDFLAG(USE_NSS_CERTS)
-
 TEST_F(ChromeContentBrowserClientTest, RedirectCertManagerFeatureOn) {
-  base::test::ScopedFeatureList scoped_feature_list(
-      features::kEnableCertManagementUIV2);
-
   TestChromeContentBrowserClient test_content_browser_client;
   GURL settings_cert_url(chrome::kChromeUICertificateRedirectURL);
   test_content_browser_client.HandleWebUI(&settings_cert_url, &profile_);
@@ -913,21 +955,13 @@ TEST_F(ChromeContentBrowserClientTest, RedirectCertManagerFeatureOn) {
 
 #endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 
-class ChromeContentSettingsRedirectTest
-    : public ChromeContentBrowserClientTest {
- public:
-  ChromeContentSettingsRedirectTest()
-      : testing_local_state_(TestingBrowserProcess::GetGlobal()) {}
-
- protected:
-  ScopedTestingLocalState testing_local_state_;
-};
+using ChromeContentSettingsRedirectTest = ChromeContentBrowserClientTest;
 
 TEST_F(ChromeContentSettingsRedirectTest, RedirectDebugURL) {
   TestChromeContentBrowserClient test_content_browser_client;
   // Disable the internal only uis pref.
-  testing_local_state_.Get()->SetBoolean(chrome_urls::kInternalOnlyUisEnabled,
-                                         false);
+  TestingBrowserProcess::GetGlobal()->local_state()->SetBoolean(
+      chrome_urls::kInternalOnlyUisEnabled, false);
 
   // chrome://local-state is an internal debugging page available on all
   // platforms.
@@ -940,8 +974,8 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectDebugURL) {
             dest_url.query());
 
   // Enable the internal only uis pref.
-  testing_local_state_.Get()->SetBoolean(chrome_urls::kInternalOnlyUisEnabled,
-                                         true);
+  TestingBrowserProcess::GetGlobal()->local_state()->SetBoolean(
+      chrome_urls::kInternalOnlyUisEnabled, true);
   dest_url = debug_url;
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(debug_url, dest_url);
@@ -957,7 +991,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectSettingsURL) {
 
   base::Value::List list;
   list.Append(static_cast<int>(policy::SystemFeature::kBrowserSettings));
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList, std::move(list));
 
   dest_url = settings_url;
@@ -972,7 +1006,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectExploreURL) {
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(help_url, dest_url);
 
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList,
       base::Value::List().Append(
           static_cast<int>(policy::SystemFeature::kExplore)));
@@ -992,7 +1026,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectGuestExploreURL) {
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(help_url, dest_url);
 
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList,
       base::Value::List().Append(
           static_cast<int>(policy::SystemFeature::kExplore)));
@@ -1009,7 +1043,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectGalleryURL) {
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(gallery_url, dest_url);
 
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList,
       base::Value::List().Append(
           static_cast<int>(policy::SystemFeature::kGallery)));
@@ -1028,7 +1062,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectGuestGalleryURL) {
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(gallery_url, dest_url);
 
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList,
       base::Value::List().Append(
           static_cast<int>(policy::SystemFeature::kGallery)));
@@ -1048,7 +1082,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectTerminalURL) {
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(terminal_url, dest_url);
 
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList,
       base::Value::List().Append(
           static_cast<int>(policy::SystemFeature::kTerminal)));
@@ -1066,7 +1100,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectPrintJobsURL) {
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(print_jobs_url, dest_url);
 
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList,
       base::Value::List().Append(
           static_cast<int>(policy::SystemFeature::kPrintJobs)));
@@ -1084,7 +1118,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectKeyShortcutsURL) {
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(key_shortcuts_url, dest_url);
 
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList,
       base::Value::List().Append(
           static_cast<int>(policy::SystemFeature::kKeyShortcuts)));
@@ -1103,7 +1137,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectOSSettingsURL) {
 
   base::Value::List list;
   list.Append(static_cast<int>(policy::SystemFeature::kOsSettings));
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList, std::move(list));
 
   dest_url = os_settings_url;
@@ -1127,7 +1161,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectRecorderURL) {
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(recorder_url, dest_url);
 
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList,
       base::Value::List().Append(
           static_cast<int>(policy::SystemFeature::kRecorder)));
@@ -1146,7 +1180,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectScanningAppURL) {
 
   base::Value::List list;
   list.Append(static_cast<int>(policy::SystemFeature::kScanning));
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList, std::move(list));
 
   dest_url = scanning_app_url;
@@ -1165,7 +1199,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectCameraAppURL) {
 
   base::Value::List list;
   list.Append(static_cast<int>(policy::SystemFeature::kCamera));
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList, std::move(list));
 
   dest_url = camera_app_url;
@@ -1182,7 +1216,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectHelpURL) {
 
   base::Value::List list;
   list.Append(static_cast<int>(policy::SystemFeature::kBrowserSettings));
-  testing_local_state_.Get()->SetUserPref(
+  TestingBrowserProcess::GetGlobal()->GetTestingLocalState()->SetUserPref(
       policy::policy_prefs::kSystemFeaturesDisableList, std::move(list));
 
   dest_url = help_url;
@@ -1515,8 +1549,7 @@ TEST_F(ChromeContentBrowserClientTest, UseCorrectGeoAPIKey) {
 class ChromeContentBrowserClientSwitchTest
     : public ChromeRenderViewHostTestHarness {
  public:
-  ChromeContentBrowserClientSwitchTest()
-      : testing_local_state_(TestingBrowserProcess::GetGlobal()) {}
+  ChromeContentBrowserClientSwitchTest() = default;
 
  protected:
   void AppendSwitchInCurrentProcess(std::string_view switch_string) {
@@ -1534,7 +1567,6 @@ class ChromeContentBrowserClientSwitchTest
   }
 
  private:
-  ScopedTestingLocalState testing_local_state_;
   ChromeContentBrowserClient client_;
 };
 
@@ -1713,11 +1745,29 @@ TEST_F(ChromeContentBrowserClientTest, ShouldUseSpareRenderProcessHost) {
   EXPECT_EQ(SpareProcessRefusedByEmbedderReason::NoProfile, refused_reason);
 
 #if !BUILDFLAG(IS_ANDROID)
-  // Chrome-search URL
-  EXPECT_FALSE(browser_client.ShouldUseSpareRenderProcessHost(
-      &profile_, GURL("chrome-search://test"), refused_reason));
-  EXPECT_EQ(SpareProcessRefusedByEmbedderReason::InstantRendererForNewTabPage,
-            refused_reason);
+  {
+    // Disable kInstantUsesSpareRenderer flag to verify
+    // that Chrome-search URLs are not using the spare renderer.
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndDisableFeature(
+        features::kInstantUsesSpareRenderer);
+    // Chrome-search URL
+    EXPECT_FALSE(browser_client.ShouldUseSpareRenderProcessHost(
+        &profile_, GURL("chrome-search://test"), refused_reason));
+    EXPECT_EQ(SpareProcessRefusedByEmbedderReason::InstantRendererForNewTabPage,
+              refused_reason);
+  }
+  {
+    // Enable kInstantUsesSpareRenderer flag to verify
+    // that Chrome-search URLs can use the spare renderer.
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndEnableFeature(
+        features::kInstantUsesSpareRenderer);
+    // Chrome-search URL
+    EXPECT_TRUE(browser_client.ShouldUseSpareRenderProcessHost(
+        &profile_, GURL("chrome-search://test"), refused_reason));
+    EXPECT_FALSE(refused_reason.has_value());
+  }
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -1727,6 +1777,83 @@ TEST_F(ChromeContentBrowserClientTest, ShouldUseSpareRenderProcessHost) {
   EXPECT_EQ(SpareProcessRefusedByEmbedderReason::ExtensionProcess,
             refused_reason);
 #endif
+}
+
+class CanvasInterventionsContentBrowserClientTest
+    : public ChromeContentBrowserClientTest,
+      public testing::WithParamInterface<std::tuple<bool, bool, bool>> {
+ public:
+  CanvasInterventionsContentBrowserClientTest() {
+    std::tie(enable_canvas_interventions_, feature_enabled_in_regular_mode_,
+             run_in_regular_mode_) = GetParam();
+    SetFeatureFlags(enable_canvas_interventions_,
+                    feature_enabled_in_regular_mode_);
+  }
+
+  void SetFeatureFlags(bool is_canvas_interventions_feature_enabled,
+                       bool enable_in_regular_mode) {
+    if (is_canvas_interventions_feature_enabled) {
+      scoped_feature_list_.InitWithFeaturesAndParameters(
+          {
+              {fingerprinting_protection_interventions::features::kCanvasNoise,
+               {{"enable_in_regular_mode",
+                 base::ToString(enable_in_regular_mode)}}},
+          },
+          {});
+    } else {
+      scoped_feature_list_.InitWithFeatures(
+          /*enabled_features=*/{},
+          /*disabled_features=*/{
+              fingerprinting_protection_interventions::features::kCanvasNoise});
+    }
+  }
+
+  static std::string DescribeParams(
+      const testing::TestParamInfo<ParamType>& info) {
+    auto [enable_canvas_interventions_, feature_enabled_in_regular_mode_,
+          run_in_regular_mode_] = info.param;
+    return base::StringPrintf(
+        "%s_%s_%s",
+        enable_canvas_interventions_ ? "CanvasInterventionsEnabled"
+                                     : "CanvasInterventionsDisabled",
+        feature_enabled_in_regular_mode_ ? "EnabledInRegularMode"
+                                         : "DisabledInRegularMode",
+        run_in_regular_mode_ ? "RunInRegularMode" : "RunInIncognitoMode");
+  }
+
+ protected:
+  bool enable_canvas_interventions_;
+  bool feature_enabled_in_regular_mode_;
+  bool run_in_regular_mode_;
+
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+static auto kCanvasInterventionsTestParams =
+    testing::Combine(testing::Bool(), testing::Bool(), testing::Bool());
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    CanvasInterventionsContentBrowserClientTest,
+    kCanvasInterventionsTestParams,
+    CanvasInterventionsContentBrowserClientTest::DescribeParams);
+
+TEST_P(CanvasInterventionsContentBrowserClientTest,
+       InterventionsNavigationPropagatesCanvasInterventionsFeature) {
+  ChromeContentBrowserClient client;
+  const GURL some_url("http://example.test");
+
+  if (run_in_regular_mode_) {
+    EXPECT_EQ(enable_canvas_interventions_ && feature_enabled_in_regular_mode_,
+              client.ShouldEnableCanvasNoise(profile_.GetOriginalProfile(),
+                                             some_url));
+  } else {
+    EXPECT_EQ(enable_canvas_interventions_,
+              client.ShouldEnableCanvasNoise(
+                  profile_.GetOriginalProfile()->GetPrimaryOTRProfile(
+                      /*create_if_needed=*/true),
+                  some_url));
+  }
 }
 
 class WillComputeSiteForNavigationTest : public ChromeContentBrowserClientTest {
@@ -1837,11 +1964,16 @@ class ChromeContentBrowserClientFieldTrialTest
         "UiaProviderWin", 100, "Default_1234", entropy_provider);
   }
 
+  void SetUp() override {
+    if (features::kUiaProvider.default_state ==
+        base::FEATURE_ENABLED_BY_DEFAULT) {
+      GTEST_SKIP() << "UiaProvider is enabled by default";
+    }
+  }
+
   ChromeContentBrowserClient& client() { return client_; }
 
  private:
-  ScopedTestingLocalState testing_local_state_{
-      TestingBrowserProcess::GetGlobal()};
   ScopedMetricsServiceForSyntheticTrials metrics_service_{
       TestingBrowserProcess::GetGlobal()};
   ChromeContentBrowserClient client_;
@@ -2088,3 +2220,50 @@ TEST_P(GrantCookieAccessDueToHeuristicTest,
 INSTANTIATE_TEST_SUITE_P(All,
                          GrantCookieAccessDueToHeuristicTest,
                          testing::Bool());
+
+#if BUILDFLAG(ENABLE_PDF)
+class ChromeContentBrowserClientOopifPdfTest
+    : public ChromeRenderViewHostTestHarness {
+ public:
+  ChromeContentBrowserClientOopifPdfTest() = default;
+  ~ChromeContentBrowserClientOopifPdfTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList feature_list_{chrome_pdf::features::kPdfOopif};
+};
+
+TEST_F(ChromeContentBrowserClientOopifPdfTest,
+       OverrideLocalURLCrossOriginEmbedderPolicy) {
+  NiceMock<content::MockNavigationHandle> navigation_handle;
+  navigation_handle.set_render_frame_host(main_rfh());
+  ON_CALL(navigation_handle, IsPdf).WillByDefault(Return(false));
+
+  TestChromeContentBrowserClient browser_client;
+  EXPECT_FALSE(
+      browser_client
+          .MaybeOverrideLocalURLCrossOriginEmbedderPolicy(&navigation_handle)
+          .has_value());
+
+  ON_CALL(navigation_handle, IsPdf).WillByDefault(Return(true));
+
+  // The RFH is missing a parent, i.e. the PDF extension host.
+  EXPECT_FALSE(
+      browser_client
+          .MaybeOverrideLocalURLCrossOriginEmbedderPolicy(&navigation_handle)
+          .has_value());
+
+  auto* pdf_embedder_tester = content::RenderFrameHostTester::For(main_rfh());
+  pdf_embedder_tester->InitializeRenderFrameIfNeeded();
+  content::RenderFrameHost* pdf_extension =
+      pdf_embedder_tester->AppendChild("extension host");
+  content::RenderFrameHost* pdf_content =
+      content::RenderFrameHostTester::For(pdf_extension)
+          ->AppendChild("content host");
+  navigation_handle.set_render_frame_host(pdf_content);
+
+  EXPECT_TRUE(
+      browser_client
+          .MaybeOverrideLocalURLCrossOriginEmbedderPolicy(&navigation_handle)
+          .has_value());
+}
+#endif  // BUILDFLAG(ENABLE_PDF)

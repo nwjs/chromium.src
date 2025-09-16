@@ -223,6 +223,18 @@ if (enable_vr) {
         "openxr/openxr_render_loop.h",
         "openxr/openxr_scene_understanding_manager.cc",
         "openxr/openxr_scene_understanding_manager.h",
+        "openxr/openxr_space_based_anchor_manager.cc",
+        "openxr/openxr_space_based_anchor_manager.h",
+        "openxr/openxr_spatial_anchor_manager.cc",
+        "openxr/openxr_spatial_anchor_manager.h",
+        "openxr/openxr_spatial_capability_configuration_base.cc",
+        "openxr/openxr_spatial_capability_configuration_base.h",
+        "openxr/openxr_spatial_framework_manager.cc",
+        "openxr/openxr_spatial_framework_manager.h",
+        "openxr/openxr_spatial_plane_manager.cc",
+        "openxr/openxr_spatial_plane_manager.h",
+        "openxr/openxr_spatial_utils.cc",
+        "openxr/openxr_spatial_utils.h",
         "openxr/openxr_stage_bounds_provider.h",
         "openxr/openxr_stage_bounds_provider_basic.cc",
         "openxr/openxr_stage_bounds_provider_basic.h",
@@ -234,6 +246,7 @@ if (enable_vr) {
         "openxr/openxr_util.h",
         "openxr/openxr_view_configuration.cc",
         "openxr/openxr_view_configuration.h",
+        "openxr/scoped_openxr_object.h",
       ]
 
       deps += [ ":vr_test_hook" ]
@@ -241,7 +254,7 @@ if (enable_vr) {
       if (is_win) {
         libs = [
           "d3d11.lib",
-          "DXGI.lib",
+          "dxgi.lib",
         ]
 
         sources += [
@@ -356,7 +369,7 @@ if (enable_vr) {
 
       libs = [
         "d3d11.lib",
-        "DXGI.lib",
+        "dxgi.lib",
       ]
 
       deps = [ "//base" ]
@@ -433,7 +446,7 @@ if (enable_openxr) {
         sources += [ "openxr/test/openxr.def" ]
         libs = [
           "d3d11.lib",
-          "DXGI.lib",
+          "dxgi.lib",
         ]
       } else if (is_android) {
         configs -= [ "//build/config/gcc:symbol_visibility_hidden" ]

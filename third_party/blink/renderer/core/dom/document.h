@@ -494,7 +494,7 @@ class CORE_EXPORT Document : public ContainerNode,
   Element* CreateElement(const QualifiedName&,
                          const CreateElementFlags,
                          const AtomicString& is,
-                         CustomElementRegistry* custom_element_registry);
+                         CustomElementRegistry*);
 
   Element* createElementNS(const AtomicString& namespace_uri,
                            const AtomicString& qualified_name,
@@ -579,8 +579,6 @@ class CORE_EXPORT Document : public ContainerNode,
   void DidChangeVisibilityState();
 
   bool prerendering() const;
-
-  uint32_t softNavigations() const;
 
   bool wasDiscarded() const;
   void SetWasDiscarded(bool);
@@ -678,6 +676,15 @@ class CORE_EXPORT Document : public ContainerNode,
   bool IsScriptExecutionReady() const {
     return HaveScriptBlockingStylesheetsLoaded();
   }
+
+  // Returns true if the document is prerendering and its trigger asks it to
+  // block script execution until prerender activation, and turns false upon
+  // activation where we anyway no longer want to block script execution; see
+  // `UnblockScriptExecutionForPrerenderActivation`. Note that it never starts
+  // to block or unblock script execution in the middle of execution, since
+  // the field is set to true when initializing `this` instance and set to false
+  // only once (upon activation).
+  bool IsScriptBlockedUntilPrerenderActivation() const;
 
   bool IsForExternalHandler() const { return is_for_external_handler_; }
 
@@ -2438,6 +2445,7 @@ class CORE_EXPORT Document : public ContainerNode,
   Node* Clone(Document& factory,
               NodeCloningData& data,
               ContainerNode* append_to,
+              CustomElementRegistry* fallback_registry,
               ExceptionState& append_exception_state) const override;
   void CloneDataFromDocument(const Document&);
 
@@ -2543,6 +2551,11 @@ class CORE_EXPORT Document : public ContainerNode,
                                      ExceptionState& exception_state);
 
   bool CanThrottleFrameRate();
+
+  // Called upon prerender activation.
+  // Note that not all prerendering pages block script execution; prerendering
+  // pages' triggers can determine whether or not to block scripts.
+  void UnblockScriptExecutionForPrerenderActivation();
 
   // Mutable because the token is lazily-generated on demand if no token is
   // explicitly set.
@@ -2770,8 +2783,19 @@ class CORE_EXPORT Document : public ContainerNode,
 
   base::ElapsedTimer start_time_;
 
+  // The script runner is used to run scripts of the following scheduling types:
+  // - ScriptSchedulingType::kAsync
+  // - ScriptSchedulingType::kInOrder
+  // For other scheduling types, see ScriptLoader and HTMLParserScriptRunner.
   Member<ScriptRunner> script_runner_;
   Member<ScriptRunnerDelayer> script_runner_delayer_;
+
+  // Defers the script runner until prerender activation, triggered by
+  // prerender-until-script. See https://crbug.com/428500219 for details.
+  // There is another plan to allow other triggers to specify whether to delay
+  // async scripts during prerendering, so it is named as
+  // `prerender_script_runner_delayer_`.
+  Member<ScriptRunnerDelayer> prerender_script_runner_delayer_;
 
   HeapVector<Member<ScriptElementBase>> current_script_stack_;
 

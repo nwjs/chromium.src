@@ -226,7 +226,7 @@
 #include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/events/types/event_type.h"
 #include "ui/gfx/geometry/point.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_window_types.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 #include "ui/shell_dialogs/select_file_dialog_factory.h"
@@ -238,6 +238,10 @@
 #include "url/origin.h"
 #include "url/url_canon.h"
 #include "url/url_util.h"
+
+#if BUILDFLAG(ENABLE_PDF)
+#include "pdf/pdf_features.h"
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 namespace ash {
 namespace smb_client {
@@ -2476,12 +2480,6 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
     }
   }
 
-  if (options.enable_materialized_views) {
-    enabled_features.push_back(ash::features::kFilesMaterializedViews);
-  } else {
-    disabled_features.push_back(ash::features::kFilesMaterializedViews);
-  }
-
   if (options.enable_skyvault) {
     enabled_features.push_back(features::kSkyVault);
     enabled_features.push_back(features::kSkyVaultV2);
@@ -2491,6 +2489,14 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
     disabled_features.push_back(features::kSkyVaultV2);
     disabled_features.push_back(features::kSkyVaultV3);
   }
+
+#if BUILDFLAG(ENABLE_PDF)
+  if (options.enable_oopif_pdf) {
+    enabled_features.push_back(chrome_pdf::features::kPdfOopif);
+  } else {
+    disabled_features.push_back(chrome_pdf::features::kPdfOopif);
+  }
+#endif  // BUILDFLAG(ENABLE_PDF)
 
   // This is destroyed in |TearDown()|. We cannot initialize this in the
   // constructor due to this feature values' above dependence on virtual
@@ -2741,17 +2747,6 @@ void FileManagerBrowserTestBase::StartTest() {
       ->InstallSystemAppsForTesting();
   const std::string full_test_name = GetFullTestCaseName();
   LOG(INFO) << "FileManagerBrowserTest::StartTest " << full_test_name;
-
-#if BUILDFLAG(ENABLE_PDF)
-  // TODO(crbug.com/326487542): Remove this once the tests pass for OOPIF PDF.
-  if (base::FeatureList::IsEnabled(chrome_pdf::features::kPdfOopif)) {
-    static const std::vector<std::string> kSkipTests = {
-        "openQuickViewPdf", "openQuickViewPdfPopup"};
-    if (base::Contains(kSkipTests, full_test_name)) {
-      GTEST_SKIP();
-    }
-  }
-#endif  // BUILDFLAG(ENABLE_PDF)
 
   static const base::FilePath test_extension_dir = base::FilePath(
       FILE_PATH_LITERAL("ui/file_manager/integration_tests/tsc"));

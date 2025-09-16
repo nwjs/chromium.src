@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/json/json_writer.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/escape.h"
@@ -17,6 +18,7 @@
 #include "build/blink_buildflags.h"
 #include "build/build_config.h"
 #include "components/dom_distiller/core/distilled_page_prefs.h"
+#include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/dom_distiller/core/dom_distiller_service.h"
 #include "components/dom_distiller/core/experiments.h"
 #include "components/dom_distiller/core/proto/distilled_article.pb.h"
@@ -36,25 +38,45 @@ namespace viewer {
 
 namespace {
 
-// JS Themes. Must agree with useTheme() in dom_distiller_viewer.js.
+// LINT.IfChange(JSThemesAndFonts)
+
+// JS Themes. Must agree with themeClasses in dom_distiller_viewer.js.
 const char kDarkJsTheme[] = "dark";
 const char kLightJsTheme[] = "light";
 const char kSepiaJsTheme[] = "sepia";
 
-// CSS Theme classes.  Must agree with classes in distilledpage.css.
-const char kDarkCssClass[] = "dark";
-const char kLightCssClass[] = "light";
-const char kSepiaCssClass[] = "sepia";
-
-// JS FontFamilies. Must agree with useFontFamily() in dom_distiller_viewer.js.
+// JS FontFamilies. Must agree with fontFamilyClasses in
+// dom_distiller_viewer.js.
 const char kSerifJsFontFamily[] = "serif";
 const char kSansSerifJsFontFamily[] = "sans-serif";
 const char kMonospaceJsFontFamily[] = "monospace";
 
-// CSS FontFamily classes.  Must agree with classes in distilledpage.css.
+// LINT.ThenChange(//components/dom_distiller/core/javascript/dom_distiller_viewer.js:JSThemesAndFonts)
+
+// LINT.IfChange
+
+// CSS Theme classes.  Must agree with classes in distilledpage_common.css.
+const char kDarkCssClass[] = "dark";
+const char kLightCssClass[] = "light";
+const char kSepiaCssClass[] = "sepia";
+
+// CSS FontFamily classes.  Must agree with classes in distilledpage_common.css.
 const char kSerifCssClass[] = "serif";
 const char kSansSerifCssClass[] = "sans-serif";
 const char kMonospaceCssClass[] = "monospace";
+
+// LINT.ThenChange(//components/dom_distiller/core/css/distilledpage_common.css)
+
+std::string GetVersionedCss() {
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(dom_distiller::kReaderModeDistillInApp)) {
+    return ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
+        IDR_DISTILLER_NEW_CSS);
+  }
+#endif
+  return ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
+      IDR_DISTILLER_CSS);
+}
 
 std::string GetPlatformSpecificCss() {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -281,8 +303,8 @@ const std::string GetAddToPageJs(const std::string& unsafe_content) {
 const std::string GetCss() {
   return base::StrCat(
       {ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
-           IDR_DISTILLER_CSS),
-       GetPlatformSpecificCss()});
+           IDR_DISTILLER_COMMON_CSS),
+       GetVersionedCss(), GetPlatformSpecificCss()});
 }
 
 const std::string GetLoadingImage() {
@@ -290,9 +312,25 @@ const std::string GetLoadingImage() {
       IDR_DISTILLER_LOADING_IMAGE);
 }
 
+static std::string GetMinPinchZoomScale() {
+  std::string min_scale = "0.5";
+#if BUILDFLAG(IS_ANDROID)
+  // Make the minimum pinch zoom value to be 1.0 for distillation in app to
+  // align with prefs UI.
+  if (base::FeatureList::IsEnabled(kReaderModeDistillInApp)) {
+    min_scale = "1.0";
+  }
+#endif
+  return min_scale;
+}
+
 const std::string GetJavaScript() {
-  return ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
-      IDR_DOM_DISTILLER_VIEWER_JS);
+  std::string js =
+      ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
+          IDR_DOM_DISTILLER_VIEWER_JS);
+  base::ReplaceFirstSubstringAfterOffset(&js, 0, "$MIN_SCALE",
+                                         GetMinPinchZoomScale());
+  return js;
 }
 
 std::unique_ptr<ViewerHandle> CreateViewRequest(
@@ -340,6 +378,10 @@ const std::string GetDistilledPageFontFamilyJs(mojom::FontFamily font_family) {
 
 const std::string GetDistilledPageFontScalingJs(float scaling) {
   return "useFontScaling(" + base::NumberToString(scaling) + ");";
+}
+
+const std::string SetDistilledPageBaseFontSize(float baseFontSize) {
+  return "useBaseFontSize(" + base::NumberToString(baseFontSize) + ");";
 }
 
 }  // namespace viewer

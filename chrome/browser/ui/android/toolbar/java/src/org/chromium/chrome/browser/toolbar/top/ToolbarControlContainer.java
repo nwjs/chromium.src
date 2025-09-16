@@ -22,7 +22,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
-import android.widget.FrameLayout;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
@@ -32,10 +31,11 @@ import androidx.core.content.res.ResourcesCompat;
 import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
 import org.chromium.base.TraceEvent;
+import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -61,7 +61,7 @@ import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.widget.ClipDrawableProgressBar.DrawingInfo;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
-import org.chromium.components.browser_ui.widget.ViewResourceFrameLayout;
+import org.chromium.components.browser_ui.widget.ViewResourceCoordinatorLayout;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.SwipeHandler;
 import org.chromium.ui.KeyboardVisibilityDelegate;
@@ -74,6 +74,7 @@ import org.chromium.ui.widget.OptimizedFrameLayout;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 /** Layout for the browser controls (omnibox, menu, tab strip, etc..). */
 @NullMarked
@@ -85,7 +86,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     private @Nullable AppHeaderState mAppHeaderState;
 
     private Toolbar mToolbar;
-    private ToolbarViewResourceFrameLayout mToolbarContainer;
+    private ToolbarViewResourceCoordinatorLayout mToolbarContainer;
 
     private @Nullable SwipeGestureListener mSwipeGestureListener;
     private @Nullable OnDragListener mToolbarContainerDragListener;
@@ -100,6 +101,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     private final ObserverList<TouchEventObserver> mTouchEventObservers = new ObserverList<>();
     private final Callback<Boolean> mOnXrSpaceModeChanged = this::onXrSpaceModeChanged;
     private @Nullable ObservableSupplier<Boolean> mXrSpaceModeObservableSupplier;
+    private @Nullable ObservableSupplierImpl<Integer> mHeightChangedSupplier;
 
     /**
      * Constructs a new control container.
@@ -168,7 +170,8 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
             mToolbarContainer = findViewById(R.id.toolbar_container);
             ViewStub toolbarStub = findViewById(R.id.toolbar_stub);
             toolbarStub.setLayoutResource(toolbarLayoutId);
-            toolbarStub.inflate();
+            View toolbar = toolbarStub.inflate();
+            mutateHairlineLayoutParams().setAnchorId(toolbar.getId());
         }
     }
 
@@ -183,6 +186,18 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
             maybeUpdateTempTabStripDrawableBackground(incognito, mAppHeaderState);
             mIncognito = incognito;
         }
+    }
+
+    @Override
+    protected void onSizeChanged(int newW, int newH, int oldW, int oldH) {
+        if (newH != oldH && mHeightChangedSupplier != null) {
+            mHeightChangedSupplier.set(newH);
+        }
+    }
+
+    public void setOnHeightChangedListener(
+            @Nullable ObservableSupplierImpl<Integer> heightChangedSupplier) {
+        mHeightChangedSupplier = heightChangedSupplier;
     }
 
     public void onPageLoadStopped() {
@@ -204,16 +219,17 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     }
 
     @Override
-    public FrameLayout.LayoutParams mutateHairlineLayoutParams() {
-        FrameLayout.LayoutParams hairlineParams = (LayoutParams) mToolbarHairline.getLayoutParams();
+    public CoordinatorLayout.LayoutParams mutateHairlineLayoutParams() {
+        CoordinatorLayout.LayoutParams hairlineParams =
+                (CoordinatorLayout.LayoutParams) mToolbarHairline.getLayoutParams();
         mToolbarHairline.setLayoutParams(hairlineParams);
         return hairlineParams;
     }
 
     @Override
-    public FrameLayout.LayoutParams mutateToolbarLayoutParams() {
-        FrameLayout.LayoutParams toolbarLayoutParams =
-                (LayoutParams) mToolbarView.getLayoutParams();
+    public CoordinatorLayout.LayoutParams mutateToolbarLayoutParams() {
+        CoordinatorLayout.LayoutParams toolbarLayoutParams =
+                (CoordinatorLayout.LayoutParams) mToolbarView.getLayoutParams();
         mToolbarView.setLayoutParams(toolbarLayoutParams);
         return toolbarLayoutParams;
     }
@@ -239,6 +255,14 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
             mToolbar.getProgressBar().setVisibility(View.VISIBLE);
             mToolbarView.setVisibility(View.VISIBLE);
             mToolbarContainer.removeView(mLocationBarView);
+            // CoordinatorLayout only updates its processed list of children at measure time, even
+            // if a child is removed. This can cause problems if a reparented former child has a new
+            // type of LayoutParams, triggering a ClassCastException. We work around this by forcing
+            // a re-measure.
+            mToolbarContainer.forceLayout();
+            mToolbarContainer.measure(
+                    mToolbarContainer.getMeasuredWidthAndState(),
+                    mToolbarContainer.getMeasuredHeightAndState());
             mToolbar.restoreLocationBarView();
             setBackgroundColor(Color.TRANSPARENT);
         }
@@ -389,6 +413,20 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     }
 
     @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        if (changed) {
+            // The size of the container has changed, so the texture capture of
+            // the toolbar must be redone.
+            // TODO(crbug.com/435771941): using surface sync to improve efficiency
+            mToolbarContainer.invalidate();
+            if (LibraryLoader.getInstance().isInitialized()) {
+                mToolbarContainer.getResourceAdapter().onResourceRequested();
+            }
+        }
+    }
+
+    @Override
     // TODO(crbug.com/40779510): work out why this is causing a lint error
     @SuppressWarnings("Override")
     public boolean gatherTransparentRegion(Region region) {
@@ -436,11 +474,11 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
 
     /** The layout that handles generating the toolbar view resource. */
     // Only publicly visible due to lint warnings.
-    public static class ToolbarViewResourceFrameLayout extends ViewResourceFrameLayout {
+    public static class ToolbarViewResourceCoordinatorLayout extends ViewResourceCoordinatorLayout {
         private BooleanSupplier mIsMidVisibilityToggle;
         private boolean mReadyForBitmapCapture;
 
-        public ToolbarViewResourceFrameLayout(Context context, AttributeSet attrs) {
+        public ToolbarViewResourceCoordinatorLayout(Context context, AttributeSet attrs) {
             super(context, attrs);
         }
 
@@ -850,7 +888,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
             if (isOnTabStrip(e1)) return false;
             if (mToolbar != null && mToolbar.shouldIgnoreSwipeGesture()) return false;
             if (KeyboardVisibilityDelegate.getInstance()
-                    .isKeyboardShowing(getContext(), ToolbarControlContainer.this)) {
+                    .isKeyboardShowing(ToolbarControlContainer.this)) {
                 return false;
             }
             return true;
@@ -861,7 +899,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         mToolbar = testToolbar;
     }
 
-    ToolbarViewResourceFrameLayout getToolbarContainerForTesting() {
+    ToolbarViewResourceCoordinatorLayout getToolbarContainerForTesting() {
         return mToolbarContainer;
     }
 

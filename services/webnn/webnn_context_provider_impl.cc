@@ -16,6 +16,7 @@
 #include "services/webnn/public/mojom/features.mojom.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom.h"
 #include "services/webnn/public/mojom/webnn_error.mojom.h"
+#include "services/webnn/scoped_sequence.h"
 #include "services/webnn/webnn_context_impl.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -127,57 +128,7 @@ void WebNNContextProviderImpl::BindWebNNContextProvider(
   provider_receivers_.Add(this, std::move(receiver));
 }
 
-// static
-base::optional_ref<WebNNContextProviderImpl>
-WebNNContextProviderImpl::CreateForTesting(
-    mojo::PendingReceiver<mojom::WebNNContextProvider> receiver,
-    WebNNStatus status,
-    LoseAllContextsCallback lose_all_contexts_callback) {
-  gpu::GpuFeatureInfo gpu_feature_info;
-  gpu::GPUInfo gpu_info;
-
-  for (auto& status_value : gpu_feature_info.status_values) {
-    status_value = gpu::GpuFeatureStatus::kGpuFeatureStatusDisabled;
-  }
-  if (status != WebNNStatus::kWebNNGpuFeatureStatusDisabled) {
-    gpu_feature_info.status_values[gpu::GPU_FEATURE_TYPE_WEBNN] =
-        gpu::kGpuFeatureStatusEnabled;
-  }
-  if (status == WebNNStatus::kWebNNGpuDisabled) {
-    gpu_feature_info.enabled_gpu_driver_bug_workarounds.push_back(
-        DISABLE_WEBNN_FOR_GPU);
-  }
-  if (status == WebNNStatus::kWebNNNpuDisabled) {
-    gpu_feature_info.enabled_gpu_driver_bug_workarounds.push_back(
-        DISABLE_WEBNN_FOR_NPU);
-  }
-
-  // Initialize a Gpu Scheduler so tests can also use a scheduler
-  // runner without the Gpu service. We only need to initialize once for the
-  // whole GPU process and no teardown logic is needed, so use a global
-  // singleton here. The sync point manager must come first since it is
-  // passed to the scheduler as a naked pointer.
-  static base::NoDestructor<gpu::SyncPointManager> g_webnn_sync_point_manager;
-  static base::NoDestructor<gpu::Scheduler> g_webnn_scheduler{
-      g_webnn_sync_point_manager.get()};
-
-  // All tests use the same client ID since no other client exists.
-  constexpr int32_t kFakeClientIdForTesting = 0;
-
-  // Cast is safe because only a WebNNContextProviderImpl can be created.
-  return static_cast<WebNNContextProviderImpl*>(
-      mojo::MakeSelfOwnedReceiver<mojom::WebNNContextProvider>(
-          base::WrapUnique(new WebNNContextProviderImpl(
-              /*shared_context_state=*/nullptr, std::move(gpu_feature_info),
-              std::move(gpu_info), /*shared_image_manager=*/nullptr,
-              std::move(lose_all_contexts_callback),
-              base::SingleThreadTaskRunner::GetCurrentDefault(),
-              g_webnn_scheduler.get(), kFakeClientIdForTesting)),
-          std::move(receiver))
-          ->impl());
-}
-
-void WebNNContextProviderImpl::OnConnectionError(WebNNContextImpl* impl) {
+void WebNNContextProviderImpl::RemoveWebNNContextImpl(WebNNContextImpl* impl) {
   auto it = impls_.find(impl->handle());
   CHECK(it != impls_.end());
   impls_.erase(it);
@@ -204,35 +155,58 @@ void WebNNContextProviderImpl::SetBackendForTesting(
 void WebNNContextProviderImpl::CreateWebNNContext(
     CreateContextOptionsPtr options,
     WebNNContextProvider::CreateWebNNContextCallback callback) {
+  // Generates unique IDs for WebNNContextImpl.
+  static base::AtomicSequenceNumber g_next_route_id;
+
+  // WebNN IPC operations without a SyncToken are re-posted to the scheduled
+  // task runner to ensure they execute in the same sequence and order as those
+  // with a SyncToken.
+  const gpu::CommandBufferId command_buffer_id =
+      gpu::CommandBufferIdFromChannelAndRoute(client_id_,
+                                              g_next_route_id.GetNext());
+
+  // TODO(crbug.com/428021763): create sequence from a thread pool task runner.
+  auto sequence = std::make_unique<ScopedSequence>(
+      *scheduler_, main_thread_task_runner_, command_buffer_id);
+
+  auto scheduler_task_runner = base::MakeRefCounted<gpu::SchedulerTaskRunner>(
+      *scheduler_, sequence->sequence_id());
+
   if (g_backend_for_testing) {
     impls_.emplace(g_backend_for_testing->CreateWebNNContext(
-        this, std::move(options), std::move(callback)));
+        this, std::move(options), command_buffer_id, std::move(sequence),
+        std::move(scheduler_task_runner), std::move(callback)));
     return;
   }
 
-  std::unique_ptr<WebNNContextImpl> context_impl;
-  mojo::PendingRemote<mojom::WebNNContext> remote;
-  auto receiver = remote.InitWithNewPipeAndPassReceiver();
+  scoped_refptr<WebNNContextImpl> context_impl;
+  mojo::PendingAssociatedRemote<mojom::WebNNContext> remote;
+  auto receiver = remote.InitWithNewEndpointAndPassReceiver();
 
   RecordDeviceType(options->device);
 
 #if BUILDFLAG(IS_WIN)
   if (ort::ShouldCreateOrtContext(*options)) {
     base::expected<scoped_refptr<ort::Environment>, std::string>
-        env_creation_results = ort::Environment::Create(gpu_info_);
+        env_creation_results = ort::Environment::GetInstance(gpu_info_);
     if (!env_creation_results.has_value()) {
       LOG(ERROR) << "[WebNN] Failed to create ONNX Runtime context: "
                  << env_creation_results.error();
     } else {
-      context_impl = std::make_unique<ort::ContextImplOrt>(
-          std::move(receiver), this, std::move(options),
-          std::move(env_creation_results.value()));
+      context_impl = base::MakeRefCounted<ort::ContextImplOrt>(
+          std::move(receiver), this,
+          env_creation_results.value()->GetEpWorkarounds(options->device),
+          std::move(options), std::move(env_creation_results.value()),
+          command_buffer_id, std::move(sequence),
+          std::move(scheduler_task_runner));
     }
   } else if (dml::ShouldCreateDmlContext(*options)) {
-    base::expected<std::unique_ptr<WebNNContextImpl>, mojom::ErrorPtr>
+    base::expected<scoped_refptr<WebNNContextImpl>, mojom::ErrorPtr>
         context_creation_results = dml::CreateContextFromOptions(
             std::move(options), gpu_feature_info_, gpu_info_,
-            shared_context_state_.get(), std::move(receiver), this);
+            shared_context_state_.get(), std::move(receiver), this,
+            command_buffer_id, std::move(sequence),
+            std::move(scheduler_task_runner));
     if (!context_creation_results.has_value()) {
       std::move(callback).Run(mojom::CreateContextResult::NewError(
           std::move(context_creation_results.error())));
@@ -249,16 +223,18 @@ void WebNNContextProviderImpl::CreateWebNNContext(
         && base::mac::GetCPUType() == base::mac::CPUType::kArm
 #endif  // BUILDFLAG(IS_MAC)
     ) {
-      context_impl = std::make_unique<coreml::ContextImplCoreml>(
-          std::move(receiver), this, std::move(options));
+      context_impl = base::MakeRefCounted<coreml::ContextImplCoreml>(
+          std::move(receiver), this, std::move(options), command_buffer_id,
+          std::move(sequence), std::move(scheduler_task_runner));
     }
   }
 #endif  // BUILDFLAG(IS_APPLE)
 
 #if BUILDFLAG(WEBNN_USE_TFLITE)
   if (!context_impl) {
-    context_impl = std::make_unique<tflite::ContextImplTflite>(
-        std::move(receiver), this, std::move(options));
+    context_impl = base::MakeRefCounted<tflite::ContextImplTflite>(
+        std::move(receiver), this, std::move(options), command_buffer_id,
+        std::move(sequence), std::move(scheduler_task_runner));
   }
 #endif  // BUILDFLAG(WEBNN_USE_TFLITE)
 

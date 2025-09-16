@@ -24,7 +24,6 @@ DiceMigrationServiceFactory::DiceMigrationServiceFactory()
     : ProfileKeyedServiceFactory("DiceMigrationService",
                                  BuildDiceMigrationServiceProfileSelections()) {
   DependsOn(IdentityManagerFactory::GetInstance());
-  DependsOn(SyncServiceFactory::GetInstance());
 }
 
 DiceMigrationServiceFactory::~DiceMigrationServiceFactory() = default;
@@ -52,9 +51,6 @@ DiceMigrationServiceFactory* DiceMigrationServiceFactory::GetInstance() {
 std::unique_ptr<KeyedService>
 DiceMigrationServiceFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
-  if (!base::FeatureList::IsEnabled(switches::kOfferMigrationToDiceUsers)) {
-    return nullptr;
-  }
   Profile* profile = Profile::FromBrowserContext(context);
   return std::make_unique<DiceMigrationService>(profile);
 }

@@ -48,7 +48,6 @@
 #include "ash/test/ash_test_base.h"
 #include "ash/test/ash_test_helper.h"
 #include "ash/test/ash_test_util.h"
-#include "ash/test/test_widget_builder.h"
 #include "ash/wm/desks/default_desk_button.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desk_action_button.h"
@@ -160,6 +159,7 @@
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/menu/menu_item_view.h"
+#include "ui/views/test/test_widget_builder.h"
 #include "ui/views/test/views_test_utils.h"
 #include "ui/views/widget/any_widget_observer.h"
 #include "ui/views/widget/widget.h"
@@ -380,21 +380,13 @@ class TestDeskObserver : public Desk::Observer {
 
   int notify_counts() const { return notify_counts_; }
 
-  const std::vector<uint64_t>& lacros_profile_id_updates() const {
-    return lacros_profile_id_updates_;
-  }
-
   // Desk::Observer:
   void OnContentChanged() override { ++notify_counts_; }
   void OnDeskDestroyed(const Desk* desk) override {}
   void OnDeskNameChanged(const std::u16string& new_name) override {}
-  void OnDeskProfileChanged(uint64_t lacros_profile_id) override {
-    lacros_profile_id_updates_.push_back(lacros_profile_id);
-  }
 
  private:
   int notify_counts_ = 0;
-  std::vector<uint64_t> lacros_profile_id_updates_;
 };
 
 class FullScreenStateObserver : public ShellObserver {
@@ -2538,31 +2530,6 @@ TEST_P(DesksTest, MruFocusedOnDeskSwitchDualDisplay) {
   ASSERT_FALSE(win4->HasFocus());
 }
 
-// Tests that we can set a lacros profile ID on a desk and that observers get
-// notified.
-TEST_P(DesksTest, LacrosProfileId) {
-  auto* controller = DesksController::Get();
-  Desk* desk = controller->GetDeskAtIndex(0);
-
-  TestDeskObserver desk_observer;
-  desk->AddObserver(&desk_observer);
-
-  desk->SetLacrosProfileId(1001);
-  EXPECT_THAT(desk_observer.lacros_profile_id_updates(),
-              testing::ElementsAre(1001));
-
-  // Setting the same ID does not result in observer notifications.
-  desk->SetLacrosProfileId(1001);
-  EXPECT_THAT(desk_observer.lacros_profile_id_updates(),
-              testing::ElementsAre(1001));
-
-  desk->SetLacrosProfileId(2001);
-  EXPECT_THAT(desk_observer.lacros_profile_id_updates(),
-              testing::ElementsAre(1001, 2001));
-
-  desk->RemoveObserver(&desk_observer);
-}
-
 // Tests that a display can be removed during a desk switch.
 TEST_P(DesksTest, RemoveDisplayWhileSwitchingDesks) {
   auto* controller = DesksController::Get();
@@ -2883,23 +2850,6 @@ std::vector<base::Uuid> GetDeskRestoreGuids(PrefService* user_prefs) {
     guids.emplace_back(base::Uuid::ParseLowercase(value.GetString()));
   }
   return guids;
-}
-
-// Returns the lacros profile IDs in the given `user_prefs`.
-std::vector<uint64_t> GetDeskRestoreLacrosProfileIds(PrefService* user_prefs) {
-  const base::Value::List& lacros_profile_ids_list =
-      user_prefs->GetList(prefs::kDesksLacrosProfileIdList);
-
-  std::vector<uint64_t> lacros_profile_ids;
-  for (const base::Value& value : lacros_profile_ids_list) {
-    uint64_t lacros_profile_id = 0;
-    if (base::StringToUint64(value.GetString(), &lacros_profile_id)) {
-      lacros_profile_ids.push_back(lacros_profile_id);
-    } else {
-      lacros_profile_ids.push_back(0);
-    }
-  }
-  return lacros_profile_ids;
 }
 
 class DesksEditableNamesTest : public DesksTest {
@@ -4094,7 +4044,7 @@ class DesksPerDeskZOrderTest : public AshTestBase {
       // This is only used for multi-displays tests and will in those cases
       // represent the secondary display.
       display::Display secondary_display =
-          display::Screen::GetScreen()->GetAllDisplays().back();
+          display::Screen::Get()->GetAllDisplays().back();
 
       std::map<int, std::unique_ptr<aura::Window>> id_to_window;
       std::map<aura::Window*, int> window_to_id;
@@ -8912,34 +8862,6 @@ TEST_P(DesksTest, DeskGuidsReorder) {
               testing::ElementsAre(desk1_guid, desk3_guid, desk2_guid));
 }
 
-TEST_P(DesksTest, DeskLacrosIdPrefs) {
-  NewDesk();
-  NewDesk();
-
-  auto* controller = DesksController::Get();
-  // Set some lacros profile IDs for the three desks.
-  controller->GetDeskAtIndex(0)->SetLacrosProfileId(1001);
-  controller->GetDeskAtIndex(1)->SetLacrosProfileId(2001);
-  controller->GetDeskAtIndex(2)->SetLacrosProfileId(3001);
-  EXPECT_THAT(GetDeskRestoreLacrosProfileIds(GetPrimaryUserPrefService()),
-              testing::ElementsAre(1001, 2001, 3001));
-
-  // Reorder the last two desks. We expect the prefs to update to match.
-  controller->ReorderDesk(1, 2);
-  EXPECT_THAT(GetDeskRestoreLacrosProfileIds(GetPrimaryUserPrefService()),
-              testing::ElementsAre(1001, 3001, 2001));
-
-  // Remove the first desk.
-  RemoveDesk(controller->GetDeskAtIndex(0));
-  EXPECT_THAT(GetDeskRestoreLacrosProfileIds(GetPrimaryUserPrefService()),
-              testing::ElementsAre(3001, 2001));
-
-  // Create a new desk, its lacros profile ID should default to 0.
-  NewDesk();
-  EXPECT_THAT(GetDeskRestoreLacrosProfileIds(GetPrimaryUserPrefService()),
-              testing::ElementsAre(3001, 2001, 0));
-}
-
 // Tests that windows are closed when the user interacts with the shelf.
 TEST_P(DesksCloseAllTest, InteractingWithShelfClosesToast) {
   auto* shelf_model = ShelfModel::Get();
@@ -9241,7 +9163,7 @@ class DeskBarTest : public AshTestBase,
 // Tests that `DeskTextfield` can be used outside overview.
 TEST_P(DeskBarTest, DeskTextfieldOutsideOverview) {
   auto widget =
-      TestWidgetBuilder()
+      views::test::TestWidgetBuilder()
           .SetDelegate(nullptr)
           .SetBounds(gfx::Rect(0, 0, 300, 300))
           .SetParent(Shell::GetPrimaryRootWindow())

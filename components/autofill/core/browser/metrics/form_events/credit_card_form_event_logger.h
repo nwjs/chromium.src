@@ -29,6 +29,8 @@ namespace autofill_metrics {
 
 class CreditCardFormEventLogger : public FormEventLoggerBase {
  public:
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
   enum class UnmaskAuthFlowEvent {
     // Authentication prompt is shown.
     kPromptShown = 0,
@@ -177,8 +179,8 @@ class CreditCardFormEventLogger : public FormEventLoggerBase {
   bool DoesCardHaveOffer(const CreditCard& credit_card);
   // Returns whether the shown suggestions included a virtual credit card.
   bool DoSuggestionsIncludeVirtualCard();
-  // Checks whether the current website is relevant for BNPL for any known BNPL
-  // provider, according to the optimization guide.
+  // Checks with the associated BnplManager if the current session is eligible
+  // for BNPL.
   bool IsEligibleForBnpl();
 
   size_t server_record_type_count_ = 0;
@@ -254,6 +256,8 @@ class CreditCardFormEventLogger : public FormEventLoggerBase {
 
   AutofillMetrics::PaymentsSigninState signin_state_for_metrics_ =
       AutofillMetrics::PaymentsSigninState::kUnknown;
+
+  AutofillTriggerSource trigger_source_ = AutofillTriggerSource::kNone;
 
   // Weak references.
   raw_ptr<PersonalDataManager> personal_data_manager_;

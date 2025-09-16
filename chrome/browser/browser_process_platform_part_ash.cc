@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "ash/constants/ash_features.h"
 #include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/functional/bind.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/ash/boot_times_recorder/boot_times_recorder.h"
 #include "chrome/browser/ash/login/saml/in_session_password_change_manager.h"
 #include "chrome/browser/ash/login/session/chrome_session_manager.h"
+#include "chrome/browser/ash/login/session/session_manager_delegate_impl.h"
 #include "chrome/browser/ash/login/users/avatar/user_image_manager_registry.h"
 #include "chrome/browser/ash/login/users/policy_user_manager_controller.h"
 #include "chrome/browser/ash/login/users/profile_user_manager_controller.h"
@@ -44,6 +46,7 @@
 #include "chrome/browser/profiles/profile_io_data.h"
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/sessions/session_service_utils.h"
+#include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -54,6 +57,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
+#include "chromeos/ash/components/auto_sign_out/auto_sign_out_service.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_flusher.h"
 #include "chromeos/ash/components/dbus/debug_daemon/debug_daemon_client.h"
@@ -99,7 +103,9 @@ class PrimaryProfileServicesShutdownNotifierFactory
 
   PrimaryProfileServicesShutdownNotifierFactory()
       : BrowserContextKeyedServiceShutdownNotifierFactory(
-            "PrimaryProfileServices") {}
+            "PrimaryProfileServices") {
+    DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
+  }
   ~PrimaryProfileServicesShutdownNotifierFactory() override = default;
 };
 
@@ -122,7 +128,7 @@ void BrowserProcessPlatformPart::InitializeAutomaticRebootManager() {
 
   automatic_reboot_manager_ =
       std::make_unique<ash::system::AutomaticRebootManager>(
-          base::DefaultClock::GetInstance(),
+          g_browser_process->local_state(), base::DefaultClock::GetInstance(),
           base::DefaultTickClock::GetInstance());
 }
 
@@ -203,6 +209,7 @@ void BrowserProcessPlatformPart::InitializeDeviceDisablingManager() {
       std::make_unique<ash::system::DeviceDisablingManagerDefaultDelegate>();
   device_disabling_manager_ =
       std::make_unique<ash::system::DeviceDisablingManager>(
+          g_browser_process->local_state(),
           device_disabling_manager_delegate_.get(), ash::CrosSettings::Get(),
           user_manager::UserManager::Get());
   device_disabling_manager_->Init();
@@ -216,7 +223,8 @@ void BrowserProcessPlatformPart::ShutdownDeviceDisablingManager() {
 void BrowserProcessPlatformPart::InitializeSessionManager() {
   CHECK(ash::BootTimesRecorder::GetIfCreated());
   CHECK(!session_manager_);
-  session_manager_ = std::make_unique<ash::ChromeSessionManager>();
+  session_manager_ = std::make_unique<ash::ChromeSessionManager>(
+      std::make_unique<ash::SessionManagerDelegateImpl>());
   session_manager_->AddObserver(ash::BootTimesRecorder::Get());
 }
 
@@ -311,9 +319,15 @@ void BrowserProcessPlatformPart::InitializePrimaryProfileServices(
   secure_dns_manager_ = std::make_unique<ash::SecureDnsManager>(
       g_browser_process->local_state(), CHECK_DEREF(user),
       primary_profile->GetProfilePolicyConnector()->IsManaged());
+
+  if (ash::features::IsAutoSignOutEnabled()) {
+    auto_sign_out_service_ = std::make_unique<ash::AutoSignOutService>(
+        DeviceInfoSyncServiceFactory::GetForProfile(primary_profile));
+  }
 }
 
 void BrowserProcessPlatformPart::ShutdownPrimaryProfileServices() {
+  auto_sign_out_service_.reset();
   secure_dns_manager_.reset();
   if (ash::SystemProxyManager::Get())
     ash::SystemProxyManager::Get()->StopObservingPrimaryProfilePrefs();

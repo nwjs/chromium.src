@@ -11,10 +11,10 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/image_fetcher/core/image_fetcher.h"
 #import "components/image_fetcher/core/image_fetcher_service.h"
-#import "ios/chrome/browser/home_customization/model/background_collection_configuration.h"
-#import "ios/chrome/browser/home_customization/model/background_customization_configuration_item.h"
+#import "ios/chrome/browser/home_customization/coordinator/background_customization_configuration_item.h"
 #import "ios/chrome/browser/home_customization/model/home_background_customization_service.h"
 #import "ios/chrome/browser/home_customization/model/home_background_image_service.h"
+#import "ios/chrome/browser/home_customization/ui/background_collection_configuration.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_preset_gallery_picker_consumer.h"
 #import "ui/gfx/image/image.h"
 #import "url/gurl.h"
@@ -64,8 +64,9 @@
 #pragma mark - HomeCustomizationBackgroundPresetGalleryPickerMutator
 
 - (void)fetchBackgroundCustomizationThumbnailURLImage:(GURL)thumbnailURL
-                                           completion:
-                                               (void (^)(UIImage*))completion {
+                                           completion:(void (^)(UIImage* image,
+                                                                NSError* error))
+                                                          completion {
   CHECK(!thumbnailURL.is_empty());
   CHECK(thumbnailURL.is_valid());
 
@@ -73,11 +74,21 @@
       thumbnailURL,
       base::BindOnce(^(const gfx::Image& image,
                        const image_fetcher::RequestMetadata& metadata) {
-        if (!image.IsEmpty()) {
-          UIImage* uiImage = image.ToUIImage();
-          if (completion) {
-            completion(uiImage);
-          }
+        if (image.IsEmpty()) {
+          // Image fetch failed or returned empty.
+          NSDictionary<NSErrorUserInfoKey, id>* userInfo = @{
+            NSURLErrorFailingURLStringErrorKey :
+                base::SysUTF8ToNSString(thumbnailURL.spec())
+          };
+          NSError* fetchError = [NSError errorWithDomain:NSURLErrorDomain
+                                                    code:NSURLErrorUnknown
+                                                userInfo:userInfo];
+          completion(nil, fetchError);
+          return;
+        }
+        UIImage* uiImage = image.ToUIImage();
+        if (completion) {
+          completion(uiImage, nil);
         }
       }),
       // TODO (crbug.com/417234848): Add annotation.
@@ -94,8 +105,15 @@
   NSMutableArray<BackgroundCollectionConfiguration*>* collectionConfigurations =
       [NSMutableArray array];
 
-  std::optional<sync_pb::NtpCustomBackground> background =
+  std::optional<HomeCustomBackground> background =
       _backgroundCustomizationService->GetCurrentCustomBackground();
+
+  std::optional<sync_pb::NtpCustomBackground> ntpCustomBackground;
+  if (background && std::holds_alternative<sync_pb::NtpCustomBackground>(
+                        background.value())) {
+    ntpCustomBackground =
+        std::get<sync_pb::NtpCustomBackground>(background.value());
+  }
 
   NSString* selectedBackgroundId = nil;
 
@@ -104,19 +122,18 @@
     BackgroundCollectionConfiguration* section =
         [[BackgroundCollectionConfiguration alloc] init];
     section.collectionName = base::SysUTF8ToNSString(collectionName);
-    NSMutableArray<BackgroundCustomizationConfigurationItem*>*
-        imageConfigurations = [[NSMutableArray alloc] init];
     for (const auto& image : collectionImages) {
       BackgroundCustomizationConfigurationItem* config =
           [[BackgroundCustomizationConfigurationItem alloc]
               initWithCollectionImage:image];
-      [imageConfigurations addObject:config];
+      [section.configurations setObject:config forKey:config.configurationID];
+      [section.configurationOrder addObject:config.configurationID];
 
-      if (background && image.image_url == background->url()) {
+      if (ntpCustomBackground &&
+          image.image_url == ntpCustomBackground->url()) {
         selectedBackgroundId = config.configurationID;
       }
     }
-    section.configurations = [NSArray arrayWithArray:imageConfigurations];
     [collectionConfigurations addObject:section];
   }
 

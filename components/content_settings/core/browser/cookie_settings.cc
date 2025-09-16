@@ -245,8 +245,6 @@ void CookieSettings::ResetThirdPartyCookieSetting(const GURL& first_party_url) {
   // created manually, or through the previous UI. Resetting should support
   // both of these.
 
-  // TODO(crbug.com/40064612): Log metrics when there is pattern that has domain
-  // as wildcard.
   auto pattern =
       ContentSettingsPattern::FromURLToSchemefulSitePattern(first_party_url);
 
@@ -393,10 +391,8 @@ bool CookieSettings::ShouldBlockThirdPartyCookiesInternal() const {
     case CookieControlsMode::kLimited:
       return true;
     case CookieControlsMode::kIncognitoOnly:
-      return is_incognito_;
     case CookieControlsMode::kOff:
-      return is_incognito_ && base::FeatureList::IsEnabled(
-                                  privacy_sandbox::kAlwaysBlock3pcsIncognito);
+      return is_incognito_;
   }
 #endif
 }

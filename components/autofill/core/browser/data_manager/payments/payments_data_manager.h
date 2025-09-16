@@ -49,7 +49,7 @@ class PaymentInstrumentCreationOption;
 
 namespace autofill {
 
-class AutofillOptimizationGuide;
+class AutofillOptimizationGuideDecider;
 class BankAccount;
 class BnplIssuer;
 class Ewallet;
@@ -90,7 +90,8 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
       syncer::SyncService* sync_service,
       signin::IdentityManager* identity_manager,
       GeoIpCountryCode variations_country_code,
-      std::string app_locale);
+      std::string app_locale,
+      AutofillOptimizationGuideDecider* autofill_optimization_guide_decider);
 
   PaymentsDataManager(const PaymentsDataManager&) = delete;
   PaymentsDataManager& operator=(const PaymentsDataManager&) = delete;
@@ -183,7 +184,7 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   std::u16string GetApplicableBenefitDescriptionForCardAndOrigin(
       const CreditCard& credit_card,
       const url::Origin& origin,
-      const AutofillOptimizationGuide* optimization_guide) const;
+      const AutofillOptimizationGuideDecider* optimization_guide) const;
 
   // Returns just LOCAL_CARD cards.
   virtual std::vector<const CreditCard*> GetLocalCreditCards() const;
@@ -370,14 +371,14 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   void SetAutofillHasSeenIban();
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
+    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   // Returns the value of the kAutofillHasSeenBnpl pref.
   bool IsAutofillHasSeenBnplPrefEnabled() const;
 
   // Sets the value of the kAutofillHasSeenBnpl pref to true.
   void SetAutofillHasSeenBnpl();
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS)
+        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 
   // Returns if the user has seen a BNPL suggestion before and if the BNPL
   // feature is enabled. Does not check for user's locale.
@@ -454,7 +455,9 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   void IncrementPaymentMethodsMandatoryReauthPromoShownCounter();
 
   // Returns true if the user pref to store CVC is enabled.
-  virtual bool IsPaymentCvcStorageEnabled();
+  virtual bool IsPaymentCvcStorageEnabled() const;
+  // Config the user pref to enable CVC storage.
+  void SetPaymentsCvcStorageEnabled(bool enabled);
 
   // TODO(crbug.com/322170538): Remove.
   scoped_refptr<AutofillWebDataService> GetLocalDatabase();
@@ -648,6 +651,12 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // The image fetcher to fetch customized images for Autofill data.
   raw_ptr<AutofillImageFetcherBase> image_fetcher_ = nullptr;
 
+  // Pointer to AutofillOptimizationGuideDecider, used for allowlists and
+  // blocklists checks. Note: AutofillOptimizationGuideDecider is a KeyedService
+  // associated with Profiles, so only one instance exists per profile.
+  raw_ptr<AutofillOptimizationGuideDecider>
+      autofill_optimization_guide_decider_ = nullptr;
+
  private:
   // Check if credit card benefits sync flag is enabled.
   bool IsCardBenefitsSyncEnabled() const;
@@ -699,13 +708,13 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   void ClearAllCreditCardBenefits();
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
+    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   // Monitors the `kAutofillBnplEnabled` preference for changes and controls the
   // clearing/loading of payment instruments accordingly. Will also log the
   // `Autofill.SettingsPage.BnplToggled` metric.
   void OnBnplEnabledPrefChange();
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS)
+        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 
   // Saves |imported_credit_card| to the WebDB if it exists. Returns the guid of
   // the new or updated card, or the empty string if no card was saved.

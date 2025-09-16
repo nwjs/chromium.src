@@ -130,6 +130,50 @@
       }
     ]
   },
+  "chromeos-reven-chrome-preuprev": {
+    "additional_compile_targets": [
+      "chromiumos_preflight"
+    ],
+    "skylab_tests": [
+      {
+        "autotest_name": "chromium",
+        "cros_board": "reven-vmtest",
+        "dut_pool": "vmlab",
+        "name": "base_unittests RELEASE_LKGM",
+        "shard_level_retries_on_ctp": 1,
+        "test": "base_unittests",
+        "test_id_prefix": "ninja://base:base_unittests/",
+        "use_lkgm": true,
+        "variant_id": "RELEASE_LKGM"
+      },
+      {
+        "autotest_name": "tast.chrome-from-gcs",
+        "cros_board": "reven-vmtest",
+        "dut_pool": "vmlab",
+        "name": "chrome_all_tast_tests RELEASE_LKGM",
+        "shard_level_retries_on_ctp": 1,
+        "shards": 30,
+        "tast_expr": "STUB_STRING_TO_RUN_TAST_TESTS",
+        "test": "chrome_all_tast_tests",
+        "test_id_prefix": "ninja://chromeos:chrome_all_tast_tests/",
+        "test_level_retries": 2,
+        "timeout_sec": 14400,
+        "use_lkgm": true,
+        "variant_id": "RELEASE_LKGM"
+      },
+      {
+        "autotest_name": "chromium",
+        "cros_board": "reven-vmtest",
+        "dut_pool": "vmlab",
+        "name": "chromeos_integration_tests RELEASE_LKGM",
+        "shard_level_retries_on_ctp": 1,
+        "test": "chromeos_integration_tests",
+        "test_id_prefix": "ninja://chrome/test:chromeos_integration_tests/",
+        "use_lkgm": true,
+        "variant_id": "RELEASE_LKGM"
+      }
+    ]
+  },
   "chromeos-volteer-chrome-preuprev": {
     "additional_compile_targets": [
       "chromiumos_preflight"
@@ -396,6 +440,22 @@
         },
         "test": "blink_platform_unittests",
         "test_id_prefix": "ninja://third_party/blink/renderer/platform:blink_platform_unittests/"
+      },
+      {
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "name": "blink_unittests",
+        "swarming": {
+          "dimensions": {
+            "os": "Ubuntu-22.04",
+            "pool": "chrome.tests",
+            "ssd": "0"
+          },
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "blink_unittests",
+        "test_id_prefix": "ninja://third_party/blink/renderer/controller:blink_unittests/"
       },
       {
         "merge": {
@@ -1604,22 +1664,6 @@
         },
         "test": "wayland_client_tests",
         "test_id_prefix": "ninja://components/exo/wayland:wayland_client_tests/"
-      },
-      {
-        "merge": {
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "webkit_unit_tests",
-        "swarming": {
-          "dimensions": {
-            "os": "Ubuntu-22.04",
-            "pool": "chrome.tests",
-            "ssd": "0"
-          },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "blink_unittests",
-        "test_id_prefix": "ninja://third_party/blink/renderer/controller:blink_unittests/"
       },
       {
         "merge": {

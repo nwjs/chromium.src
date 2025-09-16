@@ -13,7 +13,9 @@ import static org.mockito.Mockito.when;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.getBackground;
 
 import android.graphics.Bitmap;
+import android.graphics.Color;
 
+import androidx.annotation.ColorInt;
 import androidx.test.filters.SmallTest;
 
 import org.junit.Rule;
@@ -23,8 +25,11 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 
@@ -123,6 +128,7 @@ public class NtpCustomizationUtilsUnitTest {
     }
 
     @Test
+    @SuppressWarnings("DirectInvocationOnMock")
     public void testSupportsEnableEdgeToEdgeOnTop() {
         assertFalse(NtpCustomizationUtils.supportsEnableEdgeToEdgeOnTop(null));
 
@@ -165,5 +171,24 @@ public class NtpCustomizationUtilsUnitTest {
                         /* appliedTopPadding= */ 50,
                         /* systemTopInset= */ 50,
                         /* consumeTopInset= */ false));
+    }
+
+    @Test
+    public void testUpdateBackgroundColor() {
+        @ColorInt int defaultColor = Color.WHITE;
+        @ColorInt int color = Color.RED;
+
+        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
+        prefsManager.removeKey(ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR);
+        assertEquals(
+                defaultColor,
+                NtpCustomizationUtils.getBackgroundColorFromSharedPreference(defaultColor));
+
+        NtpCustomizationUtils.setBackgroundColor(color);
+        assertEquals(
+                color, NtpCustomizationUtils.getBackgroundColorFromSharedPreference(defaultColor));
+
+        NtpCustomizationUtils.resetBackgroundColor();
+        assertFalse(prefsManager.contains(ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR));
     }
 }

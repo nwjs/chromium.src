@@ -6,6 +6,8 @@
 #define SERVICES_WEBNN_WEBNN_TENSOR_IMPL_H_
 
 #include "base/component_export.h"
+#include "gpu/command_buffer/common/sync_token.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
@@ -13,18 +15,13 @@
 #include "services/webnn/public/mojom/webnn_tensor.mojom.h"
 #include "services/webnn/webnn_object_impl.h"
 
-namespace gpu {
-class WebNNTensorRepresentation;
-}  // namespace gpu
-
 namespace webnn {
 
 class WebNNContextImpl;
 
 // GPU process implementation of the MLTensor interface exposed to script.
 class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNTensorImpl
-    : public WebNNReceiverImpl<mojom::WebNNTensor>,
-      public WebNNObjectImpl<blink::WebNNTensorToken> {
+    : public WebNNObjectImpl<mojom::WebNNTensor, blink::WebNNTensorToken> {
  public:
   explicit WebNNTensorImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
@@ -58,6 +55,13 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNTensorImpl
   // to a platform specific buffer.
   virtual void WriteTensorImpl(mojo_base::BigBuffer src_buffer) = 0;
 
+  // Returns true if the tensor has been exported (e.g., to WebGPU)
+  // and is not currently being accessed by WebNN.
+  // Used to prevent concurrent access between WebNN and other consumers.
+  bool is_exported() const {
+    return representation_ && !representation_access_;
+  }
+
  protected:
   ~WebNNTensorImpl() override;
 
@@ -73,10 +77,16 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNTensorImpl
   // image. Only valid when usage has WebGPUInterop.
   std::unique_ptr<gpu::WebNNTensorRepresentation> representation_;
 
+  // Non-null only while WebNN holds exclusive access. Null if exported.
+  std::unique_ptr<gpu::WebNNTensorRepresentation::ScopedAccess>
+      representation_access_;
+
  private:
   // mojom::WebNNTensor
   void ReadTensor(ReadTensorCallback callback) override;
   void WriteTensor(mojo_base::BigBuffer src_buffer) override;
+  void ImportTensor(const gpu::SyncToken& fence) override;
+  void ExportTensor(ExportTensorCallback callback) override;
 
   // `OnDisconnect` is called from two places.
   //  - When the tensor is explicitly destroyed by the WebNN

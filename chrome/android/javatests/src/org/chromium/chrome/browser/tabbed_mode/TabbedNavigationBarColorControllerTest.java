@@ -63,14 +63,14 @@ import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.ChromeTabUtils;
-import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeSystemBarColorHelper;
-import org.chromium.components.browser_ui.edge_to_edge.WindowSystemBarColorHelper;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.edge_to_edge.EdgeToEdgeSystemBarColorHelper;
+import org.chromium.ui.edge_to_edge.WindowSystemBarColorHelper;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.test.util.DeviceRestriction;
 
@@ -127,7 +127,7 @@ public class TabbedNavigationBarColorControllerTest {
     public void testToggleOverview() {
         assertEquals(
                 "Navigation bar should match the tab background before entering overview mode.",
-                mActivityTestRule.getActivity().getActivityTab().getBackgroundColor(),
+                mActivityTestRule.getActivityTab().getBackgroundColor(),
                 mWindow.getNavigationBarColor());
 
         LayoutTestUtils.startShowingAndWaitForLayout(
@@ -143,7 +143,7 @@ public class TabbedNavigationBarColorControllerTest {
 
         assertEquals(
                 "Navigation bar should match the tab background after exiting overview mode.",
-                mActivityTestRule.getActivity().getActivityTab().getBackgroundColor(),
+                mActivityTestRule.getActivityTab().getBackgroundColor(),
                 mWindow.getNavigationBarColor());
     }
 
@@ -157,7 +157,7 @@ public class TabbedNavigationBarColorControllerTest {
     public void testToggleIncognito() {
         assertEquals(
                 "Navigation bar should match the tab background on normal tabs.",
-                mActivityTestRule.getActivity().getActivityTab().getBackgroundColor(),
+                mActivityTestRule.getActivityTab().getBackgroundColor(),
                 mWindow.getNavigationBarColor());
 
         ChromeTabUtils.newTabFromMenu(
@@ -180,7 +180,7 @@ public class TabbedNavigationBarColorControllerTest {
         assertEquals(
                 "Navigation bar should match the tab background after switching back to normal"
                         + " tab.",
-                mActivityTestRule.getActivity().getActivityTab().getBackgroundColor(),
+                mActivityTestRule.getActivityTab().getBackgroundColor(),
                 mWindow.getNavigationBarColor());
     }
 
@@ -229,7 +229,7 @@ public class TabbedNavigationBarColorControllerTest {
     public void testSetNavigationBarScrimFraction() {
         assertEquals(
                 "Navigation bar should match the tab background on normal tabs.",
-                mActivityTestRule.getActivity().getActivityTab().getBackgroundColor(),
+                mActivityTestRule.getActivityTab().getBackgroundColor(),
                 mWindow.getNavigationBarColor());
 
         ChromeTabbedActivity activity = mActivityTestRule.getActivity();
@@ -252,7 +252,7 @@ public class TabbedNavigationBarColorControllerTest {
         double regularBrightness = ColorUtils.calculateLuminance(mRegularNavigationColor);
         @ColorInt int withScrim = mWindow.getNavigationBarColor();
         assertNotEquals(
-                mActivityTestRule.getActivity().getActivityTab().getBackgroundColor(), withScrim);
+                mActivityTestRule.getActivityTab().getBackgroundColor(), withScrim);
         assertTrue(regularBrightness > ColorUtils.calculateLuminance(withScrim));
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -260,7 +260,7 @@ public class TabbedNavigationBarColorControllerTest {
                         scrimManager.hideScrim(
                                 outerPropertyModel, /* animate= */ false, /* duration= */ 0));
         assertEquals(
-                mActivityTestRule.getActivity().getActivityTab().getBackgroundColor(),
+                mActivityTestRule.getActivityTab().getBackgroundColor(),
                 mWindow.getNavigationBarColor());
     }
 

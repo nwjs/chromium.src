@@ -7,12 +7,15 @@
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/views/frame/multi_contents_drop_target_view.h"
 #include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/split_tab_visual_data.h"
+#include "content/public/common/url_constants.h"
+#include "url/url_constants.h"
 
 MultiContentsViewDelegateImpl::MultiContentsViewDelegateImpl(Browser& browser)
     : browser_(browser), tab_strip_model_(*browser.tab_strip_model()) {}
@@ -63,9 +66,20 @@ void MultiContentsViewDelegateImpl::ResizeWebContents(double start_ratio,
 
 void MultiContentsViewDelegateImpl::HandleLinkDrop(
     MultiContentsDropTargetView::DropSide side,
-    const std::vector<GURL>& urls) {
-  CHECK(!urls.empty());
+    const ui::DropTargetEvent& event) {
+  auto urls = event.data().GetURLs(ui::FilenameToURLPolicy::CONVERT_FILENAMES);
+  CHECK(urls.has_value() && !urls.value().empty());
   CHECK(!tab_strip_model_->GetActiveTab()->IsSplit());
+
+  // Disallow javascript: URLs to prevent self-XSS.
+  std::vector<GURL> filtered_urls;
+  for (const GURL& url : urls.value()) {
+    if (url.SchemeIs(url::kJavaScriptScheme)) {
+      filtered_urls.emplace_back(content::kBlockedURL);
+    } else {
+      filtered_urls.push_back(url);
+    }
+  }
 
   // Insert the tab before or after the active tab, according to the drop side.
   const int new_tab_idx =
@@ -78,8 +92,14 @@ void MultiContentsViewDelegateImpl::HandleLinkDrop(
 
   // We currently only support creating a split with one link; i.e., the first
   // link in the provided list.
-  tab_strip_model_->delegate()->AddTabAt(urls.front(), new_tab_idx,
-                                         /*foreground=*/true);
+  NavigateParams params(&browser_.get(), filtered_urls.front(),
+                        ui::PAGE_TRANSITION_LINK);
+  params.tabstrip_index = new_tab_idx;
+  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  params.initiator_origin = event.data().GetRendererTaintedOrigin();
+
+  Navigate(&params);
+
   // Create a split with the previously active tab, which should be before or
   // after the newly created tab.
   tab_strip_model_->AddToNewSplit(

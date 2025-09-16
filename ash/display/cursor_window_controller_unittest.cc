@@ -214,77 +214,6 @@ TEST_F(CursorWindowControllerTest, VisibilityTest) {
   EXPECT_TRUE(GetCursorHostWindow()->IsVisible());
 }
 
-namespace {
-
-// Emulates the behavior of BitmapImageSource used in ResourceBundle.
-class TestCursorImageSource : public gfx::ImageSkiaSource {
- public:
-  TestCursorImageSource() = default;
-  TestCursorImageSource(const TestCursorImageSource&) = delete;
-  TestCursorImageSource operator=(const TestCursorImageSource&) = delete;
-  ~TestCursorImageSource() override = default;
-
-  // gfx::ImageSkiaSource:
-  gfx::ImageSkiaRep GetImageForScale(float scale) override {
-    float resource_scale = ui::GetSupportedResourceScaleFactor(scale);
-    if (resource_scale == 1.f) {
-      return rep_1x_;
-    } else if (resource_scale == 2.f) {
-      return rep_2x_;
-    }
-    NOTREACHED();
-  }
-
- private:
-  gfx::ImageSkiaRep rep_1x_ =
-      gfx::ImageSkiaRep(gfx::test::CreateBitmap(/*size=*/25, SK_ColorBLACK),
-                        1.f);
-  gfx::ImageSkiaRep rep_2x_ =
-      gfx::ImageSkiaRep(gfx::test::CreateBitmap(/*size=*/50, SK_ColorWHITE),
-                        2.f);
-};
-
-}  // namespace
-
-// Make sure that composition cursor uses correct assets with various scales.
-TEST_F(CursorWindowControllerTest, ScaleUsesCorrectAssets) {
-  testing::NiceMock<ui::MockResourceBundleDelegate> mock_delegate;
-  gfx::ImageSkia image_skia(std::make_unique<TestCursorImageSource>(),
-                            gfx::Size(25, 25));
-
-  auto get_pixel_value = [&](float scale) {
-    // TODO(b/318592117): don't need to update display when
-    // wm::GetCursorData uses ImageSkia instead of SkBitmap.
-    // Trigger regeneration of the cursor image.
-    UpdateDisplay(base::StringPrintf("300x200*%f", scale));
-
-    uint32_t* data = static_cast<uint32_t*>(
-        GetCursorImage().GetRepresentation(scale).GetBitmap().getPixels());
-    return data[0];
-  };
-
-  EXPECT_CALL(mock_delegate, GetImageNamed(testing::_))
-      .WillOnce(testing::Return(gfx::Image(image_skia)));
-
-  ui::ResourceBundle test_bundle(&mock_delegate);
-  auto* original =
-      ui::ResourceBundle::SwapSharedInstanceForTesting(&test_bundle);
-  // Force re-create composited cursor.
-  SetCursorCompositionEnabled(false);
-  SetCursorCompositionEnabled(true);
-
-  // The cursor should use 2x resources when dsf > 1.2.
-  EXPECT_EQ(SK_ColorWHITE, get_pixel_value(2.4f));
-  EXPECT_EQ(SK_ColorWHITE, get_pixel_value(2.f));
-  EXPECT_EQ(SK_ColorWHITE, get_pixel_value(1.25f));
-  EXPECT_EQ(SK_ColorBLACK, get_pixel_value(1.20f));
-  EXPECT_EQ(SK_ColorBLACK, get_pixel_value(1.15f));
-  EXPECT_EQ(SK_ColorBLACK, get_pixel_value(1.f));
-  EXPECT_EQ(SK_ColorBLACK, get_pixel_value(0.8f));
-
-  ui::ResourceBundle::SwapSharedInstanceForTesting(original);
-}
-
 // Test different properties of the composited cursor with different device
 // scale factors and zoom levels.
 TEST_F(CursorWindowControllerTest, DSF) {
@@ -292,7 +221,7 @@ TEST_F(CursorWindowControllerTest, DSF) {
 
   auto cursor_test = [&](ui::Cursor cursor, float large_cursor_size_in_dip) {
     const float dsf =
-        display::Screen::GetScreen()->GetPrimaryDisplay().device_scale_factor();
+        display::Screen::Get()->GetPrimaryDisplay().device_scale_factor();
     SCOPED_TRACE(testing::Message()
                  << cursor.type() << " at scale " << dsf << " and size "
                  << large_cursor_size_in_dip);
@@ -354,9 +283,8 @@ TEST_F(CursorWindowControllerTest, DSF) {
     for (const float zoom : {0.8f, 1.0f, 1.25f}) {
       UpdateDisplay(
           base::StringPrintf("1000x500*%f@%f", device_scale_factor, zoom));
-      const float dsf = display::Screen::GetScreen()
-                            ->GetPrimaryDisplay()
-                            .device_scale_factor();
+      const float dsf =
+          display::Screen::Get()->GetPrimaryDisplay().device_scale_factor();
 
       for (const int large_cursor_size_in_dip : {0, 32, 64, 128}) {
         cursor_manager->SetCursorSize(large_cursor_size_in_dip == 0
@@ -382,7 +310,7 @@ TEST_F(CursorWindowControllerTest, DSF) {
 TEST_F(CursorWindowControllerTest, ShouldEnableCursorCompositing) {
   PrefService* prefs =
       Shell::Get()->session_controller()->GetActivePrefService();
-  display::Display display = display::Screen::GetScreen()->GetPrimaryDisplay();
+  display::Display display = display::Screen::Get()->GetPrimaryDisplay();
   const float dsf = 2.0f;
   display.set_device_scale_factor(dsf);
   display.set_maximum_cursor_size(gfx::Size(128, 128));

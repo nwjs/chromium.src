@@ -89,7 +89,7 @@ class COMPONENT_EXPORT(VELOCITY_TRACKER) MotionEvent {
   virtual base::TimeTicks GetLatestEventTime() const;
   // Returns the event time (in milliseconds) of first down in the input
   // sequence.
-  virtual base::TimeTicks GetDownTime() const;
+  virtual base::TimeTicks GetRawDownTime() const;
 
   virtual Classification GetClassification() const;
 
@@ -102,6 +102,9 @@ class COMPONENT_EXPORT(VELOCITY_TRACKER) MotionEvent {
                                size_t historical_index) const;
   virtual float GetHistoricalY(size_t pointer_index,
                                size_t historical_index) const;
+
+  // Returns 0 (SOURCE_UNKNOWN) on non-android platforms.
+  virtual int GetSource() const;
 
   // Get the id of the device which created the event. Currently Aura only.
   virtual int GetSourceDeviceId(size_t pointer_index) const;

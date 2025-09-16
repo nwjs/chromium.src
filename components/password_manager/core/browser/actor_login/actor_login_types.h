@@ -10,6 +10,7 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/types/expected.h"
+#include "base/types/id_type.h"
 #include "base/types/strong_alias.h"
 #include "url/gurl.h"
 
@@ -20,18 +21,23 @@ enum CredentialType {
 };
 
 struct Credential {
+  // A unique identifier for this credential. Used for internal tracking.
+  // Should not be displayed to the user.
+  using Id = base::IdType32<Credential>;
+  Id id;
+
   // The username associated with the credential.
   // This could be an email address or a username used to identify the user
   // during the login process. It is unique for this `source_site_or_app`.
   // It may be an empty string if the credential has no associated username.
   // This field may be presented to the user.
-  // TODO(crbug.com/427171031): Clarify how to deal with empty usernames.
+  // TODO(crbug.com/441231848): Clarify how to deal with empty usernames.
   // We should either provide display and non-display values, or let the caller
   // format strings to display.
   std::u16string username;
   // The original website or application for which this credential was saved in
   // GPM. This filed may be presented to the user.
-  // TODO(crbug.com/427171031): Clarify the format.
+  // TODO(crbug.com/441231531): Clarify the format.
   // We should probably provide display and non-display values, or let the
   // caller format strings to display.
   std::u16string source_site_or_app;
@@ -43,6 +49,9 @@ struct Credential {
   // associated with this `CredentialType` report that this login is available
   // on the provided Tab.
   bool immediatelyAvailableToLogin = false;
+
+  // Generates a unique ID for this `Credential`.
+  static Id GenerateCredentialId();
 
 #if defined(UNIT_TEST)
   // An exact equality comparison of all the fields is only useful for tests.
@@ -65,8 +74,24 @@ using CredentialsOrError =
 using CredentialsOrErrorReply = base::OnceCallback<void(CredentialsOrError)>;
 
 enum class LoginStatusResult {
+  // Either there was only a username field in the form, or only
+  // the username field was filled successfully.
+  kSuccessUsernameFilled,
+  // Either there was only a password ield in the form, or only
+  // the password field was filled successfully.
+  kSuccessPasswordFilled,
+  // Both username and password fields were filled successfully.
   kSuccessUsernameAndPasswordFilled,
+  // The page has no signin form. Note: Cross-origin iframes aren't
+  // supported.
   kErrorNoSigninForm,
+  // The provided credential is not a saved match for the site on which
+  // login was triggered.
+  kErrorInvalidCredential,
+  // Neither the username, nor the password field could be filled.
+  kErrorNoFillableFields,
+  // Filling is disallowed (e.g. because of a policy).
+  kErrorFillingNotAllowed,
 };
 
 using LoginStatusResultOrError =

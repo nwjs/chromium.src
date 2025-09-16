@@ -877,7 +877,10 @@ class HistorySyncOptinCoordinator
       &kHistorySyncOptinCoordinatorKey;
 
   explicit HistorySyncOptinCoordinator(Profile& profile)
-      : profile_(profile), sync_promo_identity_pill_manager_(profile) {
+      : profile_(profile),
+        sync_promo_identity_pill_manager_(
+            IdentityManagerFactory::GetForProfile(&profile),
+            profile.GetPrefs()) {
     UserEducationService* user_education_service =
         UserEducationServiceFactory::GetForBrowserContext(&profile_.get());
     CHECK(user_education_service);
@@ -1024,19 +1027,7 @@ class HistorySyncOptinStateProvider : public StateProvider {
       return l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_PROMO);
     }
 
-    switch (switches::kHistorySyncOptinExpansionPillOption.Get()) {
-      case switches::HistorySyncOptinExpansionPillOption::kBrowseAcrossDevices:
-      case switches::HistorySyncOptinExpansionPillOption::
-          kBrowseAcrossDevicesNewProfileMenuPromoVariant:
-        return l10n_util::GetStringUTF16(
-            IDS_AVATAR_BUTTON_BROWSE_ACROSS_DEVICES);
-      case switches::HistorySyncOptinExpansionPillOption::kSyncHistory:
-        return l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_HISTORY);
-      case switches::HistorySyncOptinExpansionPillOption::
-          kSeeTabsFromOtherDevices:
-        return l10n_util::GetStringUTF16(
-            IDS_AVATAR_BUTTON_SEE_TABS_FROM_OTHER_DEVICES);
-    }
+    return l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_HISTORY);
   }
 
   void Init() override {

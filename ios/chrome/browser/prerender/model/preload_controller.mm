@@ -8,7 +8,6 @@
 
 #import "base/check_op.h"
 #import "base/ios/device_util.h"
-#import "base/metrics/field_trial.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
@@ -21,6 +20,8 @@
 #import "ios/chrome/browser/itunes_urls/model/itunes_urls_handler_tab_helper.h"
 #import "ios/chrome/browser/prerender/model/preload_controller_delegate.h"
 #import "ios/chrome/browser/prerender/model/prerender_pref.h"
+#import "ios/chrome/browser/prerender/model/prerender_tab_helper.h"
+#import "ios/chrome/browser/prerender/model/prerender_tab_helper_delegate.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/utils/mime_type_util.h"
@@ -47,6 +48,9 @@ using web::WebStatePolicyDecider;
 // event loop.
 - (void)schedulePrerenderCancel;
 
+// Immediately cancel the prerender.
+- (void)cancelPrerender;
+
 @end
 
 namespace {
@@ -63,25 +67,12 @@ enum PrerenderFinalStatus {
 // Delay before starting to prerender a URL.
 const NSTimeInterval kPrerenderDelay = 0.5;
 
-// The finch experiment to turn off prerendering as a field trial.
-const char kTabEvictionFieldTrialName[] = "TabEviction";
-// The associated group.
-const char kPrerenderTabEvictionTrialGroup[] = "NoPrerendering";
-// The name of the histogram for recording final status (e.g. used/cancelled)
-// of prerender requests.
 const char kPrerenderFinalStatusHistogramName[] = "Prerender.FinalStatus";
 // The name of the histogram for recording time until a successful prerender.
 const char kPrerenderPrerenderTimeSaved[] = "Prerender.PrerenderTimeSaved";
 // Histogram to record that the load was complete when the prerender was used.
 // Not recorded if the pre-render isn't used.
 const char kPrerenderLoadComplete[] = "Prerender.PrerenderLoadComplete";
-
-// Is this install selected for this particular experiment.
-bool IsPrerenderTabEvictionExperimentalGroup() {
-  base::FieldTrial* trial =
-      base::FieldTrialList::Find(kTabEvictionFieldTrialName);
-  return trial && trial->group_name() == kPrerenderTabEvictionTrialGroup;
-}
 
 // Returns true if the primary account is subject to parental controls and the
 // URL filtering control has been enabled.
@@ -169,7 +160,8 @@ class PreloadManageAccountsDelegate : public ManageAccountsDelegate {
   void OnManageAccounts(const GURL& url) override {
     [canceler_ schedulePrerenderCancel];
   }
-  void OnAddAccount(const GURL& url) override {
+  void OnAddAccount(const GURL& url,
+                    const std::string& prefilled_email) override {
     [canceler_ schedulePrerenderCancel];
   }
   void OnShowConsistencyPromo(const GURL& url,
@@ -179,6 +171,17 @@ class PreloadManageAccountsDelegate : public ManageAccountsDelegate {
   void OnGoIncognito(const GURL& url) override {
     [canceler_ schedulePrerenderCancel];
   }
+
+ private:
+  __weak id<PreloadCancelling> canceler_;
+};
+
+class PreloadPrerenderTabHelperDelegate : public PrerenderTabHelperDelegate {
+ public:
+  PreloadPrerenderTabHelperDelegate(id<PreloadCancelling> canceler)
+      : canceler_(canceler) {}
+
+  void CancelPrerender() override { [canceler_ cancelPrerender]; }
 
  private:
   __weak id<PreloadCancelling> canceler_;
@@ -197,6 +200,7 @@ class PreloadManageAccountsDelegate : public ManageAccountsDelegate {
   std::unique_ptr<PrefObserverBridge> _observerBridge;
   std::unique_ptr<ConnectionTypeObserverBridge> _connectionTypeObserver;
   std::unique_ptr<web::WebStatePolicyDeciderBridge> _policyDeciderBridge;
+  std::unique_ptr<PreloadPrerenderTabHelperDelegate> _prerenderDelegate;
 
   // The WebState used for prerendering.
   std::unique_ptr<web::WebState> _webState;
@@ -256,6 +260,9 @@ class PreloadManageAccountsDelegate : public ManageAccountsDelegate {
 // Called to start any scheduled prerendering requests.
 - (void)startPrerender;
 
+// Returns whether `webState` is the WebState used for pre-rendering.
+- (BOOL)isWebStatePrerendered:(web::WebState*)webState;
+
 // Destroys the preview Tab and resets `prerenderURL_` to the empty URL.
 - (void)destroyPreviewContents;
 
@@ -282,6 +289,8 @@ class PreloadManageAccountsDelegate : public ManageAccountsDelegate {
         net::NetworkChangeNotifier::GetConnectionType());
     _webStateDelegate = std::make_unique<web::WebStateDelegateBridge>(self);
     _webStateObserver = std::make_unique<web::WebStateObserverBridge>(self);
+    _prerenderDelegate =
+        std::make_unique<PreloadPrerenderTabHelperDelegate>(self);
     _observerBridge = std::make_unique<PrefObserverBridge>(self);
     _prefChangeRegistrar.Init(_profile->GetPrefs());
     _observerBridge->ObserveChangesForPreference(
@@ -316,8 +325,7 @@ class PreloadManageAccountsDelegate : public ManageAccountsDelegate {
 - (BOOL)isEnabled {
   DCHECK_CURRENTLY_ON(web::WebThread::UI);
 
-  if (IsPrerenderTabEvictionExperimentalGroup() ||
-      ios::device_util::IsSingleCoreDevice() ||
+  if (ios::device_util::IsSingleCoreDevice() ||
       !ios::device_util::RamIsAtLeast512Mb() ||
       net::NetworkChangeNotifier::IsOffline() ||
       IsSubjectToParentalControls(_profile)) {
@@ -401,10 +409,6 @@ class PreloadManageAccountsDelegate : public ManageAccountsDelegate {
   [self destroyPreviewContentsForReason:reason];
 }
 
-- (BOOL)isWebStatePrerendered:(web::WebState*)webState {
-  return webState && _webState.get() == webState;
-}
-
 - (std::unique_ptr<web::WebState>)releasePrerenderContents {
   if (!_webState) {
     return nullptr;
@@ -416,6 +420,9 @@ class PreloadManageAccountsDelegate : public ManageAccountsDelegate {
   // Use the helper function to properly release the web::WebState.
   std::unique_ptr<web::WebState> webState =
       [self releasePrerenderContentsInternal];
+
+  // Remove the PrerenderTabHelper as the WebState will become a real tab.
+  PrerenderTabHelper::RemoveFromWebState(webState.get());
 
   // The WebState will be converted to a proper tab. Record navigations that
   // happened during pre-rendering to the HistoryService.
@@ -636,6 +643,11 @@ class PreloadManageAccountsDelegate : public ManageAccountsDelegate {
   // pre-rendered navigation in the new tab.
   _webState = webStateToReplace->Clone();
 
+  // Create the PrerenderTabHelper before any other TabHelpers to ensure
+  // they all correctly see this WebState as used for pre-rendering.
+  PrerenderTabHelper::CreateForWebState(_webState.get(),
+                                        _prerenderDelegate.get());
+
   // Add the preload controller as a policyDecider before other tab helpers, so
   // that it can block the navigation if needed before other policy deciders
   // execute thier side effects (eg. AppLauncherTabHelper launching app).
@@ -669,6 +681,10 @@ class PreloadManageAccountsDelegate : public ManageAccountsDelegate {
 
   self.startTime = base::TimeTicks::Now();
   self.loadCompleted = NO;
+}
+
+- (BOOL)isWebStatePrerendered:(web::WebState*)webState {
+  return webState && _webState.get() == webState;
 }
 
 #pragma mark - Teardown Helpers

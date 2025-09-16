@@ -24,7 +24,7 @@
 #include "ui/gl/gl_switches.h"
 
 #if BUILDFLAG(IS_ANDROID)
-#include "base/android/build_info.h"
+#include "base/android/device_info.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -34,6 +34,14 @@
 namespace features {
 
 #if BUILDFLAG(IS_ANDROID)
+// If this flag is enabled, only the composited progress bar will be visible,
+// and load progress updates will be animated instead of directly snapping to
+// the new position. The animation is done in the same manner as BCIV, where
+// OffsetTags and OffstTagValues will enable viz to move the progress bar.
+BASE_FEATURE(kAndroidAnimatedProgressBarInViz,
+             "AndroidAnimatedProgressBarInViz",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // During a scroll, enable viz to move browser controls according to the
 // offsets provided by the embedded renderer, circumventing browser main
 // involvement. For now, this applies only to top controls.
@@ -160,14 +168,6 @@ BASE_FEATURE(kRemoveRedirectionBitmap,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-#if BUILDFLAG(IS_ANDROID)
-// When wide color gamut content from the web is encountered, promote our
-// display to wide color gamut if supported.
-BASE_FEATURE(kDynamicColorGamut,
-             "DynamicColorGamut",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 // Submit CompositorFrame from SynchronousLayerTreeFrameSink directly to viz in
 // WebView.
 BASE_FEATURE(kVizFrameSubmissionForWebView,
@@ -201,7 +201,7 @@ BASE_FEATURE(kUseSurfaceLayerForVideoDefault,
 
 BASE_FEATURE(kWebViewNewInvalidateHeuristic,
              "WebViewNewInvalidateHeuristic",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled and the device's SOC manufacturer satisifes the allowlist and
 // blocklist rules, WebView reports the set of threads involved in frame
@@ -323,13 +323,6 @@ BASE_FEATURE(kEnableInteractiveOnlyADPFRenderer,
              "EnableInteractiveOnlyADPFRenderer",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// If enabled, Chrome includes the Compositor GPU Thread into the
-// ADPF(Android Dynamic Performance Framework) hint session, instead
-// of the GPU Main Thread.
-BASE_FEATURE(kEnableADPFGpuCompositorThread,
-             "EnableADPFGpuCompositorThread",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled, Chrome puts Renderer Main threads into a separate
 // ADPF(Android Dynamic Performance Framework) hint session, and does not
 // report any timing hints from this session.
@@ -344,10 +337,12 @@ BASE_FEATURE(kEnableADPFSetThreads,
              "EnableADPFSetThreads",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// If enabled, surface activation and draw do not block on dependencies.
-BASE_FEATURE(kDrawImmediatelyWhenInteractive,
-             "DrawImmediatelyWhenInteractive",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// If enabled, Chrome uses notifyWorkloadReset method on viz wakeup instead of
+// sending a timing report with a fake actual duration > target duration.
+// Supported only on Android >= 16.
+BASE_FEATURE(kEnableADPFWorkloadReset,
+             "EnableADPFWorkloadReset",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, we immediately send acks to clients when a viz surface
 // activates. This effectively removes back-pressure. This can result in wasted
@@ -439,6 +434,13 @@ BASE_FEATURE(kVizDirectCompositorThreadIpcNonRoot,
              "VizDirectCompositorThreadIpcNonRoot",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables IPCs to directly target Viz's compositor thread for FrameSinkManager
+// messages and, in turn, all interfaces associated with it e.g. root compositor
+// frame sink, display private - skipping the IO thread hop.
+BASE_FEATURE(kVizDirectCompositorThreadIpcFrameSinkManager,
+             "VizDirectCompositorThreadIpcFrameSinkManager",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Null Hypothesis test for viz. This will be used in an meta experiment to
 // judge finch variation.
 BASE_FEATURE(kVizNullHypothesis,
@@ -457,6 +459,12 @@ BASE_FEATURE(kCrosContentAdjustedRefreshRate,
              "CrosContentAdjustedRefreshRate",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+BASE_FEATURE(kNoCompositorFrameAcks,
+             "NoCompositorFrameAcks",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kNumberPendingFramesUntilThrottle{
+    &kNoCompositorFrameAcks, "pending_frames", 1};
 
 int DrawQuadSplitLimit() {
   constexpr int kDefaultDrawQuadSplitLimit = 5;
@@ -483,16 +491,10 @@ bool IsVizDirectCompositorThreadIpcNonRootEnabled() {
   return base::FeatureList::IsEnabled(kVizDirectCompositorThreadIpcNonRoot);
 }
 
-#if BUILDFLAG(IS_ANDROID)
-bool IsDynamicColorGamutEnabled() {
-  if (viz::AlwaysUseWideColorGamut())
-    return false;
-  auto* build_info = base::android::BuildInfo::GetInstance();
-  if (build_info->sdk_int() < base::android::SDK_VERSION_Q)
-    return false;
-  return base::FeatureList::IsEnabled(kDynamicColorGamut);
+bool IsVizDirectCompositorThreadIpcFrameSinkManagerEnabled() {
+  return base::FeatureList::IsEnabled(
+      kVizDirectCompositorThreadIpcFrameSinkManager);
 }
-#endif
 
 bool IsUsingVizFrameSubmissionForWebView() {
   return base::FeatureList::IsEnabled(kVizFrameSubmissionForWebView);
@@ -505,7 +507,7 @@ bool ShouldWebRtcLogCapturePipeline() {
 #if BUILDFLAG(IS_ANDROID)
 bool UseWebViewNewInvalidateHeuristic() {
   // For Android TVs we bundle this with WebViewSurfaceControlForTV.
-  if (base::android::BuildInfo::GetInstance()->is_tv()) {
+  if (base::android::device_info::is_tv()) {
     return base::FeatureList::IsEnabled(kWebViewSurfaceControlForTV);
   }
 
@@ -543,10 +545,6 @@ bool ShouldOnBeginFrameThrottleVideo() {
   return base::FeatureList::IsEnabled(features::kOnBeginFrameThrottleVideo);
 }
 
-bool ShouldDrawImmediatelyWhenInteractive() {
-  return base::FeatureList::IsEnabled(
-      features::kDrawImmediatelyWhenInteractive);
-}
 bool ShouldAckOnSurfaceActivationWhenInteractive() {
   return base::FeatureList::IsEnabled(
       features::kAckOnSurfaceActivationWhenInteractive);
@@ -620,6 +618,11 @@ bool ShouldRemoveRedirectionBitmap() {
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
+bool IsAndroidAnimatedProgressBarInVizEnabled() {
+  return base::FeatureList::IsEnabled(
+      features::kAndroidAnimatedProgressBarInViz);
+}
+
 bool IsBcivBottomControlsEnabled() {
   return base::FeatureList::IsEnabled(features::kAndroidBcivBottomControls);
 }

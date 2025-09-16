@@ -111,7 +111,7 @@ std::optional<FieldTypeSet> GetFieldTypesToFillFromFillingProduct(
     }
     case FillingProduct::kAutofillAi: {
       static constexpr auto kFieldTypes = []() {
-        DenseSet<FieldType> result;
+        FieldTypeSet result;
         for (AttributeType type : DenseSet<AttributeType>::all()) {
           result.insert_all(type.field_subtypes());
         }
@@ -146,6 +146,7 @@ std::optional<FieldTypeSet> GetFieldTypesToFillFromFillingProduct(
     case FillingProduct::kAutocomplete:
     case FillingProduct::kCompose:
     case FillingProduct::kDataList:
+    case FillingProduct::kPasskey:
       return std::nullopt;
     case FillingProduct::kOneTimePassword:
       return FieldTypeSet{ONE_TIME_CODE};
@@ -238,6 +239,7 @@ bool ShouldRecordFillingHistory(FillingProduct filling_product) {
     case FillingProduct::kMerchantPromoCode:
     case FillingProduct::kIban:
     case FillingProduct::kAutocomplete:
+    case FillingProduct::kPasskey:
     case FillingProduct::kPassword:
     case FillingProduct::kCompose:
     case FillingProduct::kIdentityCredential:
@@ -365,6 +367,7 @@ struct FormFiller::AugmentedFillingPayload {
       case FillingProduct::kIdentityCredential:
       case FillingProduct::kOneTimePassword:
         return false;
+      case FillingProduct::kPasskey:
       case FillingProduct::kPassword:
       case FillingProduct::kDataList:
       case FillingProduct::kNone:
@@ -1162,8 +1165,7 @@ FormFiller::ValueAndTypeAndOverride FormFiller::GetFieldFillingData(
                         entity, fields, autofill_field, action_persistence,
                         manager_->client().GetAppLocale(),
                         manager_->client().GetAddressNormalizer()),
-                    autofill_field.Type().GetAutofillAiTypeAndResolveTagTypes(
-                        entity.type())};
+                    autofill_field.Type().GetAutofillAiType(entity.type())};
           },
           [&](const VerifiedProfile* profile)
               -> std::pair<std::u16string, FieldType> {

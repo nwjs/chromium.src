@@ -39,6 +39,7 @@
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/component_updater/registration.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
+#include "chrome/browser/first_run/first_run_features.h"
 #include "chrome/browser/language/url_language_histogram_factory.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/media/router/chrome_media_router_factory.h"
@@ -124,6 +125,7 @@
 #include "rlz/buildflags/buildflags.h"
 #include "services/tracing/public/cpp/stack_sampling/tracing_sampler_profiler.h"
 #include "third_party/blink/public/common/origin_trials/origin_trials_settings_provider.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/color/color_provider_manager.h"
 #include "ui/gl/gl_switches.h"
@@ -240,6 +242,7 @@
 #endif  // BUILDFLAG(ENABLE_BACKGROUND_MODE)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "extensions/browser/pref_names.h"
 #include "extensions/components/javascript_dialog_extensions_client/javascript_dialog_extension_client_impl.h"
 #endif
 
@@ -394,8 +397,6 @@ StartupProfileInfo CreateInitialProfile(
   if (profile_info.mode == StartupProfileMode::kError &&
       !last_used_profile_set) {
     profile_info = GetFallbackStartupProfile();
-    base::UmaHistogramEnumeration(
-        "ProfilePicker.StartupMode.FallbackProfileUsed", profile_info.mode);
   }
 
   if (profile_info.mode == StartupProfileMode::kError) {
@@ -456,13 +457,7 @@ void ProcessSingletonNotificationCallbackImpl(
   StartupProfilePathInfo startup_profile_path_info =
       GetStartupProfilePath(current_directory, command_line,
                             /*ignore_profile_picker=*/false);
-  DCHECK_NE(startup_profile_path_info.reason, StartupProfileModeReason::kError);
-  base::UmaHistogramEnumeration(
-      "ProfilePicker.StartupMode.NotificationCallback",
-      StartupProfileModeFromReason(startup_profile_path_info.reason));
-  base::UmaHistogramEnumeration(
-      "ProfilePicker.StartupReason.NotificationCallback",
-      startup_profile_path_info.reason);
+  DCHECK_NE(startup_profile_path_info.mode, StartupProfileMode::kError);
 
   StartupBrowserCreator::ProcessCommandLineAlreadyRunning(
       command_line, current_directory, startup_profile_path_info);
@@ -1538,8 +1533,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // and more directly Profile.CreateAndInitializeProfile.
   StartupProfileInfo profile_info = CreateInitialProfile(
       user_data_dir_, *base::CommandLine::ForCurrentProcess());
-  base::UmaHistogramEnumeration(
-      "ProfilePicker.StartupMode.CreateInitialProfile", profile_info.mode);
 
   if (profile_info.mode == StartupProfileMode::kError)
     return content::RESULT_CODE_NORMAL_EXIT;
@@ -1605,6 +1598,22 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
     // "BrowserSignin" policy is set to "Force". If so, skip the auto import.
     if (profile) {
       first_run::AutoImport(profile, master_prefs_->import_bookmarks_path);
+
+      if (base::FeatureList::IsEnabled(features::kBookmarksImportOnFirstRun) &&
+          !master_prefs_->import_bookmarks_dict.empty()) {
+        first_run::StartBookmarksImportFromDict(
+            profile, std::move(master_prefs_->import_bookmarks_dict));
+      }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+      if (base::FeatureList::IsEnabled(features::kInitialExternalExtensions)) {
+        // Store the initial extension IDs into the profile's prefs so that
+        // InitialExternalExtensionLoader can later pick them up.
+        profile->GetPrefs()->SetList(
+            extensions::pref_names::kInitialInstallList,
+            std::move(master_prefs_->initial_extensions));
+      }
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
     }
 
     // Note: This can pop-up the first run consent dialog on Linux & Mac.
@@ -1791,8 +1800,8 @@ void ChromeBrowserMainParts::WillRunMainMessageLoop(
   // Trace the entry and exit of this main message loop. We don't use the
   // TRACE_EVENT_BEGIN0 macro because the tracing infrastructure doesn't expect
   // a synchronous event around the main loop of a thread.
-  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0(
-      "toplevel", "ChromeBrowserMainParts::MainMessageLoopRun", this);
+  TRACE_EVENT_BEGIN("toplevel", "ChromeBrowserMainParts::MainMessageLoopRun",
+                    perfetto::Track::FromPointer(this));
 #endif
 }
 
@@ -1816,8 +1825,7 @@ void ChromeBrowserMainParts::OnFirstIdle() {
 }
 
 void ChromeBrowserMainParts::PostMainMessageLoopRun() {
-  TRACE_EVENT_NESTABLE_ASYNC_END0(
-      "toplevel", "ChromeBrowserMainParts::MainMessageLoopRun", this);
+  TRACE_EVENT_END("toplevel", perfetto::Track::FromPointer(this));
   TRACE_EVENT0("startup", "ChromeBrowserMainParts::PostMainMessageLoopRun");
 #if BUILDFLAG(IS_ANDROID)
   // Chrome on Android does not use default MessageLoop. It has its own
@@ -1970,6 +1978,34 @@ bool ChromeBrowserMainParts::ProcessSingletonNotificationCallback(
   if (!g_browser_process || g_browser_process->IsShuttingDown()) {
     return false;
   }
+
+#if 0
+  // Drop the request if this or the requesting process is running with
+  // automation enabled to avoid hard to cope with startup races.
+  auto should_drop_for_automation = [](const base::CommandLine& command_line) {
+    bool current_enables_automation =
+        base::CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kEnableAutomation);
+    bool new_enables_automation =
+        command_line.HasSwitch(switches::kEnableAutomation);
+    bool new_has_app_id = command_line.HasSwitch(switches::kAppId);
+
+    // Make an exception for the case where the new command line is used to
+    // launch an installed web app from OS artifacts like shortcuts. The command
+    // line must also explicitly include the
+    // --enable-automation switch to acknowledge the potential for startup
+    // races.
+    if (current_enables_automation && new_enables_automation &&
+        new_has_app_id) {
+      return /*should_drop=*/false;
+    }
+    return /*should_drop=*/current_enables_automation || new_enables_automation;
+  };
+  if (should_drop_for_automation(command_line)) {
+    return false;
+  }
+
+#endif
 
   // Drop the request if headless mode is in effect or the request is from
   // a headless Chrome process.

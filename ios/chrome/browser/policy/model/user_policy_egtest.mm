@@ -431,7 +431,8 @@ id<GREYMatcher> DeclineManagementButtonMatcher() {
 
 // Tests that the managed accout confirmation dialog is shown in the sign-in
 // flow with its contextual and specific content.
-- (void)testSigninFlowConfirmationDialogWhenUserPolicyAndSignin {
+// TODO(crbug.com/441924945): Fix this flaky test.
+- (void)FLAKY_testSigninFlowConfirmationDialogWhenUserPolicyAndSignin {
   AppLaunchConfiguration config = [self minimalAppConfigurationForTestCase];
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
   FakeSystemIdentity* fakeManagedIdentity = [FakeSystemIdentity
@@ -472,7 +473,8 @@ id<GREYMatcher> DeclineManagementButtonMatcher() {
 
 // Tests that when user policies are enabled, in the sign-in flow, sign-in error
 // popup isn't shown after cancelling the managed accout confirmation dialog.
-- (void)testCancelSigninFlowConfirmationDialogWhenUserPolicyAndSignin {
+// TODO(crbug.com/441923304): Fix this flaky test.
+- (void)FLAKY_testCancelSigninFlowConfirmationDialogWhenUserPolicyAndSignin {
   FakeSystemIdentity* fakeManagedIdentity = [FakeSystemIdentity
       identityWithEmail:base::SysUTF8ToNSString(GetTestEmail())];
 
@@ -494,7 +496,7 @@ id<GREYMatcher> DeclineManagementButtonMatcher() {
 
   // Verify that no sign-in error alert action is shown.
   [ChromeEarlGrey
-      waitForMatcher:chrome_test_util::WebSigninPrimaryButtonMatcher()];
+      waitForMatcher:chrome_test_util::ConsistencySigninPrimaryButtonMatcher()];
   NSString* errorTitle = l10n_util::GetNSString(IDS_IOS_WEBSIGN_ERROR_TITLE);
   [[EarlGrey selectElementWithMatcher:grey_text(errorTitle)]
       assertWithMatcher:grey_notVisible()];
@@ -570,8 +572,8 @@ id<GREYMatcher> DeclineManagementButtonMatcher() {
       tapSettingsMenuButton:chrome_test_util::SettingsSignInRowMatcher()];
 
   // Proceed with sign-in.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          WebSigninPrimaryButtonMatcher()]
+  [[EarlGrey selectElementWithMatcher:
+                 chrome_test_util::ConsistencySigninPrimaryButtonMatcher()]
       performAction:grey_tap()];
 }
 

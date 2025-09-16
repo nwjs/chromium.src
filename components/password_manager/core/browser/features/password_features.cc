@@ -10,7 +10,7 @@
 
 namespace password_manager::features {
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
-BASE_FEATURE(kActorLogin, "ActorLogin", base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kActorLogin, "ActorLogin", base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -25,7 +25,7 @@ BASE_FEATURE(kApplyClientsideModelPredictionsForPasswordTypes,
 
 BASE_FEATURE(kApplyClientsideModelPredictionsForOtps,
              "ApplyClientsideModelPredictionsForOtps",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAutoApproveSharedPasswordUpdatesFromSameSender,
              "AutoApproveSharedPasswordUpdatesFromSameSender",
@@ -40,6 +40,10 @@ BASE_FEATURE(kAutofillPasswordUserPerceptionSurvey,
 BASE_FEATURE(kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu,
              "WebAuthnUsePasskeyFromAnotherDeviceInContextMenu",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAutofillReintroduceHybridPasskeyDropdownItem,
+             "AutofillReintroduceHybridPasskeyDropdownItem",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kBiometricTouchToFill,
@@ -49,6 +53,10 @@ BASE_FEATURE(kBiometricTouchToFill,
 BASE_FEATURE(kCheckIfSubmittedFormIdenticalToObserved,
              "CheckIfSubmittedFormIdenticalToObserved",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCheckLoginStateBeforePasswordChange,
+             "CheckLoginStateBeforePasswordChange",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClearUndecryptablePasswords,
              "ClearUndecryptablePasswords",
@@ -69,11 +77,19 @@ BASE_FEATURE(kClearUndecryptablePasswordsOnSync,
 #endif
 );
 
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kFetchGaiaHashOnSignIn,
-             "FetchGaiaHashOnSignIn",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kDebugUiForOtps,
+             "DebugUiForOtps",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kFetchChangePasswordUrlForPasswordChange,
+             "FetchChangePasswordUrlForPasswordChange",
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+             // Desktop only since password change is not available on mobile.
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
 #endif
+);
 
 BASE_FEATURE(kFillOnAccountSelect,
              "fill-on-account-select",
@@ -92,10 +108,6 @@ BASE_FEATURE(kIosCleanupHangingPasswordFormExtractionRequests,
 const base::FeatureParam<int> kIosPasswordFormExtractionRequestsTimeoutMs = {
     &kIosCleanupHangingPasswordFormExtractionRequests,
     /*name=*/"period-ms", /*default_value=*/250};
-
-BASE_FEATURE(kIOSPasswordBottomSheetV2,
-             "IOSPasswordBottomSheetV2",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIOSProactivePasswordGenerationBottomSheet,
              "kIOSProactivePasswordGenerationBottomSheet",
@@ -127,10 +139,6 @@ BASE_FEATURE(kPasswordManagerLogToTerminal,
              "PasswordManagerLogToTerminal",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kReuseDetectionBasedOnPasswordHashes,
-             "ReuseDetectionBasedOnPasswordHashes",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kRestartToGainAccessToKeychain,
              "RestartToGainAccessToKeychain",
@@ -140,12 +148,6 @@ BASE_FEATURE(kRestartToGainAccessToKeychain,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-
-#if BUILDFLAG(IS_CHROMEOS)
-BASE_FEATURE(kBiometricsAuthForPwdFill,
-             "BiometricsAuthForPwdFill",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
 BASE_FEATURE(kSetLeakCheckRequestCriticality,
              "SetLeakCheckRequestCriticality",
@@ -207,6 +209,10 @@ BASE_FEATURE(kEnablePasswordManagerMojoApi,
 
 BASE_FEATURE(kImprovedPasswordChangeService,
              "ImprovedPasswordChangeService",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSubmitWithEnterDuringPasswordChange,
+             "SubmitWithEnterDuringPasswordChange",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)

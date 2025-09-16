@@ -44,6 +44,7 @@ import org.chromium.components.visited_url_ranking.url_grouping.GroupSuggestions
 import org.chromium.components.visited_url_ranking.url_grouping.GroupSuggestionsService;
 import org.chromium.components.visited_url_ranking.url_grouping.UserResponseMetadata;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -70,6 +71,8 @@ public class TabSwitcherGroupSuggestionServiceUnitTest {
     private final ObservableSupplierImpl<TabGroupModelFilter> mTabGroupModelFilterSupplier =
             new ObservableSupplierImpl<>();
 
+    private final ArrayList<Tab> mTabs = new ArrayList<>();
+
     private TabSwitcherGroupSuggestionService mService;
 
     @Before
@@ -79,6 +82,7 @@ public class TabSwitcherGroupSuggestionServiceUnitTest {
 
         when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
         when(mTabModel.getProfile()).thenReturn(mProfile);
+        when(mTabModel.iterator()).thenAnswer(inv -> mTabs.iterator());
 
         mTabGroupModelFilterSupplier.set(mTabGroupModelFilter);
 
@@ -238,7 +242,7 @@ public class TabSwitcherGroupSuggestionServiceUnitTest {
         verify(mSuggestionLifecycleObserverHandler).onSuggestionIgnored();
 
         reset(mSuggestionLifecycleObserverHandler);
-        observer.tabPendingClosure(mockTab, 0);
+        observer.onTabClosePending(Collections.singletonList(mockTab), /* isAllTabs= */ false, 0);
         verify(mSuggestionLifecycleObserverHandler).onSuggestionIgnored();
     }
 
@@ -285,6 +289,7 @@ public class TabSwitcherGroupSuggestionServiceUnitTest {
         when(mTabModel.getTabById(tabId)).thenReturn(tab);
         when(mTabModel.indexOf(tab)).thenReturn(index);
         when(mTabModel.getTabAt(index)).thenReturn(tab);
+        mTabs.add(index, tab);
     }
 
     private void setupCachedSuggestion(GroupSuggestion suggestion) {

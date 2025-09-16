@@ -2,15 +2,45 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import './bookmark_bar.js';
+import './content_region.js';
+import './icons.html.js';
+import './side_panel.js';
 import '/strings.m.js';
+import './tab_strip.js';
+import './webview.js';
+import 'chrome://resources/cr_components/searchbox/searchbox.js';
 
-import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import type {Tab} from '/tab_strip_api/tab_strip_api_data_model.mojom-webui.js';
+import type {SearchboxElement} from 'chrome://resources/cr_components/searchbox/searchbox.js';
+import {TrackedElementManager} from 'chrome://resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
+import type {BookmarkBar} from './bookmark_bar.js';
+import {BookmarkBarController} from './bookmark_bar_controller.js';
+import {BrowserProxy} from './browser_proxy.js';
+import type {ContentRegion} from './content_region.js';
+import type {SidePanel} from './side_panel.js';
+import {TabStrip} from './tab_strip.js';
+import type {TabStripControllerDelegate} from './tab_strip_controller.js';
+import {TabStripController} from './tab_strip_controller.js';
 
-export class WebuiBrowserAppElement extends CrLitElement {
+export interface WebuiBrowserAppElement {
+  $: {
+    address: SearchboxElement,
+    appMenuButton: HTMLElement,
+    avatarButton: HTMLElement,
+    bookmarkBar: BookmarkBar,
+    contentRegion: ContentRegion,
+    sidePanel: SidePanel,
+    tabstrip: TabStrip,
+  };
+}
+
+export class WebuiBrowserAppElement extends CrLitElement implements
+    TabStripControllerDelegate {
   static get is() {
     return 'webui-browser-app';
   }
@@ -25,11 +55,201 @@ export class WebuiBrowserAppElement extends CrLitElement {
 
   static override get properties() {
     return {
-      message_: {type: String},
+      backButtonDisabled_: {state: true, type: Boolean},
+      forwardButtonDisabled_: {state: true, type: Boolean},
+      reloadOrStopIcon_: {state: true, type: String},
     };
   }
 
-  protected accessor message_: string = loadTimeData.getString('message');
+  private bookmarkBarController_: BookmarkBarController;
+  private tabStripController_: TabStripController;
+  private trackedElementManager_: TrackedElementManager;
+  protected accessor backButtonDisabled_: boolean = true;
+  protected accessor forwardButtonDisabled_: boolean = true;
+  protected accessor reloadOrStopIcon_: string = 'icon-refresh';
+
+  constructor() {
+    super();
+
+    this.bookmarkBarController_ = new BookmarkBarController();
+    this.tabStripController_ =
+        new TabStripController(this, this.$.tabstrip, this.$.contentRegion);
+    this.trackedElementManager_ = new TrackedElementManager();
+
+    const callbackRouter = BrowserProxy.getCallbackRouter();
+    callbackRouter.showSidePanel.addListener(this.showSidePanel_.bind(this));
+  }
+
+  override connectedCallback() {
+    // Important. Properties are not reactive without calling
+    // super.connectedCallback().
+    super.connectedCallback();
+    this.trackedElementManager_.startTracking(
+        this.$.appMenuButton, 'kToolbarAppMenuButtonElementId');
+    this.trackedElementManager_.startTracking(
+        this.$.avatarButton, 'kToolbarAvatarButtonElementId');
+  }
+
+  // TabStripControllerDelegate:
+  refreshLayout() {
+    this.updateToolbarButtons_();
+  }
+
+  activeTabUpdated(tabData: Tab) {
+    let displayUrl = '';
+    const activeTabUrl = tabData.url.url;
+    // TODO(webium): Should match
+    // ChromeLocationBarModelDelegate::ShouldDisplayURL and
+    // LocationBarModelImpl::GetFormattedURL logic.
+    //
+    // There are also likely some subtleties about what happens when the user
+    // is typing and the tab navigates.
+    if (!activeTabUrl.startsWith('chrome://newtab')) {
+      displayUrl = activeTabUrl;
+    }
+    this.$.address.setInputText(displayUrl);
+  }
+
+  protected onLaunchDevtoolsClick_(_: Event) {
+    BrowserProxy.getPageHandler().launchDevToolsForBrowser();
+  }
+
+  protected onAppMenuClick_(_: Event) {
+    BrowserProxy.getPageHandler().openAppMenu();
+  }
+
+  protected onAvatarClick_(_: Event) {
+    BrowserProxy.getPageHandler().openProfileMenu();
+  }
+
+  protected onMinimizeClick_(_: Event) {
+    BrowserProxy.getPageHandler().minimize();
+  }
+
+  protected onMaximizeClick_(_: Event) {
+    BrowserProxy.getPageHandler().maximize();
+  }
+
+  protected onRestoreClick_(_: Event) {
+    BrowserProxy.getPageHandler().restore();
+  }
+
+  protected onCloseClick_(_: Event) {
+    BrowserProxy.getPageHandler().close();
+  }
+
+  protected onBackClick_(_: Event) {
+    if (this.$.contentRegion.activeWebview) {
+      this.$.contentRegion.activeWebview.goBack();
+    }
+  }
+
+  protected onForwardClick_(_: Event) {
+    if (this.$.contentRegion.activeWebview) {
+      this.$.contentRegion.activeWebview.goForward();
+    }
+  }
+
+  protected onReloadOrStopClick_(_: Event) {
+    if (this.$.contentRegion.activeWebview) {
+      if (this.reloadOrStopIcon_ === 'icon-refresh') {
+        this.$.contentRegion.activeWebview.reload();
+      } else {
+        this.$.contentRegion.activeWebview.stopLoading();
+      }
+    }
+  }
+
+  private async updateToolbarButtons_() {
+    const webview = this.$.contentRegion.activeWebview;
+    if (webview) {
+      const [canGoBack, canGoForward] =
+          await Promise.all([webview.canGoBack(), webview.canGoForward()]);
+      this.backButtonDisabled_ = !canGoBack;
+      this.forwardButtonDisabled_ = !canGoForward;
+    } else {
+      this.backButtonDisabled_ = true;
+      this.forwardButtonDisabled_ = true;
+    }
+  }
+
+  protected onTabClick_(e: CustomEvent) {
+    this.tabStripController_.onTabClick(e);
+  }
+
+  protected onTabDragOutOfBounds_(e: CustomEvent) {
+    this.tabStripController_.onTabDragOutOfBounds(e);
+  }
+
+  protected onTabClosed_(e: CustomEvent) {
+    const tabId = e.detail.tabId;
+    this.tabStripController_.removeTab(tabId);
+  }
+
+  protected onAddTabClick_(_: Event) {
+    this.tabStripController_.addNewTab();
+  }
+
+  protected override firstUpdated() {
+    this.bookmarkBarController_.init(this.$.bookmarkBar);
+    BrowserProxy.getCallbackRouter().setFocusToLocationBar.addListener(
+        this.setFocusToLocationBar.bind(this));
+    BrowserProxy.getCallbackRouter().setReloadStopState.addListener(
+        this.setReloadStopState.bind(this));
+  }
+
+  protected onShowBookmarkBar_() {
+    this.$.bookmarkBar.style.display = 'flex';
+  }
+
+  protected onHideBookmarkBar_() {
+    this.$.bookmarkBar.style.display = 'none';
+  }
+
+  protected onBookmarkButtonClick_(e: CustomEvent) {
+    const bookmarkId = e.detail.bookmarkId;
+    this.bookmarkBarController_.launchBookmark(bookmarkId);
+  }
+
+  protected onTabDragMouseDown_(e: MouseEvent) {
+    if (e.target instanceof TabStrip) {
+      this.$.tabstrip.dragMouseDown(e);
+      this.addEventListener('mouseup', this.onTabDragMouseUp_);
+      this.addEventListener('mousemove', this.onTabDragMouseMove_);
+    }
+  }
+
+  protected onTabDragMouseUp_(_: MouseEvent) {
+    this.$.tabstrip.closeDragElement();
+    this.removeEventListener('mouseup', this.onTabDragMouseUp_);
+    this.removeEventListener('mousemove', this.onTabDragMouseMove_);
+  }
+
+  protected onTabDragMouseMove_(e: MouseEvent) {
+    this.$.tabstrip.elementDrag(e);
+  }
+
+  protected setFocusToLocationBar(isUserInitiated: boolean) {
+    this.$.address.focusInput();
+
+    // If the user initiated the selection (e.g. by pressing Ctrl-L) we want to
+    // select everything in order to make it easy to replace the URL. This is
+    // also useful for some cases where we auto-focus (e.g. about:blank set as
+    // the NTP) if they're not actively using the omnibox, which we check by
+    // looking at the focus. See OmniBoxViewViews::SetFocus() for the
+    // inspiration.
+    if (isUserInitiated || this.shadowRoot.activeElement !== this.$.address) {
+      this.$.address.selectAll();
+    }
+  }
+
+  protected setReloadStopState(isLoading: boolean) {
+    this.reloadOrStopIcon_ = isLoading ? 'icon-clear' : 'icon-refresh';
+  }
+
+  protected showSidePanel_(guestContentsId: number) {
+    this.$.sidePanel.show(guestContentsId);
+  }
 }
 
 declare global {

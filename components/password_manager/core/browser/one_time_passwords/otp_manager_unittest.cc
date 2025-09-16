@@ -7,6 +7,7 @@
 #include "base/test/test_future.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/form_data.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/one_time_passwords/otp_form_manager.h"
 #include "components/password_manager/core/browser/one_time_passwords/sms_otp_backend.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
@@ -318,12 +319,12 @@ TEST_F(OtpManagerTestWithSmsBackend, OtpFillingWithOtpValueRetrieved) {
   // Simulate OTP backend providing a value.
   std::string otp_value = "123456";
   EXPECT_CALL(sms_otp_backend_, RetrieveSmsOtp)
-      .WillOnce(testing::Invoke(
+      .WillOnce(
           [&otp_value](
               base::OnceCallback<void(const OtpFetchReply&)> callback) {
             std::move(callback).Run(OtpFetchReply(otp_value,
                                                   /*request_complete=*/true));
-          }));
+          });
 
   FormData form;
   form.set_fields({autofill::test::CreateTestFormField(

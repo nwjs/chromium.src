@@ -61,7 +61,6 @@ using testing::ByMove;
 using testing::ContainerEq;
 using testing::Contains;
 using testing::Eq;
-using testing::Invoke;
 using testing::IsEmpty;
 using testing::IsNull;
 using testing::Not;
@@ -747,6 +746,7 @@ TEST_F(
   // This call represents the initial passphrase type coming in from the server.
   service()->PassphraseTypeChanged(PassphraseType::kCustomPassphrase);
 
+#if !(BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX))
   // UserSelectableType::kAutofill should have been disabled.
   EXPECT_FALSE(service()->GetUserSettings()->GetSelectedTypes().Has(
       UserSelectableType::kAutofill));
@@ -754,6 +754,7 @@ TEST_F(
   // The user enables addresses sync.
   service()->GetUserSettings()->SetSelectedType(
       syncer::UserSelectableType::kAutofill, true);
+#endif
 
   // UserSelectableType::kAutofill should have been enabled.
   EXPECT_TRUE(service()->GetUserSettings()->GetSelectedTypes().Has(
@@ -796,6 +797,7 @@ TEST_F(
   // This call represents the initial passphrase type coming in from the server.
   service()->PassphraseTypeChanged(PassphraseType::kCustomPassphrase);
 
+#if !(BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX))
   // UserSelectableType::kAutofill should have been disabled.
   EXPECT_FALSE(service()->GetUserSettings()->GetSelectedTypes().Has(
       UserSelectableType::kAutofill));
@@ -803,6 +805,7 @@ TEST_F(
   // The user enables addresses sync.
   service()->GetUserSettings()->SetSelectedType(
       syncer::UserSelectableType::kAutofill, true);
+#endif
 
   // UserSelectableType::kAutofill should have been enabled.
   EXPECT_TRUE(service()->GetUserSettings()->GetSelectedTypes().Has(
@@ -1953,8 +1956,8 @@ TEST_F(SyncServiceImplTest, ShouldReturnWaitingDownloadStatus) {
   bool met_configuring_data_type_manager = false;
   testing::NiceMock<MockSyncServiceObserver> mock_sync_service_observer;
   ON_CALL(mock_sync_service_observer, OnStateChanged)
-      .WillByDefault(Invoke([&met_configuring_data_type_manager](
-                                SyncService* service) {
+      .WillByDefault([&met_configuring_data_type_manager](
+                         SyncService* service) {
         EXPECT_NE(service->GetDownloadStatusFor(syncer::BOOKMARKS),
                   SyncService::DataTypeDownloadStatus::kError);
         if (service->GetTransportState() ==
@@ -1963,7 +1966,7 @@ TEST_F(SyncServiceImplTest, ShouldReturnWaitingDownloadStatus) {
           EXPECT_EQ(service->GetDownloadStatusFor(syncer::BOOKMARKS),
                     SyncService::DataTypeDownloadStatus::kWaitingForUpdates);
         }
-      }));
+      });
 
   // Observers must be added after initialization has been started.
   ASSERT_THAT(engine(), IsNull());

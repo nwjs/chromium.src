@@ -11,6 +11,8 @@
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_add_credit_card_mediator.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_add_credit_card_mediator_delegate.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_add_credit_card_view_controller.h"
+#import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_add_credit_card_view_controller_presentation_delegate.h"
+#import "ios/chrome/browser/settings/ui_bundled/credit_card_scanner/credit_card_scanner_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -20,6 +22,7 @@
 
 @interface AutofillAddCreditCardCoordinator () <
     AddCreditCardMediatorDelegate,
+    AddCreditCardViewControllerPresentationDelegate,
     UIAdaptivePresentationControllerDelegate>
 
 @end
@@ -27,6 +30,9 @@
 @implementation AutofillAddCreditCardCoordinator {
   // Displays message for invalid credit card data.
   AlertCoordinator* _alertCoordinator;
+
+  // The Credit Card Scanner Coordinator.
+  CreditCardScannerCoordinator* _creditCardScannerCoordinator;
 
   // The view controller attached to this coordinator.
   AutofillAddCreditCardViewController* _addCreditCardViewController;
@@ -51,6 +57,7 @@
 
   _addCreditCardViewController =
       [[AutofillAddCreditCardViewController alloc] initWithDelegate:_mediator];
+  _addCreditCardViewController.presentationDelegate = self;
 
   UINavigationController* navigationController = [[UINavigationController alloc]
       initWithRootViewController:_addCreditCardViewController];
@@ -96,6 +103,18 @@
   [self
       showAlertWithMessage:l10n_util::GetNSString(
                                IDS_IOS_ADD_CREDIT_CARD_INVALID_NICKNAME_ALERT)];
+}
+
+#pragma mark - AddCreditCardViewControllerPresentationDelegate
+
+- (void)addCreditCardViewControllerRequestedCameraScan:
+    (AutofillAddCreditCardViewController*)viewController {
+  _creditCardScannerCoordinator = [[CreditCardScannerCoordinator alloc]
+      initWithBaseViewController:_addCreditCardViewController
+                         browser:self.browser
+                        consumer:_addCreditCardViewController];
+
+  [_creditCardScannerCoordinator start];
 }
 
 #pragma mark - UIAdaptivePresentationControllerDelegate

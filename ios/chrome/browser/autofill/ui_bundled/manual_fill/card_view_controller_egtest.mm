@@ -347,6 +347,8 @@ void DismissPaymentBottomSheet() {
     config.features_disabled.push_back(kIOSKeyboardAccessoryUpgradeForIPad);
   }
 
+  config.features_enabled.push_back(
+      autofill::features::kAutofillEnableCvcStorageAndFilling);
   return config;
 }
 
@@ -551,7 +553,11 @@ void DismissPaymentBottomSheet() {
 // button.
 - (void)testManualFallbackShowsCardLabeledButtons {
   // Create & save local credit card.
-  [AutofillAppInterface saveLocalCreditCard];
+  [AutofillAppInterface saveLocalCreditCardWithCvc];
+
+  // Create & save masked credit card.
+  [AutofillAppInterface saveMaskedCreditCard];
+  [AutofillAppInterface considerCreditCardFormSecureForTesting];
 
   // Bring up the keyboard.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
@@ -567,36 +573,93 @@ void DismissPaymentBottomSheet() {
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
 
+  // Scroll up to show the Card number chip button.
+  [[EarlGrey selectElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeTop)];
+
+  // Assert presence of the server card.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(@"Mastercard ")]
+      assertWithMatcher:grey_notNil()];
+
+  // Scroll down to show the CVC chip button.
+  [[[EarlGrey selectElementWithMatcher:CvcChipButton()]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 50)
+      onElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      assertWithMatcher:grey_notNil()];
+
+  // Scroll down to show the local card.
+  [[EarlGrey selectElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      performAction:grey_scrollInDirection(kGREYDirectionDown, 350)];
+
   // Assert card number label.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(@"Card number:")]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  [[[EarlGrey
+      selectElementWithMatcher:grey_allOf(grey_accessibilityID(@"Card number:"),
+                                          grey_interactable(), nil)]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 50)
+      onElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      assertWithMatcher:grey_notNil()];
 
   // Assert card number button.
-  [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(kLocalNumberObfuscated)]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  [[[EarlGrey selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                                      kLocalNumberObfuscated),
+                                                  grey_interactable(), nil)]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 50)
+      onElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      assertWithMatcher:grey_notNil()];
 
   // Assert expiration date label.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(@"Expiration date:")]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  [[[EarlGrey selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                                      @"Expiration date:"),
+                                                  grey_interactable(), nil)]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 50)
+      onElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      assertWithMatcher:grey_notNil()];
 
   // Assert expiration month button.
-  [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(kLocalCardExpirationMonth)]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  [[[EarlGrey
+      selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                              kLocalCardExpirationMonth),
+                                          grey_interactable(), nil)]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 50)
+      onElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      assertWithMatcher:grey_notNil()];
 
   // Assert expiration year button.
-  [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(kLocalCardExpirationYear)]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  [[[EarlGrey selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                                      kLocalCardExpirationYear),
+                                                  grey_interactable(), nil)]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 50)
+      onElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      assertWithMatcher:grey_notNil()];
 
   // Assert card holder name label.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(@"Name on card:")]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
+  [[[EarlGrey selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                                      @"Name on card:"),
+                                                  grey_interactable(), nil)]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 50)
+      onElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      assertWithMatcher:grey_notNil()];
   // Assert card holder name button.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(kLocalCardHolder)]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  [[[EarlGrey selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                                      kLocalCardHolder),
+                                                  grey_interactable(), nil)]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 50)
+      onElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      assertWithMatcher:grey_notNil()];
+
+  // Assert CVC label.
+  [[[EarlGrey selectElementWithMatcher:grey_allOf(grey_accessibilityID(@"CVC:"),
+                                                  grey_interactable(), nil)]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 50)
+      onElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      assertWithMatcher:grey_notNil()];
+
+  // Assert CVC button.
+  [[[EarlGrey selectElementWithMatcher:grey_allOf(grey_accessibilityID(@"123"),
+                                                  grey_interactable(), nil)]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 50)
+      onElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      assertWithMatcher:grey_notNil()];
 }
 
 // Tests that the "Manage Payment Methods..." action works.
@@ -891,6 +954,10 @@ void DismissPaymentBottomSheet() {
 // Tests that, after switching fields, the content size of the table view didn't
 // grow.
 - (void)testCreditCardControllerKeepsRightSize {
+  // TODO(crbug.com/440045841): Test fails when run on iOS 17 iPad simulator.
+  if (base::ios::IsRunningOnIOS17OrLater() && [ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Fails on iOS 17 iPad simulator.");
+  }
   [AutofillAppInterface saveLocalCreditCard];
 
   // Bring up the keyboard.
@@ -1246,6 +1313,10 @@ void DismissPaymentBottomSheet() {
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
+
+  // Scroll down to show the server card.
+  [[EarlGrey selectElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      performAction:grey_scrollInDirection(kGREYDirectionDown, 10)];
 
   // Check that the GPay icon is only visible in the masked card cell when the
   // Keyboard Accessory Upgrade feature is enabled.

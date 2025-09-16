@@ -19,7 +19,6 @@
 #import "components/sync_preferences/testing_pref_service_syncable.h"
 #import "components/variations/hashing.h"
 #import "components/variations/scoped_variations_ids_provider.h"
-#import "ios/chrome/browser/optimization_guide/model/ios_chrome_prediction_model_store.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_test_utils.h"
@@ -164,10 +163,6 @@ class PredictionManagerTestBase : public PlatformTest {
   void TearDown() override {
     download::BackgroundDownloadTaskHelper::SetIgnoreLocalSSLErrorForTesting(
         false);
-    // Reinitialize the store, so that tests do not use state from the
-    // previous test.
-    optimization_guide::IOSChromePredictionModelStore::GetInstance()
-        ->ResetForTesting();
     PlatformTest::TearDown();
   }
 

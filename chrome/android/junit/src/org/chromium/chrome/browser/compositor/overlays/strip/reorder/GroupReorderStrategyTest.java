@@ -24,11 +24,13 @@ import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutGroupTitle;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTab;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView;
 import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDelegate.ReorderType;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
@@ -227,6 +229,19 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
     }
 
     @Test
+    @Feature("Pinned Tabs")
+    public void testUpdateReorder_fail_pinnedTabs() {
+        //   <------------------
+        // [PinnedTab1]  [ExpandedGroup]  [CollapsedGroup]
+        mStripTab1.setIsPinned(true);
+        Tab tab1 = mModel.getTabAt(0);
+        tab1.setIsPinned(true);
+
+        // Drag threshold reached, but reordering across the pinned/unpinned tabs should fail.
+        testUpdateReorder_fail(mExpandedGroup, -DRAG_PAST_TAB_SUCCESS);
+    }
+
+    @Test
     public void testStopReorder() {
         startReorder(mExpandedGroup);
         mStrategy.stopReorderMode(mStripViews, mGroupTitles);
@@ -263,6 +278,7 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
     // Verification helpers
     // ============================================================================================
 
+    @SuppressWarnings("DirectInvocationOnMock")
     private void verifySuccessfulDrag(int expectedIndex, float expectedOffset) {
         @TabId
         int lastShownTabId =
@@ -275,6 +291,7 @@ public class GroupReorderStrategyTest extends ReorderStrategyTestBase {
         }
     }
 
+    @SuppressWarnings("DirectInvocationOnMock")
     private void verifyFailedDrag(float expectedOffset) {
         @TabId
         int lastShownTabId =

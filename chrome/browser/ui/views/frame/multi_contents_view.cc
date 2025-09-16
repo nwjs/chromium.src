@@ -11,6 +11,7 @@
 #include "base/feature_list.h"
 #include "base/notreached.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
@@ -23,6 +24,8 @@
 #include "chrome/browser/ui/views/frame/scrim_view.h"
 #include "chrome/browser/ui/views/frame/top_container_background.h"
 #include "chrome/browser/ui/views/new_tab_footer/footer_web_view.h"
+#include "chrome/common/pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/ozone_buildflags.h"
@@ -30,13 +33,6 @@
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/views/view_class_properties.h"
-
-DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(MultiContentsView,
-                                      kMultiContentsViewElementId);
-DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(MultiContentsView,
-                                      kStartContainerViewScrimElementId);
-DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(MultiContentsView,
-                                      kEndContainerViewScrimElementId);
 
 MultiContentsView::MultiContentsView(
     BrowserView* browser_view,
@@ -47,22 +43,12 @@ MultiContentsView::MultiContentsView(
           gfx::Insets(kSplitViewContentInset).set_top(0).set_right(0)),
       end_contents_view_inset_(
           gfx::Insets(kSplitViewContentInset).set_top(0).set_left(0)) {
-#if BUILDFLAG(IS_OZONE)
-  if (!ui::OzonePlatform::GetInstance()
-           ->GetPlatformProperties()
-           .supports_split_view_drag_and_drop) {
-    is_drag_and_drop_enabled_ = false;
-  }
-#endif
-
   SetLayoutManager(std::make_unique<views::DelegatingLayoutManager>(this));
   contents_container_views_.push_back(
       AddChildView(std::make_unique<ContentsContainerView>(browser_view_)));
   contents_container_views_[0]
-      ->GetContentsView()
+      ->contents_view()
       ->set_is_primary_web_contents_for_window(true);
-  contents_container_views_[0]->GetInactiveSplitScrimView()->SetProperty(
-      views::kElementIdentifierKey, kStartContainerViewScrimElementId);
 
   resize_area_ = AddChildView(std::make_unique<MultiContentsResizeArea>(this));
   resize_area_->SetVisible(false);
@@ -70,19 +56,16 @@ MultiContentsView::MultiContentsView(
   contents_container_views_.push_back(
       AddChildView(std::make_unique<ContentsContainerView>(browser_view_)));
   contents_container_views_[1]->SetVisible(false);
-  contents_container_views_[1]->GetInactiveSplitScrimView()->SetProperty(
-      views::kElementIdentifierKey, kEndContainerViewScrimElementId);
 
   for (auto* contents_container_view : contents_container_views_) {
     web_contents_focused_subscriptions_.push_back(
-        contents_container_view->GetContentsView()
-            ->AddWebContentsFocusedCallback(
-                base::BindRepeating(&MultiContentsView::OnWebContentsFocused,
-                                    base::Unretained(this))));
+        contents_container_view->contents_view()->AddWebContentsFocusedCallback(
+            base::BindRepeating(&MultiContentsView::OnWebContentsFocused,
+                                base::Unretained(this))));
 
-    if (contents_container_view->GetNewTabFooterView()) {
+    if (contents_container_view->new_tab_footer_view()) {
       ntp_footer_focused_subscriptions_.push_back(
-          contents_container_view->GetNewTabFooterView()
+          contents_container_view->new_tab_footer_view()
               ->AddWebContentsFocusedCallback(
                   base::BindRepeating(&MultiContentsView::OnNtpFooterFocused,
                                       base::Unretained(this))));
@@ -91,13 +74,20 @@ MultiContentsView::MultiContentsView(
 
   SetProperty(views::kElementIdentifierKey, kMultiContentsViewElementId);
 
-  if (is_drag_and_drop_enabled()) {
-    drop_target_view_ =
-        AddChildView(std::make_unique<MultiContentsDropTargetView>(*delegate_));
-    drop_target_controller_ =
-        std::make_unique<MultiContentsViewDropTargetController>(
-            *drop_target_view_);
-  }
+  drop_target_view_ =
+      AddChildView(std::make_unique<MultiContentsDropTargetView>());
+  drop_target_controller_ =
+      std::make_unique<MultiContentsViewDropTargetController>(
+          *drop_target_view_, *delegate_);
+  is_drag_drop_pref_enabled_ =
+      browser_view_->GetProfile()->GetPrefs()->GetBoolean(
+          prefs::kSplitViewDragAndDropEnabled);
+
+  pref_change_registrar_.Init(browser_view_->GetProfile()->GetPrefs());
+  pref_change_registrar_.Add(
+      prefs::kSplitViewDragAndDropEnabled,
+      base::BindRepeating(&MultiContentsView::OnDragAndDropPrefStateChange,
+                          base::Unretained(this)));
 }
 
 MultiContentsView::~MultiContentsView() {
@@ -109,16 +99,39 @@ MultiContentsView::~MultiContentsView() {
   RemoveAllChildViews();
 }
 
-ContentsWebView* MultiContentsView::GetActiveContentsView() {
-  return GetActiveContentsContainerView()->GetContentsView();
+ContentsWebView* MultiContentsView::GetActiveContentsView() const {
+  return GetActiveContentsContainerView()->contents_view();
 }
 
-ContentsWebView* MultiContentsView::GetInactiveContentsView() {
-  return contents_container_views_[GetInactiveIndex()]->GetContentsView();
+ContentsWebView* MultiContentsView::GetInactiveContentsView() const {
+  return GetInactiveContentsContainerView()->contents_view();
 }
 
-ContentsContainerView* MultiContentsView::GetActiveContentsContainerView() {
+ContentsContainerView* MultiContentsView::GetActiveContentsContainerView()
+    const {
   return contents_container_views_[active_index_];
+}
+
+ContentsContainerView* MultiContentsView::GetInactiveContentsContainerView()
+    const {
+  return contents_container_views_[GetInactiveIndex()];
+}
+
+ContentsContainerView* MultiContentsView::GetContentsContainerViewFor(
+    content::WebContents* web_contents) const {
+  for (auto* container_view : contents_container_views_) {
+    if (container_view->contents_view()->web_contents() == web_contents) {
+      return container_view;
+    }
+  }
+  return nullptr;
+}
+
+gfx::Size MultiContentsView::GetContentsSize() const {
+  const int drop_target_width =
+      IsDragAndDropEnabled() ? drop_target_view_->GetPreferredWidth(width())
+                             : 0;
+  return gfx::Size(width() - drop_target_width, height());
 }
 
 bool MultiContentsView::IsInSplitView() const {
@@ -129,7 +142,7 @@ void MultiContentsView::SetWebContentsAtIndex(
     content::WebContents* web_contents,
     int index) {
   CHECK(index >= 0 && index < 2);
-  contents_container_views_[index]->GetContentsView()->SetWebContents(
+  contents_container_views_[index]->contents_view()->SetWebContents(
       web_contents);
 
   if (index == 1 && !contents_container_views_[1]->GetVisible()) {
@@ -159,14 +172,27 @@ void MultiContentsView::CloseSplitView() {
   if (!IsInSplitView()) {
     return;
   }
-  if (active_index_ == 1) {
+
+  if (active_index_ != 0) {
+    ContentsContainerView* start_view = contents_container_views_[0];
+    ContentsContainerView* active_view =
+        contents_container_views_[active_index_];
+
     // Move the active WebContents so that the first ContentsContainerView in
     // contents_container_views_ can always be visible.
     std::iter_swap(contents_container_views_.begin(),
                    contents_container_views_.begin() + active_index_);
+
+    // Reorder the child views so that focus order will be consistent with
+    // contents_container_views_.
+    size_t start_view_child_index = GetIndexOf(start_view).value();
+    size_t active_view_child_index = GetIndexOf(active_view).value();
+    ReorderChildView(start_view, active_view_child_index);
+    ReorderChildView(active_view, start_view_child_index);
+
     active_index_ = 0;
   }
-  contents_container_views_[1]->GetContentsView()->SetWebContents(nullptr);
+  contents_container_views_[1]->contents_view()->SetWebContents(nullptr);
   contents_container_views_[1]->SetVisible(false);
   resize_area_->SetVisible(false);
   UpdateContentsBorderAndOverlay();
@@ -193,9 +219,9 @@ void MultiContentsView::UpdateSplitRatio(double ratio) {
   InvalidateLayout();
 }
 
-void MultiContentsView::SetInactiveScrimVisibility(bool show_inactive_scrim) {
-  if (show_inactive_scrim_ != show_inactive_scrim) {
-    show_inactive_scrim_ = show_inactive_scrim;
+void MultiContentsView::SetHighlightActiveContentsView(bool is_highlighted) {
+  if (active_contents_view_highlighted_ != is_highlighted) {
+    active_contents_view_highlighted_ = is_highlighted;
     UpdateContentsBorderAndOverlay();
   }
 }
@@ -204,7 +230,7 @@ void MultiContentsView::ExecuteOnEachVisibleContentsView(
     base::RepeatingCallback<void(ContentsWebView*)> callback) {
   for (auto* contents_container_view : contents_container_views_) {
     if (contents_container_view->GetVisible()) {
-      callback.Run(contents_container_view->GetContentsView());
+      callback.Run(contents_container_view->contents_view());
     }
   }
 }
@@ -225,6 +251,18 @@ int MultiContentsView::GetMinViewWidth() const {
                                   ? min_contents_width_for_testing_.value()
                                   : kMinWebContentsWidth;
   return std::min(min_fixed_value, min_percentage);
+}
+
+std::vector<views::View*> MultiContentsView::GetAccessiblePanes() {
+  std::vector<views::View*> accessible_panes;
+  for (auto* contents_container_view : contents_container_views_) {
+    auto contents_accessible_panes =
+        contents_container_view->GetAccessiblePanes();
+    accessible_panes.insert(accessible_panes.end(),
+                            contents_accessible_panes.begin(),
+                            contents_accessible_panes.end());
+  }
+  return accessible_panes;
 }
 
 void MultiContentsView::OnResize(int resize_amount, bool done_resizing) {
@@ -272,7 +310,7 @@ void MultiContentsView::OnThemeChanged() {
   UpdateContentsBorderAndOverlay();
 }
 
-int MultiContentsView::GetInactiveIndex() {
+int MultiContentsView::GetInactiveIndex() const {
   return active_index_ == 0 ? 1 : 0;
 }
 
@@ -290,9 +328,10 @@ void MultiContentsView::OnWebContentsFocused(views::WebView* web_view) {
 void MultiContentsView::OnNtpFooterFocused(views::WebView* web_view) {
   if (IsInSplitView() && GetWidget()->IsVisible()) {
     for (auto* contents_container_view : contents_container_views_) {
-      if (contents_container_view->GetNewTabFooterView() == web_view &&
+      if (contents_container_view->new_tab_footer_view() &&
+          contents_container_view->new_tab_footer_view() == web_view &&
           GetInactiveContentsView() ==
-              contents_container_view->GetContentsView()) {
+              contents_container_view->contents_view()) {
         return delegate_->WebContentsFocused(
             GetInactiveContentsView()->web_contents());
       }
@@ -325,7 +364,7 @@ views::ProposedLayout MultiContentsView::CalculateProposedLayout(
   gfx::Rect end_rect(resize_rect.top_right(),
                      gfx::Size(widths.end_width, available_space.height()));
 
-  if (is_drag_and_drop_enabled() && drop_target_view_->side().has_value()) {
+  if (IsDragAndDropEnabled() && drop_target_view_->side().has_value()) {
     switch (drop_target_view_->side().value()) {
       case MultiContentsDropTargetView::DropSide::START:
         // If the drop target view will show at the start, shift everything
@@ -357,7 +396,7 @@ views::ProposedLayout MultiContentsView::CalculateProposedLayout(
                                      contents_container_views_[1]->GetVisible(),
                                      end_rect);
 
-  if (is_drag_and_drop_enabled()) {
+  if (IsDragAndDropEnabled()) {
     layouts.child_layouts.emplace_back(drop_target_view_.get(),
                                        drop_target_view_->GetVisible(),
                                        drop_target_rect);
@@ -381,7 +420,7 @@ MultiContentsView::ViewWidths MultiContentsView::GetViewWidths(
   } else {
     CHECK(!contents_container_views_[1]->GetVisible());
     widths.drop_target_width =
-        is_drag_and_drop_enabled()
+        IsDragAndDropEnabled()
             ? drop_target_view_->GetPreferredWidth(available_space.width())
             : 0;
     widths.start_width = available_space.width() - widths.drop_target_width;
@@ -413,10 +452,40 @@ MultiContentsView::ViewWidths MultiContentsView::ClampToMinWidth(
 void MultiContentsView::UpdateContentsBorderAndOverlay() {
   for (auto* contents_container_view : contents_container_views_) {
     const bool is_active =
-        contents_container_view->GetContentsView() == GetActiveContentsView();
-    contents_container_view->UpdateBorderAndOverlay(IsInSplitView(), is_active,
-                                                    show_inactive_scrim_);
+        contents_container_view->contents_view() == GetActiveContentsView();
+    contents_container_view->UpdateBorderAndOverlay(
+        IsInSplitView(), is_active,
+        is_active && active_contents_view_highlighted_);
   }
+}
+
+MultiContentsViewDropTargetController&
+MultiContentsView::drop_target_controller() const {
+  CHECK(IsDragAndDropEnabled());
+  return *drop_target_controller_;
+}
+
+bool MultiContentsView::IsDragAndDropEnabled() const {
+  // This is needed because drag and drop is broken on Wayland. Once that is
+  // resolved, this check should be deleted.
+  // TODO(crbug.com/425715421): Fix drag and drop on Wayland.
+#if BUILDFLAG(IS_OZONE)
+  if (!ui::OzonePlatform::GetInstance()
+           ->GetPlatformProperties()
+           .supports_split_view_drag_and_drop) {
+    return false;
+  }
+#endif
+
+  // Split view drag and drop is only supported on normal browser types.
+  return browser_view_->GetIsNormalType() && is_drag_drop_pref_enabled_;
+}
+
+void MultiContentsView::OnDragAndDropPrefStateChange() {
+  is_drag_drop_pref_enabled_ =
+      browser_view_->GetProfile()->GetPrefs()->GetBoolean(
+          prefs::kSplitViewDragAndDropEnabled);
+  InvalidateLayout();
 }
 
 BEGIN_METADATA(MultiContentsView)

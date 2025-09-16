@@ -92,6 +92,9 @@ extern const char kEnableAudioDebugRecordingsFromExtension[];
 extern const char kEnableBookmarkUndo[];
 extern const char kEnableCloudPrintProxy[];
 extern const char kEnableDomainReliability[];
+#if BUILDFLAG(IS_CHROMEOS)
+extern const char kEnableDevToolsPwaHandler[];
+#endif
 extern const char kEnableDownloadWarningImprovements[];
 extern const char kEnableExtensionActivityLogging[];
 extern const char kEnableExtensionActivityLogTesting[];
@@ -290,6 +293,7 @@ extern const char kGlicOpenOnStartup[];
 extern const char kGlicAllowedOrigins[];
 extern const char kGlicAutomation[];
 extern const char kGlicDev[];
+extern const char kGlicSkipReloadAfterNavigation[];
 extern const char kGlicHostLogging[];
 #endif
 

@@ -4,9 +4,13 @@
 
 #include "components/autofill/core/browser/data_model/form_group.h"
 
+#include <string>
+#include <string_view>
+
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "components/autofill/core/browser/autofill_type.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
@@ -22,17 +26,16 @@ void FormGroup::GetMatchingTypes(const std::u16string& text,
     return;
   }
 
-  AutofillProfileComparator comparator(app_locale);
-  if (comparator.HasOnlySkippableCharacters(text)) {
+  if (normalization::HasOnlySkippableCharacters(text)) {
     return;
   }
 
   std::u16string canonicalized_text =
-      AutofillProfileComparator::NormalizeForComparison(text);
+      normalization::NormalizeForComparison(text);
   for (FieldType type : GetSupportedTypes()) {
-    if (comparator.Compare(canonicalized_text, GetInfo(type, app_locale),
-                           AutofillProfileComparator::WhitespaceSpec::kDiscard,
-                           type)) {
+    if (AutofillProfileComparator::Compare(
+            canonicalized_text, GetInfo(type, app_locale),
+            normalization::WhitespaceSpec::kDiscard, type)) {
       matching_types->insert(type);
     }
   }
@@ -52,7 +55,7 @@ bool FormGroup::HasRawInfo(FieldType type) const {
 }
 
 std::u16string FormGroup::GetInfo(FieldType type,
-                                  const std::string& app_locale) const {
+                                  std::string_view app_locale) const {
   return GetInfo(AutofillType(type), app_locale);
 }
 

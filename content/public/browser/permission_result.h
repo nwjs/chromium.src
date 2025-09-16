@@ -49,6 +49,10 @@ enum class PermissionStatusSource {
   // The status is the result of being blocked due to having recently displayed
   // the prompt to the user.
   RECENT_DISPLAY,
+
+  // The status is the result of a permission being temporarily overridden by an
+  // actor operating on the tab.
+  ACTOR_OVERRIDE,
 };
 
 struct CONTENT_EXPORT PermissionResult {
@@ -62,6 +66,8 @@ struct CONTENT_EXPORT PermissionResult {
   PermissionResult(PermissionResult&&);
   PermissionResult& operator=(PermissionResult&&);
   ~PermissionResult();
+
+  bool operator==(const PermissionResult& rhs) const;
 
   PermissionStatus status;
   PermissionStatusSource source;

@@ -453,13 +453,13 @@ void GpuChannelMessageFilter::CreateGpuMemoryBuffer(
   gfx::GpuMemoryBufferHandle handle;
 
   if (IsNativeBufferSupported(buffer_format, buffer_usage)) {
-    handle = gpu_memory_buffer_factory_->CreateNativeGmbHandle(
-        size, buffer_format, buffer_usage);
+    handle = gpu_memory_buffer_factory_->CreateNativeGmbHandle(size, format,
+                                                               buffer_usage);
   } else {
     if (SharedMemoryImageBackingFactory::IsBufferUsageSupported(buffer_usage) &&
         SharedMemoryImageBackingFactory::IsSizeValidForFormat(size, format)) {
       handle = SharedMemoryImageBackingFactory::CreateGpuMemoryBufferHandle(
-          size, buffer_format, buffer_usage);
+          size, format);
     }
   }
   if (handle.is_null()) {
@@ -764,7 +764,6 @@ void GpuChannel::Init(IPC::ChannelHandle channel_handle,
       base::BindRepeating(&GpuChannelMessageFilter::BindGpuChannel, filter_));
   sync_channel_->Init(channel_handle, IPC::Channel::MODE_SERVER,
                       /*create_pipe_now=*/false);
-  channel_ = sync_channel_.get();
 }
 
 base::WeakPtr<GpuChannel> GpuChannel::AsWeakPtr() {
@@ -1039,8 +1038,7 @@ void GpuChannel::CreateCommandBuffer(
         this, *init_params, command_buffer_id, sequence_id, stream_id,
         route_id);
   } else if (init_params->attribs.enable_raster_interface &&
-             !init_params->attribs.enable_gles2_interface &&
-             !init_params->attribs.enable_grcontext) {
+             !init_params->attribs.enable_gles2_interface) {
     stub = std::make_unique<RasterCommandBufferStub>(
         this, *init_params, command_buffer_id, sequence_id, stream_id,
         route_id);

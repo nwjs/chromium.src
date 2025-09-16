@@ -26,7 +26,6 @@ BASE_DECLARE_FEATURE(kWebViewInvokeZoomPickerOnGSU);
 // defined in //services/network.
 extern const base::FeatureParam<int> kWebViewIpProtectionExclusionCriteria;
 BASE_DECLARE_FEATURE(kWebViewLazyFetchHandWritingIcon);
-BASE_DECLARE_FEATURE(kWebViewMediaIntegrityApiBlinkExtension);
 BASE_DECLARE_FEATURE(kWebViewMixedContentAutoupgrades);
 BASE_DECLARE_FEATURE(kWebViewMuteAudio);
 BASE_DECLARE_FEATURE(kWebViewRenderDocument);
@@ -49,7 +48,6 @@ BASE_DECLARE_FEATURE(kWebViewPreloadClasses);
 BASE_DECLARE_FEATURE(kWebViewPrefetchNativeLibrary);
 extern const base::FeatureParam<bool> kWebViewPrefetchFromRenderer;
 BASE_DECLARE_FEATURE(kWebViewSafeAreaIncludesSystemBars);
-BASE_DECLARE_FEATURE(kWebViewSeparateResourceContext);
 BASE_DECLARE_FEATURE(kWebViewSkipInterceptsForPrefetch);
 BASE_DECLARE_FEATURE(kWebViewDoNotSendAccessibilityEventsOnGSU);
 BASE_DECLARE_FEATURE(kWebViewHyperlinkContextMenu);
@@ -68,6 +66,10 @@ extern const base::FeatureParam<int> kWebViewCacheSizeLimitMaximum;
 extern const base::FeatureParam<double> kWebViewCodeCacheSizeLimitMultiplier;
 BASE_DECLARE_FEATURE(kWebViewConnectToComponentProviderInBackground);
 BASE_DECLARE_FEATURE(kAndroidMetricsAsyncMetricLogging);
+BASE_DECLARE_FEATURE(kWebViewUseBackgroundThreadForGms);
+BASE_DECLARE_FEATURE(kWebViewReducedSeedExpiration);
+BASE_DECLARE_FEATURE(kWebViewReducedSeedRequestPeriod);
+BASE_DECLARE_FEATURE(kWebViewEarlyStartupTracing);
 }  // namespace android_webview::features
 
 #endif  // ANDROID_WEBVIEW_COMMON_AW_FEATURES_H_

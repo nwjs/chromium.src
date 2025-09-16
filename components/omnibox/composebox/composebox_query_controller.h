@@ -14,6 +14,7 @@
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
 #include "components/endpoint_fetcher/endpoint_fetcher.h"
+#include "components/lens/contextual_input.h"
 #include "components/lens/lens_overlay_mime_type.h"
 #include "components/lens/lens_overlay_request_id_generator.h"
 #include "components/omnibox/composebox/composebox_query.mojom.h"
@@ -25,6 +26,10 @@
 #include "third_party/lens_server_proto/lens_overlay_server.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_surface.pb.h"
 #include "url/gurl.h"
+
+namespace lens {
+class RefCountedLensOverlayClientLogs;
+}  // namespace lens
 
 class TemplateURLService;
 
@@ -83,6 +88,7 @@ using FileUploadStatusChangedCallback =
     base::RepeatingCallback<void(std::string file_token,
                                  FileUploadStatus status)>;
 
+// TODO(crbug.com/440427508): Move this class to components/lens and rename it.
 class ComposeboxQueryController {
  public:
   // Observer interface for the Page Handler to get updates on file upload
@@ -99,6 +105,7 @@ class ComposeboxQueryController {
   };
 
   // Struct containing file information for a file upload.
+  // TODO(crbug.com/441351005): Make this struct private and rename it.
   struct FileInfo {
    public:
     FileInfo();
@@ -138,6 +145,7 @@ class ComposeboxQueryController {
 
    private:
     friend class ComposeboxQueryController;
+    friend class ComposeboxQueryControllerIOS;
 
     // Default to kNotUploaded, until UploadFile() is called.
     // Do not modify this field directly, use UpdateFileUploadStatus() instead.
@@ -160,7 +168,7 @@ class ComposeboxQueryController {
 
     // The request to be sent to the server. Will be set asynchronously after
     // StartFileUploadFlow() is called.
-    std::unique_ptr<lens::LensOverlayServerRequest> request_body_;
+    std::unique_ptr<lens::LensOverlayServerRequest> file_upload_request_body_;
 
     // The headers to attach to the request. Will be set asynchronously after
     // StartFileUploadFlow() is called.
@@ -189,6 +197,12 @@ class ComposeboxQueryController {
   // Session management. Virtual for testing.
   virtual void NotifySessionStarted();
   virtual void NotifySessionAbandoned();
+
+  std::unique_ptr<lens::LensOverlayRequestId> GetNextRequestId(
+      lens::RequestIdUpdateMode update_mode,
+      lens::MimeType mime_type,
+      lens::LensOverlayRequestId_MediaType media_type);
+
   // Called when a query has been submitted. `query_start_time` is the time
   // that the user clicked the submit button.
   GURL CreateAimUrl(const std::string& query_text, base::Time query_start_time);
@@ -199,10 +213,13 @@ class ComposeboxQueryController {
 
   // Triggers upload of the file with data and stores the file info in the
   // internal map. Call after setting the file info fields. Virtual for testing.
+  // TODO(crbug.com/441161325): Rename this method to reference
+  // "contextual inputs" instead of "files".
   virtual void StartFileUploadFlow(
-      std::unique_ptr<FileInfo> file_info,
-      scoped_refptr<base::RefCountedBytes> file_data,
+      const base::UnguessableToken& file_token,
+      std::unique_ptr<lens::ContextualInputData> contextual_input_data,
       std::optional<composebox::ImageEncodingOptions> image_options);
+
   // Removes file from file cache.
   virtual bool DeleteFile(const base::UnguessableToken& file_token);
 
@@ -214,7 +231,28 @@ class ComposeboxQueryController {
   // Return the file from `active_files_` map or nullptr if not found.
   virtual FileInfo* GetFileInfo(const base::UnguessableToken& file_token);
 
+  const lens::proto::LensOverlaySuggestInputs& suggest_inputs() const {
+    return suggest_inputs_;
+  }
+
  protected:
+  // Creates the request body proto for an image and calls the callback with the
+  // request.
+  static void CreateFileUploadRequestProtoWithImageDataAndContinue(
+      lens::LensOverlayRequestId request_id,
+      lens::LensOverlayClientContext client_context,
+      scoped_refptr<lens::RefCountedLensOverlayClientLogs> client_logs,
+      RequestBodyProtoCreatedCallback callback,
+      lens::ImageData image_data);
+
+  // Creates the request body proto for an image and calls the callback with the
+  // request.
+  virtual void CreateImageUploadRequest(
+      const base::UnguessableToken& file_token,
+      const std::vector<uint8_t>& image_data,
+      std::optional<composebox::ImageEncodingOptions> options,
+      RequestBodyProtoCreatedCallback callback);
+
   // Returns the EndpointFetcher to use with the given params. Protected to
   // allow overriding in tests to mock server responses.
   virtual std::unique_ptr<endpoint_fetcher::EndpointFetcher>
@@ -251,6 +289,9 @@ class ComposeboxQueryController {
   // The map of active files, keyed by the file token.
   // Protected to allow tests to access the files.
   std::map<base::UnguessableToken, std::unique_ptr<FileInfo>> active_files_;
+
+  // Task runner used to create the file upload request proto asynchronously.
+  scoped_refptr<base::TaskRunner> create_request_task_runner_;
 
  private:
   // Fetches the OAuth headers and calls the callback with the headers. If the
@@ -295,7 +336,7 @@ class ComposeboxQueryController {
   // Creates the request body proto and calls the callback with the request.
   void CreateFileUploadRequestBodyAndContinue(
       const base::UnguessableToken& file_token,
-      scoped_refptr<base::RefCountedBytes> file_data,
+      std::unique_ptr<lens::ContextualInputData> contextual_input_data,
       std::optional<composebox::ImageEncodingOptions> options,
       RequestBodyProtoCreatedCallback callback);
 
@@ -305,9 +346,10 @@ class ComposeboxQueryController {
       lens::LensOverlayServerRequest request,
       std::optional<FileUploadErrorType> error_type);
 
-  // Asynchronous handler for when the file upload request headers are ready.
-  void OnUploadFileRequestHeadersReady(const base::UnguessableToken& file_token,
-                                       std::vector<std::string> headers);
+  // Asynchronous handler for when the request headers for uploading file and
+  // viewport data are ready.
+  void OnUploadRequestHeadersReady(const base::UnguessableToken& file_token,
+                                   std::vector<std::string> headers);
 
   // Sends the file upload request if the request body, headers, and cluster
   // info are ready.
@@ -317,10 +359,27 @@ class ComposeboxQueryController {
   // Creates the endpoint fetcher and sends the file upload network request.
   void SendFileUploadNetworkRequest(FileInfo* file_infon);
 
+  // Callback for when the file upload endpoint fetcher is created, storing it
+  // updating the file info state.
+  void OnFileUploadEndpointFetcherCreated(
+      const base::UnguessableToken& file_token,
+      std::unique_ptr<endpoint_fetcher::EndpointFetcher> endpoint_fetcher);
+
   // Handles the response from the file upload request.
   void HandleFileUploadResponse(
       const base::UnguessableToken& file_token,
       std::unique_ptr<endpoint_fetcher::EndpointResponse> response);
+
+  // Performs the fetch request.
+  void PerformFetchRequest(
+      lens::LensOverlayServerRequest* request,
+      std::vector<std::string>* request_headers,
+      base::TimeDelta timeout,
+      base::OnceCallback<
+          void(std::unique_ptr<endpoint_fetcher::EndpointFetcher>)>
+          fetcher_created_callback,
+      endpoint_fetcher::EndpointFetcherCallback response_received_callback,
+      UploadProgressCallback upload_progress_callback = base::NullCallback());
 
   // The last received cluster info.
   std::optional<lens::LensOverlayClusterInfo> cluster_info_ = std::nullopt;
@@ -353,9 +412,6 @@ class ComposeboxQueryController {
   // The observer list, managed via AddObserver() and RemoveObserver().
   base::ObserverList<FileUploadStatusObserver> observers_;
 
-  // Task runner used to create the file upload request proto asynchronously.
-  scoped_refptr<base::TaskRunner> create_request_task_runner_;
-
   // Owned by the Profile, and thus guaranteed to outlive this instance.
   const raw_ptr<TemplateURLService> template_url_service_;
 
@@ -366,6 +422,8 @@ class ComposeboxQueryController {
   // TODO(crbug.com/430070871): Remove this once the server supports the
   // `lns_surface` parameter.
   bool send_lns_surface_ = false;
+
+  lens::proto::LensOverlaySuggestInputs suggest_inputs_;
 
   // The session counter, incremented when the session is stopped. This is used
   // to determine if the session is active when handling cluster info

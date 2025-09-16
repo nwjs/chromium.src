@@ -4,196 +4,138 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
-import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.ARCHIVED_TABS_MESSAGE;
-import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.INCOGNITO_REAUTH_PROMO_MESSAGE;
-import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.IPH;
-import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.PRICE_MESSAGE;
-import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.TAB_GROUP_SUGGESTION_MESSAGE;
-
 import android.content.Context;
 
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManagerFactory;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tasks.tab_management.MessageCardView.ServiceDismissActionProvider;
+import org.chromium.chrome.browser.tasks.tab_management.MessageService.Message;
+import org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageModelFactory;
+import org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageObserver;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
- * This is a {@link MessageService.MessageObserver} that creates and owns different {@link
- * PropertyModel} based on the message type.
+ * This is a {@link MessageObserver} that creates and owns different {@link PropertyModel} based on
+ * the message type.
+ *
+ * @param <T> The message type.
  */
 @NullMarked
-public class MessageCardProviderMediator implements MessageService.MessageObserver {
-    /** A class represents a Message. */
-    public static class Message {
-        public final @MessageService.MessageType int type;
-        public final PropertyModel model;
-
-        Message(int type, PropertyModel model) {
-            this.type = type;
-            this.model = model;
-        }
-    }
-
+public class MessageCardProviderMediator<T> implements MessageObserver<T> {
     private final Context mContext;
     private final Supplier<Profile> mProfileSupplier;
-    private final Map<Integer, List<Message>> mMessageItems = new LinkedHashMap<>();
-    private final Map<Integer, Message> mShownMessageItems = new LinkedHashMap<>();
-    private final MessageCardView.DismissActionProvider mUiDismissActionProvider;
+    private final ServiceDismissActionProvider<T> mServiceDismissActionProvider;
+    private final Map<T, MessageService<T>> mMessageServices = new HashMap<>();
 
     public MessageCardProviderMediator(
             Context context,
             Supplier<Profile> profileSupplier,
-            MessageCardView.DismissActionProvider uiDismissActionProvider) {
+            ServiceDismissActionProvider<T> serviceDismissActionProvider) {
         mContext = context;
         mProfileSupplier = profileSupplier;
-        mUiDismissActionProvider = uiDismissActionProvider;
+        mServiceDismissActionProvider = serviceDismissActionProvider;
     }
 
     /**
-     * @return A list of {@link Message} that can be shown.
+     * Get the next message item for the given type.
+     *
+     * @param messageType The type of the message.
+     * @return The next message item for the given type.
      */
-    public List<Message> getMessageItems() {
-        for (Iterator<Integer> it = mMessageItems.keySet().iterator(); it.hasNext(); ) {
-            int key = it.next();
-            if (mShownMessageItems.containsKey(key)) continue;
+    public @Nullable Message<T> getNextMessageItemForType(T messageType) {
+        MessageService<T> service = mMessageServices.get(messageType);
+        if (service == null) return null;
 
-            List<Message> messages = mMessageItems.get(key);
+        Message<T> message = service.getNextMessageItem();
+        if (message == null) return null;
 
-            assumeNonNull(messages);
-            assert messages.size() > 0;
-            mShownMessageItems.put(key, messages.remove(0));
-
-            if (messages.size() == 0) it.remove();
-        }
-
-        for (Message message : mShownMessageItems.values()) {
-            PropertyModel model = message.model;
-            if (!model.containsKey(MessageCardViewProperties.IS_INCOGNITO)) continue;
-            model.set(
-                    MessageCardViewProperties.IS_INCOGNITO,
-                    mProfileSupplier.get().isOffTheRecord());
-            model.set(TabListModel.CardProperties.CARD_ALPHA, 1F);
-        }
-
-        return new ArrayList<>(mShownMessageItems.values());
+        PropertyModel model = message.model;
+        maybeSetCardIncognitoStatus(model);
+        return message;
     }
 
-    @Nullable Message getNextMessageItemForType(@MessageService.MessageType int messageType) {
-        if (!mShownMessageItems.containsKey(messageType)) {
-            if (!mMessageItems.containsKey(messageType)) return null;
+    /**
+     * @param messageType The message type associated with the message.
+     * @param identifier The identifier associated with the message.
+     * @return Whether the given message is shown.
+     */
+    boolean isMessageShown(T messageType, int identifier) {
+        MessageService<T> service = mMessageServices.get(messageType);
+        if (service == null) return false;
+        return service.isMessageShown(identifier);
+    }
 
-            List<Message> messages = mMessageItems.get(messageType);
+    // MessageObserver implementations.
+    @Override
+    public void messageReady(T type, MessageModelFactory<T> factory) {
+        MessageService<T> service = mMessageServices.get(type);
+        if (service == null) return;
 
-            assert messages.size() > 0;
-            mShownMessageItems.put(messageType, messages.remove(0));
+        PropertyModel model = factory.build(mContext, this::invalidateShownMessage);
+        maybeSetCardIncognitoStatus(model);
+        service.addMessage(new Message<>(type, model));
+    }
 
-            if (messages.size() == 0) mMessageItems.remove(messageType);
-        }
+    @Override
+    public void messageInvalidate(T type) {
+        MessageService<T> service = mMessageServices.get(type);
+        if (service == null) return;
 
-        Message message = mShownMessageItems.get(messageType);
-        PropertyModel model = message.model;
+        service.invalidateMessages();
+        invalidateShownMessage(type);
+    }
+
+    @VisibleForTesting
+    void invalidateShownMessage(T type) {
+        MessageService<T> service = mMessageServices.get(type);
+        if (service == null) return;
+
+        service.invalidateShownMessage();
+        mServiceDismissActionProvider.dismiss(type);
+    }
+
+    /**
+     * Add a message service to the mediator.
+     *
+     * @param service The message service to add.
+     */
+    public void addMessageService(MessageService<T> service) {
+        mMessageServices.put(service.getMessageType(), service);
+    }
+
+    /**
+     * Remove a message service from the mediator.
+     *
+     * @param service The message service to remove.
+     */
+    public void removeMessageService(MessageService<T> service) {
+        mMessageServices.remove(service.getMessageType());
+    }
+
+    /** Returns a list of the registered message services. */
+    public List<MessageService<T>> getMessageServices() {
+        return new ArrayList<>(mMessageServices.values());
+    }
+
+    @VisibleForTesting
+    Map<T, MessageService<T>> getMessageServicesMap() {
+        return mMessageServices;
+    }
+
+    private void maybeSetCardIncognitoStatus(PropertyModel model) {
         if (model.containsKey(MessageCardViewProperties.IS_INCOGNITO)) {
             model.set(
                     MessageCardViewProperties.IS_INCOGNITO,
                     mProfileSupplier.get().isOffTheRecord());
         }
-        return message;
-    }
-
-    boolean isMessageShown(@MessageService.MessageType int messageType, int identifier) {
-        if (!mShownMessageItems.containsKey(messageType)) return false;
-        return mShownMessageItems
-                        .get(messageType)
-                        .model
-                        .get(MessageCardViewProperties.MESSAGE_IDENTIFIER)
-                == identifier;
-    }
-
-    private PropertyModel buildModel(int messageType, MessageService.MessageData data) {
-        switch (messageType) {
-            case IPH:
-                assert data instanceof IphMessageService.IphMessageData;
-                return IphMessageCardViewModel.create(
-                        mContext,
-                        this::invalidateShownMessage,
-                        (IphMessageService.IphMessageData) data);
-            case PRICE_MESSAGE:
-                assert data instanceof PriceMessageService.PriceMessageData;
-                return PriceMessageCardViewModel.create(
-                        mContext,
-                        this::invalidateShownMessage,
-                        (PriceMessageService.PriceMessageData) data,
-                        PriceDropNotificationManagerFactory.create(mProfileSupplier.get()));
-            case INCOGNITO_REAUTH_PROMO_MESSAGE:
-                assert data
-                        instanceof IncognitoReauthPromoMessageService.IncognitoReauthMessageData;
-                return IncognitoReauthPromoViewModel.create(
-                        mContext,
-                        this::invalidateShownMessage,
-                        (IncognitoReauthPromoMessageService.IncognitoReauthMessageData) data);
-            case ARCHIVED_TABS_MESSAGE:
-                assert data instanceof ArchivedTabsMessageService.ArchivedTabsMessageProvider;
-                return ((ArchivedTabsMessageService.ArchivedTabsMessageProvider) data).model;
-            case TAB_GROUP_SUGGESTION_MESSAGE:
-                assert data
-                        instanceof TabGroupSuggestionMessageService.TabGroupSuggestionMessageData;
-                return TabGroupSuggestionMessageViewModel.create(
-                        (TabGroupSuggestionMessageService.TabGroupSuggestionMessageData) data);
-            default:
-                return new PropertyModel.Builder(MessageCardViewProperties.ALL_KEYS)
-                        .with(MessageCardViewProperties.IS_INCOGNITO, false)
-                        .build();
-        }
-    }
-
-    // MessageObserver implementations.
-
-    @Override
-    public void messageReady(
-            @MessageService.MessageType int type, MessageService.MessageData data) {
-        assert !mShownMessageItems.containsKey(type);
-
-        Message message = new Message(type, buildModel(type, data));
-        if (mMessageItems.containsKey(type)) {
-            mMessageItems.get(type).add(message);
-        } else {
-            mMessageItems.put(type, new ArrayList<>(Arrays.asList(message)));
-        }
-    }
-
-    @Override
-    public void messageInvalidate(@MessageService.MessageType int type) {
-        if (mMessageItems.containsKey(type)) {
-            mMessageItems.remove(type);
-        }
-        if (mShownMessageItems.containsKey(type)) {
-            invalidateShownMessage(type);
-        }
-    }
-
-    @VisibleForTesting
-    void invalidateShownMessage(@MessageService.MessageType int type) {
-        mShownMessageItems.remove(type);
-        mUiDismissActionProvider.dismiss(type);
-    }
-
-    Map<Integer, List<Message>> getReadyMessageItemsForTesting() {
-        return mMessageItems;
-    }
-
-    Map<Integer, Message> getShownMessageItemsForTesting() {
-        return mShownMessageItems;
     }
 }

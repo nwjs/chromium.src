@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="af">
 <translation id="1001534784610492198">Die installeerderargief is korrup of ongeldig. Laai Google Chrome asseblief weer af.</translation>
+<translation id="1006034097353797313">Gaan voort waar jy opgehou het: Chrome stel elke keer as jy herbegin, jou oortjies terug. Om dit af te skakel, gaan na</translation>
 <translation id="1018937009655463387">Om jou venster te deel, moet jy skermopname vir Chrome in Stelselinstellings toelaat.</translation>
 <translation id="1026101648481255140">Hervat installering</translation>
 <translation id="102763973188675173">Pasmaak en beheer Google Chrome. Opdatering is beskikbaar.</translation>
@@ -20,6 +21,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="1152920704813762236">Meer oor ChromeOS</translation>
 <translation id="1154147086299354128">&amp;Maak in Chrome oop</translation>
 <translation id="1157985233335035034">Onlangse tale</translation>
+<translation id="1158134713295836892">Gemini in Chrome</translation>
 <translation id="1184145431117212167">Installering het misluk omdat jou weergawe van Windows nie gesteun word nie.</translation>
 <translation id="1194807384646768652">Chrome het hierdie aflaai geblokkeer omdat die lêertipe nie algemeen afgelaai word nie en dit gevaarlik kan wees</translation>
 <translation id="1203500561924088507">Dankie dat jy geïnstalleer het. Jy moet jou blaaier herbegin voordat jy <ph name="BUNDLE_NAME" /> gebruik.</translation>
@@ -69,6 +71,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="1821644463306970002">{NUM_TABS,plural, =1{Chrome beveel aan dat jy die oortjie wat jou blaaier stadig maak, onderbreek}other{Chrome beveel aan dat jy die oortjies wat jou blaaier stadig maak, onderbreek}}</translation>
 <translation id="1832046143430087831">Maak werwe vinniger met Chrome se V8-enjin, maar maak Chrome effens minder bestand teen aanvalle. Hierdie instelling is af.</translation>
 <translation id="1838374766361614909">Vee soektog uit</translation>
+<translation id="1849248141818021764">Net iemand met jou wagfrase kan jou geënkripteerde data lees. Die wagfrase word nie na Google toe gestuur of deur Google geberg nie. Jy sal <ph name="BEGIN_LINK" />die Chrome-data in jou rekening moet uitvee<ph name="END_LINK" /> indien jy jou wagfrase vergeet of hierdie instelling wil verander.</translation>
 <translation id="1860536484129686729">Chrome het toestemming nodig om toegang te kry tot jou kamera vir hierdie werf</translation>
 <translation id="1873233029667955273">Google Chrome is nie jou verstekblaaier nie</translation>
 <translation id="1874309113135274312">Google Chrome Beta (mDNS-In)</translation>
@@ -82,6 +85,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="2018879682492276940">Kan nie installeer nie. Probeer weer.</translation>
 <translation id="2024959665595762054">Verifieer dis jy om Chrome-data in jou Google-rekening te gebruik en te stoor</translation>
 <translation id="2034233344106846793">Chrome gradeer onveilige verbindings outomaties op na HTTPS, wanneer moontlik</translation>
+<translation id="2039417478970545937">Instellings.</translation>
 <translation id="207902854391093810">Wanneer proeflopies aan is, stel advertensiemeting werwe wat jy besoek in staat om inligting van Chrome af te versoek wat die werf help om die werkverrigting van hul advertensies te meet. Advertensiemeting beperk oorkruiswerfnasporing deur so min inligting moontlik tussen werwe oor te dra.</translation>
 <translation id="2091012649849228750">Jy het Windows 10 of nuwer nodig om in die toekoms Google Chrome-opdaterings te kry. Hierdie rekenaar gebruik Windows 8.</translation>
 <translation id="2094648590148273905">Chrome OS Flex-bepalings</translation>
@@ -105,9 +109,11 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="2199691482078155239">Chrome gee jou meer beheer oor die advertensies wat jy sien en beperk wat werwe oor jou kan uitvind wanneer hulle vir jou gepersonaliseerde advertensies wys</translation>
 <translation id="2216543877350048334">Meld af om jou Google-rekening uit Chrome te verwyder</translation>
 <translation id="2236949375853147973">My aktiwiteit</translation>
+<translation id="22791603784558743">Maak Gemini in Chrome Dev toe</translation>
 <translation id="2290014774651636340">Google API-sleutels ontbreek. Sommige funksies van Google Chrome sal gedeaktiveer word.</translation>
 <translation id="2290095356545025170">Is jy seker jy wil Google Chrome deïnstalleer?</translation>
 <translation id="2301513536169703857">Meld aan by Chrome om jou wagwoorde, boekmerke en meer op al jou toestelle te kry.</translation>
+<translation id="2307973900865360088">Hou gedok</translation>
 <translation id="2309047409763057870">Dit is 'n sekondêre installering van Chrome en kan nie jou verstekblaaier gemaak word nie.</translation>
 <translation id="2345992953227471816">Chrome het bevind dat hierdie uitbreidings wanware bevat:</translation>
 <translation id="2348335408836342058">Chrome het toestemming nodig om toegang te kry tot jou kamera en mikrofoon vir hierdie werf</translation>
@@ -127,7 +133,6 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="2569974318947988067">Chrome sal probeer om navigasies na HTTPS op te gradeer</translation>
 <translation id="2571392474191184472">Jou organisasie bestuur Chrome</translation>
 <translation id="2574930892358684005"><ph name="EXISTING_USER" /> is reeds by hierdie Chrome-profiel aangemeld. Chrome kan jou eie profiel vir jou skep om jou blaaidata apart te hou.</translation>
-<translation id="2579190314336775785">Wagwoorde kan net buite Chrome uitgevee word</translation>
 <translation id="2580411288591421699">Kan nie dieselfde Google Chrome-weergawe installeer as wat tans gebruik word nie. Maak Google Chrome asseblief toe en probeer weer.</translation>
 <translation id="2586406160782125153">Dit sal jou blaaierdata op hierdie toestel uitvee. Meld as <ph name="USER_EMAIL" /> by Chrome aan om jou data later op te haal.</translation>
 <translation id="259935314519650377">Kon nie die afgelaaide installeerder kas nie. Fout: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
@@ -138,6 +143,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="2665296953892887393">Help om Google Chrome beter te maak deur omvalverslae en <ph name="UMA_LINK" /> na Google te stuur</translation>
 <translation id="2668094785979141847">Klik om uit Google Lens te gaan</translation>
 <translation id="2681444469812712297">Maak <ph name="URL" /> in 'n nuwe oortjie in Google Chrome oop.</translation>
+<translation id="2699790011615497488">Maak Gemini in Chrome Beta oop</translation>
 <translation id="2712141162840347885">Kies enigiets om met Google Lens te soek of druk Escape om uit Google Lens te gaan</translation>
 <translation id="2738871930057338499">Kon nie aan die internet koppel nie. HTTP 403 verbode. Gaan asseblief jou proxy-opstelling na.</translation>
 <translation id="2742320827292110288">Waarskuwing: Google Chrome kan nie keer dat uitbreidings jou blaaigeskiedenis opneem nie. Ontkies hierdie opsie om hierdie uitbreiding in Incognitomodus te deaktiveer.</translation>
@@ -172,6 +178,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="3003694935412297923">Alle take</translation>
 <translation id="3018957014024118866">Vee ook data uit Chrome uit (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">Herbegin om Chrome OS Flex op te dateer</translation>
+<translation id="3037517125981011456">Wys porboodskappe om by Chrome aan te meld.</translation>
 <translation id="3037838751736561277">Google Chrome is in agtergrondmodus.</translation>
 <translation id="3038232873781883849">Wag tans om te installeer...</translation>
 <translation id="3045032126857188731">Vertaalde taal: <ph name="LANGUAGE" /></translation>
@@ -179,6 +186,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="306179102415443347">Gebruik jou kortpad om vinnig na Google Wagwoordbestuurder toe te gaan. Jy kan jou kortpad na jou rekenaar se tuisskerm of applanseerder toe skuif.</translation>
 <translation id="3065168410429928842">Chrome-oortjie</translation>
 <translation id="3080151273017101988">Hou aan om agtergrondprogramme te laat loop wanneer Google Chrome toe is</translation>
+<translation id="308397506772922478"><ph name="BEGIN_LINK" />Vee die Chrome-data in jou rekening uit<ph name="END_LINK" /> indien jy jou wagfrase vergeet het of hierdie instelling wil verander.</translation>
 <translation id="3100998948628680988">Gee jou Chrome-profiel 'n naam</translation>
 <translation id="310459126943037700">Kon nie taak(take) beëindig nie.</translation>
 <translation id="3112458742631356345">Chrome het hierdie aflaai geblokkeer omdat die lêer nie algemeen afgelaai word nie en dit gevaarlik kan wees</translation>
@@ -340,6 +348,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="5114340746415930644">Voer jou wagfrase in om Chrome-data in jou rekening, <ph name="USER_EMAIL" />, te gebruik en te stoor</translation>
 <translation id="5120334927898581447">Meld aan by Chrome wanneer jy by ander Google-dienste aanmeld</translation>
 <translation id="5126049312684316860">Chrome laai selfs nog meer bladsye wat jy moontlik sal besoek vooraf, sodat hulle vinniger laai wanneer jy hulle wel besoek</translation>
+<translation id="5127558335897923940">Hou Chrome in jou dok om enige tyd vinnig daarby uit te kom</translation>
 <translation id="5132929315877954718">Ontdek wonderlike programme, speletjies, uitbreidings en temas vir Google Chrome.</translation>
 <translation id="5139423532931106058">Pasmaak jou Chrome-profiel</translation>
 <translation id="5163087008893166964">Welkom by Chrome; nuwe blaaiervenster is oopgemaak</translation>
@@ -348,6 +357,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 
 Sommige kenmerke kan dalk onbeskikbaar wees. Spesifiseer 'n ander profielgids of gebruik 'n nuwer weergawe van Chrome.</translation>
 <translation id="5174969993834422967">Jy blokkeer gewoonlik kennisgewings. Klik die kennisgewing-ikoon in die regter hoek van jou liggingbalk sodat dié werf jou in kennis kan stel.</translation>
+<translation id="5174983315706567306">Te min skyfspasie.</translation>
 <translation id="5201744974236816379">Chrome-opdatering</translation>
 <translation id="521447420733633466">As jy 'n toestel deel, kan vriende en familie apart blaai en Chrome opstel nes hulle dit wil hê</translation>
 <translation id="5234764350956374838">Verwerp</translation>
@@ -396,6 +406,7 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="58431560289969279">Terwyl jy aangemeld is, kan jy jou wagwoorde en meer van jou Google-rekening in Chrome gebruik. Jy kan dit enige tyd in instellings verander.</translation>
 <translation id="5858486459377137936">Jy sal by die meeste werwe afgemeld word wanneer jy alle Chrome-vensters toemaak, behalwe jou Google-rekening as jy by Chrome aangemeld is. Om werwe toe te laat om jou te onthou, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="586971344380992563"><ph name="BEGIN_LINK" />Chrome waarsku jou<ph name="END_LINK" /> oor onveilige werwe en aflaaie</translation>
+<translation id="5894164573378901688">Meld met ’n ander Google-rekening aan om Gemini in Chrome te gebruik</translation>
 <translation id="5895138241574237353">Herbegin</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – Netwerkaanmelding</translation>
 <translation id="5924017743176219022">Koppel tans aan die internet …</translation>
@@ -430,6 +441,7 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> – Google Chrome Beta</translation>
 <translation id="6180522807229584611">Hierdie oortjie gebruik ekstra hulpbronne. Laat Chrome dit onaktief maak om jou werkverrigting te verbeter.</translation>
 <translation id="6182736845697986886">Installering het misluk as gevolg van ’n interne opdateringbedienerfout.</translation>
+<translation id="6192058120268468905">Jou rekening in Chrome</translation>
 <translation id="6235018212288296708">Inkomende reël vir Google Chrome om mDNS-verkeer toe te laat.</translation>
 <translation id="624230925347970731">Chrome gaan binnekort toemaak</translation>
 <translation id="6247557882553405851">Google Wagwoordbestuurder</translation>
@@ -443,6 +455,7 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="6321592572353357376">Die uitbreiding “<ph name="EXTENSION_NAME" />” wil hê dat jy by Chrome moet aanmeld</translation>
 <translation id="6326175484149238433">Verwyder van Chrome af</translation>
 <translation id="6327105987658262776">Geen opdatering is beskikbaar nie.</translation>
+<translation id="6334815226785304306">Maak Google Chrome die verstekblaaier en speld dit aan die taakbalk vas</translation>
 <translation id="6360449101159168105">Geheue is beskikbaar gemaak terwyl hierdie oortjie onaktief was om Chrome vinnig te hou. Jy kan kies om hierdie werf altyd daarvan uit te sluit om onaktief te wees.</translation>
 <translation id="6388799252195623474">help my hiermee</translation>
 <translation id="6412673304250309937">Vergelyk URL'e met 'n lys onveilige werwe wat in Chrome geberg word. As 'n werf probeer om jou wagwoord te steel, of wanneer jy 'n skadelike lêer aflaai, sal Chrome dalk ook URL'e, insluitend stukkies bladsyinhoud, na Veiligblaai toe stuur.</translation>
@@ -457,7 +470,10 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="6506909944137591434">Chrome het kameratoestemming nodig om 'n 3D-kaart van jou omgewing te skep</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> – Google Chrome Dev</translation>
 <translation id="6520670145826811516">Jy moet vir Chrome toegang in <ph name="BEGIN_LINK" />stelselinstellings<ph name="END_LINK" /> gee om jou ligging te gebruik</translation>
+<translation id="6532945796722480006">Maak Gemini in Chrome Kanarie oop</translation>
+<translation id="6585124893636629274">Maak Gemini in Chrome toe</translation>
 <translation id="659498884637196217">In Google Wagwoordbestuurder op hierdie toestel</translation>
+<translation id="6631524303639368205">Gaan voort waar jy opgehou het: Chrome het jou oortjies van jou laaste sessie teruggestel. Jy kan dit afskakel in</translation>
 <translation id="6632473616050862500">Chrome OS Flex word moontlik gemaak deur bykomende <ph name="BEGIN_LINK_CROS_OSS" />oopbronsagteware<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="6634299872736643004">Veranderinge aan hierdie instelling sal toegepas word sodra Chrome herbegin.</translation>
 <translation id="6660596345553328257">Meld by Chrome aan?</translation>
@@ -551,6 +567,7 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="7658239707568436148">Kanselleer</translation>
 <translation id="7670287553302121848">Chrome-rekening vereis herstawing</translation>
 <translation id="769538538642757151">Chrome sal jou laat weet as jy enigiets moet hersien</translation>
+<translation id="769906121737764913">Maak Gemini in Chrome Beta toe</translation>
 <translation id="7716950018788545737">Taak(take) het geëindig.</translation>
 <translation id="77283119132245232">Verskaf stelselnasporingdienste vir <ph name="BROWSER_NAME" />. As hierdie diens gedeaktiveer is, sal prestasiespore wat deur die blaaier geskep word, nie stelselwye gevalle soos kontekswisseling en gespreksdraadgevalle wat gereed is, insluit nie.</translation>
 <translation id="7736869414036750079">Jou organisasie vereis dat jy by Chrome aanmeld</translation>
@@ -561,14 +578,17 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="778331955594035129">Chrome het liggingtoestemming vir hierdie werf nodig</translation>
 <translation id="7787950393032327779">Dit lyk of die profiel tans deur 'n ander Google Chrome-proses (<ph name="PROCESS_ID" />) op 'n ander rekenaar (<ph name="HOST_NAME" />) gebruik word. Chrome het die profiel gesluit sodat dit nie gekorrupteer word nie. As jy seker is geen ander prosesse gebruik hierdie profiel nie, kan jy die profiel ontsluit en Chrome herbegin.</translation>
 <translation id="7801699035218095297">Google Chrome probeer tans om wagwoorde te kopieer. Tik jou Windows-wagwoord in om dit toe te laat.</translation>
+<translation id="7804364787702057554">Jou rekening in Chrome</translation>
 <translation id="7808348361785373670">Verwyder uit Chrome …</translation>
 <translation id="7825851276765848807">Installering het weens 'n ongespesifiseerde fout misluk. Laai Google Chrome asseblief weer af.</translation>
 <translation id="7827099906024714326">Chrome moet verifieer dat dit jy is voordat sommige data in jou Google-rekening gestoor kan word en op al jou toestelle gebruik kan word. As jy nou afmeld, sal hierdie data uitgevee word.</translation>
 <translation id="7845233973568007926">Dankie dat jy geïnstalleer het. Jy moet jou rekenaar herbegin voordat jy <ph name="BUNDLE_NAME" /> gebruik.</translation>
+<translation id="7849037457735762883">Gaan voort waar jy opgehou het: Chrome kan elke keer as jy herbegin, jou oortjies terugstel. Om dit aan te skakel, gaan na</translation>
 <translation id="7872446069773932638">Laai tans af … <ph name="SECONDS" /> sekonde(s) oor.</translation>
 <translation id="7886087451482920026">Kies teks met Google Lens</translation>
 <translation id="7890208801193284374">As jy 'n rekenaar deel, kan vriende en familie apart blaai en Chrome opstel nes hulle dit wil hê.</translation>
 <translation id="7896673875602241923">Iemand het voorheen op hierdie rekenaar as <ph name="ACCOUNT_EMAIL_LAST" /> by Chrome aangemeld. Skep asseblief 'n nuwe Chrome-gebruiker om jou inligting apart te hou.</translation>
+<translation id="7904985524660297937">Probeer Gemini in Google Chrome</translation>
 <translation id="7917876797003313048">Jy kan jou aangemelde Google-rekeninge bestuur. Jou Google-rekeninge word gebruik vir Chrome-blaaier, Play Winkel, Gmail en meer. As jy 'n rekening vir iemand anders, soos 'n gesinslid, wil byvoeg, kan jy 'n nuwe persoon eerder by jou <ph name="DEVICE_TYPE" /> voeg. <ph name="LINK_BEGIN" />Kom meer te wete<ph name="LINK_END" /></translation>
 <translation id="7936702483636872823">Chrome het hierdie aflaai geblokkeer omdat die lêer misleidend is en onverwagte veranderinge aan jou toestel kan maak</translation>
 <translation id="7951272445806340501">Chrome OS Flex moet herbegin word om die opdatering toe te pas.</translation>
@@ -587,6 +607,7 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="8077579734294125741">Ander Chrome-profiele</translation>
 <translation id="8086881907087796310">Installering het misluk omdat jou rekenaar nie aan die minimum hardewarevereistes voldoen nie.</translation>
 <translation id="8113883687556086139">Verifieer dat dit jy is om Chrome-data in jou rekening, <ph name="ACCOUNT_EMAIL" />, te gebruik en te stoor</translation>
+<translation id="8115695070094288807">Maak tans Chrome joune …</translation>
 <translation id="8118331347066725040">Stuur terugvoer vir soektog met Lens</translation>
 <translation id="8129812357326543296">Meer oor Google Chrome</translation>
 <translation id="813913629614996137">Inisialiseer tans …</translation>
@@ -620,6 +641,7 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="8533056045953418157">Stel Google Chrome as jou verstek-PDF-bekyker</translation>
 <translation id="8555465886620020932">Diensfout: <ph name="SERVICE_ERROR" />.</translation>
 <translation id="856656450041460113">Deursoek lys tale</translation>
+<translation id="8575047640889685742">Gebruik jou <ph name="BEGIN_LINK" />eie wagfrase<ph name="END_LINK" /> om al die Chrome-data in jou Google-rekening te enkripteer. Betaalmetodes en adresse van Google Pay af sal nie geënkripteer word nie. Blaaigeskiedenis van Chrome af sal nie sinkroniseer nie.</translation>
 <translation id="8601359445272098721">Nuut! Jy kan sowel teks as prente op jou skerm vertaal deur die “vertaal skerm”-knoppie te kies</translation>
 <translation id="8614913330719544658">Google Chrome reageer nie. Herbegin nou?</translation>
 <translation id="861702415419836452">Chrome moet toestemming hê om toegang te kry tot jou kamera om 'n 3D-kaart van jou omgewing te skep</translation>
@@ -627,6 +649,7 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="8637932705841171563">Om jou venster te deel, moet jy skermopname vir Chrome in Stelselinstellings toelaat.</translation>
 <translation id="8641606876632989680">Chrome sal jou in kennis stel wanneer jy met 'n gekompromitteerde wagwoord aanmeld</translation>
 <translation id="8649026945479135076">Dit is algemeen vir werwe wat jy besoek om dinge waarin jy belangstel te onthou en jou ervaring te personaliseer. Werwe kan ook inligting oor jou belangstellings in Chrome stoor.</translation>
+<translation id="8656634243791296665">Maak Gemini in Chrome Dev oop</translation>
 <translation id="8669527147644353129">Google Chrome-helper</translation>
 <translation id="8679801911857917785">Dit beheer ook watter bladsy gewys word wanneer jy Chrome begin.</translation>
 <translation id="8712637175834984815">Het dit</translation>
@@ -648,17 +671,20 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="8843516219908676469">Chrome verstaan vorms beter en kan hulle vir jou vinniger outovul</translation>
 <translation id="8851180723659088381">{NUM_EXTENSIONS,plural, =1{Chrome beveel aan dat jy dit verwyder}other{Chrome beveel aan dat jy hulle verwyder.}}</translation>
 <translation id="8862326446509486874">Jy het nie die gepaste regte vir stelselvlak-installering nie. Probeer om die installeerder weer te laat loop as Administrateur.</translation>
+<translation id="8865415417596392024">Chrome-data in jou rekening</translation>
 <translation id="8883862939660515976">Vra Google Lens oor hierdie prent</translation>
 <translation id="8914504000324227558">Herbegin Chrome</translation>
 <translation id="8922193594870374009">Meld op albei toestelle by Chrome aan om 'n nommer van <ph name="ORIGIN" /> af na jou Android-foon te stuur.</translation>
 <translation id="8948460679427074738">Hierdie uitbreiding het nie privaatheidpraktyke gepubliseer nie, soos hoe dit data insamel en gebruik. Chrome beveel aan dat jy dit verwyder.</translation>
 <translation id="8958307504142971576">Jy het nou meer kenmerke beskikbaar in Chrome</translation>
 <translation id="8989968390305463310">Jou blaaigeskiedenis beïnvloed die advertensies wat jy sien en die belangstellings soos hieronder geskat. Chrome vee outomaties elke maand jou belangstellings op ’n rollende basis uit om jou privaatheid te beskerm. Belangstellings kan herlaai, tensy jy hulle verwyder.</translation>
+<translation id="8991530961471831170">Maak Gemini in Chrome oop</translation>
 <translation id="8992769679401294069">Jou data is met jou wagfrase geënkripteer. Voer dit in om Chrome-data in jou Google-rekening te gebruik en te stoor.</translation>
 <translation id="8999117580775242387">Chrome sal ’n onveilige verbinding gebruik sonder om jou te waarsku wanneer HTTPS nie beskikbaar is nie</translation>
 <translation id="8999208279178790196">{0,plural, =0{'n Chrome-opdatering is beskikbaar}=1{'n Chrome-opdatering is beskikbaar}other{'n Chrome-opdatering is al # dae lank beskikbaar}}</translation>
 <translation id="9014771989710951291">Veelvuldige organisasies bestuur Chrome</translation>
 <translation id="9024318700713112071">Stel Chrome as jou verstek.</translation>
+<translation id="9066987883552592250">Maak Gemini in Chrome Kanarie toe</translation>
 <translation id="9090566250983691233">Vind uit hoekom Chrome sommige lêers blokkeer</translation>
 <translation id="9106236359747881194">Kies teks om te soek</translation>
 <translation id="911206726377975832">Vee ook jou blaaidata uit?</translation>

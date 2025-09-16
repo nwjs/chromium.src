@@ -17,6 +17,7 @@
 #include "base/types/expected.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/actor/shared_types.h"
 #include "chrome/browser/actor/tools/attempt_login_tool_request.h"
 #include "chrome/browser/actor/tools/click_tool_request.h"
@@ -25,6 +26,7 @@
 #include "chrome/browser/actor/tools/move_mouse_tool_request.h"
 #include "chrome/browser/actor/tools/navigate_tool_request.h"
 #include "chrome/browser/actor/tools/script_tool_request.h"
+#include "chrome/browser/actor/tools/scroll_to_tool_request.h"
 #include "chrome/browser/actor/tools/scroll_tool_request.h"
 #include "chrome/browser/actor/tools/select_tool_request.h"
 #include "chrome/browser/actor/tools/tab_management_tool_request.h"
@@ -64,6 +66,7 @@ using apc::MoveMouseAction;
 using apc::NavigateAction;
 using apc::ScriptToolAction;
 using apc::ScrollAction;
+using apc::ScrollToAction;
 using apc::SelectAction;
 using apc::TypeAction;
 using apc::WaitAction;
@@ -285,6 +288,22 @@ std::unique_ptr<ToolRequest> CreateMoveMouseRequest(
   return std::make_unique<MoveMouseToolRequest>(tab_handle, target.value());
 }
 
+std::unique_ptr<ToolRequest> CreateScrollToRequest(
+    const ScrollToAction& action,
+    TabInterface* deprecated_fallback_tab) {
+  TabHandle tab_handle = GetTabHandle(action, deprecated_fallback_tab);
+  if (!action.has_target() || tab_handle == TabHandle::Null()) {
+    return nullptr;
+  }
+
+  auto target = ToPageTarget(action.target());
+  if (!target.has_value()) {
+    return nullptr;
+  }
+
+  return std::make_unique<ScrollToToolRequest>(tab_handle, target.value());
+}
+
 std::unique_ptr<ToolRequest> CreateDragAndReleaseRequest(
     const DragAndReleaseAction& action,
     TabInterface* deprecated_fallback_tab) {
@@ -444,11 +463,22 @@ std::unique_ptr<ToolRequest> CreateScriptToolRequest(
     return nullptr;
   }
 
+  // TODO(khushalsagar): Remove once the callers are setting up this ID
+  // correctly.
+  std::string document_identifier;
+  if (action.has_document_identifier()) {
+    document_identifier = action.document_identifier().serialized_token();
+  } else {
+    auto* main_rfh = tab_handle.Get()->GetContents()->GetPrimaryMainFrame();
+    document_identifier = DocumentIdentifierUserData::GetDocumentIdentifier(
+                              main_rfh->GetGlobalFrameToken())
+                              .value_or("");
+  }
+
   return std::make_unique<ScriptToolRequest>(
       tab_handle,
       PageTarget(DomNode{.node_id = kRootElementDomNodeId,
-                         .document_identifier =
-                             action.document_identifier().serialized_token()}),
+                         .document_identifier = document_identifier}),
       action.tool_name(), action.input_arguments());
 }
 
@@ -521,6 +551,10 @@ std::unique_ptr<ToolRequest> CreateToolRequest(
       return CreateScriptToolRequest(script_tool_action,
                                      deprecated_fallback_tab);
     }
+    case optimization_guide::proto::Action::kScrollTo: {
+      const ScrollToAction& scroll_to_action = action.scroll_to();
+      return CreateScrollToRequest(scroll_to_action, deprecated_fallback_tab);
+    }
     case optimization_guide::proto::Action::kCreateWindow:
     case optimization_guide::proto::Action::kCloseWindow:
     case optimization_guide::proto::Action::kActivateWindow:
@@ -555,11 +589,10 @@ BuildToolRequest(const optimization_guide::proto::Actions& actions) {
   return requests;
 }
 
-apc::TabObservation ConvertToTabObservation(
-    const page_content_annotations::FetchPageContextResult& fetch_result) {
-  apc::TabObservation tab_observation;
-
-  if (fetch_result.screenshot_result) {
+void FillInTabObservation(
+    const page_content_annotations::FetchPageContextResult& fetch_result,
+    apc::TabObservation& tab_observation) {
+  if (fetch_result.screenshot_result.has_value()) {
     auto& data = fetch_result.screenshot_result->jpeg_data;
     if (data.size() != 0) {
       tab_observation.set_screenshot_mime_type(kMimeTypeJpeg);
@@ -572,20 +605,35 @@ apc::TabObservation ConvertToTabObservation(
     *tab_observation.mutable_annotated_page_content() =
         fetch_result.annotated_page_content_result->proto;
   }
-
-  return tab_observation;
 }
 
 namespace {
 
-void FetchCallback(base::RepeatingClosure barrier,
-                   apc::TabObservation* tab_observation,
-                   ActorKeyedService::TabObservationResult result) {
+void FetchCallback(
+    base::WeakPtr<Profile> profile,
+    TaskId task_id,
+    base::RepeatingClosure barrier,
+    apc::TabObservation* tab_observation,
+    std::vector<actor::ActionResultWithLatencyInfo> action_results,
+    base::TimeTicks start_time,
+    base::TimeTicks fetch_context_time,
+    apc::ActionsResult_LatencyInformation* latency_info,
+    ActorKeyedService::TabObservationResult result) {
+  CHECK(tab_observation);
+  CHECK(latency_info);
   base::ScopedClosureRunner run_barrier_at_return(barrier);
+
+  if (!profile) {
+    return;
+  }
 
   if (!result.has_value()) {
     // TODO(crbug.com/435210098): There should be some way to message failure to
-    // observe.
+    // observe in the returned result.
+    auto* actor_service = actor::ActorKeyedService::Get(profile.get());
+    actor_service->GetJournal().Log(
+        GURL(), task_id, actor::mojom::JournalTrack::kActor, result.error(),
+        absl::StrFormat("tabId[%d]", tab_observation->id()));
     return;
   }
 
@@ -595,25 +643,95 @@ void FetchCallback(base::RepeatingClosure barrier,
   CHECK(fetch_result.screenshot_result.has_value());
   CHECK(fetch_result.annotated_page_content_result.has_value());
 
-  *tab_observation = ConvertToTabObservation(fetch_result);
+  {
+    apc::ActionsResult_LatencyInformation_LatencyStep* latency_step =
+        latency_info->add_latency_steps();
+    latency_step->mutable_annotated_page_content()->set_id(
+        tab_observation->id());
+    latency_step->set_latency_start_ms(
+        (fetch_context_time - start_time).InMilliseconds());
+    latency_step->set_latency_stop_ms(
+        (fetch_result.annotated_page_content_result.value().end_time -
+         start_time)
+            .InMilliseconds());
+  }
+
+  {
+    apc::ActionsResult_LatencyInformation_LatencyStep* latency_step =
+        latency_info->add_latency_steps();
+    latency_step->mutable_screenshot()->set_id(tab_observation->id());
+    latency_step->set_latency_start_ms(
+        (fetch_context_time - start_time).InMilliseconds());
+    latency_step->set_latency_stop_ms(
+        (fetch_result.screenshot_result.value().end_time - start_time)
+            .InMilliseconds());
+  }
+
+  // TODO(khushalsagar): Remove this once consumers use ActionResults for script
+  // tool results.
+  CopyScriptToolResults(*fetch_result.annotated_page_content_result->proto
+                             .mutable_main_frame_data(),
+                        action_results);
+
+  FillInTabObservation(fetch_result, *tab_observation);
 }
 
 }  // namespace
 
 void BuildActionsResultWithObservations(
     content::BrowserContext& browser_context,
+    base::TimeTicks actions_start_time,
     mojom::ActionResultCode result_code,
     std::optional<size_t> index_of_failed_action,
+    std::vector<actor::ActionResultWithLatencyInfo> action_results,
     const ActorTask& task,
-    base::OnceCallback<void(std::unique_ptr<apc::ActionsResult>)> callback) {
+    base::OnceCallback<
+        void(std::unique_ptr<apc::ActionsResult>,
+             std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry>)>
+        callback) {
+  auto* profile = Profile::FromBrowserContext(&browser_context);
+  auto* actor_service = actor::ActorKeyedService::Get(profile);
+  CHECK(actor_service);
+
+  std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry> journal_entry =
+      actor_service->GetJournal().CreatePendingAsyncEntry(
+          GURL(), task.id(), actor::mojom::JournalTrack::kActor,
+          "BuildActionsResultWithObservations", "");
+
   auto response = std::make_unique<apc::ActionsResult>();
 
   response->set_action_result(static_cast<int32_t>(result_code));
   if (index_of_failed_action) {
     response->set_index_of_failed_action(*index_of_failed_action);
   }
+  CopyScriptToolResults(*response, action_results);
 
-  auto* profile = Profile::FromBrowserContext(&browser_context);
+  apc::ActionsResult_LatencyInformation* latency_info =
+      response->mutable_latency_information();
+  for (size_t i = 0; i < action_results.size(); ++i) {
+    auto& action_result = action_results.at(i);
+    CHECK(action_result.result->execution_end_time);
+    {
+      apc::ActionsResult_LatencyInformation_LatencyStep* latency_step =
+          latency_info->add_latency_steps();
+      latency_step->mutable_action()->set_action_index(i);
+      latency_step->set_latency_start_ms(
+          (action_result.start_time - actions_start_time).InMilliseconds());
+      latency_step->set_latency_stop_ms(
+          (*action_result.result->execution_end_time - actions_start_time)
+              .InMilliseconds());
+    }
+    {
+      apc::ActionsResult_LatencyInformation_LatencyStep* latency_step =
+          latency_info->add_latency_steps();
+      latency_step->mutable_page_stabilization()->set_action_index(i);
+      latency_step->set_latency_start_ms(
+          (*action_result.result->execution_end_time - actions_start_time)
+              .InMilliseconds());
+      latency_step->set_latency_stop_ms(
+          (action_result.end_time - actions_start_time).InMilliseconds());
+    }
+  }
 
   std::vector<Browser*> browsers = chrome::FindAllTabbedBrowsersWithProfile(
       profile, /*ignore_closing_browsers=*/true);
@@ -648,6 +766,10 @@ void BuildActionsResultWithObservations(
       // now we leave the observation empty.
       apc::TabObservation* tab_observation = response->add_tabs();
       tab_observation->set_id(handle.raw_value());
+      actor_service->GetJournal().Log(
+          GURL(), task.id(), actor::mojom::JournalTrack::kActor,
+          "TabObservationFailed",
+          absl::StrFormat("TabWentAway tabId[%d]", handle.raw_value()));
     } else {
       tabs_to_fetch.insert(tab);
     }
@@ -656,20 +778,21 @@ void BuildActionsResultWithObservations(
   apc::ActionsResult* raw_response = response.get();
   base::RepeatingClosure barrier = base::BarrierClosure(
       tabs_to_fetch.size(),
-      base::BindOnce(std::move(callback), std::move(response)));
+      base::BindOnce(std::move(callback), std::move(response),
+                     std::move(journal_entry)));
 
-  auto* actor_service = actor::ActorKeyedService::Get(profile);
-  CHECK(actor_service);
-
-  for (const tabs::TabInterface* tab : tabs_to_fetch) {
+  for (tabs::TabInterface* tab : tabs_to_fetch) {
     apc::TabObservation* tab_observation = raw_response->add_tabs();
     tab_observation->set_id(tab->GetHandle().raw_value());
 
     // tab_observation can be Unretained because the underlying APC is owned by
     // the barrier which is ref-counted.
     actor_service->RequestTabObservation(
-        *tab, base::BindOnce(FetchCallback, barrier,
-                             base::Unretained(tab_observation)));
+        *tab, task.id(),
+        base::BindOnce(FetchCallback, profile->GetWeakPtr(), task.id(), barrier,
+                       base::Unretained(tab_observation), action_results,
+                       actions_start_time, base::TimeTicks::Now(),
+                       base::Unretained(latency_info)));
   }
 }
 

@@ -80,7 +80,7 @@
 #include "components/lens/lens_features.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/pdf/browser/pdf_document_helper.h"
-#include "components/plus_addresses/features.h"
+#include "components/plus_addresses/core/common/features.h"
 #include "components/plus_addresses/grit/plus_addresses_strings.h"
 #include "components/safe_browsing/core/common/safebrowsing_referral_methods.h"
 #include "components/saved_tab_groups/public/features.h"
@@ -570,27 +570,6 @@ void MaybeRegisterChromeFeaturePromos(
           .SetMetadata(119, "mickeyburks@chromium.org",
                        "Triggered after user is updated to "
                        "the new Chrome Refresh design.")));
-
-  // kIPHDesktopNewTabPageModulesCustomizeFeature:
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForSnoozePromo(
-          feature_engagement::kIPHDesktopNewTabPageModulesCustomizeFeature,
-          NewTabPageUI::kModulesCustomizeIPHAnchorElement,
-          IDS_NTP_MODULES_CUSTOMIZE_IPH)
-          .SetBubbleArrow(HelpBubbleArrow::kBottomRight)
-          .SetBubbleIcon(kLightbulbOutlineIcon)
-          .SetInAnyContext(true)
-          // This provides backwards-compatibility with legacy conditions used
-          // before feature auto-configuration was enabled.
-          .SetAdditionalConditions(std::move(
-              AdditionalConditions().AddAdditionalCondition(AdditionalCondition{
-                  feature_engagement::events::kDesktopNTPModuleUsed,
-                  AdditionalConditions::Constraint::kAtMost, 0})))
-          // See: crbug.com/1494923
-          .OverrideFocusOnShow(false)
-          .SetMetadata(122, "romanarora@chromium.org",
-                       "Triggered when there is atleast one "
-                       "new module on the NTP page.")));
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   // kIPHExtensionsMenuFeature:

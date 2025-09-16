@@ -27,9 +27,21 @@ std::string GetSelectElementCurrentValue(content::WebContents* web_contents,
       .ExtractString();
 }
 
+class ActorSelectToolBrowserTest : public ActorToolsTest {
+ public:
+  ActorSelectToolBrowserTest() = default;
+  ~ActorSelectToolBrowserTest() override = default;
+
+  void SetUpOnMainThread() override {
+    ActorToolsTest::SetUpOnMainThread();
+    ASSERT_TRUE(embedded_test_server()->Start());
+    ASSERT_TRUE(embedded_https_test_server().Start());
+  }
+};
+
 // Test that the SelectTool can select an ordinary <option> in a <select>
 // element.
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_OptionSelected) {
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest, SelectTool_OptionSelected) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
@@ -43,7 +55,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_OptionSelected) {
   {
     std::unique_ptr<ToolRequest> action =
         MakeSelectRequest(*main_frame(), plain_select_dom_node_id, "beta");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
     ExpectOkResult(result);
   }
@@ -54,7 +66,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_OptionSelected) {
   {
     std::unique_ptr<ToolRequest> action =
         MakeSelectRequest(*main_frame(), plain_select_dom_node_id, "gamma");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
 
     ExpectOkResult(result);
@@ -67,7 +79,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_OptionSelected) {
   {
     std::unique_ptr<ToolRequest> action =
         MakeSelectRequest(*main_frame(), plain_select_dom_node_id, "last");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
 
     ExpectOkResult(result);
@@ -77,11 +89,13 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_OptionSelected) {
             "last");
 }
 
-// Test that attempting to select a value that does not exist in the <option>
-// list fails and does not change the current selection.
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_OffscreenFails) {
+// Test that attempting to select in an offscreen <select> succeeds.
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest, SelectTool_Offscreen) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // Page starts unscrolled.
+  ASSERT_EQ(0, EvalJs(web_contents(), "window.scrollY"));
 
   const std::string offscreen_select_id = "#offscreenSelect";
   int32_t offscreen_select_dom_node_id =
@@ -90,20 +104,22 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_OffscreenFails) {
   const std::string initial_value =
       GetSelectElementCurrentValue(web_contents(), offscreen_select_id);
   ASSERT_EQ(initial_value, "alpha");
+  const std::string new_value = "beta";
 
   std::unique_ptr<ToolRequest> action =
-      MakeSelectRequest(*main_frame(), offscreen_select_dom_node_id, "beta");
-  TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+      MakeSelectRequest(*main_frame(), offscreen_select_dom_node_id, new_value);
+  ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
-  ExpectErrorResult(result, mojom::ActionResultCode::kElementOffscreen);
+  ExpectOkResult(result);
 
+  EXPECT_GT(EvalJs(web_contents(), "window.scrollY"), 0);
   EXPECT_EQ(GetSelectElementCurrentValue(web_contents(), offscreen_select_id),
-            initial_value);
+            new_value);
 }
 
 // Test that the SelectTool causes the change and input events to fire on the
 // <select> element.
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_Events) {
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest, SelectTool_Events) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
@@ -118,7 +134,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_Events) {
   {
     std::unique_ptr<ToolRequest> action =
         MakeSelectRequest(*main_frame(), plain_select_dom_node_id, "beta");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
     ExpectOkResult(result);
     EXPECT_EQ("input,change",
@@ -128,7 +144,8 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_Events) {
 
 // Test that attempting to select a value that does not exist in the <option>
 // list fails and does not change the current selection.
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonExistentValueFails) {
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest,
+                       SelectTool_NonExistentValueFails) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
@@ -142,7 +159,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonExistentValueFails) {
 
   std::unique_ptr<ToolRequest> action = MakeSelectRequest(
       *main_frame(), plain_select_dom_node_id, "nonexistentValue");
-  TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+  ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectErrorResult(result, mojom::ActionResultCode::kSelectNoSuchOption);
 
@@ -152,7 +169,8 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonExistentValueFails) {
 
 // Test that attempting to select a value corresponding to a non-<option>
 // element fails. The select tool should only target valid options.
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonOptionNodeValueFails) {
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest,
+                       SelectTool_NonOptionNodeValueFails) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
@@ -169,7 +187,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonOptionNodeValueFails) {
   {
     std::unique_ptr<ToolRequest> action = MakeSelectRequest(
         *main_frame(), non_options_select_dom_node_id, "beta");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
     ExpectErrorResult(result, mojom::ActionResultCode::kSelectNoSuchOption);
   }
@@ -183,7 +201,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonOptionNodeValueFails) {
   {
     std::unique_ptr<ToolRequest> action = MakeSelectRequest(
         *main_frame(), non_options_select_dom_node_id, "gamma");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
     ExpectErrorResult(result, mojom::ActionResultCode::kSelectNoSuchOption);
   }
@@ -198,7 +216,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonOptionNodeValueFails) {
   {
     std::unique_ptr<ToolRequest> action = MakeSelectRequest(
         *main_frame(), non_options_select_dom_node_id, "epsilon");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
     ExpectOkResult(result);
     EXPECT_EQ(
@@ -208,7 +226,8 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonOptionNodeValueFails) {
 }
 
 // Test that matching option values is case-sensitive.
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_ValueIsCaseSensitive) {
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest,
+                       SelectTool_ValueIsCaseSensitive) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
@@ -224,7 +243,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_ValueIsCaseSensitive) {
   // Expect the action to fail due to case mismatch.
   std::unique_ptr<ToolRequest> action =
       MakeSelectRequest(*main_frame(), plain_select_dom_node_id, "BETA");
-  TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+  ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectErrorResult(result, mojom::ActionResultCode::kSelectNoSuchOption);
 
@@ -234,7 +253,8 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_ValueIsCaseSensitive) {
 }
 
 // Test that attempting to select a disabled <option> fails.
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledOptionFails) {
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest,
+                       SelectTool_DisabledOptionFails) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
@@ -250,7 +270,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledOptionFails) {
   // fail and the select's value to be unchanged.
   std::unique_ptr<ToolRequest> action = MakeSelectRequest(
       *main_frame(), plain_select_dom_node_id, "disabledOption");
-  TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+  ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectErrorResult(result, mojom::ActionResultCode::kSelectOptionDisabled);
   EXPECT_EQ(GetSelectElementCurrentValue(web_contents(), plain_select_id),
@@ -258,7 +278,8 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledOptionFails) {
 }
 
 // Test that attempting to select a <option> in a disabled <optgroup> fails.
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledOptGroupFails) {
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest,
+                       SelectTool_DisabledOptGroupFails) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
@@ -275,7 +296,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledOptGroupFails) {
   // select's value to be unchanged.
   std::unique_ptr<ToolRequest> action =
       MakeSelectRequest(*main_frame(), plain_select_dom_node_id, "foobar");
-  TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+  ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectErrorResult(result, mojom::ActionResultCode::kSelectOptionDisabled);
   EXPECT_EQ(GetSelectElementCurrentValue(web_contents(), group_select_id),
@@ -284,7 +305,8 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledOptGroupFails) {
 
 // Test that attempting to select any option in a disabled <select> element
 // fails.
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledSelectFails) {
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest,
+                       SelectTool_DisabledSelectFails) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
@@ -300,7 +322,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledSelectFails) {
   // action to fail without affecting the <select>.
   std::unique_ptr<ToolRequest> action =
       MakeSelectRequest(*main_frame(), disabled_select_dom_node_id, "beta");
-  TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+  ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectErrorResult(result, mojom::ActionResultCode::kElementDisabled);
   EXPECT_EQ(GetSelectElementCurrentValue(web_contents(), disabled_select_id),
@@ -308,7 +330,8 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledSelectFails) {
 }
 
 // Test that options within <optgroup> elements can be selected.
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_GroupedOptionSelected) {
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest,
+                       SelectTool_GroupedOptionSelected) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
@@ -323,7 +346,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_GroupedOptionSelected) {
   {
     std::unique_ptr<ToolRequest> action =
         MakeSelectRequest(*main_frame(), grouped_select_dom_node_id, "gamma");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
     ExpectOkResult(result);
   }
@@ -335,7 +358,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_GroupedOptionSelected) {
   {
     std::unique_ptr<ToolRequest> action =
         MakeSelectRequest(*main_frame(), grouped_select_dom_node_id, "b");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
     ExpectOkResult(result);
   }
@@ -346,7 +369,8 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_GroupedOptionSelected) {
 
 // Test that an option can be selected in a <select> element rendered as a
 // listbox (size attribute > 1).
-IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_ListboxOptionSelected) {
+IN_PROC_BROWSER_TEST_F(ActorSelectToolBrowserTest,
+                       SelectTool_ListboxOptionSelected) {
   const GURL url = embedded_test_server()->GetURL("/actor/select_tool.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
@@ -361,7 +385,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_ListboxOptionSelected) {
   {
     std::unique_ptr<ToolRequest> action =
         MakeSelectRequest(*main_frame(), listbox_select_dom_node_id, "beta");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
     ExpectOkResult(result);
   }
@@ -372,7 +396,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_ListboxOptionSelected) {
   {
     std::unique_ptr<ToolRequest> action =
         MakeSelectRequest(*main_frame(), listbox_select_dom_node_id, "delta");
-    TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+    ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
     ExpectOkResult(result);
   }

@@ -8,14 +8,16 @@ import static org.chromium.chrome.browser.keyboard_accessory.bar_component.Keybo
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryIphUtils.showHelpBubble;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.ANIMATION_LISTENER;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.BAR_ITEMS;
-import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.BOTTOM_OFFSET_PX;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.DISABLE_ANIMATIONS_FOR_TESTING;
+import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.DISMISS_ITEM;
+import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.HAS_STICKY_LAST_ITEM;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.HAS_SUGGESTIONS;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.OBFUSCATED_CHILD_AT_CALLBACK;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.ON_TOUCH_EVENT_CALLBACK;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SHEET_OPENER_ITEM;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SHOW_SWIPING_IPH;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SKIP_CLOSING_ANIMATION;
+import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.STYLE;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.VISIBLE;
 
 import android.content.Context;
@@ -76,6 +78,8 @@ class KeyboardAccessoryViewBinder {
                 return new BarItemTextViewHolder(parent, R.layout.keyboard_accessory_action);
             case BarItem.Type.ACTION_CHIP:
                 return new BarItemActionChipViewHolder(parent);
+            case BarItem.Type.DISMISS_CHIP:
+                return new BarItemTextViewHolder(parent, R.layout.keyboard_accessory_dismiss);
         }
         assert false : "Action type " + viewType + " was not handled!";
         return null;
@@ -240,6 +244,7 @@ class KeyboardAccessoryViewBinder {
                             ? R.style.KeyboardAccessoryLargeChip
                             : R.style.KeyboardAccessoryChip;
                 case BarItem.Type.ACTION_CHIP:
+                case BarItem.Type.DISMISS_CHIP:
                 case BarItem.Type.TAB_LAYOUT:
                 case BarItem.Type.ACTION_BUTTON:
                 default:
@@ -316,8 +321,8 @@ class KeyboardAccessoryViewBinder {
             if (!model.get(VISIBLE)) {
                 view.setVisible(false); // Update to cancel any animation.
             }
-        } else if (propertyKey == BOTTOM_OFFSET_PX) {
-            view.setBottomOffset(model.get(BOTTOM_OFFSET_PX));
+        } else if (propertyKey == STYLE) {
+            view.setStyle(model.get(STYLE));
         } else if (propertyKey == ANIMATION_LISTENER) {
             view.setAnimationListener(model.get(ANIMATION_LISTENER));
         } else if (propertyKey == OBFUSCATED_CHILD_AT_CALLBACK) {
@@ -340,7 +345,9 @@ class KeyboardAccessoryViewBinder {
             }
         } else if (propertyKey == HAS_SUGGESTIONS) {
             view.setAccessibilityMessage(model.get(HAS_SUGGESTIONS));
-        } else if (propertyKey == SHEET_OPENER_ITEM) {
+        } else if (propertyKey == HAS_STICKY_LAST_ITEM) {
+            view.setHasStickyLastItem(model.get(HAS_STICKY_LAST_ITEM));
+        } else if (propertyKey == SHEET_OPENER_ITEM || propertyKey == DISMISS_ITEM) {
             // No binding required.
         } else {
             assert false : "Every possible property update needs to be handled!";
@@ -374,20 +381,17 @@ class KeyboardAccessoryViewBinder {
         String iphFeature = item.getFeatureForIph();
         if (iphFeature == null) return false;
 
-        if (iphFeature.equals(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_OFFER_FEATURE)
-                || iphFeature.equals(
-                        FeatureConstants.KEYBOARD_ACCESSORY_HOME_WORK_PROFILE_SUGGESTION_FEATURE)) {
-            if (item.getSuggestion().getIconId() != 0) {
-                return showHelpBubble(
-                        featureEngagementTracker,
-                        iphFeature,
-                        chipView.getStartIconViewRect(),
-                        chipView.getContext(),
-                        rootViewForIph);
-            } else {
-                return showHelpBubble(
-                        featureEngagementTracker, iphFeature, chipView, rootViewForIph, null);
-            }
+        if ((iphFeature.equals(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_OFFER_FEATURE)
+                        || iphFeature.equals(
+                                FeatureConstants
+                                        .KEYBOARD_ACCESSORY_HOME_WORK_PROFILE_SUGGESTION_FEATURE))
+                && item.getSuggestion().getIconId() != 0) {
+            return showHelpBubble(
+                    featureEngagementTracker,
+                    iphFeature,
+                    chipView.getStartIconViewRect(),
+                    chipView.getContext(),
+                    rootViewForIph);
         }
 
         if (iphFeature.equals(

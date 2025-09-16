@@ -28,11 +28,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include "third_party/blink/public/web/web_frame.h"
 
 #include <algorithm>
@@ -43,6 +38,7 @@
 #include <optional>
 #include <tuple>
 
+#include "base/compiler_specific.h"
 #include "base/containers/to_vector.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/stringprintf.h"
@@ -571,8 +567,8 @@ class ScriptExecutionCallbackHelper final {
   bool DidComplete() const { return did_complete_; }
 
   WebScriptExecutionCallback Callback() {
-    return WTF::BindOnce(&ScriptExecutionCallbackHelper::Completed,
-                         WTF::Unretained(this));
+    return blink::BindOnce(&ScriptExecutionCallbackHelper::Completed,
+                           Unretained(this));
   }
 
   // Returns true if any results (even if they were empty) were passed to the
@@ -7272,9 +7268,9 @@ class TestAccessInitialDocumentLocalFrameHost
   void Init(blink::AssociatedInterfaceProvider* provider) {
     provider->OverrideBinderForTesting(
         mojom::blink::LocalMainFrameHost::Name_,
-        WTF::BindRepeating(
+        BindRepeating(
             &TestAccessInitialDocumentLocalFrameHost::BindFrameHostReceiver,
-            WTF::Unretained(this)));
+            Unretained(this)));
   }
 
   // LocalMainFrameHost:
@@ -8261,7 +8257,7 @@ TEST_F(WebFrameTest, CurrentHistoryItem) {
   // After navigation, there is.
   HistoryItem* item = main_frame_loader.GetDocumentLoader()->GetHistoryItem();
   ASSERT_TRUE(item);
-  EXPECT_EQ(WTF::String(url.data()), item->UrlString());
+  EXPECT_EQ(String(url.data()), item->UrlString());
 }
 
 class FailCreateChildFrame : public frame_test_helpers::TestWebFrameClient {
@@ -9099,8 +9095,8 @@ static void NodeImageTestValidation(const gfx::Size& reference_bitmap_size,
   EXPECT_EQ(reference_bitmap_size.width(), drag_image->Size().width());
   EXPECT_EQ(reference_bitmap_size.height(), drag_image->Size().height());
   const SkBitmap& drag_bitmap = drag_image->Bitmap();
-  EXPECT_EQ(0, memcmp(bitmap.getPixels(), drag_bitmap.getPixels(),
-                      bitmap.computeByteSize()));
+  UNSAFE_TODO(EXPECT_EQ(0, memcmp(bitmap.getPixels(), drag_bitmap.getPixels(),
+                                  bitmap.computeByteSize())));
 }
 
 TEST_F(WebFrameTest, NodeImageTestCSSTransformDescendant) {
@@ -9659,8 +9655,7 @@ TEST_F(WebFrameSwapTest, AdHighlightEarlyApply) {
 
   // Assert that the local frame does not have any overlay color since it is not
   // in the frame tree yet.
-  ASSERT_EQ(local_frame->GetFrame()->GetFrameOverlayColorForTesting(),
-            std::nullopt);
+  ASSERT_EQ(local_frame->GetFrame()->GetFrameOverlayColor(), std::nullopt);
 
   WebDocument doc_before_navigation = local_frame->GetDocument();
 
@@ -9672,7 +9667,7 @@ TEST_F(WebFrameSwapTest, AdHighlightEarlyApply) {
 
   ASSERT_FALSE(local_frame->IsProvisional());
   ASSERT_NE(doc_before_navigation, local_frame->GetDocument());
-  ASSERT_EQ(local_frame->GetFrame()->GetFrameOverlayColorForTesting(),
+  ASSERT_EQ(local_frame->GetFrame()->GetFrameOverlayColor(),
             SkColorSetARGB(128, 255, 0, 0));
 }
 
@@ -11462,8 +11457,7 @@ TEST_F(WebFrameTest, ImeSelectionCommitDoesNotChangeClipboard) {
   EXPECT_CALL(web_frame_client, DidChangeSelection(true, _))
       .WillRepeatedly(Return());  // Happens due to edit change.
   EXPECT_CALL(web_frame_client, DidChangeSelection(false, _))
-      .WillRepeatedly(testing::Invoke(
-          [widget] { EXPECT_FALSE(widget->HandlingInputEvent()); }));
+      .WillRepeatedly([widget] { EXPECT_FALSE(widget->HandlingInputEvent()); });
 
   Document* document = web_frame->GetFrame()->GetDocument();
 
@@ -14205,7 +14199,7 @@ class TestUpdateFaviconURLLocalFrameHost : public FakeLocalFrameHost {
 
   // FakeLocalFrameHost:
   void UpdateFaviconURL(
-      WTF::Vector<blink::mojom::blink::FaviconURLPtr> favicon_urls) override {
+      Vector<blink::mojom::blink::FaviconURLPtr> favicon_urls) override {
     did_notify_ = true;
   }
 

@@ -31,7 +31,10 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_type.h"
+#include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/addresses/address.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_i18n_api.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/contact_info.h"
@@ -265,6 +268,14 @@ AutofillProfile::AutofillProfile(RecordType record_type,
 AutofillProfile::AutofillProfile(AddressCountryCode country_code)
     : AutofillProfile(RecordType::kLocalOrSyncable, country_code) {}
 
+AutofillProfile::AutofillProfile(const AccountInfo& info)
+    : AutofillProfile(RecordType::kAccountNameEmail,
+                      i18n_model_definition::kLegacyHierarchyCountryCode) {
+  SetRawInfo(NAME_FULL, base::UTF8ToUTF16(info.full_name));
+  SetRawInfo(EMAIL_ADDRESS, base::UTF8ToUTF16(info.email));
+  FinalizeAfterImport();
+}
+
 AutofillProfile::AutofillProfile(const AutofillProfile& profile)
     : phone_number_(this),
       address_(profile.GetAddress()),
@@ -452,7 +463,7 @@ FieldType AutofillProfile::GetStorableTypeOf(FieldType type) const {
   if (group == FieldTypeGroup::kAddress) {
     return address_.GetRoot().GetStorableTypeOf(type).value_or(type);
   } else if (group == FieldTypeGroup::kName) {
-    return name_.GetStructuredName().GetStorableTypeOf(type).value_or(type);
+    return name_.GetStorableTypeOf(type).value_or(type);
   } else if (group == FieldTypeGroup::kPhone) {
     // The only storable phone number type is PHONE_HOME_WHOLE_NUMBER.
     return PHONE_HOME_WHOLE_NUMBER;
@@ -493,7 +504,9 @@ bool AutofillProfile::IsPresentButInvalid(FieldType type) const {
       return country == "US" && !IsValidState(data);
 
     case ADDRESS_HOME_ZIP:
-      return country == "US" && !IsValidZip(data);
+      return !IsValidZip(data, AddressCountryCode(country),
+                         base::FeatureList::IsEnabled(
+                             features::kAutofillZipCodeValidationAndMerging));
 
     case PHONE_HOME_WHOLE_NUMBER:
       return !i18n::PhoneObject(data, country, /*infer_country_code=*/false)
@@ -645,10 +658,7 @@ bool AutofillProfile::IsSubsetOfForFieldSet(
         return false;
       }
     } else if (type == NAME_FULL) {
-      if (!comparator.IsNameVariantOf(
-              AutofillProfileComparator::NormalizeForComparison(
-                  profile.GetInfo(NAME_FULL, app_locale)),
-              AutofillProfileComparator::NormalizeForComparison(value))) {
+      if (!profile.GetNameInfo().IsNameVariantOf(value, app_locale)) {
         // Check whether the full name of |this| can be derived from the full
         // name of |profile| if the form contains a full name field.
         //
@@ -669,7 +679,8 @@ bool AutofillProfile::IsSubsetOfForFieldSet(
               app_locale)) {
         return false;
       }
-    } else if (!comparator.Compare(value, profile.GetInfo(type, app_locale))) {
+    } else if (!AutofillProfileComparator::Compare(
+                   value, profile.GetInfo(type, app_locale))) {
       return false;
     }
   }
@@ -772,7 +783,9 @@ bool AutofillProfile::MergeDataFrom(const AutofillProfile& profile,
   // accepting updates instead of preserving the original data. I.e., passing
   // the incoming profile first accepts case and diacritic changes, for example,
   // the other ways does not.
-  if (!comparator.MergeNames(profile, *this, name) ||
+  if (!NameInfo::MergeNames(profile.GetNameInfo(),
+                            profile.GetAddressCountryCode(), GetNameInfo(),
+                            GetAddressCountryCode(), name) ||
       !comparator.MergeEmailAddresses(profile, *this, email) ||
       !comparator.MergeCompanyNames(profile, *this, company) ||
       !comparator.MergePhoneNumbers(profile, *this, phone_number) ||
@@ -948,16 +961,17 @@ std::u16string AutofillProfile::ConstructInferredLabel(
   std::u16string separator =
       l10n_util::GetStringUTF16(IDS_AUTOFILL_ADDRESS_SUMMARY_SEPARATOR);
 
-  const std::u16string& profile_region_code =
-      GetInfo(AutofillType(HtmlFieldType::kCountryCode), app_locale);
+  const std::u16string& profile_region_code = GetInfo(
+      AutofillType(ADDRESS_HOME_COUNTRY, /*is_country_code=*/true), app_locale);
   std::string address_region_code = base::UTF16ToUTF8(profile_region_code);
 
   // A copy of |this| pruned down to contain only data for the address fields in
   // |included_fields|.
   AutofillProfile trimmed_profile(guid(), RecordType::kLocalOrSyncable,
                                   GetAddressCountryCode());
-  trimmed_profile.SetInfo(AutofillType(HtmlFieldType::kCountryCode),
-                          profile_region_code, app_locale);
+  trimmed_profile.SetInfo(
+      AutofillType(ADDRESS_HOME_COUNTRY, /*is_country_code=*/true),
+      profile_region_code, app_locale);
   trimmed_profile.set_language_code(language_code());
   AutofillCountry country(address_region_code);
 
@@ -1056,7 +1070,7 @@ VerificationStatus AutofillProfile::GetVerificationStatus(
 }
 
 std::u16string AutofillProfile::GetInfo(const AutofillType& type,
-                                        const std::string& app_locale) const {
+                                        std::string_view app_locale) const {
   const FormGroup* form_group = FormGroupForType(type.GetAddressType());
   if (!form_group) {
     return std::u16string();
@@ -1255,9 +1269,7 @@ bool AutofillProfile::FinalizeAfterImport() {
 }
 
 AutofillProfile AutofillProfile::ConvertToAccountProfile() const {
-  DCHECK(record_type() == RecordType::kLocalOrSyncable ||
-         record_type() == RecordType::kAccountHome ||
-         record_type() == RecordType::kAccountWork);
+  DCHECK(record_type() != RecordType::kAccount);
   AutofillProfile account_profile = *this;
   // Since GUIDs are assumed to be unique across all profile record types, a new
   // GUID is assigned.
@@ -1267,6 +1279,17 @@ AutofillProfile AutofillProfile::ConvertToAccountProfile() const {
   account_profile.initial_creator_id_ = kInitialCreatorOrModifierChrome;
   account_profile.last_modifier_id_ = kInitialCreatorOrModifierChrome;
   return account_profile;
+}
+
+AutofillProfile AutofillProfile::ConvertToLocalOrSyncableProfile() const {
+  DCHECK(record_type() != RecordType::kLocalOrSyncable);
+  AutofillProfile local_or_syncable_profile = *this;
+  // Since GUIDs are assumed to be unique across all profile record types, a new
+  // GUID is assigned.
+  local_or_syncable_profile.set_guid(
+      base::Uuid::GenerateRandomV4().AsLowercaseString());
+  local_or_syncable_profile.record_type_ = RecordType::kLocalOrSyncable;
+  return local_or_syncable_profile;
 }
 
 FieldTypeSet AutofillProfile::FindInaccessibleProfileValues() const {

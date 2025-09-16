@@ -174,8 +174,6 @@ class AutofillField : public FormFieldData {
   HtmlFieldMode html_mode() const { return html_mode_; }
   const FieldTypeSet& possible_types() const { return possible_types_; }
   bool previously_autofilled() const { return previously_autofilled_; }
-  const std::u16string& parseable_name() const { return parseable_name_; }
-  const std::u16string& parseable_label() const { return parseable_label_; }
   bool only_fill_when_focused() const { return only_fill_when_focused_; }
 
   void set_heuristic_type(HeuristicSource s, FieldType t);
@@ -201,12 +199,6 @@ class AutofillField : public FormFieldData {
 
   void set_previously_autofilled(bool previously_autofilled) {
     previously_autofilled_ = previously_autofilled;
-  }
-  void set_parseable_name(std::u16string parseable_name) {
-    parseable_name_ = std::move(parseable_name);
-  }
-  void set_parseable_label(std::u16string parseable_label) {
-    parseable_label_ = std::move(parseable_label);
   }
 
   void set_only_fill_when_focused(bool fill_when_focused) {
@@ -463,7 +455,10 @@ class AutofillField : public FormFieldData {
   //
   // A union type is an AutofillType that holds multiple FieldType.
   // See AutofillType for details.
-  AutofillType MakeAutofillType(FieldType primary_field_type) const;
+  //
+  // TODO(crbug.com/436013479): Remove the hack that represents country codes.
+  AutofillType MakeAutofillType(FieldType primary_field_type,
+                                bool is_country_code = false) const;
 
   // Combines the server, heuristic and HTML type based predictions. Doesn't
   // take server overwrites or rationalization into consideration.
@@ -539,15 +534,6 @@ class AutofillField : public FormFieldData {
 
   // Whether the field should be filled when it is not the highlighted field.
   bool only_fill_when_focused_ = false;
-
-  // The parseable name attribute, with unnecessary information removed (such as
-  // a common prefix shared with other fields). Will be used for heuristics
-  // parsing.
-  std::u16string parseable_name_;
-
-  // The parseable label attribute is potentially only a part of the original
-  // label when the label is divided between subsequent fields.
-  std::u16string parseable_label_;
 
   // A list of field log events, which record when user interacts the field
   // during autofill or editing, such as user clicks on the field, the

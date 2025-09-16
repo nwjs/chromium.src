@@ -46,9 +46,18 @@ BASE_FEATURE(kClientSideDetectionClipboardCopyApi,
              "ClientSideDetectionClipboardCopyApi",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::FeatureParam<double> kCSDClipboardCopyApiHCAcceptanceRate{
+const base::FeatureParam<double> kCsdClipboardCopyApiHCAcceptanceRate{
     &kClientSideDetectionClipboardCopyApi, "HCAcceptanceRate",
     /*default_value=*/0.0};
+const base::FeatureParam<double> kCsdClipboardCopyApiSampleRate{
+    &kClientSideDetectionClipboardCopyApi, "SampleRate",
+    /*default_value=*/0.0};
+const base::FeatureParam<int> kCsdClipboardCopyApiMaxLength{
+    &kClientSideDetectionClipboardCopyApi, "MaxLength",
+    /*default_value=*/1000};
+const base::FeatureParam<int> kCsdClipboardCopyApiMinLength{
+    &kClientSideDetectionClipboardCopyApi, "MinLength",
+    /*default_value=*/0};
 
 BASE_FEATURE(kClientSideDetectionDebuggingMetadataCache,
              "ClientSideDetectionDebuggingMetadataCache",
@@ -90,6 +99,12 @@ BASE_FEATURE(kClientSideDetectionSamplePing,
              "ClientSideDetectionSamplePing",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kClientSideDetectionSendIntelligentScanInfoAndroid,
+             "ClientSideDetectionSendIntelligentScanInfoAndroid",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 BASE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning,
              "ClientSideDetectionShowLlamaScamVerdictWarning",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -97,6 +112,12 @@ BASE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning,
 BASE_FEATURE(kClientSideDetectionShowScamVerdictWarning,
              "ClientSideDetectionShowScamVerdictWarning",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kClientSideDetectionShowScamVerdictWarningAndroid,
+             "ClientSideDetectionShowScamVerdictWarningAndroid",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE(kClientSideDetectionRetryLimit,
              "ClientSideDetectionRetryLimit",
@@ -193,6 +214,18 @@ BASE_FEATURE(kExtensionTelemetryFileDataForCommandLineExtensions,
              "SafeBrowsingExtensionTelemetryFileDataForCommandLineExtensions",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kExtensionTelemetrySearchHijackingSignal,
+             "SafeBrowsingExtensionTelemetrySearchHijackingSignal",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<int>
+    kExtensionTelemetrySearchHijackingSignalHeuristicCheckIntervalSeconds{
+        &kExtensionTelemetrySearchHijackingSignal,
+        "HeuristicCheckIntervalSeconds", 28800 /* 8 hours */};
+constexpr base::FeatureParam<int>
+    kExtensionTelemetrySearchHijackingSignalHeuristicThreshold{
+        &kExtensionTelemetrySearchHijackingSignal, "HeuristicThreshold", 2};
+
 BASE_FEATURE(kExternalAppRedirectTelemetry,
              "SafeBrowsingExternalAppRedirectTelemetry",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -266,6 +299,17 @@ BASE_FEATURE(kNotificationTelemetry,
              "NotificationTelemetry",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kNotificationTelemetrySwb,
+             "NotificationTelemetrySwb",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<bool> kNotificationTelemetrySwbSendReports{
+    &kNotificationTelemetrySwb, "NotificationTelemetrySwbSendReports",
+    /*default_value=*/true};
+constexpr base::FeatureParam<int> kNotificationTelemetrySwbPollingInterval{
+    &kNotificationTelemetrySwb, "NotificationTelemetrySwbPollingInterval",
+    /*default_value=*/60};
+
 BASE_FEATURE(kRedWarningSurvey,
              "RedWarningSurvey",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -282,7 +326,7 @@ constexpr base::FeatureParam<std::string> kRedWarningSurveyDidProceedFilter{
 
 BASE_FEATURE(kReportNotificationContentDetectionData,
              "ReportNotificationContentDetectionData",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<int> kReportNotificationContentDetectionDataRate{
     &kReportNotificationContentDetectionData,
@@ -306,6 +350,10 @@ BASE_FEATURE(kSafeBrowsingSyncCheckerCheckAllowlist,
 BASE_FEATURE(kSavePasswordHashFromProfilePicker,
              "SavePasswordHashFromProfilePicker",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kShowManualNotificationRevocationsSafetyHub,
+             "ShowManualNotificationRevocationsSafetyHub",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kShowWarningsForSuspiciousNotifications,
              "ShowWarningsForSuspiciousNotifications",
@@ -369,7 +417,9 @@ base::Value::List GetFeatureStatusList() {
       &kHashPrefixRealTimeLookups,
       &kLocalIpAddressInEvents,
       &kLocalListsUseSBv5,
+      &kNotificationTelemetrySwb,
       &kReportNotificationContentDetectionData,
+      &kShowManualNotificationRevocationsSafetyHub,
       &kShowWarningsForSuspiciousNotifications,
       &kSuspiciousSiteTriggerQuotaFeature,
       &kTailoredSecurityIntegration,

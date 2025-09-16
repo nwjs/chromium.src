@@ -92,6 +92,9 @@ BASE_DECLARE_FEATURE(kGeminiForManagedAccounts);
 // be disabled by an Enterprise policy.
 bool IsGeminiAvailableForManagedAccounts();
 
+// Feature flag to show the AI Hub new badge.
+BASE_DECLARE_FEATURE(kAIHubNewBadge);
+
 // Whether the Gemini consent pref should be deleted on account change.
 bool ShouldDeleteGeminiConsentPref();
 

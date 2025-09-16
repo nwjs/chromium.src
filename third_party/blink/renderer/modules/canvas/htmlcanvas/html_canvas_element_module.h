@@ -26,7 +26,7 @@ class MODULES_EXPORT HTMLCanvasElementModule {
  public:
   static V8RenderingContext* getContext(
       HTMLCanvasElement& canvas,
-      const WTF::String& context_id,
+      const String& context_id,
       const CanvasContextCreationAttributesModule* attributes,
       ExceptionState& exception_state);
   static OffscreenCanvas* transferControlToOffscreen(ScriptState*,
@@ -34,9 +34,9 @@ class MODULES_EXPORT HTMLCanvasElementModule {
                                                      ExceptionState&);
 
  private:
-  static OffscreenCanvas* TransferControlToOffscreenInternal(ScriptState*,
-                                                             HTMLCanvasElement&,
-                                                             ExceptionState&);
+  static OffscreenCanvas* TransferControlToOffscreenInternal(
+      ScriptState*,
+      HTMLCanvasElement&);
 };
 
 }  // namespace blink

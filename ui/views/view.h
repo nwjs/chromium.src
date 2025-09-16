@@ -29,11 +29,10 @@
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
 #include "third_party/skia/include/core/SkPath.h"
-#include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/accessibility/ax_enums.mojom-forward.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/class_property.h"
 #include "ui/base/clipboard/clipboard_format_type.h"
-#include "ui/base/cursor/cursor.h"
 #include "ui/base/dragdrop/drop_target_event.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-forward.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
@@ -54,7 +53,7 @@
 #include "ui/gfx/geometry/transform.h"
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_window_types.h"
 #include "ui/views/actions/action_view_interface.h"
 #include "ui/views/layout/layout_manager.h"
 #include "ui/views/layout/layout_types.h"
@@ -99,6 +98,7 @@ struct AXActionData;
 struct AXNodeData;
 class ColorProvider;
 class Compositor;
+class Cursor;
 class InputMethod;
 class Layer;
 class LayerTreeOwner;

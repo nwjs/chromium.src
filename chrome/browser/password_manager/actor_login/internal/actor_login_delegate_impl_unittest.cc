@@ -38,6 +38,8 @@ using testing::Return;
 
 namespace {
 
+constexpr char kTestUrl[] = "https://example.com/login";
+
 class FakePasswordManagerClient
     : public password_manager::StubPasswordManagerClient {
  public:
@@ -93,6 +95,9 @@ class ActorLoginDelegateImplTest : public ::testing::Test {
 
     web_contents_ = web_contents_factory_.CreateWebContents(profile_.get());
 
+    content::WebContentsTester::For(web_contents_)
+        ->NavigateAndCommit(GURL(kTestUrl));
+
     delegate_ = static_cast<ActorLoginDelegateImpl*>(
         ActorLoginDelegateImpl::GetOrCreateForTesting(
             web_contents_, &client_,
@@ -117,6 +122,8 @@ class ActorLoginDelegateImplTest : public ::testing::Test {
         .WillByDefault(Return(&mock_password_manager_));
     ON_CALL(mock_password_manager_, GetPasswordFormCache())
         .WillByDefault(Return(&mock_form_cache_));
+    ON_CALL(mock_password_manager_, GetClient())
+        .WillByDefault(Return(&client_));
     ON_CALL(mock_form_cache_, GetFormManagers())
         .WillByDefault(Return(base::span(form_managers_)));
   }
@@ -178,8 +185,7 @@ TEST_F(ActorLoginDelegateImplTest, AttemptLogin_FeatureOff) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndDisableFeature(
       password_manager::features::kActorLogin);
-  Credential credential =
-      CreateTestCredential(u"username", GURL("https://example.com/login"));
+  Credential credential = CreateTestCredential(u"username", GURL(kTestUrl));
 
   base::test::TestFuture<LoginStatusResultOrError> future;
   delegate_->AttemptLogin(credential, future.GetCallback());
@@ -194,8 +200,7 @@ TEST_F(ActorLoginDelegateImplTest, AttemptLogin_FeatureOn) {
   base::test::ScopedFeatureList feature_list(
       password_manager::features::kActorLogin);
   tabs::MockTabInterface mock_tab;
-  Credential credential =
-      CreateTestCredential(u"username", GURL("https://example.com/login"));
+  Credential credential = CreateTestCredential(u"username", GURL(kTestUrl));
 
   MockPasswordManager mock_password_manager;
   MockPasswordFormCache mock_form_cache;
@@ -217,7 +222,7 @@ TEST_F(ActorLoginDelegateImplTest, AttemptLogin_FeatureOn) {
 TEST_F(ActorLoginDelegateImplTest, AttemptLoginServiceBusy_FeatureOn) {
   base::test::ScopedFeatureList feature_list(
       password_manager::features::kActorLogin);
-  Credential credential;
+  Credential credential = CreateTestCredential(u"username", GURL(kTestUrl));
 
   SetUpActorCredentialFillerDeps();
 
@@ -256,7 +261,7 @@ TEST_F(ActorLoginDelegateImplTest, CallbacksAreResetAfterCompletion_FeatureOn) {
   delegate_->GetCredentials(future2.GetCallback());
   ASSERT_TRUE(future2.Get().has_value());
 
-  Credential credential;
+  Credential credential = CreateTestCredential(u"username", GURL(kTestUrl));
 
   SetUpActorCredentialFillerDeps();
 
@@ -269,6 +274,44 @@ TEST_F(ActorLoginDelegateImplTest, CallbacksAreResetAfterCompletion_FeatureOn) {
   base::test::TestFuture<LoginStatusResultOrError> future4;
   delegate_->AttemptLogin(credential, future4.GetCallback());
   ASSERT_TRUE(future4.Get().has_value());
+}
+
+TEST_F(ActorLoginDelegateImplTest, GetCredentialsAndAttemptLogin) {
+  base::test::ScopedFeatureList feature_list(
+      password_manager::features::kActorLogin);
+  Credential credential = CreateTestCredential(u"username", GURL(kTestUrl));
+
+  SetUpActorCredentialFillerDeps();
+
+  base::test::TestFuture<LoginStatusResultOrError> future;
+  auto get_credentials_callback =
+      base::BindLambdaForTesting([&](CredentialsOrError result) {
+        ASSERT_TRUE(result.has_value());
+        delegate_->AttemptLogin(credential, future.GetCallback());
+      });
+
+  delegate_->GetCredentials(get_credentials_callback);
+
+  ASSERT_TRUE(future.Get().has_value());
+  EXPECT_EQ(future.Get().value(), LoginStatusResult::kErrorNoSigninForm);
+}
+
+TEST_F(ActorLoginDelegateImplTest,
+       AttemptLoginLeavesServiceAvailableForSynchronousUse) {
+  base::test::ScopedFeatureList feature_list(
+      password_manager::features::kActorLogin);
+  Credential credential = CreateTestCredential(u"username", GURL(kTestUrl));
+
+  SetUpActorCredentialFillerDeps();
+
+  base::test::TestFuture<CredentialsOrError> future;
+  delegate_->AttemptLogin(
+      credential,
+      base::BindLambdaForTesting([&](LoginStatusResultOrError result) {
+        ASSERT_TRUE(result.has_value());
+        delegate_->GetCredentials(future.GetCallback());
+      }));
+  ASSERT_TRUE(future.Get().has_value());
 }
 
 }  // namespace actor_login

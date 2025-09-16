@@ -25,6 +25,7 @@ import android.widget.LinearLayout.LayoutParams;
 
 import androidx.annotation.AnimRes;
 import androidx.annotation.ChecksSdkIntAtLeast;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.TrustedWebUtils;
@@ -34,13 +35,13 @@ import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.OneshotSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.KeyboardShortcuts;
 import org.chromium.chrome.browser.app.ChromeActivity;
+import org.chromium.chrome.browser.app.tabmodel.AsyncTabParamsManagerSingleton;
 import org.chromium.chrome.browser.app.tabmodel.TabModelOrchestrator;
 import org.chromium.chrome.browser.browserservices.InstalledWebappDataRegister;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
@@ -130,6 +131,10 @@ import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.embedder_support.delegate.WebContentsDelegateAndroid;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.util.function.Supplier;
+
 /**
  * Contains functionality which is shared between {@link WebappActivity} and {@link
  * CustomTabActivity}. Purpose of the class is to simplify merging {@link WebappActivity} and {@link
@@ -182,6 +187,8 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
 
     private ActivityLifecycleDispatcher mLifecycleDispatcherForTesting;
 
+    @IntDef({PictureInPictureMode.NONE, PictureInPictureMode.MINIMIZED_CUSTOM_TAB})
+    @Retention(RetentionPolicy.SOURCE)
     protected @interface PictureInPictureMode {
         int NONE = 0;
         int MINIMIZED_CUSTOM_TAB = 1;
@@ -345,6 +352,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
                         this,
                         getShareDelegateSupplier(),
                         getActivityTabProvider(),
+                        getCustomTabActivityTabProvider(),
                         mTabModelProfileSupplier,
                         mBookmarkModelSupplier,
                         mTabBookmarkerSupplier,
@@ -492,10 +500,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
     }
 
     @Override
-    public void performPreInflationStartup() {
-        // This must be requested before adding content.
-        supportRequestWindowFeature(Window.FEATURE_ACTION_MODE_OVERLAY);
-
+    protected void onPreCreate() {
         // Parse the data from the Intent before calling super to allow the Intent to customize
         // the Activity parameters, including the background of the page.
         // Note that color scheme is fixed for the lifetime of Activity: if the system setting
@@ -508,6 +513,14 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
             this.finishAndRemoveTask();
             return;
         }
+
+        super.onPreCreate();
+    }
+
+    @Override
+    public void performPreInflationStartup() {
+        // This must be requested before adding content.
+        supportRequestWindowFeature(Window.FEATURE_ACTION_MODE_OVERLAY);
 
         InstalledWebappDataRegister.prefetchPreferences();
 
@@ -802,8 +815,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
             RecordHistogram.recordBooleanHistogram("CustomTabs.SpareRenderer", true);
             Profile profile = getProfileProviderSupplier().get().getOriginalProfile();
             PostTask.postTask(
-                    TaskTraits.UI_DEFAULT,
-                    () -> CustomTabsConnection.createSpareWebContents(profile));
+                    TaskTraits.UI_DEFAULT, () -> CustomTabsConnection.createSpareTab(profile));
         } else {
             RecordHistogram.recordBooleanHistogram("CustomTabs.SpareRenderer", false);
         }
@@ -885,11 +897,21 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
             mTabFactory.destroyTabModelOrchestrator();
         }
 
+        if (mTabProvider == null || mTabProvider.getTab() == null) {
+            return;
+        }
+
+        final var tabModelSelector = getTabModelSelectorSupplier().get();
+        final var tab = mTabProvider.get();
+        // Keep a tab alive when re-parenting.
+        final var isReparenting =
+                tabModelSelector != null
+                        && tabModelSelector.isReparentingInProgress()
+                        && AsyncTabParamsManagerSingleton.getInstance()
+                                .hasParamsForTabId(tab.getId());
         // If tab models have not been initialized, any early created tabs would leak.
-        if (mTabProvider != null
-                && mTabProvider.getTab() != null
-                && !mTabProvider.getTab().isDestroyed()) {
-            mTabProvider.getTab().destroy();
+        if (!tab.isDestroyed() && !isReparenting) {
+            tab.destroy();
         }
     }
 

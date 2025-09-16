@@ -20,6 +20,7 @@ namespace ash::printing {
 crypto::obsolete::Md5 MakeMd5HasherForPrinterConfigurer();
 crypto::obsolete::Md5 MakeMd5HasherForUsbPrinterUtil();
 crypto::obsolete::Md5 MakeMd5HasherForZeroconf();
+std::string PolicyPrinterId(const std::string& json);
 std::string ServerPrinterId(const std::string& url);
 }  // namespace ash::printing
 
@@ -37,6 +38,10 @@ class BookmarkCodec;
 
 namespace cachetool {
 crypto::obsolete::Md5 MakeMd5HasherForCachetools();
+}
+
+namespace drive {
+crypto::obsolete::Md5 MakeMd5HasherForDriveFsAccount();
 }
 
 namespace drive::util {
@@ -57,6 +62,10 @@ crypto::obsolete::Md5 MakeMd5HasherForHttpVaryData();
 
 namespace policy {
 crypto::obsolete::Md5 MakeMd5HasherForPolicyEventId();
+}
+
+namespace remoting {
+std::string GetHostHash();
 }
 
 namespace trusted_vault {
@@ -95,7 +104,7 @@ class CRYPTO_EXPORT Md5 {
   void Finish(base::span<uint8_t, kSize> result);
   std::array<uint8_t, kSize> Finish();
 
-  Md5 MakeMd5HasherForTesting();
+  static Md5 MakeMd5HasherForTesting();
   static std::array<uint8_t, kSize> HashForTesting(
       base::span<const uint8_t> data);
 
@@ -106,14 +115,17 @@ class CRYPTO_EXPORT Md5 {
   // compatibility with existing specs, on-disk data, or similar.
   friend Md5 android_tools::MakeMd5HasherForMd5sumTool();
   friend Md5 policy::MakeMd5HasherForPolicyEventId();
+  friend Md5 drive::MakeMd5HasherForDriveFsAccount();
   friend Md5 drive::util::MakeMd5HasherForDriveApi();
   friend Md5 extensions::image_writer::MakeMd5HasherForImageWriter();
   friend Md5 cachetool::MakeMd5HasherForCachetools();
+  friend std::string remoting::GetHostHash();
 
   // TODO(b/298652869): get rid of these.
   friend Md5 ash::printing::MakeMd5HasherForPrinterConfigurer();
   friend Md5 ash::printing::MakeMd5HasherForUsbPrinterUtil();
   friend Md5 ash::printing::MakeMd5HasherForZeroconf();
+  friend std::string ash::printing::PolicyPrinterId(const std::string& json);
   friend std::string ash::printing::ServerPrinterId(const std::string& url);
 
   // TODO(https://crbug.com/433545115): get rid of this.

@@ -15,7 +15,7 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/ui_base_types.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_window_types.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "base/files/safe_base_name.h"
@@ -41,6 +41,7 @@ namespace extensions {
 
 class Extension;
 
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kExtensionInstallFrictionLearnMoreLink);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kMv2DisabledDialogManageButtonElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kMv2DisabledDialogParagraphElementId);
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kMv2DisabledDialogRemoveButtonElementId);
@@ -108,7 +109,7 @@ void ShowMv2DeprecationReEnableDialog(
 // overridden by an extension.
 void ShowSettingsOverriddenDialog(
     std::unique_ptr<SettingsOverriddenDialogController> controller,
-    Browser* browser);
+    gfx::NativeWindow parent);
 
 // The type of action that the ExtensionInstalledBlockedByParentDialog
 // is being shown in reaction to.

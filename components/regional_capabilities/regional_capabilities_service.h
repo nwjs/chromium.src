@@ -28,6 +28,7 @@ struct PrepopulatedEngine;
 
 namespace regional_capabilities {
 
+enum class ActiveRegionalProgram;
 class CountryIdHolder;
 enum class Program;
 
@@ -76,6 +77,25 @@ class RegionalCapabilitiesService : public KeyedService {
     // the service for the current run.
     virtual void FetchCountryId(
         CountryIdCallback country_id_fetched_callback) = 0;
+
+#if BUILDFLAG(IS_ANDROID)
+    // Synchronously reads the device's regional capabilities program
+    // configuration.
+    virtual Program GetDeviceProgram() = 0;
+#endif
+  };
+
+  // Contains the string IDs for the UI elements on the search engine choice
+  // screen. This is returned for regions that require a choice screen.
+  struct ChoiceScreenDesign {
+    int title_string_id;
+    int subtitle_1_string_id;
+    // String id for learn more with a link. This learn more needs to be
+    // appended to `subtitle_1_string_id`.
+    int subtitle_1_learn_more_suffix_string_id;
+    // String id for the learn more accessibility.
+    int subtitle_1_learn_more_a11y_string_id;
+    std::optional<int> subtitle_2_string_id;
   };
 
   RegionalCapabilitiesService(
@@ -91,6 +111,14 @@ class RegionalCapabilitiesService : public KeyedService {
   // Returns whether the profile is associated with a region in which we can
   // show a search engine choice screen.
   bool IsInSearchEngineChoiceScreenRegion();
+
+  // Returns the appropriate choice screen design strings for the active
+  // program, if one is required. Returns `std::nullopt` if the region does not
+  // require a search engine choice screen.
+  std::optional<ChoiceScreenDesign> GetChoiceScreenDesign();
+
+  const std::optional<ChoiceScreenEligibilityConfig>&
+  GetChoiceScreenEligibilityConfig();
 
   // -- Internal utils & deprecated getters -----------------------------------
 
@@ -108,11 +136,18 @@ class RegionalCapabilitiesService : public KeyedService {
   // more details.
   CountryIdHolder GetCountryId();
 
-  // Clears the country id cache to be able to change countries multiple times
+  // Clears the caches to be able to change countries multiple times
   // in tests.
-  void ClearCountryIdCacheForTesting();
+  void ClearCacheForTesting();
 
-  Program GetActiveProgramForTesting();
+  // Returns the metrics enum for the active regional program. This is used for
+  // logging only.
+  ActiveRegionalProgram GetActiveProgramForMetrics();
+
+  // Returns an opaque `int` value representing the program.
+  int GetSerializedActiveProgram();
+
+  const ProgramSettings& GetActiveProgramSettingsForTesting();
 
 #if BUILDFLAG(IS_ANDROID)
   // -- JNI Interface ---------------------------------------------------------

@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/byte_count.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/not_fatal_until.h"
@@ -32,7 +33,7 @@ enum class DiscardPageOnUIThreadOutcome {
 
 }  // namespace
 
-std::optional<uint64_t> PageDiscarder::DiscardPageNode(
+std::optional<base::ByteCount> PageDiscarder::DiscardPageNode(
     const PageNode* page_node,
     resource_coordinator::LifecycleUnitDiscardReason discard_reason) {
   base::WeakPtr<content::WebContents> contents = page_node->GetWebContents();
@@ -53,14 +54,15 @@ std::optional<uint64_t> PageDiscarder::DiscardPageNode(
   auto* lifecycle_unit =
       resource_coordinator::TabLifecycleUnitSource::GetTabLifecycleUnitExternal(
           contents.get());
-  // This function is only called with `PageNode`s of type `kTab`, so there
-  // should be a LifecycleUnit.
-  CHECK(lifecycle_unit, base::NotFatalUntil::M140);
+  if (!lifecycle_unit) {
+    return std::nullopt;
+  }
 
-  uint64_t memory_footprint_estimate =
+  base::ByteCount memory_footprint_estimate =
       user_tuning::GetDiscardedMemoryEstimateForPage(page_node);
 
-  if (!lifecycle_unit->DiscardTab(discard_reason, memory_footprint_estimate)) {
+  if (!lifecycle_unit->DiscardTab(discard_reason,
+                                  memory_footprint_estimate.InKiB())) {
     outcome = DiscardPageOnUIThreadOutcome::kDiscardTabFailure;
     return std::nullopt;
   }

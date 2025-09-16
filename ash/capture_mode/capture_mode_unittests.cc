@@ -61,7 +61,6 @@
 #include "ash/system/status_area_widget.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/ash_test_util.h"
-#include "ash/test/test_widget_builder.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/desks/desks_test_util.h"
@@ -128,9 +127,10 @@
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/image/image_unittest_util.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_window_types.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/test/test_widget_builder.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 #include "ui/wm/core/coordinate_conversion.h"
@@ -1766,8 +1766,7 @@ TEST_P(CaptureModeTest, WindowDestruction) {
 
 TEST_P(CaptureModeTest, CursorUpdatedOnDisplayRotation) {
   UpdateDisplay("600x400");
-  const int64_t display_id =
-      display::Screen::GetScreen()->GetPrimaryDisplay().id();
+  const int64_t display_id = display::Screen::Get()->GetPrimaryDisplay().id();
   display::SetInternalDisplayIds({display_id});
   ScreenOrientationControllerTestApi orientation_test_api(
       Shell::Get()->screen_orientation_controller());
@@ -2000,7 +1999,8 @@ TEST_P(CaptureModeTest, WindowRecordingCaptureId) {
 }
 
 TEST_P(CaptureModeTest, ClosingDimmedWidgetAboveRecordedWindow) {
-  views::Widget* widget = TestWidgetBuilder().BuildOwnedByNativeWidget();
+  views::Widget* widget =
+      views::test::TestWidgetBuilder().BuildOwnedByNativeWidget();
   auto* window = widget->GetNativeWindow();
   auto recorded_window = CreateTestWindow(gfx::Rect(200, 200));
 
@@ -3575,7 +3575,7 @@ TEST_P(CaptureModeTest, CaptureModeBarButtonTypeHistograms) {
 
   // Enter tablet mode and test the bar buttons.
   ash::TabletModeControllerTestApi().EnterTabletMode();
-  ASSERT_TRUE(display::Screen::GetScreen()->InTabletMode());
+  ASSERT_TRUE(display::Screen::Get()->InTabletMode());
 
   ClickOnView(GetImageToggleButton(), event_generator);
   histogram_tester.ExpectBucketCount(
@@ -3733,7 +3733,7 @@ TEST_P(CaptureModeTest, NumberOfCaptureRegionAdjustmentsHistogram) {
   // Enter tablet mode and restart the capture session. The capture region
   // should be remembered.
   ash::TabletModeControllerTestApi().EnterTabletMode();
-  ASSERT_TRUE(display::Screen::GetScreen()->InTabletMode());
+  ASSERT_TRUE(display::Screen::Get()->InTabletMode());
   StartImageRegionCapture();
   ASSERT_EQ(target_region, controller->user_capture_region());
 
@@ -5328,7 +5328,7 @@ class CaptureModeCursorOverlayTest : public CaptureModeTest {
     EXPECT_EQ(controller->type(), CaptureModeType::kImage);
 
     auto* cursor_manager = Shell::Get()->cursor_manager();
-    bool in_tablet_mode = display::Screen::GetScreen()->InTabletMode();
+    bool in_tablet_mode = display::Screen::Get()->InTabletMode();
 
     // The capture mode session locks the cursor for the whole active session
     // except in the tablet mode unless the cursor is visible.
@@ -6239,10 +6239,9 @@ TEST_P(ProjectorCaptureModeIntegrationTestsWithSource,
   const gfx::Point point_in_second_display = gfx::Point(1000, 500);
   auto* event_generator = GetEventGenerator();
   event_generator->MoveMouseTo(point_in_second_display);
-  window()->SetBoundsInScreen(
-      gfx::Rect(900, 0, 600, 500),
-      display::Screen::GetScreen()->GetDisplayNearestWindow(
-          Shell::GetAllRootWindows()[1]));
+  window()->SetBoundsInScreen(gfx::Rect(900, 0, 600, 500),
+                              display::Screen::Get()->GetDisplayNearestWindow(
+                                  Shell::GetAllRootWindows()[1]));
 
   const auto capture_source = std::get<CaptureModeSource>(GetParam());
   StartRecordingForProjectorFromSource(capture_source);
@@ -6818,10 +6817,9 @@ TEST_P(AnnotatorCaptureModeIntegrationTestsWithSource,
   const gfx::Point point_in_second_display = gfx::Point(1000, 500);
   auto* event_generator = GetEventGenerator();
   event_generator->MoveMouseTo(point_in_second_display);
-  window()->SetBoundsInScreen(
-      gfx::Rect(900, 0, 600, 500),
-      display::Screen::GetScreen()->GetDisplayNearestWindow(
-          Shell::GetAllRootWindows()[1]));
+  window()->SetBoundsInScreen(gfx::Rect(900, 0, 600, 500),
+                              display::Screen::Get()->GetDisplayNearestWindow(
+                                  Shell::GetAllRootWindows()[1]));
 
   const auto capture_source = std::get<CaptureModeSource>(GetParam());
   StartRecordingFromSource(capture_source);

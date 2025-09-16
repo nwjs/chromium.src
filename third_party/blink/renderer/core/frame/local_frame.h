@@ -463,7 +463,7 @@ class CORE_EXPORT LocalFrame final
   String SelectedText() const;
   String SelectedText(const TextIteratorBehavior& behavior) const;
   String SelectedTextForClipboard() const;
-  void TextSelectionChanged(const WTF::String& selection_text,
+  void TextSelectionChanged(const String& selection_text,
                             uint32_t offset,
                             const gfx::Range& range) const;
 
@@ -701,13 +701,9 @@ class CORE_EXPORT LocalFrame final
 
   void SetReducedAcceptLanguage(const AtomicString& reduced_accept_language);
 
-  // Overlays a color on top of this LocalFrameView if it is associated with
-  // the main frame. Should not have multiple consumers.
-  void SetMainFrameColorOverlay(SkColor color);
+  // Overlays a color on top of this LocalFrameView.
+  void SetFrameColorOverlay(SkColor color);
 
-  // Overlays a color on top of this LocalFrameView if it is associated with
-  // a subframe. Should not have multiple consumers.
-  void SetSubframeColorOverlay(SkColor color);
   void UpdateFrameColorOverlayPrePaint();
 
   void PaintFrameColorOverlay(GraphicsContext&);
@@ -862,7 +858,7 @@ class CORE_EXPORT LocalFrame final
   void OnFirstPaint(bool text_painted, bool image_painted);
 
   // Invoked on first contentful paint on this frame.
-  void OnFirstContentfulPaint();
+  void OnFirstContentfulPaint(const base::TimeTicks& first_paint_time);
 
 #if BUILDFLAG(IS_MAC)
   void ResetTextInputHostForTesting();
@@ -879,7 +875,7 @@ class CORE_EXPORT LocalFrame final
   void SetBackgroundColorPaintImageGeneratorForTesting(
       BackgroundColorPaintImageGenerator* generator);
 
-  std::optional<SkColor> GetFrameOverlayColorForTesting() const;
+  std::optional<SkColor> GetFrameOverlayColor() const;
 
   // Returns a PendingRemote resolved via this frame's BrowserInterfaceBroker
   // for use when creating the PublicUrlManager instance in threaded worklets.
@@ -982,6 +978,12 @@ class CORE_EXPORT LocalFrame final
     return frame_visibility_observers_;
   }
 
+  bool IsCaretBrowsingOverridden() { return is_caret_browsing_overridden_; }
+
+  void SetIsCaretBrowsingOverridden(bool overridden) {
+    is_caret_browsing_overridden_ = overridden;
+  }
+
  private:
   friend class FrameNavigationDisabler;
   // LocalFrameMojoHandler is a part of LocalFrame.
@@ -1029,8 +1031,6 @@ class CORE_EXPORT LocalFrame final
   // Consumes and returns the transient user activation state this frame, after
   // updating all other frames in the frame tree.
   bool ConsumeTransientUserActivation(UserActivationUpdateSource update_source);
-
-  void SetFrameColorOverlay(SkColor color);
 
   void DidFreeze();
   void DidResume();
@@ -1260,6 +1260,9 @@ class CORE_EXPORT LocalFrame final
   std::unique_ptr<WebLinkPreviewTriggerer> link_preview_triggerer_;
 
   HeapHashSet<WeakMember<FrameVisibilityObserver>> frame_visibility_observers_;
+
+  // Whether caret browsing mode has been overridden by the embedder or not.
+  bool is_caret_browsing_overridden_ = false;
 
   void OnStorageAccessCallback(base::OnceCallback<void(bool)> callback,
                                mojom::blink::StorageTypeAccessed storage_type,

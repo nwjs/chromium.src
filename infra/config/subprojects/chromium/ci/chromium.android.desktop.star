@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 """Definitions of builders in the chromium.android.desktop builder group."""
 
+load("@chromium-luci//args.star", "args")
 load("@chromium-luci//branches.star", "branches")
 load("@chromium-luci//builder_config.star", "builder_config")
 load("@chromium-luci//builder_health_indicators.star", "health_spec")
@@ -17,6 +18,7 @@ load("//lib/siso.star", "siso")
 
 ci.defaults.set(
     executable = ci_constants.DEFAULT_EXECUTABLE,
+    # TODO(crbug.com/439887309): Enable on ANDROID_BRANCHES
     builder_group = "chromium.android.desktop",
     builder_config_settings = builder_config.ci_settings(
         retry_failed_shards = True,
@@ -73,7 +75,6 @@ ci.builder(
         android_config = builder_config.android_config(
             config = "base_config",
         ),
-        build_gs_bucket = "chromium-android-desktop-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -118,7 +119,6 @@ ci.builder(
         android_config = builder_config.android_config(
             config = "base_config",
         ),
-        build_gs_bucket = "chromium-android-desktop-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -163,7 +163,6 @@ ci.builder(
         android_config = builder_config.android_config(
             config = "base_config",
         ),
-        build_gs_bucket = "chromium-android-desktop-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -209,7 +208,6 @@ ci.builder(
         android_config = builder_config.android_config(
             config = "base_config",
         ),
-        build_gs_bucket = "chromium-android-desktop-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -261,17 +259,22 @@ ci.thin_tester(
         android_config = builder_config.android_config(
             config = "base_config",
         ),
-        build_gs_bucket = "chromium-android-desktop-archive",
     ),
     targets = targets.bundle(
         targets = [
             "android_desktop_junit_tests",
             targets.bundle(
-                targets = "android_desktop_tests",
+                targets = "android_desktop_gtests",
                 mixins = [
                     "15-desktop-x64-emulator",
                     "emulator-8-cores",
-                    "force-android-desktop",
+                ],
+            ),
+            targets.bundle(
+                targets = "android_desktop_isolated_script_tests",
+                mixins = [
+                    "15-desktop-x64-emulator",
+                    "emulator-8-cores",
                 ],
             ),
         ],
@@ -292,6 +295,9 @@ ci.thin_tester(
                 ],
                 ci_only = True,
             ),
+            "android_chrome_wpt_tests": targets.mixin(
+                ci_only = True,
+            ),
             "unit_tests": targets.mixin(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.desktop.emulator_15.unit_tests.filter",
@@ -309,4 +315,182 @@ ci.thin_tester(
         short_name = "15-rel",
     ),
     cq_mirrors_console_view = "mirrors",
+)
+
+ci.builder(
+    name = "android-desktop-arm64-deterministic-rel",
+    description_html = "Deterministic arm64 release build for Android Desktop.",
+    executable = "recipe:swarming/deterministic_build",
+    gn_args = gn_args.config(
+        configs = [
+            "android_desktop",
+            "android_builder",
+            "android_with_static_analysis",
+            "release_builder",
+            "remoteexec",
+            "minimal_symbols",
+            "strip_debug_info",
+            "arm64",
+        ],
+    ),
+    builderless = False,
+    cores = 32,
+    # TODO(crbug.com/420639761): Enable gardening and tree closing when stable.
+    gardener_rotations = args.ignore_default(None),
+    tree_closing = False,
+    console_view_entry = consoles.console_view_entry(
+        category = "builder|det",
+        short_name = "arm64-rel",
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    execution_timeout = 7 * time.hour,
+)
+
+ci.builder(
+    name = "android-desktop-arm64-deterministic-dbg",
+    description_html = "Deterministic arm64 dbg build for Android Desktop.",
+    executable = "recipe:swarming/deterministic_build",
+    gn_args = gn_args.config(
+        configs = [
+            "android_desktop",
+            "android_builder",
+            "android_with_static_analysis",
+            "debug_builder",
+            "remoteexec",
+            "arm64",
+        ],
+    ),
+    builderless = False,
+    cores = 32,
+    # TODO(crbug.com/420639761): Enable gardening and tree closing when stable.
+    gardener_rotations = args.ignore_default(None),
+    tree_closing = False,
+    console_view_entry = consoles.console_view_entry(
+        category = "builder|det",
+        short_name = "arm64-dbg",
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    execution_timeout = 6 * time.hour,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
+)
+
+ci.builder(
+    name = "android-desktop-x64-deterministic-rel",
+    description_html = "Deterministic x64 release build for Android Desktop.",
+    executable = "recipe:swarming/deterministic_build",
+    gn_args = gn_args.config(
+        configs = [
+            "android_desktop",
+            "android_builder",
+            "android_with_static_analysis",
+            "release_builder",
+            "remoteexec",
+            "minimal_symbols",
+            "strip_debug_info",
+            "x64",
+        ],
+    ),
+    builderless = False,
+    cores = 32,
+    # TODO(crbug.com/420639761): Enable gardening and tree closing when stable.
+    gardener_rotations = args.ignore_default(None),
+    tree_closing = False,
+    console_view_entry = consoles.console_view_entry(
+        category = "builder|det",
+        short_name = "x64-rel",
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    execution_timeout = 7 * time.hour,
+)
+
+ci.builder(
+    name = "android-desktop-x64-deterministic-dbg",
+    description_html = "Deterministic x64 dbg build for Android Desktop.",
+    executable = "recipe:swarming/deterministic_build",
+    gn_args = gn_args.config(
+        configs = [
+            "android_desktop",
+            "android_builder",
+            "android_with_static_analysis",
+            "debug_builder",
+            "remoteexec",
+            "x64",
+        ],
+    ),
+    builderless = False,
+    cores = 32,
+    # TODO(crbug.com/420639761): Enable gardening and tree closing when stable.
+    gardener_rotations = args.ignore_default(None),
+    tree_closing = False,
+    console_view_entry = consoles.console_view_entry(
+        category = "builder|det",
+        short_name = "x64-dbg",
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    execution_timeout = 6 * time.hour,
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
+)
+
+ci.builder(
+    name = "android-desktop-arm64-binary-size-generator",
+    branch_selector = branches.selector.MAIN,
+    description_html = "Generates binary size data for android-desktop on arm64.",
+    executable = "recipe:binary_size_generator_tot",
+    gn_args = gn_args.config(
+        configs = [
+            "android_desktop",
+            "android_builder",
+            "arm64",
+            "chrome_with_codecs",
+            "remoteexec",
+            "minimal_symbols",
+            "official_optimize",
+            "stable_channel",
+            "v8_release_branch",
+        ],
+    ),
+    builderless = False,
+    cores = 32,
+    ssd = True,
+    # TODO(crbug.com/420639761): Enable gardening and tree closing when stable.
+    gardener_rotations = args.ignore_default(None),
+    tree_closing = False,
+    console_view_entry = consoles.console_view_entry(
+        category = "builder|size",
+        short_name = "arm64",
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
+)
+
+ci.builder(
+    name = "android-desktop-x64-binary-size-generator",
+    branch_selector = branches.selector.MAIN,
+    description_html = "Generates binary size data for android-desktop on x64.",
+    executable = "recipe:binary_size_generator_tot",
+    gn_args = gn_args.config(
+        configs = [
+            "android_desktop",
+            "android_builder",
+            "x64",
+            "chrome_with_codecs",
+            "remoteexec",
+            "minimal_symbols",
+            "official_optimize",
+            "stable_channel",
+            "v8_release_branch",
+        ],
+    ),
+    builderless = False,
+    cores = 32,
+    ssd = True,
+    # TODO(crbug.com/420639761): Enable gardening and tree closing when stable.
+    gardener_rotations = args.ignore_default(None),
+    tree_closing = False,
+    console_view_entry = consoles.console_view_entry(
+        category = "builder|size",
+        short_name = "x64",
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )

@@ -13,7 +13,7 @@ import "url/mojom/url.mojom";
 
 // A snapshot of the current tabs in the tab strip.
 struct TabsSnapshot {
-  TabCollectionContainer tab_strip;
+  Container tab_strip;
   // Updates to tabs would be sent through this update stream. Clients may
   // subscribe to this stream to receive update events.
   // The interface is associated with the interface used to retrieve this
@@ -62,30 +62,43 @@ interface TabStripService {
   ActivateTab(NodeId id)
       => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
 
-  // Moves a tab identified by id to a specified position.
+  // Selects a list of tabs. The only accepted id type for this method are
+  // |kContent| ids. The selection must also pass in a tab to activate. This
+  // tab must be part of the tab selection.
+  [Sync]
+  SetSelectedTabs(array<NodeId> selection, NodeId tab_to_activate)
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Moves a tab or a tab collection identified by id to a specified position.
   [Sync]
   MoveTab(NodeId id, Position position)
       => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
 };
 
+union TabsEvent {
+  // When new tabs have been created on the tab strip.
+  OnTabsCreatedEvent tabs_created_event;
+
+  // When tabs have been closed on the tab strip.
+  OnTabsClosedEvent tabs_closed_event;
+
+  // When a tab has been moved.
+  OnTabMovedEvent tab_moved_event;
+
+  // When data has been updated.
+  OnDataChangedEvent data_changed_event;
+
+  // When a new tab group has been created.
+  OnTabGroupCreatedEvent tab_group_created_event;
+};
+
 // TabsObserver is an interface a client can implement to receive events
 // about changes to the tab strip.
 interface TabsObserver {
-  // When new tabs have been created on the tab strip.
-  OnTabsCreated(OnTabsCreatedEvent event);
-
-  // When tabs have been closed on the tab strip.
-  OnTabsClosed(OnTabsClosedEvent event);
-
-  // When a tab has been moved.
-  OnTabMoved(OnTabMovedEvent event);
-
-  // When tab data has been updated.
-  OnTabDataChanged(OnTabDataChangedEvent tab);
-
-  // When a new tab group has been created.
-  OnTabGroupCreated(OnTabGroupCreatedEvent event);
-
-  // When a tab group's visuals have been changed.
-  OnTabGroupVisualsChanged(OnTabGroupVisualsChangedEvent event);
+  // When the tab strip has been updated. This contains all the relevant
+  // updates that should be applied in a single run loop. For dispatch
+  // clients, use the following libraries:
+  //   ts: chrome/browser/resources/tab_strip_api/tab_strip_observation.ts
+  //   cpp: TODO(crbug.com/439639253): add cpp client.
+  OnTabEvents(array<TabsEvent> events);
 };

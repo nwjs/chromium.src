@@ -91,6 +91,7 @@
 #include "third_party/blink/renderer/core/css/properties/shorthand.h"
 #include "third_party/blink/renderer/core/css/property_registry.h"
 #include "third_party/blink/renderer/core/css/resolver/scoped_style_resolver.h"
+#include "third_party/blink/renderer/core/css/resolver/style_cascade.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/css/resolver/style_rule_usage_tracker.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
@@ -104,6 +105,7 @@
 #include "third_party/blink/renderer/core/css/style_sheet_list.h"
 #include "third_party/blink/renderer/core/css/zoom_adjusted_pixel_value.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/element.h"
@@ -870,8 +872,8 @@ void InspectorCSSAgent::enable(std::unique_ptr<EnableCallback> prp_callback) {
   enable_requested_.Set(true);
   resource_content_loader_->EnsureResourcesContentLoaded(
       resource_content_loader_client_id_,
-      WTF::BindOnce(&InspectorCSSAgent::ResourceContentLoaded,
-                    WrapPersistent(this), std::move(prp_callback)));
+      BindOnce(&InspectorCSSAgent::ResourceContentLoaded, WrapPersistent(this),
+               std::move(prp_callback)));
 }
 
 void InspectorCSSAgent::ResourceContentLoaded(
@@ -1278,7 +1280,7 @@ protocol::Response InspectorCSSAgent::getLocationForSelector(
   *ranges = std::make_unique<protocol::Array<protocol::CSS::SourceRange>>();
 
   const CSSRuleVector& css_rules = style_sheet->FlatRules();
-  for (auto css_rule : css_rules) {
+  for (const auto& css_rule : css_rules) {
     CSSStyleRule* css_style_rule = DynamicTo<CSSStyleRule>(css_rule.Get());
     if (css_style_rule == nullptr) {
       continue;
@@ -2096,7 +2098,8 @@ protocol::Response InspectorCSSAgent::getInlineStylesForNode(
 protocol::Response InspectorCSSAgent::getComputedStyleForNode(
     int node_id,
     std::unique_ptr<protocol::Array<protocol::CSS::CSSComputedStyleProperty>>*
-        style) {
+        style,
+    std::unique_ptr<protocol::CSS::ComputedStyleExtraFields>* extra_fields) {
   protocol::Response response = AssertEnabled();
   if (!response.IsSuccess())
     return response;
@@ -2145,6 +2148,15 @@ protocol::Response InspectorCSSAgent::getComputedStyleForNode(
                                .setValue(it.value->CssText())
                                .build());
   }
+
+  bool is_appearance_base = false;
+  if (auto* computed_style = element->GetComputedStyle()) {
+    is_appearance_base = computed_style->InBaseSelectAppearance();
+  }
+  *extra_fields = protocol::CSS::ComputedStyleExtraFields::create()
+                      .setIsAppearanceBase(is_appearance_base)
+                      .build();
+
   return protocol::Response::Success();
 }
 
@@ -2261,21 +2273,21 @@ protocol::Response InspectorCSSAgent::resolveValues(
         "Computed style of element is null.");
   }
 
-  const AtomicString custom_property_name(
+  const AtomicString temp_custom_property_name(
       ("--" + base::UnguessableToken::Create().ToString()).c_str());
   std::optional<AutoRegistration> auto_registration;
   CSSSyntaxDefinition syntax_definition = CreateCombinedSyntax();
   PropertyRegistration* property_registration =
       MakeGarbageCollected<PropertyRegistration>(
-          custom_property_name, syntax_definition, /* inherits */ false,
+          temp_custom_property_name, syntax_definition, /* inherits */ false,
           /* initial */ nullptr);
   // Temporary register property with combined syntax.
-  auto_registration.emplace(document, custom_property_name,
+  auto_registration.emplace(document, temp_custom_property_name,
                             *property_registration);
-  CustomProperty temporary_custom_property(custom_property_name, document);
+  CustomProperty temporary_custom_property(temp_custom_property_name, document);
 
   std::optional<CSSPropertyName> property_name =
-      CSSPropertyName(custom_property_name);
+      CSSPropertyName(temp_custom_property_name);
   if (property_name_str.has_value()) {
     property_name =
         CSSPropertyName::From(execution_context, *property_name_str);
@@ -2292,9 +2304,36 @@ protocol::Response InspectorCSSAgent::resolveValues(
 
   *results = std::make_unique<protocol::Array<String>>();
   for (auto value : *values) {
+    CSSVariableData* data =
+        CSSVariableData::Create(value, /* is_animation_tainted= */ false,
+                                /* is_attr_tainted= */ false,
+                                /*needs_variable_resolution=*/true);
+    if (!data) {
+      (*results)->emplace_back(value);
+      continue;
+    }
+
+    const CSSUnparsedDeclarationValue* unparsed =
+        MakeGarbageCollected<CSSUnparsedDeclarationValue>(data, parser_context);
+    if (!unparsed) {
+      (*results)->emplace_back(value);
+      continue;
+    }
+
+    StyleResolverState state(element->GetDocument(), *element);
+    state.EnsureParentStyle();
+    state.SetStyle(*element->GetComputedStyle());
+    const CSSUnparsedDeclarationValue* substituted =
+        StyleCascade::ResolveSubstitutions(state, *unparsed, &document);
+
+    if (!substituted) {
+      (*results)->emplace_back(value);
+      continue;
+    }
+
     const CSSValue* computed_value = nullptr;
-    const CSSValue* parsed_value =
-        CSSParser::ParseSingleValue(property_name->Id(), value, parser_context);
+    const CSSValue* parsed_value = CSSParser::ParseSingleValue(
+        property_name->Id(), substituted->CssText(), parser_context);
     if (parsed_value) {
       computed_value =
           StyleResolver::ComputeValue(element, *property_name, *parsed_value);
@@ -2305,14 +2344,14 @@ protocol::Response InspectorCSSAgent::resolveValues(
       }
     } else {
       auto local_context = CSSParserLocalContext();
-      parsed_value = temporary_custom_property.Parse(value, *parser_context,
-                                                     local_context);
+      parsed_value = temporary_custom_property.Parse(
+          substituted->CssText(), *parser_context, local_context);
       if (!parsed_value) {
         (*results)->emplace_back(value);
         continue;
       }
       computed_value = StyleResolver::ComputeValue(
-          element, CSSPropertyName(custom_property_name), *parsed_value);
+          element, CSSPropertyName(temp_custom_property_name), *parsed_value);
     }
 
     if (!computed_value) {
@@ -2364,7 +2403,7 @@ protocol::Response InspectorCSSAgent::getLonghandProperties(
 
   *longhand_properties =
       std::make_unique<protocol::Array<protocol::CSS::CSSProperty>>();
-  for (auto longhand_property : css_longhand_properties) {
+  for (const auto& longhand_property : css_longhand_properties) {
     std::unique_ptr<protocol::CSS::CSSProperty> protocol_longhand =
         protocol::CSS::CSSProperty::create()
             .setName(longhand_property.Name().ToAtomicString())
@@ -3532,7 +3571,7 @@ void InspectorCSSAgent::FillAncestorData(CSSRule* rule,
   result->setMedia(std::move(media_list));
   result->setSupports(std::move(supports_list));
   result->setScopes(std::move(scopes_list));
-  std::reverse(layers_list.get()->begin(), layers_list.get()->end());
+  std::ranges::reverse(*layers_list);
   result->setLayers(std::move(layers_list));
   result->setContainerQueries(std::move(container_queries_list));
   result->setRuleTypes(std::move(rule_types_list));
@@ -4621,7 +4660,7 @@ void InspectorCSSAgent::BuildRulesMap(
     HeapHashMap<Member<const StyleRule>, Member<CSSStyleRule>>*
         rule_to_css_rule) {
   const CSSRuleVector& css_rules = style_sheet->FlatRules();
-  for (auto css_rule : css_rules) {
+  for (const auto& css_rule : css_rules) {
     if (css_rule->GetType() == CSSRule::kStyleRule) {
       CSSStyleRule* css_style_rule = DynamicTo<CSSStyleRule>(css_rule.Get());
       rule_to_css_rule->Set(css_style_rule->GetStyleRule(), css_style_rule);
@@ -4667,7 +4706,7 @@ protocol::Response InspectorCSSAgent::takeCoverageDelta(
     HeapHashMap<Member<const StyleRule>, Member<CSSStyleRule>> rule_to_css_rule;
     BuildRulesMap(style_sheet, &rule_to_css_rule);
 
-    for (auto used_rule : *entry.value) {
+    for (const auto& used_rule : *entry.value) {
       auto rule_to_css_rule_it = rule_to_css_rule.find(used_rule);
       if (rule_to_css_rule_it == rule_to_css_rule.end())
         continue;
@@ -4783,8 +4822,8 @@ void InspectorCSSAgent::DidUpdateComputedStyle(Element* element,
         inspected_frames_->Root()->GetTaskRunner(TaskType::kInternalInspector);
     task_runner->PostDelayedTask(
         FROM_HERE,
-        WTF::BindOnce(&InspectorCSSAgent::NotifyComputedStyleUpdatedForNode,
-                      WrapPersistent(weak_factory_.GetWeakCell()), id),
+        BindOnce(&InspectorCSSAgent::NotifyComputedStyleUpdatedForNode,
+                 WrapPersistent(weak_factory_.GetWeakCell()), id),
         base::Milliseconds(50));
   }
 

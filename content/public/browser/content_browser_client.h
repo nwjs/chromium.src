@@ -92,6 +92,7 @@
 #include "third_party/blink/public/mojom/origin_trials/origin_trials_settings.mojom-forward.h"
 #include "third_party/blink/public/mojom/payments/secure_payment_confirmation_service.mojom-forward.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_info.mojom.h"
+#include "ui/base/clipboard/clipboard_metadata.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
@@ -124,6 +125,7 @@ class CommandLine;
 class FilePath;
 class Location;
 class SequencedTaskRunner;
+class ScopedClosureRunner;
 }  // namespace base
 
 namespace blink {
@@ -411,10 +413,17 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Notifies that a BrowserChildProcessHost has been created.
   virtual void BrowserChildProcessHostCreated(BrowserChildProcessHost* host) {}
 
-  // Get the effective URL for the given actual URL, to allow an embedder to
+  // Gets the effective URL for the given actual URL, to allow an embedder to
   // group different url schemes in the same SiteInstance.
   virtual GURL GetEffectiveURL(BrowserContext* browser_context,
                                const GURL& url);
+
+  // Invoked during renderer process lock state transitions (e.g., invalid ->
+  // allows_any_site and allows_any_site -> locked_to_site) and when renderers
+  // are respawned after crashing. Note that this method is gated to be called
+  // only once per renderer to avoid reapplying static renderer settings.
+  virtual void OnRendererProcessLockedStateUpdated(RenderProcessHost* host,
+                                                   const GURL& site_url);
 
   // Returns true if effective URLs should be compared when choosing a
   // SiteInstance for a navigation to |destination_url|.
@@ -643,6 +652,11 @@ class CONTENT_EXPORT ContentBrowserClient {
       content::Referrer* referrer,
       std::optional<url::Origin>* initiator_origin) {}
 
+  // Returns true if the given URL is in any of the NavigationEntries. This is
+  // used to determine if a URL is already in the navigation history of any of
+  // the tabs in a given browser context.
+  virtual bool IsURLAccessibleByHistoryNavigation(const GURL& url);
+
   // Temporary hack to determine whether to skip OOPIFs on the new tab page.
   // TODO(creis): Remove when https://crbug.com/566091 is fixed.
   virtual bool ShouldStayInParentProcessForNTP(const GURL& url,
@@ -780,11 +794,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool IsIsolatedContextAllowedForUrl(BrowserContext* browser_context,
                                               const GURL& lock_url);
 
-  // Check if the application running in the |render_frame_host| is allowed to
-  // automatically capture all screens by using the getAllScreensMedia API.
-  virtual void CheckGetAllScreensMediaAllowed(
-      content::RenderFrameHost* render_frame_host,
-      base::OnceCallback<void(bool)> callback);
+  // Returns whether the application running in the |render_frame_host| is
+  // allowed to automatically capture all screens by using the
+  // getAllScreensMedia API.
+  virtual bool IsMultiCaptureAllowed(
+      content::RenderFrameHost* render_frame_host);
 
   // Allow the embedder to control the maximum renderer process count. Only
   // applies if it is set to a non-zero value.  Once this limit is exceeded,
@@ -1484,6 +1498,18 @@ class CONTENT_EXPORT ContentBrowserClient {
       WebContents* web_contents,
       SiteInstance& main_frame_site,
       blink::web_pref::WebPreferences* prefs);
+
+  // Called by `WebContents` when its `ColorProviderSource` or the web instance
+  // of the `NativeTheme` change. Returns whether the web preferences for
+  // `web_contents` may be out of date as a result, which will trigger
+  // recomputation. This can be used as an alternative to monitoring this state
+  // directly and calling `OnWebPreferencesChanged()` on the `WebContents` when
+  // items of interest change, to avoid duplicate updates. Note that calling
+  // `OnWebPreferencesChanged()` is still necessary if state outside the above
+  // items changes.
+  virtual bool WebPreferencesNeedUpdateForColorRelatedStateChanges(
+      WebContents& web_contents,
+      const SiteInstance& main_frame_site) const;
 
   // Notifies that BrowserURLHandler has been created, so that the embedder can
   // optionally add their own handlers.
@@ -2514,6 +2540,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   CreateWindowForVideoPictureInPicture(
       VideoPictureInPictureWindowController* controller);
 
+  // Creates a scoper that will tuck picture-in-picture windows for the lifetime
+  // of the scoper.
+  virtual base::ScopedClosureRunner MaybeGetScopedPictureInPictureTucker(
+      WebContents* web_contents);
+
   // Returns information related to auto picture in picture. The auto picture in
   // picture reason is recorded in metrics.
   virtual media::PictureInPictureEventsInfo::AutoPipInfo GetAutoPipInfo(
@@ -2740,7 +2771,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual void IsClipboardPasteAllowedByPolicy(
       const ClipboardEndpoint& source,
       const ClipboardEndpoint& destination,
-      const ClipboardMetadata& metadata,
+      const ui::ClipboardMetadata& metadata,
       ClipboardPasteData clipboard_paste_data,
       IsClipboardPasteAllowedCallback callback);
 
@@ -2749,7 +2780,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // asynchronously.
   virtual void IsClipboardCopyAllowedByPolicy(
       const ClipboardEndpoint& source,
-      const ClipboardMetadata& metadata,
+      const ui::ClipboardMetadata& metadata,
       const ClipboardPasteData& data,
       IsClipboardCopyAllowedCallback callback);
 
@@ -3231,12 +3262,6 @@ class CONTENT_EXPORT ContentBrowserClient {
           callback);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-  // Whether the destination URL from a NavigationHandle can be saved and
-  // synced to another machine and reloaded there. Some navigations, such as
-  // http POST requests, cannot be synced across machines as the request body
-  // is no longer available when reloading the URL.
-  virtual bool IsSaveableNavigation(NavigationHandle* navigation_handle);
-
 #if BUILDFLAG(IS_WIN)
   // Invoked when an accessibility client requests the UI automation root object
   // for a window. `uia_provider_enabled` is true when the request was
@@ -3313,6 +3338,29 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual std::optional<std::vector<std::u16string>>
   GetClipboardTypesIfPolicyApplied(
       const ui::ClipboardSequenceNumberToken& seqno);
+
+  // Returns true if CanvasNoise should be enabled for `origin`'s navigation.
+  // Enablement depends on corresponding feature flag values, and whether the
+  // origin has an exception from Canvas noising. Default returns false.
+  virtual bool ShouldEnableCanvasNoise(BrowserContext* browser_context,
+                                       const GURL& origin);
+
+  // Returns true if PrefetchPrerenderIntegration should be allowed, this
+  // allows a prerender fall back to prefetch if available.
+  virtual bool UsePrefetchPrerenderIntegration();
+
+  // Returns true if `PreloadServingMetrics` should be enabled, which record
+  // serving metrics of preloads.
+  //
+  // Some //content features enable the feature even if it's false. For
+  // details, see `PreloadServingMetrics::IsEnabled()`.
+  //
+  // We use `ContentBrowserClient` rather than //content public feature because
+  // we have mulitple preload triggers in //chrome that want to enable the
+  // feature, and we have a limitation: a feature cannot be used in mulitple
+  // experiments. For more details, see
+  // https://docs.google.com/document/d/1bBhfhO7BotUB7Myy_8mtFF_4lI5N8hUyNayV_gI019Y/edit?tab=t.0#heading=h.9osmajzfan4b
+  virtual bool UsePreloadServingMetrics();
 };
 
 }  // namespace content

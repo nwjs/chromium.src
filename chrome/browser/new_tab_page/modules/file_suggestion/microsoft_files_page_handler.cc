@@ -78,8 +78,6 @@ constexpr net::NetworkTrafficAnnotationTag traffic_annotation =
           }
         })");
 
-const int kMaxResponseSize = 1024 * 1024;
-
 const int kNumberOfDaysPerWeek = 7;
 
 const char kFakeTrendingData[] =
@@ -153,17 +151,20 @@ const char kFakeTrendingData[] =
 constexpr base::TimeDelta kModuleDismissalDuration = base::Hours(12);
 
 const char kBatchRequestUrl[] = "https://graph.microsoft.com/v1.0/$batch";
-const char kNonInsightsRequestBody[] = R"({
+const char kNonInsightsRequestBody[] =
+    R"({
   "requests": [
   {
     "id": "recent",
     "method": "GET",
-    "url": "/me/drive/recent?orderby=fileSystemInfo/lastAccessedDateTime+desc"
+    "url": "/me/drive/recent?orderby=fileSystemInfo/lastAccessedDateTime+desc)"
+    R"(&$top=6"
   },
   {
     "id": "shared",
     "method": "GET",
-    "url": "/me/drive/sharedWithMe"
+    "url": "/me/drive/sharedWithMe?$select=id,name,webUrl,file,)"
+    R"(lastModifiedDateTime,remoteItem&$orderBy=lastModifiedDateTime+desc"
   }]})";
 
 const char kNonInsightsFakeData[] =
@@ -450,7 +451,7 @@ void MicrosoftFilesPageHandler::RequestFiles(
       url_loader_factory_.get(),
       base::BindOnce(&MicrosoftFilesPageHandler::OnJsonReceived,
                      weak_factory_.GetWeakPtr(), std::move(callback)),
-      kMaxResponseSize);
+      network::SimpleURLLoader::kMaxBoundedStringDownloadSize);
 }
 
 void MicrosoftFilesPageHandler::ParseFakeData(GetFilesCallback callback) {
@@ -479,13 +480,14 @@ void MicrosoftFilesPageHandler::OnJsonReceived(
   // Check for unauthorized and throttling errors.
   auto* response_info = url_loader_->ResponseInfo();
   if (net_error != net::OK && response_info && response_info->headers) {
-    int64_t wait_time =
+    std::optional<int64_t> wait_time =
         response_info->headers->GetInt64HeaderValue("Retry-After");
-    if (wait_time != -1) {
+    if (wait_time) {
       request_result_ = MicrosoftFilesRequestResult::kThrottlingError;
-      RecordThrottlingWaitTime(base::Seconds(wait_time));
-      pref_service_->SetTime(prefs::kNtpMicrosoftFilesModuleRetryAfterTime,
-                             base::Time::Now() + base::Seconds(wait_time));
+      RecordThrottlingWaitTime(base::Seconds(wait_time.value()));
+      pref_service_->SetTime(
+          prefs::kNtpMicrosoftFilesModuleRetryAfterTime,
+          base::Time::Now() + base::Seconds(wait_time.value()));
     } else if (response_info->headers->response_code() ==
                net::HTTP_UNAUTHORIZED) {
       request_result_ = MicrosoftFilesRequestResult::kAuthError;

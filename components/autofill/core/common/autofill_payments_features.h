@@ -15,14 +15,14 @@ namespace autofill::features {
 // All features in alphabetical order.
 #if BUILDFLAG(IS_IOS)
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillDisableDefaultSaveCardFixFlowDetection);
+BASE_DECLARE_FEATURE(kAutofillCreditCardScannerIos);
 #endif
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableAllowlistForBmoCardCategoryBenefits);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnableAmountExtractionAllowlistDesktop);
+BASE_DECLARE_FEATURE(kAutofillEnableAmountExtraction);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnableAmountExtractionDesktop);
+BASE_DECLARE_FEATURE(kAutofillEnableAmountExtractionAllowlist);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableAmountExtractionTesting);
 COMPONENT_EXPORT(AUTOFILL)
@@ -60,9 +60,9 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableFlatRateCardBenefitsFromCurinos);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableFpanRiskBasedAuthentication);
-
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnableLogFormEventsToAllParsedFormTypes);
+BASE_DECLARE_FEATURE(kAutofillEnableLoadBnplAllowlistAfterSyncing);
+
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(
     kAutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment);
@@ -72,13 +72,6 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableNewFopDisplayDesktop);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableOffersInClankKeyboardAccessory);
-
-#if BUILDFLAG(IS_ANDROID)
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnablePaymentSettingsCardPromoAndScanCard);
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnablePaymentSettingsServerCardSave);
-#endif
 
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnablePrefetchingRiskDataForRetrieval);
@@ -123,12 +116,6 @@ COMPONENT_EXPORT(AUTOFILL) BASE_DECLARE_FEATURE(kAutofillSyncEwalletAccounts);
 
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillUnmaskCardRequestTimeout);
-
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillUploadCardRequestTimeout);
-COMPONENT_EXPORT(AUTOFILL)
-extern const base::FeatureParam<int>
-    kAutofillUploadCardRequestTimeoutMilliseconds;
 
 COMPONENT_EXPORT(AUTOFILL) BASE_DECLARE_FEATURE(kAutofillUpstream);
 

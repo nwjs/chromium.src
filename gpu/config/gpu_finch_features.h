@@ -75,14 +75,18 @@ GPU_CONFIG_EXPORT extern const base::FeatureParam<int>
 GPU_CONFIG_EXPORT extern const base::FeatureParam<bool>
     kSkiaGraphiteDawnDumpWCOnD3DError;
 GPU_CONFIG_EXPORT extern const base::FeatureParam<bool>
+    kSkiaGraphiteDawnDisableD3DShaderOptimizations;
+GPU_CONFIG_EXPORT extern const base::FeatureParam<bool>
     kSkiaGraphiteDawnD3D11DelayFlush;
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kSkiaGraphiteDawnUseD3D12);
 #endif
 
-GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kConditionallySkipGpuChannelFlush);
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kSkiaGraphiteSmallPathAtlas);
+GPU_CONFIG_EXPORT extern const base::FeatureParam<int>
+    kSkiaGraphiteMinPathSizeForMsaa;
 
-GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kEnableVkPipelineCache);
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kConditionallySkipGpuChannelFlush);
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kNoDiscardableMemoryForGpuDecodePath);
 

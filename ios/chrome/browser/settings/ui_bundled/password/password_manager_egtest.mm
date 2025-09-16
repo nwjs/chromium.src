@@ -91,6 +91,7 @@ using password_manager_test_utils::PasswordSettingsTableView;
 using password_manager_test_utils::PasswordTextfieldForUsernameAndSites;
 using password_manager_test_utils::ReauthenticationController;
 using password_manager_test_utils::SaveExamplePasskeyToStore;
+using password_manager_test_utils::SaveHiddenPasskeyToStore;
 using password_manager_test_utils::SavePasswordFormToProfileStore;
 using password_manager_test_utils::TapNavigationBarEditButton;
 using password_manager_test_utils::UsernameTextfieldForUsernameAndSites;
@@ -743,6 +744,10 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   if ([self isRunningTest:@selector(testAutomaticPasskeyUpgradesPrefToggle)]) {
     config.features_enabled.push_back(
         kCredentialProviderAutomaticPasskeyUpgrade);
+  }
+
+  if ([self isRunningTest:@selector(testTappingInfoButtonForHiddenPasskey)]) {
+    config.features_enabled.push_back(kCredentialProviderSignalAPI);
   }
 
   return config;
@@ -2363,6 +2368,43 @@ void OpenPasswordManagerWidgetPromoInstructions() {
       assertWithMatcher:grey_not(grey_sufficientlyVisible())];
 }
 
+// Checks interaction with an info button for a hidden passkey.
+- (void)testTappingInfoButtonForHiddenPasskey {
+  SaveHiddenPasskeyToStore();
+
+  OpenPasswordManager();
+
+  [[self interactionForSinglePasswordEntryWithDomain:@"example.com"]
+      performAction:grey_tap()];
+
+  // Check that the information about passkey not working is visible.
+  [[EarlGrey selectElementWithMatcher:grey_text(l10n_util::GetNSString(
+                                          IDS_IOS_PASSKEY_DOES_NOT_WORK))]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Click on the info button.
+  [[EarlGrey
+      selectElementWithMatcher:grey_allOf(grey_accessibilityID(
+                                              kHiddenPasskeyInfoButtonID),
+                                          grey_kindOfClass([UIButton class]),
+                                          nil)] performAction:grey_tap()];
+
+  // Check the the info popup is visible.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
+                                          kHiddenPasskeyInfoPopoverViewID)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Tap the "About passkeys" link in the popup.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityLabel(@"About passkeys")]
+      performAction:grey_tap()];
+
+  // Check that the help center article was opened.
+  GREYAssertEqual(std::string("support.google.com"),
+                  [ChromeEarlGrey webStateVisibleURL].host(),
+                  @"Did not navigate to the help center article.");
+}
+
 // Checks that attempts to edit a username provide appropriate feedback.
 - (void)testCancelDuringEditing {
   SavePasswordFormToProfileStore();
@@ -3270,9 +3312,9 @@ void OpenPasswordManagerWidgetPromoInstructions() {
       performAction:grey_tap()];
 }
 
-// Tests that the save passwords in account section is hidden when not opted-in
-// for account storage.
-- (void)testSavePasswordsInAccountHiddenWhenNotOptedInToAccountStorage {
+// Tests that the save passwords in account section is hidden when account
+// storage disabled.
+- (void)testSavePasswordsInAccountHiddenWhenAccountStorageDisabled {
   SavePasswordFormToProfileStore();
 
   [PasswordSettingsAppInterface mockReauthenticationModuleExpectedResult:
@@ -3284,7 +3326,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   OpenSettingsSubmenu();
   [ChromeEarlGreyUI waitForAppToIdle];
 
-  // Opt out of account storage.
+  // Disable account storage.
   [SigninEarlGreyAppInterface
       setSelectedType:(syncer::UserSelectableType::kPasswords)
               enabled:NO];
@@ -4049,7 +4091,9 @@ void OpenPasswordManagerWidgetPromoInstructions() {
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
-- (void)testSwipingAnotherAffiliatedGroupWhenAnotherIsInEditMode {
+// TODO(crbug.com/440119404): Re-enable after roll is complete and testers are
+// also updated.
+- (void)DISABLED_testSwipingAnotherAffiliatedGroupWhenAnotherIsInEditMode {
   // Form an affiliated group with two passwords.
   SavePasswordFormToProfileStore(/*password=*/@"password1",
                                  /*username=*/@"user1",

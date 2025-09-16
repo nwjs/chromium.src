@@ -39,10 +39,15 @@ class PermissionSettingsInfo {
     // Returns if at least some of the permission setting is allowed. Used e.g.
     // to decide whether the permission setting can be auto-revoked by
     // SafetyHub.
-    virtual bool IsAnyPermissionAllowed(PermissionSetting setting) const = 0;
+    virtual bool IsAnyPermissionAllowed(
+        const PermissionSetting& setting) const = 0;
 
     // Returns true when no permission has been allowed or blocked yet.
-    virtual bool IsUndecided(PermissionSetting setting) const = 0;
+    virtual bool IsUndecided(const PermissionSetting& setting) const = 0;
+
+    // Returns whether the permission is fully blocked. This is usually the case
+    // when nothing is allowed and the permission is not undecided.
+    virtual bool IsBlocked(const PermissionSetting& setting) const;
 
     // Returns whether the permission setting supports expiration tracking.
     virtual bool CanTrackLastVisit() const = 0;
@@ -50,6 +55,11 @@ class PermissionSettingsInfo {
     // Returns true if any existing persistent state should be coalesced with
     // ephemeral state from the OneTimePermissionProvider.
     virtual bool ShouldCoalesceEphemeralState() const = 0;
+
+    // Returns a PermissionSetting that represents the permission when under
+    // permission embargo. E.g. turns ASK into BLOCK.
+    virtual PermissionSetting ApplyPermissionEmbargo(
+        const PermissionSetting& setting) const = 0;
 
     // Returns the coalesced PermissionSetting based on the passed in persistent
     // and ephemeral state.

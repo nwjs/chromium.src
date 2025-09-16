@@ -13,9 +13,7 @@
     },
 
     'blink_unittests_suite': {
-      'blink_unit_tests': {
-        'test': 'blink_unittests',
-      },
+      'blink_unittests': {},
     },
 
     'blink_web_tests_ppapi_isolated_scripts': {
@@ -185,20 +183,8 @@
           'cros_test_names_exclude_from_file': [
             'chromeos/tast_control_disabled_tests.txt',
           ],
+          'cros_ctp_suite_name': 'chrome-uprev-hw',
         },
-      },
-    },
-
-    'chromeos_chrome_criticalstaging_tast_tests': {
-      'chrome_criticalstaging_tast_tests': {
-        'ci_only': True,
-        'skylab': {
-          'tast_expr': 'STUB_STRING_TO_RUN_TAST_TESTS',
-          'test_level_retries': 2,
-          'timeout_sec': 14400,
-          'shards': 3,
-        },
-        'experiment_percentage': 100,
       },
     },
 
@@ -221,19 +207,6 @@
           'cros_test_names_exclude_from_file': [
             'chromeos/tast_control_disabled_tests.txt',
           ],
-        },
-        'experiment_percentage': 100,
-      },
-    },
-
-    'chromeos_chrome_disabled_tast_tests': {
-      'chrome_disabled_tast_tests': {
-        'ci_only': True,
-        'skylab': {
-          'tast_expr': 'STUB_STRING_TO_RUN_TAST_TESTS',
-          'test_level_retries': 1,
-          'timeout_sec': 14400,
-          'shards': 2,
         },
         'experiment_percentage': 100,
       },
@@ -544,6 +517,11 @@
           ],
         },
       },
+      'blink_unittests': {
+        'android_swarming': {
+          'shards': 6,
+        },
+      },
       'boringssl_crypto_tests': {},
       'boringssl_ssl_tests': {},
       'capture_unittests': {
@@ -616,12 +594,6 @@
       'ui_base_unittests': {},
       'ui_touch_selection_unittests': {},
       'url_unittests': {},
-      'webkit_unit_tests': {
-        'test': 'blink_unittests',
-        'android_swarming': {
-          'shards': 6,
-        },
-      },
       'wtf_unittests': {},
       'zlib_unittests': {},
     },
@@ -2443,17 +2415,26 @@
   'matrix_compound_suites': {
 
     'chromeos_brya_skylab_tests': {
-      'chromeos_chrome_all_tast_tests': {
+      'chromeos_chrome_all_tast_tests_tfc': {
+        'mixins': [
+          'skylab-50-tests-per-shard',
+        ],
         'variants': [
           'CROS_RELEASE_LKGM',
         ],
       },
-      'chromeos_chrome_criticalstaging_tast_tests': {
+      'chromeos_chrome_criticalstaging_tast_tests_tfc': {
+        'mixins': [
+          'skylab-40-tests-per-shard',
+        ],
         'variants': [
           'CROS_RELEASE_LKGM',
         ],
       },
-      'chromeos_chrome_disabled_tast_tests': {
+      'chromeos_chrome_disabled_tast_tests_tfc': {
+        'mixins': [
+          'skylab-20-tests-per-shard',
+        ],
         'variants': [
           'CROS_RELEASE_LKGM',
         ],
@@ -2518,20 +2499,26 @@
     },
 
     'chromeos_jacuzzi_skylab_tests': {
-      'chromeos_chrome_all_tast_tests': {
+      'chromeos_chrome_all_tast_tests_tfc': {
         'mixins': [
-          'skylab-shards-30',
+          'skylab-40-tests-per-shard',
         ],
         'variants': [
           'CROS_RELEASE_LKGM',
         ],
       },
-      'chromeos_chrome_criticalstaging_tast_tests': {
+      'chromeos_chrome_criticalstaging_tast_tests_tfc': {
+        'mixins': [
+          'skylab-40-tests-per-shard',
+        ],
         'variants': [
           'CROS_RELEASE_LKGM',
         ],
       },
-      'chromeos_chrome_disabled_tast_tests': {
+      'chromeos_chrome_disabled_tast_tests_tfc': {
+        'mixins': [
+          'skylab-20-tests-per-shard',
+        ],
         'variants': [
           'CROS_RELEASE_LKGM',
         ],
@@ -2549,7 +2536,10 @@
     },
 
     'chromeos_octopus_skylab_tests': {
-      'chromeos_chrome_all_tast_tests': {
+      'chromeos_chrome_all_tast_tests_tfc': {
+        'mixins': [
+          'skylab-50-tests-per-shard',
+        ],
         'variants': [
           'CROS_RELEASE_LKGM',
         ],
@@ -2562,9 +2552,25 @@
     },
 
     'chromeos_trogdor_skylab_tests': {
-      'chromeos_chrome_all_tast_tests': {
+      'chromeos_chrome_all_tast_tests_tfc': {
         'mixins': [
-          'skylab-shards-20',
+          'skylab-40-tests-per-shard',
+        ],
+        'variants': [
+          'CROS_RELEASE_LKGM',
+        ],
+      },
+      'chromeos_chrome_criticalstaging_tast_tests_tfc': {
+        'mixins': [
+          'skylab-40-tests-per-shard',
+        ],
+        'variants': [
+          'CROS_RELEASE_LKGM',
+        ],
+      },
+      'chromeos_chrome_disabled_tast_tests_tfc': {
+        'mixins': [
+          'skylab-20-tests-per-shard',
         ],
         'variants': [
           'CROS_RELEASE_LKGM',
@@ -2703,17 +2709,26 @@
     },
 
     'chromeos_volteer_skylab_tests': {
-      'chromeos_chrome_all_tast_tests': {
+      'chromeos_chrome_all_tast_tests_tfc': {
+        'mixins': [
+          'skylab-50-tests-per-shard',
+        ],
         'variants': [
           'CROS_RELEASE_LKGM',
         ],
       },
-      'chromeos_chrome_criticalstaging_tast_tests': {
+      'chromeos_chrome_criticalstaging_tast_tests_tfc': {
+        'mixins': [
+          'skylab-40-tests-per-shard',
+        ],
         'variants': [
           'CROS_RELEASE_LKGM',
         ],
       },
-      'chromeos_chrome_disabled_tast_tests': {
+      'chromeos_chrome_disabled_tast_tests_tfc': {
+        'mixins': [
+          'skylab-20-tests-per-shard',
+        ],
         'variants': [
           'CROS_RELEASE_LKGM',
         ],

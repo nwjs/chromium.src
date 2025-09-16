@@ -74,6 +74,8 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/webui/feed_internals/feed_internals.mojom.h"
 #include "chrome/browser/ui/webui/feed_internals/feed_internals_ui.h"
+#include "chrome/browser/ui/webui/notifications_internals/notifications_internals.mojom.h"
+#include "chrome/browser/ui/webui/notifications_internals/notifications_internals_ui.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #else
 #include "chrome/browser/actor/ui/actor_overlay_ui.h"
@@ -140,10 +142,13 @@
 #include "chrome/browser/ui/webui/web_app_internals/web_app_internals.mojom.h"
 #include "chrome/browser/ui/webui/web_app_internals/web_app_internals_ui.h"
 #include "chrome/browser/ui/webui/webui_gallery/webui_gallery_ui.h"
+#include "chrome/browser/ui/webui_browser/webui_browser.h"
+#include "chrome/browser/ui/webui_browser/webui_browser_ui.h"
 #include "chrome/common/chrome_features.h"
 #include "components/autofill/core/browser/ml_model/logging/autofill_ml_internals.mojom.h"
 #include "components/commerce/core/mojom/product_specifications.mojom.h"
 #include "components/commerce/core/mojom/shopping_service.mojom.h"  // nogncheck crbug.com/1125897
+#include "components/guest_contents/common/guest_contents.mojom.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/page_image_service/mojom/page_image_service.mojom.h"
@@ -159,6 +164,7 @@
 #include "ui/webui/resources/cr_components/most_visited/most_visited.mojom.h"
 #include "ui/webui/resources/cr_components/theme_color_picker/theme_color_picker.mojom.h"
 #include "ui/webui/resources/js/browser_command/browser_command.mojom.h"
+#include "ui/webui/resources/js/tracked_element/tracked_element.mojom.h"  // nogncheck crbug.com/1125897
 
 #if !defined(OFFICIAL_BUILD)
 #include "chrome/browser/ui/webui/new_tab_page/foo/foo.mojom.h"  // nogncheck crbug.com/1125897
@@ -368,8 +374,8 @@
 
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/fre/glic_fre_ui.h"
-#include "chrome/browser/glic/glic_enabling.h"
 #include "chrome/browser/glic/host/glic_ui.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #endif
 
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
@@ -522,8 +528,8 @@ void PopulateChromeWebUIFrameBinders(
 
   if (features::kGlicActorUiOverlay.Get()) {
     RegisterWebUIControllerInterfaceBinder<
-        actor::ui::mojom::ActorOverlayPageHandler, actor::ui::ActorOverlayUI>(
-        map);
+        actor::ui::mojom::ActorOverlayPageHandlerFactory,
+        actor::ui::ActorOverlayUI>(map);
   }
 
   RegisterWebUIControllerInterfaceBinder<
@@ -563,7 +569,8 @@ void PopulateChromeWebUIFrameBinders(
   RegisterWebUIControllerInterfaceBinder<
       new_tab_page::mojom::PageHandlerFactory, NewTabPageUI>(map);
 
-  if (user_education::features::NtpBrowserPromosEnabled()) {
+  if (user_education::features::GetNtpBrowserPromoType() !=
+      user_education::features::NtpBrowserPromoType::kNone) {
     RegisterWebUIControllerInterfaceBinder<
         ntp_promo::mojom::NtpPromoHandlerFactory, NewTabPageUI>(map);
   }
@@ -733,7 +740,8 @@ void PopulateChromeWebUIFrameBinders(
         file_suggestion::mojom::MicrosoftFilesPageHandler, NewTabPageUI>(map);
   }
 
-  if (ntp_composebox::FeatureConfig::Get().enabled) {
+  if (ntp_composebox::IsNtpComposeboxEnabled(Profile::FromBrowserContext(
+          render_frame_host->GetProcess()->GetBrowserContext()))) {
     RegisterWebUIControllerInterfaceBinder<
         composebox::mojom::PageHandlerFactory, NewTabPageUI>(map);
   }
@@ -1206,6 +1214,9 @@ void PopulateChromeWebUIFrameBinders(
 #if BUILDFLAG(IS_ANDROID)
   RegisterWebUIControllerInterfaceBinder<feed_internals::mojom::PageHandler,
                                          FeedInternalsUI>(map);
+  RegisterWebUIControllerInterfaceBinder<
+      notifications_internals::mojom::PageHandler, NotificationsInternalsUI>(
+      map);
 #endif
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
@@ -1313,6 +1324,11 @@ void PopulateChromeWebUIFrameBinders(
 #if BUILDFLAG(ENTERPRISE_WATERMARK)
   RegisterWebUIControllerInterfaceBinder<watermark::mojom::PageHandlerFactory,
                                          WatermarkUI>(map);
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+  RegisterWebUIControllerInterfaceBinder<
+      guest_contents::mojom::GuestContentsHost, WebUIBrowserUI>(map);
 #endif
 }
 
@@ -1435,6 +1451,16 @@ void PopulateChromeWebUIFrameInterfaceBrokers(
   registry.ForWebUI<NtpMicrosoftAuthUntrustedUI>()
       .Add<new_tab_page::mojom::
                MicrosoftAuthUntrustedDocumentInterfacesFactory>();
+
+  if (webui_browser::IsWebUIBrowserEnabled()) {
+    registry.ForWebUI<WebUIBrowserUI>()
+        .Add<webui_browser::mojom::PageHandlerFactory>()
+        .Add<bookmark_bar::mojom::PageHandlerFactory>()
+        .Add<searchbox::mojom::PageHandler>()
+        .Add<metrics_reporter::mojom::PageMetricsHost>()
+        .Add<tabs_api::mojom::TabStripService>()
+        .Add<tracked_element::mojom::TrackedElementHandler>();
+  }
 
 #endif  // !BUILDFLAG(IS_ANDROID)
 }

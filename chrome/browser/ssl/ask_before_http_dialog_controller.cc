@@ -19,6 +19,7 @@
 #include "components/security_interstitials/core/https_only_mode_metrics.h"
 #include "components/security_interstitials/core/metrics_helper.h"
 #include "components/strings/grit/components_strings.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/class_property.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -195,6 +196,12 @@ void AskBeforeHttpDialogController::ShowDialog(
   dialog_widget_->MakeCloseSynchronous(
       base::BindOnce(&AskBeforeHttpDialogController::CloseDialogWidget,
                      weak_ptr_factory_.GetWeakPtr()));
+  // By default, the dialog may not have its initially focused view
+  // actually focused on some platforms (see crbug.com/440104083).
+  // Explicitly call RequestFocus() to ensure this happens.
+  views::View* focused_view = model_host->GetInitiallyFocusedView();
+  CHECK(focused_view);
+  focused_view->RequestFocus();
 }
 
 bool AskBeforeHttpDialogController::HasOpenDialogWidget() const {
@@ -232,6 +239,9 @@ AskBeforeHttpDialogController::CreateDialogModel(const GURL& request_url) {
   auto dialog_model =
       ui::DialogModel::Builder()
           .SetInternalName(kAskBeforeHttpDialogName)
+          // Make screen readers announce the contents of the dialog when it
+          // appears.
+          .SetIsAlertDialog()
           .SetTitle(l10n_util::GetStringUTF16(IDS_ABH_PROMPT_TITLE))
           // TODO(crbug.com/351990829): On Android this should just use
           // AddCancelButton().

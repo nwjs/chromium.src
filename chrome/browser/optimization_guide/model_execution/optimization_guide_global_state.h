@@ -9,8 +9,8 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/optimization_guide/chrome_prediction_model_store.h"
 #include "components/optimization_guide/core/delivery/optimization_guide_model_provider.h"
+#include "components/optimization_guide/core/delivery/prediction_model_store.h"
 #include "components/optimization_guide/core/model_execution/model_broker_state.h"
 #include "components/optimization_guide/core/model_execution/on_device_asset_manager.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
@@ -31,6 +31,8 @@ class OptimizationGuideGlobalState final
   // Retrieves or creates the instance.
   static scoped_refptr<OptimizationGuideGlobalState> CreateOrGet();
 
+  UsageTracker& usage_tracker() { return model_broker_state_.usage_tracker(); }
+
   OnDeviceModelComponentStateManager& component_state_manager() {
     return model_broker_state_.component_state_manager();
   }
@@ -39,7 +41,7 @@ class OptimizationGuideGlobalState final
     return model_broker_state_.service_controller();
   }
 
-  ChromePredictionModelStore& prediction_model_store() {
+  PredictionModelStore& prediction_model_store() {
     return prediction_model_store_;
   }
 
@@ -65,7 +67,7 @@ class OptimizationGuideGlobalState final
 
   ModelBrokerState model_broker_state_;
 
-  ChromePredictionModelStore prediction_model_store_;
+  PredictionModelStore prediction_model_store_;
 
   std::unique_ptr<ChromeModelComponentStateManagerObserver>
       component_state_manager_observer_;

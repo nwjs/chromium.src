@@ -462,17 +462,17 @@ sk_sp<SkImage> MakeTextureImage(viz::RasterContextProvider* context,
 class HeapDiscardableMemory : public base::DiscardableMemory {
  public:
   explicit HeapDiscardableMemory(size_t size)
-      : memory_(new char[size]), size_(size) {}
+      : memory_(base::HeapArray<char>::Uninit(size)), size_(size) {}
   ~HeapDiscardableMemory() override = default;
   [[nodiscard]] bool Lock() override {
     // Locking only succeeds when we have not yet discarded the memory (i.e. if
     // we have never called |Unlock()|.)
-    return memory_ != nullptr;
+    return !memory_.empty();
   }
   void Unlock() override { Discard(); }
   void* data() const override {
-    DCHECK(memory_);
-    return static_cast<void*>(memory_.get());
+    DCHECK(!memory_.empty());
+    return const_cast<char*>(memory_.data());
   }
   void DiscardForTesting() override { Discard(); }
   base::trace_event::MemoryAllocatorDump* CreateMemoryAllocatorDump(
@@ -486,11 +486,11 @@ class HeapDiscardableMemory : public base::DiscardableMemory {
 
  private:
   void Discard() {
-    memory_.reset();
+    memory_ = base::HeapArray<char>();
     size_ = 0;
   }
 
-  std::unique_ptr<char[]> memory_;
+  base::HeapArray<char> memory_;
   size_t size_;
 };
 
@@ -524,17 +524,6 @@ std::optional<SkYUVAPixmapInfo> GetYUVADecodeInfo(
   }
   // Original size decode.
   return original_yuva_pixmap_info;
-}
-
-bool NeedsToneMapping(sk_sp<SkColorSpace> image_color_space, bool has_gainmap) {
-  if (has_gainmap) {
-    return true;
-  }
-  if (image_color_space &&
-      gfx::ColorSpace(*image_color_space).IsToneMappedByDefault()) {
-    return true;
-  }
-  return false;
 }
 
 }  // namespace
@@ -1286,9 +1275,11 @@ GpuImageDecodeCache::GpuImageDecodeCache(
         this, "cc::GpuImageDecodeCache",
         base::SingleThreadTaskRunner::GetCurrentDefault());
   }
-  memory_pressure_listener_ = std::make_unique<base::MemoryPressureListener>(
-      FROM_HERE, base::BindRepeating(&GpuImageDecodeCache::OnMemoryPressure,
-                                     base::Unretained(this)));
+  memory_pressure_listener_ =
+      std::make_unique<base::AsyncMemoryPressureListener>(
+          FROM_HERE, base::MemoryPressureListenerTag::kGpuImageDecodeCache,
+          base::BindRepeating(&GpuImageDecodeCache::OnMemoryPressure,
+                              base::Unretained(this)));
 
   TRACE_EVENT1(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
                "GpuImageDecodeCache::DarkModeFilter", "dark_mode_filter",
@@ -2370,11 +2361,10 @@ void GpuImageDecodeCache::InsertTransferCacheEntry(
     ImageData* image_data) {
   DCHECK(image_data);
   uint32_t size = image_entry.SerializedSize();
-  void* data = context_->ContextSupport()->MapTransferCacheEntry(size);
-  if (data) {
-    // TODO(crbug.com/40285824): Have MapTransferCacheEntry() return a span.
-    bool succeeded = image_entry.Serialize(
-        UNSAFE_TODO(base::span(static_cast<uint8_t*>(data), size)));
+  base::span<uint8_t> data =
+      context_->ContextSupport()->MapTransferCacheEntry(size);
+  if (!data.empty()) {
+    bool succeeded = image_entry.Serialize(data);
     DCHECK(succeeded);
     context_->ContextSupport()->UnmapAndCreateTransferCacheEntry(
         image_entry.UnsafeType(), image_entry.Id());
@@ -2483,7 +2473,7 @@ void GpuImageDecodeCache::DecodeImageIfNecessary(
     base::AutoUnlock unlock(lock_);
     for (auto aux_image : kAllAuxImages) {
       if (aux_image == AuxImage::kGainmap) {
-        if (!draw_image.paint_image().HasGainmap()) {
+        if (!draw_image.paint_image().HasGainmapInfo()) {
           continue;
         }
       }
@@ -2660,10 +2650,10 @@ void GpuImageDecodeCache::UploadImageIfNecessary(const DrawImage& draw_image,
       UploadImageIfNecessary_TransferCache_HardwareDecode(
           draw_image, image_data, target_color_space);
     } else {
-      // Do not color convert images that are YUV or need tone mapping.
+      // Do not color convert images that are YUV or might be tone mapped.
       if (image_data->info.yuva.has_value() ||
-          NeedsToneMapping(decoded_color_space,
-                           draw_image.paint_image().HasGainmap())) {
+          draw_image.paint_image().HasGainmapInfo() ||
+          ToneMapUtil::UseGlobalToneMapFilter(decoded_color_space.get())) {
         target_color_space = nullptr;
       }
       const std::optional<gfx::HDRMetadata> hdr_metadata =
@@ -2962,7 +2952,7 @@ GpuImageDecodeCache::CreateImageData(const DrawImage& draw_image,
 
   // Extract ImageInfo and SkImageInfo for the gainmap image, if it exists,
   // assuming software decoindg to RGBA.
-  const bool has_gainmap = draw_image.paint_image().HasGainmap();
+  const bool has_gainmap = draw_image.paint_image().HasGainmapInfo();
   SkImageInfo gainmap_sk_image_info;
   ImageInfo gainmap_info;
   if (has_gainmap) {

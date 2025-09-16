@@ -172,6 +172,7 @@ source_set("impl") {
       "//chrome/browser:global_features",
       "//chrome/browser:shell_integration",
       "//chrome/browser/actor",
+      "//chrome/browser/app_mode",
       "//chrome/browser/apps/app_service",
       "//chrome/browser/apps/platform_apps",
       "//chrome/browser/extensions",
@@ -229,11 +230,10 @@ source_set("impl") {
       ]
     }
     if (is_win || is_mac) {
-      deps += [ "//chrome/browser/ui/pdf/infobar" ]
-    }
-    if (is_win) {
-      deps +=
-          [ "//chrome/browser/ui/startup/default_browser_prompt/pin_infobar" ]
+      deps += [
+        "//chrome/browser/ui/pdf/infobar",
+        "//chrome/browser/ui/startup/default_browser_prompt/pin_infobar",
+      ]
     }
     if (is_win && is_chrome_branded) {
       deps += [ "//chrome/browser/win/installer_downloader:controller" ]
@@ -408,7 +408,6 @@ if (!is_android) {
       "//chrome/common:constants",
       "//chrome/common:non_code_constants",
       "//chrome/common:version_header",
-      "//chrome/test:test_support",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//components/infobars/content",

@@ -171,7 +171,7 @@ void PageTimingMetricsSender::DidStartResponse(
 
 void PageTimingMetricsSender::DidReceiveTransferSizeUpdate(
     int resource_id,
-    int received_data_length) {
+    base::ByteCount received_data_length) {
   // Transfer size updates are called in a throttled manner.
   auto resource_it = page_resource_data_use_.find(resource_id);
 
@@ -206,7 +206,7 @@ void PageTimingMetricsSender::DidCancelResponse(int resource_id) {
 void PageTimingMetricsSender::DidLoadResourceFromMemoryCache(
     const GURL& response_url,
     int request_id,
-    int64_t encoded_body_length,
+    base::ByteCount encoded_body_length,
     const std::string& mime_type) {
   // In general, we should not observe the same resource being loaded twice in
   // the frame. This is possible due to an existing workaround in
@@ -232,10 +232,10 @@ void PageTimingMetricsSender::OnMainFrameViewportRectangleChanged(
   EnsureSendTimer();
 }
 
-void PageTimingMetricsSender::OnMainFrameImageAdRectangleChanged(
+void PageTimingMetricsSender::OnMainFrameAdRectangleChanged(
     int element_id,
-    const gfx::Rect& image_ad_rect) {
-  metadata_->main_frame_image_ad_rects[element_id] = image_ad_rect;
+    const gfx::Rect& ad_rect) {
+  metadata_->main_frame_ad_rects[element_id] = ad_rect;
   EnsureSendTimer();
 }
 
@@ -360,7 +360,7 @@ void PageTimingMetricsSender::SendNow() {
   new_features_.clear();
   metadata_->main_frame_intersection_rect.reset();
   metadata_->main_frame_viewport_rect.reset();
-  metadata_->main_frame_image_ad_rects.clear();
+  metadata_->main_frame_ad_rects.clear();
   last_cpu_timing_->task_time = base::TimeDelta();
   modified_resources_.clear();
   render_data_.new_layout_shifts.clear();

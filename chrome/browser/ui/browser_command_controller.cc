@@ -69,7 +69,6 @@
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
@@ -145,11 +144,13 @@
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/glic_enabling.h"
+#include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/widget/glic_window_controller.h"
 #endif
 
 using WebExposedIsolationLevel = content::WebExposedIsolationLevel;
@@ -293,6 +294,11 @@ BrowserCommandController::BrowserCommandController(BrowserWindowInterface* bwi)
               base::BindRepeating(
                   &BrowserCommandController::GlicWindowActivationChanged,
                   base::Unretained(this)));
+      glic_fre_state_change_subscription_ =
+          service->fre_controller().AddWebUiStateChangedCallback(
+              base::BindRepeating(
+                  &BrowserCommandController::GlicFreStateChanged,
+                  base::Unretained(this)));
     }
   }
 #endif
@@ -422,6 +428,11 @@ void BrowserCommandController::LoadingStateChanged(bool is_loading,
 void BrowserCommandController::GlicWindowActivationChanged(bool active) {
   UpdateGlicState();
 }
+
+void BrowserCommandController::GlicFreStateChanged(
+    glic::mojom::FreWebUiState new_state) {
+  UpdateGlicState();
+}
 #endif
 
 void BrowserCommandController::FindBarVisibilityChanged() {
@@ -456,6 +467,7 @@ void BrowserCommandController::WebContentsFocusChanged() {
 }
 
 void BrowserCommandController::ShowCustomizeChromeSidePanel(
+    SidePanelOpenTrigger trigger,
     std::optional<CustomizeChromeSection> section) {
   tabs::TabInterface* tab = browser_->tab_strip_model()->GetActiveTab();
   if (!tab || !tab->GetTabFeatures() ||
@@ -471,7 +483,7 @@ void BrowserCommandController::ShowCustomizeChromeSidePanel(
     return;
   }
 
-  side_panel_controller->OpenSidePanel(SidePanelOpenTrigger::kAppMenu, section);
+  side_panel_controller->OpenSidePanel(trigger, section);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -551,6 +563,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_TAB_SEARCH_CLOSE:
       CloseTabSearch(browser_);
+      break;
+    case IDC_TOGGLE_VERTICAL_TABS:
+      ToggleVerticalTabs(browser_);
       break;
 
     // Window management commands
@@ -732,6 +747,11 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_TURN_ON_SYNC:
       signin_ui_util::EnableSyncFromSingleAccountPromo(
+          browser_->profile(), GetAccountInfoFromProfile(browser_->profile()),
+          signin_metrics::AccessPoint::kMenu);
+      break;
+    case IDC_SHOW_SIGNIN:
+      signin_ui_util::SignInFromSingleAccountPromo(
           browser_->profile(), GetAccountInfoFromProfile(browser_->profile()),
           signin_metrics::AccessPoint::kMenu);
       break;
@@ -1186,12 +1206,14 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     }
 
     case IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL: {
-      ShowCustomizeChromeSidePanel(CustomizeChromeSection::kAppearance);
+      ShowCustomizeChromeSidePanel(SidePanelOpenTrigger::kAppMenu,
+                                   CustomizeChromeSection::kAppearance);
       break;
     }
 
     case IDC_SHOW_CUSTOMIZE_CHROME_TOOLBAR: {
-      ShowCustomizeChromeSidePanel(CustomizeChromeSection::kToolbar);
+      ShowCustomizeChromeSidePanel(SidePanelOpenTrigger::kAppMenu,
+                                   CustomizeChromeSection::kToolbar);
       break;
     }
 
@@ -1405,6 +1427,7 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_NAME_WINDOW, true);
   command_updater_.UpdateCommandEnabled(IDC_ORGANIZE_TABS, true);
   command_updater_.UpdateCommandEnabled(IDC_DECLUTTER_TABS, true);
+  command_updater_.UpdateCommandEnabled(IDC_TOGGLE_VERTICAL_TABS, true);
 #if BUILDFLAG(IS_CHROMEOS)
   command_updater_.UpdateCommandEnabled(IDC_TOGGLE_MULTITASK_MENU, true);
   command_updater_.UpdateCommandEnabled(IDC_MINIMIZE_WINDOW, true);
@@ -1492,6 +1515,7 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_SHOW_SYNC_SETTINGS, true);
   command_updater_.UpdateCommandEnabled(IDC_TURN_ON_SYNC, true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_SIGNIN_WHEN_PAUSED, true);
+  command_updater_.UpdateCommandEnabled(IDC_SHOW_SIGNIN, true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_ADDRESSES, !guest_session);
   command_updater_.UpdateCommandEnabled(IDC_HELP_MENU, true);
   command_updater_.UpdateCommandEnabled(IDC_HELP_PAGE_VIA_KEYBOARD, true);
@@ -1739,8 +1763,10 @@ void BrowserCommandController::UpdateCommandsForTabState() {
   }
 
   // Navigation commands
-  command_updater_.UpdateCommandEnabled(IDC_BACK, CanGoBack(browser_));
-  command_updater_.UpdateCommandEnabled(IDC_FORWARD, CanGoForward(browser_));
+  command_updater_.UpdateCommandEnabled(IDC_BACK,
+                                        ShouldEnableBackButton(browser_));
+  command_updater_.UpdateCommandEnabled(IDC_FORWARD,
+                                        ShouldEnableForwardButton(browser_));
   const bool can_reload = CanReload(browser_);
   command_updater_.UpdateCommandEnabled(IDC_RELOAD, can_reload);
   command_updater_.UpdateCommandEnabled(IDC_RELOAD_BYPASSING_CACHE, can_reload);
@@ -2093,7 +2119,7 @@ void BrowserCommandController::UpdateGlicState() {
     if (service) {
       command_updater_.UpdateCommandEnabled(
           IDC_OPEN_GLIC, glic::GlicEnabling::IsEnabledForProfile(profile()) &&
-                             !service->window_controller().IsShowing());
+                             !service->IsWindowOrFreShowing());
     }
   }
 }

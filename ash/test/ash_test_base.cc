@@ -39,7 +39,7 @@
 #include "ash/test/pixel/ash_pixel_differ.h"
 #include "ash/test/pixel/ash_pixel_test_helper.h"
 #include "ash/test/pixel/ash_pixel_test_init_params.h"
-#include "ash/test/test_widget_builder.h"
+#include "ash/test/test_widget_delegates.h"
 #include "ash/test/test_window_builder.h"
 #include "ash/test_shell_delegate.h"
 #include "ash/wm/overview/overview_controller.h"
@@ -81,6 +81,7 @@
 #include "ui/events/devices/touchscreen_device.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/views/test/test_widget_builder.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -111,7 +112,7 @@ class AshEventGeneratorDelegate
 
   // aura::test::EventGeneratorDelegateAura overrides:
   ui::EventTarget* GetTargetAt(const gfx::Point& point_in_screen) override {
-    display::Screen* screen = display::Screen::GetScreen();
+    display::Screen* screen = display::Screen::Get();
     display::Display display = screen->GetDisplayNearestPoint(point_in_screen);
     if (current_display_id_ != display.id()) {
       Shell::Get()->cursor_manager()->SetDisplay(display);
@@ -218,6 +219,11 @@ void AshTestBase::TearDown() {
   // Flush the message loop to finish pending release tasks.
   base::RunLoop().RunUntilIdle();
 
+  // Must be deleted before ash_test_helper. AshPixelTestHelper manages a
+  // ScopedFeatureList, and for the correct order of destruction of feature
+  // listss, AshPixelTestHelper needs to be deleted earlier.
+  pixel_test_helper_.reset();
+
   ash_test_helper_->TearDown();
   OnHelperWillBeDestroyed();
   ash_test_helper_.reset();
@@ -277,6 +283,11 @@ std::optional<pixel_test::InitParams> AshTestBase::CreatePixelTestInitParams()
   return std::nullopt;
 }
 
+std::string AshTestBase::GenerateScreenshotName(const std::string& title) {
+  CHECK(CreatePixelTestInitParams());
+  return pixel_test_helper()->GenerateScreenshotName(title);
+}
+
 void AshTestBase::UpdateDisplay(const std::string& display_specs,
                                 bool from_native_platform,
                                 bool generate_new_ids) {
@@ -298,7 +309,7 @@ std::unique_ptr<views::Widget> AshTestBase::CreateTestWidget(
     int container_id,
     const gfx::Rect& bounds,
     bool show) {
-  TestWidgetBuilder builder;
+  views::test::TestWidgetBuilder builder;
   builder.SetDelegate(delegate)
       .SetBounds(bounds)
       .SetParent(Shell::GetPrimaryRootWindow()->GetChildById(container_id))
@@ -314,7 +325,7 @@ std::unique_ptr<views::Widget> AshTestBase::CreateTestWidget(
 // static
 std::unique_ptr<views::Widget> AshTestBase::CreateFramelessTestWidget(
     views::Widget::InitParams::Ownership ownership) {
-  TestWidgetBuilder builder;
+  views::test::TestWidgetBuilder builder;
   builder.SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   if (ownership == views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET) {
     return builder.BuildOwnsNativeWidget();
@@ -329,16 +340,15 @@ std::unique_ptr<aura::Window> AshTestBase::CreateAppWindow(
     chromeos::AppType app_type,
     int shell_window_id,
     views::WidgetDelegate* delegate) {
-  TestWidgetBuilder builder;
-  builder.SetWindowTitle(u"Window " + base::NumberToString16(shell_window_id));
-  if (app_type != chromeos::AppType::NON_APP) {
-    builder.SetWindowProperty(chromeos::kAppTypeKey, app_type);
-  }
-
+  views::test::TestWidgetBuilder builder;
   if (delegate) {
     builder.SetDelegate(delegate);
   } else {
-    builder.SetTestWidgetDelegate();
+    builder.SetDelegate(CreateTestWidgetBuilderDelegate());
+  }
+  builder.SetWindowTitle(u"Window " + base::NumberToString16(shell_window_id));
+  if (app_type != chromeos::AppType::NON_APP) {
+    builder.SetWindowProperty(chromeos::kAppTypeKey, app_type);
   }
 
   // |widget| is configured to be owned by the underlying window.
@@ -398,11 +408,10 @@ aura::Window* AshTestBase::CreateTestWindowInShellWithDelegateAndType(
     aura::client::WindowType type,
     int id,
     const gfx::Rect& bounds) {
-  return TestWindowBuilder()
-      .SetBounds(bounds)
-      .SetDelegate(delegate)
-      .SetWindowType(type)
-      .SetWindowId(id)
+  return TestWindowBuilder({.delegate = delegate,
+                            .bounds = bounds,
+                            .window_type = type,
+                            .window_id = id})
       .SetWindowTitle(u"Window " + base::NumberToString16(id))
       .AllowAllWindowStates()
       .Build()
@@ -588,7 +597,7 @@ bool AshTestBase::TestIfMouseWarpsAt(ui::test::EventGenerator* event_generator,
   static_cast<ExtendedMouseWarpController*>(
       Shell::Get()->mouse_cursor_filter()->mouse_warp_controller_for_test())
       ->allow_non_native_event_for_test();
-  display::Screen* screen = display::Screen::GetScreen();
+  display::Screen* screen = display::Screen::Get();
   display::Display original_display =
       screen->GetDisplayNearestPoint(point_in_screen);
   event_generator->MoveMouseTo(point_in_screen);
@@ -685,8 +694,9 @@ void AshTestBase::MaybeRunDragAndDropSequenceForAppList(
 }
 
 void AshTestBase::SwapPrimaryDisplay() {
-  if (display::Screen::GetScreen()->GetNumDisplays() <= 1)
+  if (display::Screen::Get()->GetNumDisplays() <= 1) {
     return;
+  }
   Shell::Get()->window_tree_host_manager()->SetPrimaryDisplayId(
       display::test::DisplayManagerTestApi(display_manager())
           .GetSecondaryDisplay()
@@ -694,7 +704,7 @@ void AshTestBase::SwapPrimaryDisplay() {
 }
 
 display::Display AshTestBase::GetPrimaryDisplay() const {
-  return display::Screen::GetScreen()->GetDisplayNearestWindow(
+  return display::Screen::Get()->GetDisplayNearestWindow(
       Shell::GetPrimaryRootWindow());
 }
 

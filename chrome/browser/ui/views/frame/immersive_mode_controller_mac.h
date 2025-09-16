@@ -42,6 +42,7 @@ class ImmersiveModeOverlayWidgetObserver : public views::WidgetObserver {
   // views::WidgetObserver:
   void OnWidgetBoundsChanged(views::Widget* widget,
                              const gfx::Rect& new_bounds) override;
+  void OnWidgetDestroying(views::Widget* widget) override;
 
  private:
   raw_ptr<ImmersiveModeControllerMac> controller_;
@@ -90,7 +91,6 @@ class ImmersiveModeControllerMac : public ImmersiveModeController,
   void OnFindBarVisibleBoundsChanged(
       const gfx::Rect& new_visible_bounds_in_screen) override;
   bool ShouldStayImmersiveAfterExitingFullscreen() override;
-  void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
   int GetMinimumContentOffset() const override;
   int GetExtraInfobarOffset() const override;
   void OnContentFullscreenChanged(bool is_content_fullscreen) override;

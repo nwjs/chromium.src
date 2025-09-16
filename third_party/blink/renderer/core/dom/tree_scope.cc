@@ -285,7 +285,13 @@ Element* TreeScope::ElementForHitTest(Node* node, HitTestPointType type) const {
 CustomElementRegistry* TreeScope::customElementRegistry() const {
   if (custom_element_registry_) {
     CHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
+    DCHECK(!waiting_for_registry_);
     return custom_element_registry_;
+  }
+
+  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
+      waiting_for_registry_) {
+    return nullptr;
   }
 
   if (LocalDOMWindow* window = GetDocument().domWindow()) {
@@ -298,13 +304,29 @@ CustomElementRegistry* TreeScope::customElementRegistry() const {
 // Custom element registry of a tree scope can only be set once.
 // Setting registry on a tree scope with existing registry will fail.
 bool TreeScope::SetCustomElementRegistry(CustomElementRegistry* registry) {
-  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
-      !custom_element_registry_ && registry) {
+  if (!RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() ||
+      custom_element_registry_) {
+    return false;
+  }
+
+  if (registry) {
     custom_element_registry_ = registry;
+    waiting_for_registry_ = false;
     registry->AssociatedWith(GetDocument());
     return true;
+  } else if (!custom_element_registry_) {
+    waiting_for_registry_ = true;
+    return true;
   }
+
   return false;
+}
+
+bool TreeScope::IsWaitingForScopedRegistry() const {
+  // Waiting for registry should never be true when we have a custom
+  // element registry.
+  DCHECK(!custom_element_registry_ || !waiting_for_registry_);
+  return waiting_for_registry_;
 }
 
 static bool ShouldAcceptNonElementNode(const Node& node) {
@@ -445,7 +467,7 @@ void TreeScope::ClearAdoptedStyleSheets() {
   removed.AppendRange(adopted_style_sheets_->begin(),
                       adopted_style_sheets_->end());
   adopted_style_sheets_->clear();
-  for (auto sheet : removed) {
+  for (const auto& sheet : removed) {
     StyleSheetWasRemoved(sheet);
   }
 }
@@ -454,7 +476,7 @@ void TreeScope::SetAdoptedStyleSheetsForTesting(
     HeapVector<Member<CSSStyleSheet>>& adopted_style_sheets) {
   ClearAdoptedStyleSheets();
   EnsureAdoptedStyleSheets();
-  for (auto sheet : adopted_style_sheets) {
+  for (const auto& sheet : adopted_style_sheets) {
     DCHECK(sheet->IsConstructed());
     DCHECK_EQ(sheet->ConstructorDocument(), GetDocument());
     adopted_style_sheets_->push_back(sheet);

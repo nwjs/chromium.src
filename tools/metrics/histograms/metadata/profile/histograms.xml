@@ -200,7 +200,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.GaiaNameShareStatus" enum="ProfileGaiaNameShareStatus"
-    expires_after="2025-12-14">
+    expires_after="2026-02-22">
   <owner>droger@google.com</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -246,17 +246,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     This histogram records the lifetime duration of an off-the-record Guest
     profile. It is recorded once the profile for the Guest session is closed.
-  </summary>
-</histogram>
-
-<histogram name="Profile.Guest.TypeCreated" enum="GuestProfileCreatedType"
-    expires_after="2025-07-13">
-  <owner>dgn@chromium.org</owner>
-  <owner>chrome-signin-team@google.com</owner>
-  <summary>
-    Records the type of Guest profile created, either a parent guest or the
-    first child (off-the-record) guest profile for the active parent guest
-    profile. It is recorded during the guest profile creation.
   </summary>
 </histogram>
 
@@ -598,7 +587,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.PercentageOfManagedProfiles" units="units"
-    expires_after="2025-12-07">
+    expires_after="2026-02-09">
   <owner>longbowei@google.com</owner>
   <owner>zhangwenyu@google.com</owner>
   <owner>cros-families-eng@google.com</owner>
@@ -780,7 +769,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Profile.{Database}Size" units="MB" expires_after="2025-12-14">
+<histogram name="Profile.{Database}Size" units="MB" expires_after="2026-02-15">
   <owner>etienneb@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>
@@ -802,7 +791,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ProfileChooser.HasProfilesShown" enum="BooleanShown"
-    expires_after="2025-11-30">
+    expires_after="2026-02-01">
   <owner>vasilii@chromium.org</owner>
   <owner>ewald@chromium.org</owner>
   <summary>
@@ -953,38 +942,6 @@ chromium-metrics-reviews@google.com.
     Records the reason why the profile picker has been shown to the user.
     Recorded every time the profile picker window is shown or reactivated.
   </summary>
-</histogram>
-
-<histogram name="ProfilePicker.StartupMode.{StartupStep}"
-    enum="ProfilePickerStartupProfileMode" expires_after="2026-01-18">
-  <owner>droger@chromium.org</owner>
-  <owner>dgn@chromium.org</owner>
-  <owner>chrome-signin-team@google.com</owner>
-  <summary>
-    The startup mode, used to decide whether the profile picker is shown at
-    startup. Recorded during Chrome startup, at {StartupStep}.
-  </summary>
-  <token key="StartupStep">
-    <variant name="CreateInitialProfile" summary="initial profile creation"/>
-    <variant name="FallbackProfileUsed" summary="profile fallback"/>
-    <variant name="GetStartupProfile" summary="the GetStartupProfile call"/>
-    <variant name="NotificationCallback" summary="notification processing"/>
-  </token>
-</histogram>
-
-<histogram name="ProfilePicker.StartupReason.{StartupStep}"
-    enum="ProfilePickerStartupProfileReason" expires_after="2025-09-14">
-  <owner>droger@chromium.org</owner>
-  <owner>dgn@chromium.org</owner>
-  <owner>chrome-signin-team@google.com</owner>
-  <summary>
-    The reason for the startup mode, used to decide whether the profile picker
-    is shown at startup. Recorded during Chrome startup, at {StartupStep}.
-  </summary>
-  <token key="StartupStep">
-    <variant name="GetStartupProfile" summary="the GetStartupProfile call"/>
-    <variant name="NotificationCallback" summary="notification processing"/>
-  </token>
 </histogram>
 
 <histogram name="ProfilePicker.StartupTime.BeforeCreation" units="ms"

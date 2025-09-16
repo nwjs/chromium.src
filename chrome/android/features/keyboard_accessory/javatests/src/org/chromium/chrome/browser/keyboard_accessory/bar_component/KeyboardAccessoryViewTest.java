@@ -32,6 +32,7 @@ import static org.chromium.chrome.browser.keyboard_accessory.AccessoryAction.CRE
 import static org.chromium.chrome.browser.keyboard_accessory.AccessoryAction.GENERATE_PASSWORD_AUTOMATIC;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.BAR_ITEMS;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.DISABLE_ANIMATIONS_FOR_TESTING;
+import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.HAS_STICKY_LAST_ITEM;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.OBFUSCATED_CHILD_AT_CALLBACK;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SHEET_OPENER_ITEM;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SHOW_SWIPING_IPH;
@@ -83,6 +84,7 @@ import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAcce
 import org.chromium.chrome.browser.keyboard_accessory.button_group_component.KeyboardAccessoryButtonGroupCoordinator;
 import org.chromium.chrome.browser.keyboard_accessory.button_group_component.KeyboardAccessoryButtonGroupView;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData.Action;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
@@ -130,6 +132,7 @@ public class KeyboardAccessoryViewTest {
             ChromeTransitTestRules.freshChromeTabbedActivityRule();
 
     @Mock AutofillImageFetcher mMockImageFetcher;
+    @Mock Profile mMockProfile;
     private WebPageStation mPage;
 
     private static class TestTracker implements Tracker {
@@ -238,6 +241,7 @@ public class KeyboardAccessoryViewTest {
                                     .with(DISABLE_ANIMATIONS_FOR_TESTING, true)
                                     .with(OBFUSCATED_CHILD_AT_CALLBACK, unused -> {})
                                     .with(SHOW_SWIPING_IPH, false)
+                                    .with(HAS_STICKY_LAST_ITEM, true)
                                     .build();
                     AsyncViewStub viewStub =
                             mActivityTestRule
@@ -338,7 +342,8 @@ public class KeyboardAccessoryViewTest {
                                                 new Action(
                                                         AUTOFILL_SUGGESTION,
                                                         result -> {},
-                                                        result -> clickRecorded.set(true))),
+                                                        result -> clickRecorded.set(true)),
+                                                mMockProfile),
                                         createSheetOpener()
                                     });
                 });
@@ -452,7 +457,8 @@ public class KeyboardAccessoryViewTest {
                                 .setFeatureForIph("")
                                 .setApplyDeactivatedStyle(false)
                                 .build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}));
+                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
+                        mMockProfile);
         itemWithIph.setFeatureForIph(
                 FeatureConstants.KEYBOARD_ACCESSORY_PLUS_ADDRESS_CREATE_SUGGESTION);
 
@@ -492,7 +498,8 @@ public class KeyboardAccessoryViewTest {
                                 .setIphDescriptionText(descriptionText)
                                 .setApplyDeactivatedStyle(false)
                                 .build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}));
+                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
+                        mMockProfile);
         itemWithIph.setFeatureForIph(
                 FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_CARD_INFO_RETRIEVAL_FEATURE);
 
@@ -530,7 +537,8 @@ public class KeyboardAccessoryViewTest {
                                 .setFeatureForIph("")
                                 .setApplyDeactivatedStyle(false)
                                 .build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}));
+                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
+                        mMockProfile);
         itemWithIph.setFeatureForIph(
                 FeatureConstants.KEYBOARD_ACCESSORY_HOME_WORK_PROFILE_SUGGESTION_FEATURE);
 
@@ -566,7 +574,8 @@ public class KeyboardAccessoryViewTest {
                                 .setFeatureForIph("")
                                 .setApplyDeactivatedStyle(false)
                                 .build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}));
+                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
+                        mMockProfile);
         itemWithIph.setFeatureForIph(FeatureConstants.KEYBOARD_ACCESSORY_PASSWORD_FILLING_FEATURE);
 
         TestTracker tracker = new TestTracker();
@@ -603,7 +612,8 @@ public class KeyboardAccessoryViewTest {
                                 .setFeatureForIph("")
                                 .setApplyDeactivatedStyle(false)
                                 .build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}));
+                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
+                        mMockProfile);
         itemWithIph.setFeatureForIph(FeatureConstants.KEYBOARD_ACCESSORY_ADDRESS_FILL_FEATURE);
 
         TestTracker tracker = new TestTracker();
@@ -638,7 +648,8 @@ public class KeyboardAccessoryViewTest {
                                 .setFeatureForIph("")
                                 .setApplyDeactivatedStyle(false)
                                 .build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}));
+                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
+                        mMockProfile);
         itemWithIph.setFeatureForIph(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_FILLING_FEATURE);
 
         TestTracker tracker = new TestTracker();
@@ -711,7 +722,8 @@ public class KeyboardAccessoryViewTest {
                                 .setFeatureForIph("")
                                 .setApplyDeactivatedStyle(false)
                                 .build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}));
+                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
+                        mMockProfile);
         itemWithIph.setFeatureForIph(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_OFFER_FEATURE);
 
         TestTracker tracker = new TestTracker();
@@ -784,7 +796,8 @@ public class KeyboardAccessoryViewTest {
                         getDefaultAutofillSuggestionBuilder()
                                 .setCustomIconUrl(customIconUrl)
                                 .build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}));
+                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
+                        mMockProfile);
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -819,7 +832,8 @@ public class KeyboardAccessoryViewTest {
                         getDefaultAutofillSuggestionBuilder()
                                 .setCustomIconUrl(customIconUrl)
                                 .build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}));
+                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
+                        mMockProfile);
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -846,7 +860,8 @@ public class KeyboardAccessoryViewTest {
         AutofillBarItem itemWithoutCustomIconUrl =
                 new AutofillBarItem(
                         getDefaultAutofillSuggestionBuilder().build(),
-                        new Action(AUTOFILL_SUGGESTION, unused -> {}));
+                        new Action(AUTOFILL_SUGGESTION, unused -> {}),
+                        mMockProfile);
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -890,7 +905,8 @@ public class KeyboardAccessoryViewTest {
                                                 new Action(
                                                         AUTOFILL_SUGGESTION,
                                                         result -> clickRecorded.set(true),
-                                                        result -> clickRecorded.set(true))),
+                                                        result -> clickRecorded.set(true)),
+                                                mMockProfile),
                                         createSheetOpener()
                                     });
                 });
@@ -969,7 +985,8 @@ public class KeyboardAccessoryViewTest {
                         .setFeatureForIph("")
                         .setApplyDeactivatedStyle(false)
                         .build(),
-                new Action(AUTOFILL_SUGGESTION, chipCallback));
+                new Action(AUTOFILL_SUGGESTION, chipCallback),
+                mMockProfile);
     }
 
     private SheetOpenerBarItem createSheetOpener() {

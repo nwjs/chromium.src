@@ -24,7 +24,6 @@
   },
   "accessibilityServicePrivate": {
     "dependencies": ["permission:accessibilityServicePrivate"],
-    "channel": "stable",
     "contexts": ["privileged_extension"],
     "platforms": ["chromeos"]
   },
@@ -63,13 +62,11 @@
   }],
   "experimentalActor": {
     "contexts": ["privileged_extension"],
-    "dependencies": ["permission:experimentalActor"],
-    "channel": "stable"
+    "dependencies": ["permission:experimentalActor"]
   },
   "experimentalAiData": {
     "contexts": ["privileged_extension"],
-    "dependencies": ["permission:experimentalAiData"],
-    "channel": "stable"
+    "dependencies": ["permission:experimentalAiData"]
   },
   "app": {
     "blocklist": [
@@ -226,7 +223,6 @@
     "channel": "stable",
     "contexts": ["webui"],
     "matches": [
-      "chrome://assistant-optin/*",
       "chrome://add-supervision/*",
       "chrome://chrome-signin/*",
       "chrome://glic/*",
@@ -246,7 +242,8 @@
       "webui_untrusted"
     ],
     "matches": [
-      "chrome-untrusted://boca-app/*"
+      "chrome-untrusted://boca-app/*",
+      "chrome-untrusted://lens/*"
     ]
   }],
   "chromeWebViewInternal": [{
@@ -268,7 +265,8 @@
       "webui_untrusted"
     ],
     "matches": [
-      "chrome-untrusted://boca-app/*"
+      "chrome-untrusted://boca-app/*",
+      "chrome-untrusted://lens/*"
     ]
   }, {
     // This feature is used by the Controlled Frame API and is specifically
@@ -398,7 +396,6 @@
   },
   "downloadsInternal": {
     "internal": true,
-    "channel": "stable",
     "contexts": ["privileged_extension"],
     "dependencies": ["permission:downloads"]
   },
@@ -1043,7 +1040,6 @@
   }],
   "webviewTag": {
     "internal": true,
-    "channel": "stable",
     "dependencies": ["permission:webview"],
     "contexts": ["privileged_extension"]
   },

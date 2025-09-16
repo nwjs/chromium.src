@@ -20,23 +20,50 @@ found in the LICENSE file.
   <div id="controls">
     <div>
       <label for="file-upload-button" class="google-button">
-        <i class="material-icons">upload_file</i> Upload File
+        <i class="material-icons">upload_file</i> Upload Logcat
       </label>
       <input type="file" id="file-upload-button" class="hidden-element">
     </div>
 
     <div>
+      <label for="paste-logcat-button" class="google-button">
+        <i class="material-icons">content_paste</i> Paste Logcat
+      </label>
+      <input type="button" id="paste-logcat-button" class="hidden-element">
+    </div>
+
+    <div class="button-with-feedback">
       <label for="next-exception-button" class="google-button">
         <i class="material-icons">error</i> Jump to Next Exception
       </label>
       <input type="button" id="next-exception-button" class="hidden-element">
+      <span id="next-exception-feedback"
+            class="feedback-text hidden-element"></span>
     </div>
 
-    <div>
+    <div class="button-with-feedback">
+      <label for="prev-exception-button" class="google-button">
+        <i class="material-icons">error</i> Jump to Previous Exception
+      </label>
+      <input type="button" id="prev-exception-button" class="hidden-element">
+      <span id="prev-exception-feedback"
+            class="feedback-text hidden-element"></span>
+    </div>
+
+    <div class="button-with-feedback">
       <label for="next-test-button" class="google-button">
         <i class="material-icons">rule</i> Jump to Next Test
       </label>
       <input type="button" id="next-test-button" class="hidden-element">
+      <span id="next-test-feedback" class="feedback-text hidden-element"></span>
+    </div>
+
+    <div class="button-with-feedback">
+      <label for="prev-test-button" class="google-button">
+        <i class="material-icons">rule</i> Jump to Previous Test
+      </label>
+      <input type="button" id="prev-test-button" class="hidden-element">
+      <span id="prev-test-feedback" class="feedback-text hidden-element"></span>
     </div>
 
     <div class="dropdown">
@@ -44,6 +71,8 @@ found in the LICENSE file.
         <i class="material-icons">memory</i> Filter Logcat By Process
       </div>
       <ol id="dropdown-list-process" class="dropdown-list hidden-element">
+        <input type="text" placeholder="Search processes..."
+               id="dropdown-search-process" class="dropdown-search-input">
         <li id="display-all-process-li" data-value="all"
             data-type="main-process" class="dropdown-item selected">
           <input id="display-all-process-checkbox" type="checkbox" checked>
@@ -62,6 +91,8 @@ found in the LICENSE file.
         <i class="material-icons">label</i> Filter Logcat By Tag
       </div>
       <ol id="dropdown-list-tag" class="dropdown-list hidden-element">
+        <input type="text" placeholder="Search tags..."
+               id="dropdown-search-tag" class="dropdown-search-input">
         <li id="display-all-tag-li" data-value="all" data-type="main-tag"
             class="dropdown-item selected">
           <input id="display-all-tag-checkbox" type="checkbox" checked>
@@ -130,6 +161,13 @@ found in the LICENSE file.
         <label>
           <input type="checkbox" id="toggle-dark-mode-checkbox">
           <span>Toggle Dark Mode</span>
+        </label>
+      </div>
+      <div class="checkbox-column">
+        <label>
+          <input type="checkbox"
+                 id="always-show-activity-manager-checkbox" checked>
+          <span>Always Show ActivityManager</span>
         </label>
       </div>
     </div>

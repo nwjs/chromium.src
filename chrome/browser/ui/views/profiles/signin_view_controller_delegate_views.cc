@@ -159,7 +159,8 @@ SigninViewControllerDelegateViews::CreateHistorySyncOptInWebView(
   DCHECK(web_ui);
   web_view->SetProperty(views::kElementIdentifierKey,
                         SigninViewController::kHistorySyncOptinViewId);
-  web_ui->Initialize(browser);
+  web_ui->Initialize(browser,
+                     /*history_optin_completed_closure=*/base::DoNothing());
   return web_view;
 }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
@@ -331,7 +332,8 @@ content::WebContents* SigninViewControllerDelegateViews::AddNewContents(
 }
 
 web_modal::WebContentsModalDialogHost*
-SigninViewControllerDelegateViews::GetWebContentsModalDialogHost() {
+SigninViewControllerDelegateViews::GetWebContentsModalDialogHost(
+    content::WebContents* web_contents) {
   return browser_->window()->GetWebContentsModalDialogHost();
 }
 

@@ -21,7 +21,6 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
@@ -34,15 +33,14 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
-import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.permissions.PermissionDialogController;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
-import org.chromium.ui.modelutil.PropertyModelAnimatorFactory;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * A component for displaying a status icon (e.g. security icon or navigation icon) and optional
@@ -257,6 +255,10 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
         mMediator.onTabCrashed();
     }
 
+    public void setUseSmallWidget(boolean useSmallWidget) {
+        mMediator.setUseSmallWidget(useSmallWidget);
+    }
+
     /** Returns the resource identifier of the current security icon drawable. */
     public @DrawableRes int getSecurityIconResource() {
         return mMediator.getSecurityIconResource();
@@ -384,15 +386,5 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
      * start delay and duration, adding it to the given list of animators.
      */
     public void populateFadeAnimation(
-            List<Animator> animators, long startDelayMs, long durationMs, float targetAlpha) {
-        if (mLocationBarDataProvider.isIncognitoBranded()
-                && !OmniboxFeatures.sOmniboxMobileParityUpdate.isEnabled()) {
-            Animator animator =
-                    PropertyModelAnimatorFactory.ofFloat(
-                                    mModel, StatusProperties.ALPHA, targetAlpha)
-                            .setDuration(durationMs);
-            animator.setStartDelay(startDelayMs);
-            animators.add(animator);
-        }
-    }
+            List<Animator> animators, long startDelayMs, long durationMs, float targetAlpha) {}
 }

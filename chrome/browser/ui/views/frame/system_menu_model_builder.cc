@@ -9,6 +9,9 @@
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/common/chrome_features.h"
@@ -32,7 +35,7 @@
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_window_types.h"
 #include "ui/views/widget/widget.h"
 #endif
 
@@ -41,8 +44,11 @@
 #endif
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #endif
+
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(SystemMenuModelBuilder,
+                                      kSwitchTabToSideElementId);
 
 SystemMenuModelBuilder::SystemMenuModelBuilder(
     ui::AcceleratorProvider* provider,
@@ -96,6 +102,23 @@ void SystemMenuModelBuilder::BuildSystemMenuForBrowserWindow(
   }
 #endif  // BUILDFLAG(IS_WIN)
 #endif  // BUILDFLAG(ENABLE_GLIC)
+
+  if (tabs::AreVerticalTabsEnabled()) {
+    model->AddSeparator(ui::NORMAL_SEPARATOR);
+    if (browser()
+            ->browser_window_features()
+            ->vertical_tab_strip_state_controller()
+            ->IsVerticalTabsEnabled()) {
+      model->AddItemWithStringId(IDC_TOGGLE_VERTICAL_TABS,
+                                 IDS_SWITCH_TO_HORIZONTAL_TAB);
+    } else {
+      model->AddItemWithStringId(IDC_TOGGLE_VERTICAL_TABS,
+                                 IDS_SWITCH_TO_VERTICAL_TAB);
+    }
+    model->SetElementIdentifierAt(model->GetItemCount() - 1,
+                                  kSwitchTabToSideElementId);
+  }
+
   if (chrome::CanOpenTaskManager()) {
     model->AddSeparator(ui::NORMAL_SEPARATOR);
     model->AddItemWithStringId(IDC_TASK_MANAGER_CONTEXT_MENU, IDS_TASK_MANAGER);

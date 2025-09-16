@@ -7,7 +7,7 @@
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
-#include "chrome/browser/actor/ui/mock_event_dispatcher.h"
+#include "chrome/browser/actor/ui/mocks/mock_event_dispatcher.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/actor/action_result.h"
 
@@ -32,10 +32,6 @@ TaskId ActorKeyedServiceFake::CreateTaskForTesting() {
       static_cast<ui::MockUiEventDispatcher*>(task_ui_event_dispatcher.get());
 
   for (auto& mock : {mock_ui_dispatcher, mock_task_ui_dispatcher}) {
-    ON_CALL(*mock, OnPreFirstAct(_, _))
-        .WillByDefault(Invoke(Invoke(
-            UiEventDispatcherCallback<ui::UiEventDispatcher::FirstActInfo>(
-                base::BindRepeating(MakeOkResult)))));
     ON_CALL(*mock, OnPreTool(_, _))
         .WillByDefault(Invoke(UiEventDispatcherCallback<ToolRequest>(
             base::BindRepeating(MakeOkResult))));

@@ -356,18 +356,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   return l10n_util::GetNSString(stringID);
 }
 
-#pragma mark - TabGridTransitionLayoutProviding
-
-- (TabGridTransitionLayout*)transitionLayout {
-  TabGridPage activePage = self.activePage;
-  BaseGridViewController* activeGrid =
-      [self gridViewControllerForPage:activePage];
-  TabGridTransitionItem* activeCell =
-      [self transitionItemForActiveCellWithActivePage:activePage];
-  return [TabGridTransitionLayout layoutWithActiveCell:activeCell
-                                            activeGrid:activeGrid];
-}
-
 #pragma mark - Public Methods
 
 - (void)contentWillAppearAnimated:(BOOL)animated {
@@ -559,19 +547,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
       [self calculateInsetsForRegularGridView];
   self.tabGroupsPanelViewController.contentInsets =
       [self calculateInsetsForGridView];
-}
-
-// Returns the corresponding BaseGridViewController for `page`. Returns `nil` if
-// page does not have a corresponding BaseGridViewController.
-- (BaseGridViewController*)gridViewControllerForPage:(TabGridPage)page {
-  switch (page) {
-    case TabGridPageIncognitoTabs:
-      return self.incognitoTabsViewController;
-    case TabGridPageRegularTabs:
-      return self.regularTabsViewController;
-    case TabGridPageTabGroups:
-      return nil;
-  }
 }
 
 - (void)setActivePage:(TabGridPage)activePage {
@@ -1209,19 +1184,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   }
 }
 
-// Returns transition layout for the provided `page`.
-- (TabGridTransitionItem*)transitionItemForActiveCellWithActivePage:
-    (TabGridPage)activePage {
-  switch (activePage) {
-    case TabGridPageIncognitoTabs:
-      return [self.incognitoTabsViewController transitionItemForActiveCell];
-    case TabGridPageRegularTabs:
-      return [self transitionItemForRegularActiveCell];
-    case TabGridPageTabGroups:
-      return nil;
-  }
-}
-
 // Returns transition layout provider for the regular tabs page.
 - (TabGridTransitionItem*)transitionItemForRegularActiveCell {
   if (IsPinnedTabsEnabled() && self.pinnedTabsViewController.hasSelectedCell) {
@@ -1386,7 +1348,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   _searchText = searchText;
   searchBar.searchTextField.accessibilityIdentifier =
       [kTabGridSearchTextFieldIdentifierPrefix
-          stringByAppendingString:searchText];
+          stringByAppendingString:searchText ?: @""];
   [self updateScrimVisibilityForText:searchText];
   switch (self.currentPage) {
     case TabGridPageIncognitoTabs:
@@ -1927,14 +1889,17 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   if (command.action == @selector(keyCommand_select1)) {
     newTitle = l10n_util::GetNSStringWithFixup(
         IDS_IOS_KEYBOARD_GO_TO_INCOGNITO_TAB_GRID);
+    command.image = CustomSymbolWithConfiguration(kIncognitoSymbol, nil);
   }
   if (command.action == @selector(keyCommand_select2)) {
     newTitle = l10n_util::GetNSStringWithFixup(
         IDS_IOS_KEYBOARD_GO_TO_REGULAR_TAB_GRID);
+    command.image = DefaultSymbolWithConfiguration(kTabsSymbol, nil);
   }
   if (command.action == @selector(keyCommand_select3)) {
     newTitle =
         l10n_util::GetNSStringWithFixup(IDS_IOS_KEYBOARD_GO_TO_TAB_GROUPS_GRID);
+    command.image = DefaultSymbolWithConfiguration(kTabGroupsSymbol, nil);
   }
   // If a new title was determined, set it on the command.
   if (newTitle.length > 0) {

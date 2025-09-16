@@ -4,7 +4,10 @@
 
 #include "components/password_manager/core/browser/one_time_passwords/otp_form_manager.h"
 
+#include <algorithm>
+
 #include "base/feature_list.h"
+#include "base/strings/stringprintf.h"
 #include "components/autofill/core/common/autofill_regexes.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/password_manager/core/browser/features/password_features.h"
@@ -19,6 +22,17 @@ namespace {
 
 using autofill::FieldGlobalId;
 
+std::string OtpSourceToString(OtpSource source) {
+  switch (source) {
+    case OtpSource::kUnknown:
+      return "Unknown";
+    case OtpSource::kSms:
+      return "Sms";
+    case OtpSource::kEmail:
+      return "Email";
+  }
+}
+
 // TODO(crbug.com/415274388): Evaluate if FieldInfoManager needs to be improved
 // to track more user inputs.
 OtpSource DetermineWhereOtpWasLikelySent(FieldInfoManager* field_info_manager,
@@ -29,7 +43,7 @@ OtpSource DetermineWhereOtpWasLikelySent(FieldInfoManager* field_info_manager,
   }
 
   std::vector<FieldInfo> field_info =
-      field_info_manager->GetFieldInfo(GetSignonRealm(url));
+      field_info_manager->GetFieldInfo(password_manager_util::GetSignonRealm(url));
 
   // FieldInfoManager sorts cached fields from oldest to newest. Iterate in
   // the reverse order to check the last interacted field first.
@@ -56,6 +70,8 @@ OtpFormManager::OtpFormManager(
   otp_source_ = DetermineWhereOtpWasLikelySent(client_->GetFieldInfoManager(),
                                                client_->GetLastCommittedURL());
 
+  UpdateManualTestingDebuggingDataIfNeeded();
+
 #if BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(features::kAndroidSmsOtpFilling)) {
     sms_otp_backend_ = client_->GetSmsOtpBackend();
@@ -80,6 +96,7 @@ void OtpFormManager::ProcessUpdatedPredictions(
     return;
   }
   otp_source_ = new_otp_source;
+  UpdateManualTestingDebuggingDataIfNeeded();
   // The form and the assumed OTP source have changed, we need to refetch the
   // OTP value.
   RetrieveOtpValue();
@@ -124,6 +141,59 @@ void OtpFormManager::GetOtpSuggestions(
     std::move(callback).Run(otp_suggestions_);
   } else {
     pending_suggestion_callback_ = std::move(callback);
+  }
+}
+
+autofill::OtpFillData OtpFormManager::GetFillDataForOtpSuggestion(
+    const FieldGlobalId& field_id,
+    const std::u16string& otp_value) const {
+  if (std::find(otp_field_ids_.begin(), otp_field_ids_.end(), field_id) ==
+      otp_field_ids_.end()) {
+    // The only way this could happen is if the form has changed between the
+    // field focus and the filling moment. Fill into the current field, since
+    // the user requested that and otherwise it would be weird.
+    return {{field_id, otp_value}};
+  }
+
+  // If the value is longer than the number of detected fields, fill the value
+  // into the triggering field.
+  if (otp_value.length() > otp_field_ids_.size()) {
+    return {{field_id, otp_value}};
+  }
+
+  autofill::OtpFillData fill_data;
+  if (otp_value.length() == otp_field_ids_.size()) {
+    // If otp_value length matches the number of fields, split the value
+    // char-by-char between all fields.
+    for (size_t i = 0; i < otp_field_ids_.size(); ++i) {
+      fill_data[otp_field_ids_[i]] = std::u16string(1, otp_value[i]);
+    }
+    return fill_data;
+  }
+
+  // If OTP value length is shorter than number of fields, split it
+  // char-by-char starting from the `field_id`, if it fits into the remaining
+  // fields.
+  size_t start_index = std::distance(
+      otp_field_ids_.begin(),
+      std::find(otp_field_ids_.begin(), otp_field_ids_.end(), field_id));
+  if (start_index + otp_value.length() <= otp_field_ids_.size()) {
+    for (size_t i = 0; i < otp_value.length(); ++i) {
+      fill_data[otp_field_ids_[start_index + i]] =
+          std::u16string(1, otp_value[i]);
+    }
+    return fill_data;
+  }
+
+  // All other cases are non-trivial, attempt to fill the value into the
+  // triggering field as the best effort.
+  return {{field_id, otp_value}};
+}
+
+void OtpFormManager::UpdateManualTestingDebuggingDataIfNeeded() {
+  if (base::FeatureList::IsEnabled(features::kDebugUiForOtps)) {
+    otp_suggestions_ = {"Identified OTP field. OTP is delivered via: " +
+                        OtpSourceToString(otp_source_)};
   }
 }
 

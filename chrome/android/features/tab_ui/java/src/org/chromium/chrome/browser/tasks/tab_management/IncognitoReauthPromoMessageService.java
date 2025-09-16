@@ -25,17 +25,20 @@ import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tasks.tab_management.MessageCardView.ServiceDismissActionProvider;
+import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageType;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.ui.modelutil.PropertyModel;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /** Message service class to show the Incognito re-auth promo inside the incognito tab switcher. */
 @NullMarked
-public class IncognitoReauthPromoMessageService extends MessageService
+public class IncognitoReauthPromoMessageService extends MessageService<@MessageType Integer>
         implements PauseResumeWithNativeObserver {
     /** TODO(crbug.com/40056462): Remove this when we support all the Android versions. */
     public static @Nullable Boolean sIsPromoEnabledForTesting;
@@ -54,22 +57,22 @@ public class IncognitoReauthPromoMessageService extends MessageService
     private final IncognitoReauthManager mIncognitoReauthManager;
 
     /** This is the data type that this MessageService is serving to its Observer. */
-    static class IncognitoReauthMessageData implements MessageData {
-        private final MessageCardView.ReviewActionProvider mReviewActionProvider;
-        private final MessageCardView.DismissActionProvider mDismissActionProvider;
+    static class IncognitoReauthMessageData {
+        private final MessageCardView.ActionProvider mAcceptActionProvider;
+        private final MessageCardView.ActionProvider mDismissActionProvider;
 
         IncognitoReauthMessageData(
-                MessageCardView.ReviewActionProvider reviewActionProvider,
-                MessageCardView.DismissActionProvider dismissActionProvider) {
-            mReviewActionProvider = reviewActionProvider;
+                MessageCardView.ActionProvider acceptActionProvider,
+                MessageCardView.ActionProvider dismissActionProvider) {
+            mAcceptActionProvider = acceptActionProvider;
             mDismissActionProvider = dismissActionProvider;
         }
 
-        MessageCardView.ReviewActionProvider getReviewActionProvider() {
-            return mReviewActionProvider;
+        MessageCardView.ActionProvider getAcceptActionProvider() {
+            return mAcceptActionProvider;
         }
 
-        MessageCardView.DismissActionProvider getDismissActionProvider() {
+        MessageCardView.ActionProvider getDismissActionProvider() {
             return mDismissActionProvider;
         }
     }
@@ -195,13 +198,12 @@ public class IncognitoReauthPromoMessageService extends MessageService
             return false;
         }
 
-        sendAvailabilityNotification(
-                new IncognitoReauthMessageData(this::review, (int messageType) -> dismiss()));
+        sendAvailabilityNotification(this::buildViewModel);
         return true;
     }
 
     @Override
-    public void addObserver(MessageObserver observer) {
+    public void addObserver(MessageObserver<@MessageType Integer> observer) {
         super.addObserver(observer);
         preparePromoMessage();
     }
@@ -239,7 +241,7 @@ public class IncognitoReauthPromoMessageService extends MessageService
     @Override
     public void onPauseWithNative() {}
 
-    /** Provides the functionality to the {@link MessageCardView.ReviewActionProvider} */
+    /** Provides the functionality to the {@link MessageCardView.ActionProvider} */
     public void review() {
         // Add a safety net in-case for potential multi window flows.
         if (!isIncognitoReauthPromoMessageEnabled(mProfile)) {
@@ -304,6 +306,14 @@ public class IncognitoReauthPromoMessageService extends MessageService
     public static void setIsPromoEnabledForTesting(@Nullable Boolean enabled) {
         sIsPromoEnabledForTesting = enabled;
         ResettersForTesting.register(() -> sIsPromoEnabledForTesting = null);
+    }
+
+    private PropertyModel buildViewModel(
+            Context context, ServiceDismissActionProvider serviceActionProvider) {
+        return IncognitoReauthPromoViewModel.create(
+                context,
+                serviceActionProvider,
+                new IncognitoReauthMessageData(this::review, this::dismiss));
     }
 
     private void disableIncognitoReauthPromoMessage() {

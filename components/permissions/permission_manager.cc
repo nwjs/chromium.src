@@ -29,6 +29,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/permission_descriptor_util.h"
+#include "content/public/browser/permission_result.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
@@ -63,15 +64,20 @@ class PermissionManager::PendingRequest {
   PendingRequest(
       content::RenderFrameHost* render_frame_host,
       std::vector<blink::mojom::PermissionDescriptorPtr> permissions,
-      base::OnceCallback<void(const std::vector<PermissionStatus>&)> callback)
+      base::OnceCallback<void(const std::vector<content::PermissionResult>&)>
+          callback)
       : render_process_id_(render_frame_host->GetProcess()->GetDeprecatedID()),
         render_frame_id_(render_frame_host->GetRoutingID()),
         callback_(std::move(callback)),
         remaining_results_(permissions.size()),
-        results_(permissions.size(), PermissionStatus::DENIED),
+        results_(permissions.size(),
+                 content::PermissionResult(
+                     PermissionStatus::DENIED,
+                     content::PermissionStatusSource::UNSPECIFIED)),
         permissions_(std::move(permissions)) {}
 
-  void SetPermissionStatus(int permission_id, PermissionStatus decision) {
+  void SetPermissionResult(int permission_id,
+                           content::PermissionResult decision) {
     DCHECK(!IsComplete());
 
     results_[permission_id] = decision;
@@ -83,7 +89,7 @@ class PermissionManager::PendingRequest {
   int render_process_id() const { return render_process_id_; }
   int render_frame_id() const { return render_frame_id_; }
 
-  base::OnceCallback<void(const std::vector<PermissionStatus>&)>
+  base::OnceCallback<void(const std::vector<content::PermissionResult>&)>
   TakeCallback() {
     return std::move(callback_);
   }
@@ -93,14 +99,15 @@ class PermissionManager::PendingRequest {
     return permissions_;
   }
 
-  std::vector<PermissionStatus> results() const { return results_; }
+  std::vector<content::PermissionResult> results() const { return results_; }
 
  private:
   int render_process_id_;
   int render_frame_id_;
-  base::OnceCallback<void(const std::vector<PermissionStatus>&)> callback_;
+  base::OnceCallback<void(const std::vector<content::PermissionResult>&)>
+      callback_;
   size_t remaining_results_;
-  std::vector<PermissionStatus> results_;
+  std::vector<content::PermissionResult> results_;
   std::vector<blink::mojom::PermissionDescriptorPtr> permissions_;
 };
 
@@ -133,13 +140,14 @@ class PermissionManager::PermissionResponseCallback {
     }
   }
 
-  void OnPermissionsRequestResponseStatus(PermissionStatus status) {
+  void OnPermissionsRequestResponse(
+      content::PermissionResult permission_result) {
     if (!permission_manager_) {
       return;
     }
     request_answered_ = true;
-    permission_manager_->OnPermissionsRequestResponseStatus(
-        request_local_id_, permission_id_, status);
+    permission_manager_->OnPermissionsRequestResponse(
+        request_local_id_, permission_id_, permission_result);
   }
 
  private:
@@ -212,7 +220,7 @@ PermissionContextBase* PermissionManager::GetPermissionContext(
 void PermissionManager::RequestPermissions(
     content::RenderFrameHost* render_frame_host,
     const content::PermissionRequestDescription& request_description,
-    base::OnceCallback<void(const std::vector<PermissionStatus>&)>
+    base::OnceCallback<void(const std::vector<content::PermissionResult>&)>
         permission_status_callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   RequestPermissionsInternal(render_frame_host, request_description,
@@ -222,7 +230,7 @@ void PermissionManager::RequestPermissions(
 void PermissionManager::RequestPermissionsInternal(
     content::RenderFrameHost* render_frame_host,
     const content::PermissionRequestDescription& request_description,
-    base::OnceCallback<void(const std::vector<PermissionStatus>&)>
+    base::OnceCallback<void(const std::vector<content::PermissionResult>&)>
         permission_status_callback) {
   std::vector<blink::mojom::PermissionDescriptorPtr> permissions;
   permissions.reserve(request_description.permissions.size());
@@ -231,7 +239,8 @@ void PermissionManager::RequestPermissionsInternal(
   }
 
   if (request_description.permissions.empty()) {
-    std::move(permission_status_callback).Run(std::vector<PermissionStatus>());
+    std::move(permission_status_callback)
+        .Run(std::vector<content::PermissionResult>());
     return;
   }
 
@@ -258,8 +267,9 @@ void PermissionManager::RequestPermissionsInternal(
     if (!context || PermissionUtil::IsPermissionBlockedInPartition(
                         permission, request_description.requesting_origin,
                         render_frame_host->GetProcess())) {
-      response_callback->OnPermissionsRequestResponseStatus(
-          PermissionStatus::DENIED);
+      response_callback->OnPermissionsRequestResponse(content::PermissionResult(
+          PermissionStatus::DENIED,
+          content::PermissionStatusSource::FEATURE_POLICY));
       continue;
     }
 
@@ -268,7 +278,7 @@ void PermissionManager::RequestPermissionsInternal(
             context, request_id, request_description,
             canonical_requesting_origin.DeprecatedGetOriginAsURL(), GURL(), i),
         base::BindOnce(
-            &PermissionResponseCallback::OnPermissionsRequestResponseStatus,
+            &PermissionResponseCallback::OnPermissionsRequestResponse,
             std::move(response_callback)));
   }
 }
@@ -290,7 +300,7 @@ void PermissionManager::ResetPermission(PermissionType permission,
 void PermissionManager::RequestPermissionsFromCurrentDocument(
     content::RenderFrameHost* render_frame_host,
     const content::PermissionRequestDescription& request_description,
-    base::OnceCallback<void(const std::vector<PermissionStatus>&)>
+    base::OnceCallback<void(const std::vector<content::PermissionResult>&)>
         permission_status_callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   RequestPermissionsInternal(render_frame_host, request_description,
@@ -507,18 +517,19 @@ std::optional<gfx::Rect> PermissionManager::GetExclusionAreaBoundsInScreen(
   return manager ? manager->GetPromptBubbleViewBoundsInScreen() : std::nullopt;
 }
 
-void PermissionManager::OnPermissionsRequestResponseStatus(
+void PermissionManager::OnPermissionsRequestResponse(
     PendingRequestLocalId request_local_id,
     int permission_id,
-    PermissionStatus status) {
+    content::PermissionResult permission_result) {
   PendingRequest* pending_request = pending_requests_.Lookup(request_local_id);
   if (!pending_request)
     return;
 
-  pending_request->SetPermissionStatus(permission_id, status);
+  pending_request->SetPermissionResult(permission_id, permission_result);
 
-  if (!pending_request->IsComplete())
+  if (!pending_request->IsComplete()) {
     return;
+  }
 
   pending_request->TakeCallback().Run(pending_request->results());
   pending_requests_.Remove(request_local_id);
@@ -638,8 +649,10 @@ content::PermissionResult PermissionManager::GetPermissionStatusInternal(
     context->MaybeUpdateCachedHasDevicePermission(web_contents);
   }
   DCHECK(result.status == PermissionStatus::GRANTED ||
+         result.status == PermissionStatus::UNSATISFIED_OPTIONS ||
          result.status == PermissionStatus::ASK ||
-         result.status == PermissionStatus::DENIED);
+         result.status == PermissionStatus::DENIED)
+      << result.status;
 
   return result;
 }

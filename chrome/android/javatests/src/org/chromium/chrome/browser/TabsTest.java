@@ -18,6 +18,7 @@ import static org.junit.Assert.assertTrue;
 
 import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
 import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
+import static org.chromium.chrome.test.util.ChromeTabUtils.getTabCountOnUiThread;
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
 import android.content.pm.ActivityInfo;
@@ -278,7 +279,6 @@ public class TabsTest {
                             mActivityTestRule
                                     .getKeyboardDelegate()
                                     .isKeyboardShowing(
-                                            mActivityTestRule.getActivity(),
                                             mActivityTestRule.getActivity().getTabsView());
                     Criteria.checkThat(isKeyboardShowing, Matchers.is(show));
                 });
@@ -565,9 +565,9 @@ public class TabsTest {
     public void testLastClosedUndoableTabGetsHidden() {
         final TabModel model =
                 mActivityTestRule.getActivity().getTabModelSelector().getCurrentModel();
-        final Tab tab = TabModelUtils.getCurrentTab(model);
+        final Tab tab = mActivityTestRule.getActivityTab();
 
-        assertEquals("Too many tabs at startup", 1, model.getCount());
+        assertEquals("Too many tabs at startup", 1, getTabCountOnUiThread(model));
 
         runOnUiThreadBlocking(
                 (Runnable)
@@ -685,9 +685,7 @@ public class TabsTest {
         CriteriaHelper.pollUiThread(
                 () -> {
                     boolean keyboardVisible =
-                            mActivityTestRule
-                                    .getKeyboardDelegate()
-                                    .isKeyboardShowing(mActivityTestRule.getActivity(), urlBar);
+                            mActivityTestRule.getKeyboardDelegate().isKeyboardShowing(urlBar);
                     Criteria.checkThat(keyboardVisible, Matchers.is(true));
                 });
 
@@ -707,9 +705,7 @@ public class TabsTest {
         CriteriaHelper.pollUiThread(
                 () -> {
                     boolean keyboardVisible =
-                            mActivityTestRule
-                                    .getKeyboardDelegate()
-                                    .isKeyboardShowing(mActivityTestRule.getActivity(), urlBar);
+                            mActivityTestRule.getKeyboardDelegate().isKeyboardShowing(urlBar);
                     Criteria.checkThat(keyboardVisible, Matchers.is(true));
                 });
 
@@ -723,9 +719,7 @@ public class TabsTest {
         CriteriaHelper.pollUiThread(
                 () -> {
                     boolean keyboardVisible =
-                            mActivityTestRule
-                                    .getKeyboardDelegate()
-                                    .isKeyboardShowing(mActivityTestRule.getActivity(), urlBar);
+                            mActivityTestRule.getKeyboardDelegate().isKeyboardShowing(urlBar);
                     Criteria.checkThat(keyboardVisible, Matchers.is(false));
                 });
     }
@@ -737,7 +731,7 @@ public class TabsTest {
     public void testRequestFocusOnSwitchTab() {
         final TabModel model =
                 mActivityTestRule.getActivity().getTabModelSelector().getCurrentModel();
-        final Tab oldTab = TabModelUtils.getCurrentTab(model);
+        final Tab oldTab = mActivityTestRule.getActivityTab();
 
         assertNotNull("Tab should have a view", oldTab.getView());
 
@@ -802,7 +796,7 @@ public class TabsTest {
     public void testLastClosedTabTriggersNotifyChangedCall() {
         final TabModel model =
                 mActivityTestRule.getActivity().getTabModelSelector().getCurrentModel();
-        final Tab tab = TabModelUtils.getCurrentTab(model);
+        final Tab tab = mActivityTestRule.getActivityTab();
         final TabModelSelector selector = mActivityTestRule.getActivity().getTabModelSelector();
         mNotifyChangedCalled = false;
 
@@ -817,7 +811,7 @@ public class TabsTest {
                             });
                 });
 
-        assertEquals("Too many tabs at startup", 1, model.getCount());
+        assertEquals("Too many tabs at startup", 1, getTabCountOnUiThread(model));
 
         runOnUiThreadBlocking(
                 (Runnable)
@@ -886,14 +880,18 @@ public class TabsTest {
                 new File(
                         tabStateDir,
                         TabStateFileManager.getTabStateFilename(
-                                normalModel.getTabAt(normalModel.getCount() - 1).getId(),
+                                runOnUiThreadBlocking(
+                                                () ->
+                                                        normalModel.getTabAt(
+                                                                normalModel.getCount() - 1))
+                                        .getId(),
                                 false,
                                 /* isFlatBuffer= */ true));
         File incognitoTabFile =
                 new File(
                         tabStateDir,
                         TabStateFileManager.getTabStateFilename(
-                                incognitoModel.getTabAt(0).getId(),
+                                runOnUiThreadBlocking(() -> incognitoModel.getTabAt(0)).getId(),
                                 true,
                                 /* isFlatBuffer= */ true));
 

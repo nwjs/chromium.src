@@ -13,7 +13,6 @@
 #include <string>
 #include <utility>
 
-#include "base/atomicops.h"
 #include "base/bit_cast.h"
 #include "base/command_line.h"
 #include "base/debug/alias.h"
@@ -274,7 +273,6 @@ void GpuWatchdogThread::CleanUp() {
 }
 
 void GpuWatchdogThread::ReportProgress() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(watched_thread_sequence_checker_);
   InProgress();
 }
 

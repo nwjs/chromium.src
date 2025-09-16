@@ -82,13 +82,13 @@ BASE_FEATURE(kDisambiguateTabMatchingForEntitySuggestions,
 // suggestions.
 BASE_FEATURE(kFocusTriggersWebAndSRPZeroSuggest,
              "OmniboxFocusTriggersWebAndSRPZeroSuggest",
-             DISABLED);
+             ENABLED);
 
 // If enabled, suggestion group headers in the Omnibox popup will be hidden
 // (e.g. in order to minimize visual clutter in the zero-prefix state).
 BASE_FEATURE(kHideSuggestionGroupHeaders,
              "OmniboxHideSuggestionGroupHeaders",
-             DISABLED);
+             ENABLED);
 
 // Enables local history zero-prefix suggestions in every context in which the
 // remote zero-prefix suggestions are enabled.
@@ -175,7 +175,7 @@ BASE_FEATURE(kDocumentProviderNoSyncRequirement,
 // released.
 BASE_FEATURE(kShowPopupOnMouseReleased,
              "OmniboxShowPopupOnMouseReleased",
-             DISABLED);
+             ENABLED);
 
 // If enabled, makes Most Visited Tiles a Horizontal render group.
 // Horizontal render group decomposes aggregate suggestions (such as old Most
@@ -199,6 +199,9 @@ BASE_FEATURE(kWebUIOmniboxPopup, "WebUIOmniboxPopup", DISABLED);
 BASE_FEATURE(kOmniboxAssistantVoiceSearch,
              "OmniboxAssistantVoiceSearch",
              DISABLED);
+
+// When enabled, the multimodal input button is shown in the Omnibox.
+BASE_FEATURE(kOmniboxMultimodalInput, "OmniboxMultimodalInput", DISABLED);
 
 // Whether the AI Mode entrypoint is shown in the Omnibox as a RHS button.
 BASE_FEATURE(kAiModeOmniboxEntryPoint, "AiModeOmniboxEntryPoint", DISABLED);
@@ -265,7 +268,7 @@ BASE_FEATURE(kUrlScoringModel, "UrlScoringModel", enable_if(!IS_ANDROID));
 
 BASE_FEATURE(kAnimateSuggestionsListAppearance,
              "AnimateSuggestionsListAppearance",
-             DISABLED);
+             ENABLED);
 
 BASE_FEATURE(kOmniboxAnswerActions, "OmniboxAnswerActions", DISABLED);
 
@@ -314,8 +317,8 @@ BASE_FEATURE(kUseFusedLocationProvider, "UseFusedLocationProvider", ENABLED);
 BASE_FEATURE(kOmniboxShortcutsAndroid, "OmniboxShortcutsAndroid", ENABLED);
 
 // Updates various NTP/Omnibox assets and descriptions for visual alignment on
-// Android and iOS.
-BASE_FEATURE(kOmniboxMobileParityUpdate, "OmniboxMobileParityUpdate", DISABLED);
+// iOS.
+BASE_FEATURE(kOmniboxMobileParityUpdate, "OmniboxMobileParityUpdate", ENABLED);
 
 // Updates various NTP/Omnibox assets and descriptions for visual alignment on
 // Android and iOS, V2.
@@ -397,19 +400,6 @@ BASE_FEATURE(kHideAimEntrypointOnUserInput,
              DISABLED);
 
 #if BUILDFLAG(IS_ANDROID)
-// Enable the Elegant Text Height attribute on the UrlBar.
-// This attribute increases line height by up to 60% to accommodate certain
-// scripts (e.g. Burmese).
-BASE_FEATURE(kOmniboxElegantTextHeight, "OmniboxElegantTextHeight", ENABLED);
-
-// Whether the contents of the omnibox should be retained on focus as opposed to
-// being cleared. When this feature flag is enabled and the omnibox contents are
-// retained, focus events will also result in the omnibox contents being fully
-// selected so as to allow for easy replacement by the user. Note that even with
-// this feature flag enabled, only large screen devices with an attached
-// keyboard and precision pointer will exhibit a change in behavior.
-BASE_FEATURE(kRetainOmniboxOnFocus, "RetainOmniboxOnFocus", ENABLED);
-
 // Accelerates time from cold start to focused Omnibox on low-end devices,
 // prioritizing Omnibox focus and background initialization.
 BASE_FEATURE(kJumpStartOmnibox, "JumpStartOmnibox", DISABLED);
@@ -442,15 +432,13 @@ static jlong JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
       &kOmniboxAsyncViewInflation,
       &kRichAutocompletion,
       &kUseFusedLocationProvider,
-      &kOmniboxElegantTextHeight,
-      &kRetainOmniboxOnFocus,
       &kJumpStartOmnibox,
       &kAndroidHubSearchTabGroups,
       &kPostDelayedTaskFocusTab,
-      &kOmniboxMobileParityUpdate,
       &kOmniboxMobileParityUpdateV2,
       &kOmniboxSiteSearch,
       &kOmniboxAimShortcutTypedState,
+      &kOmniboxMultimodalInput,
       &kMultilineEditField};
   static base::NoDestructor<base::android::FeatureMap> kFeatureMap(
       kFeaturesExposedToJava);

@@ -28,6 +28,7 @@
 #include "content/browser/service_worker/service_worker_main_resource_handle.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/browser/url_loader_factory_params_helper.h"
+#include "content/browser/websockets/websocket_connector_impl.h"
 #include "content/browser/webtransport/web_transport_connector_impl.h"
 #include "content/browser/worker_host/shared_worker_content_settings_proxy_impl.h"
 #include "content/browser/worker_host/shared_worker_service_impl.h"
@@ -62,6 +63,7 @@
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
 #include "third_party/blink/public/mojom/renderer_preference_watcher.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
+#include "third_party/blink/public/mojom/worker/shared_worker_exception_details.mojom.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_info.mojom.h"
 #include "third_party/blink/public/mojom/worker/worker_content_settings_proxy.mojom.h"
 
@@ -293,6 +295,10 @@ void SharedWorkerHost::Start(
     if (!creator_policy_container_host_->policies().is_web_secure_context) {
       policies.is_web_secure_context = false;
     }
+    // Allow LNA access on non secure contexts if the creator did as well.
+    policies.allow_non_secure_local_network_access =
+        creator_policy_container_host_->policies()
+            .allow_non_secure_local_network_access;
 
     worker_client_security_state_ = DeriveClientSecurityState(
         policies, PrivateNetworkRequestContext::kWorker);
@@ -496,7 +502,10 @@ SharedWorkerHost::CreateNetworkFactoryParamsForSubresources() {
       URLLoaderFactoryParamsHelper::CreateForWorker(
           GetProcessHost(), origin, GetStorageKey().ToPartialNetIsolationInfo(),
           std::move(coep_reporter), std::move(dip_reporter),
-          /*url_loader_network_observer=*/mojo::NullRemote(),
+          static_cast<StoragePartitionImpl*>(
+              GetProcessHost()->GetStoragePartition())
+              ->CreateURLLoaderNetworkObserverForServiceOrSharedWorker(
+                  GetProcessHost()->GetDeprecatedID(), origin),
           /*devtools_observer=*/mojo::NullRemote(),
           mojo::Clone(worker_client_security_state_),
           /*debug_tag=*/
@@ -601,6 +610,18 @@ void SharedWorkerHost::CreateWebTransportConnector(
       std::make_unique<WebTransportConnectorImpl>(
           GetProcessHost()->GetDeprecatedID(), /*frame=*/nullptr, origin,
           GetNetworkAnonymizationKey()),
+      std::move(receiver));
+}
+
+void SharedWorkerHost::CreateWebSocketConnector(
+    mojo::PendingReceiver<blink::mojom::WebSocketConnector> receiver) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  const blink::StorageKey& storage_key = instance_.storage_key();
+
+  mojo::MakeSelfOwnedReceiver(
+      std::make_unique<WebSocketConnectorImpl>(
+          GetProcessHost()->GetDeprecatedID(), IPC::mojom::kRoutingIdNone,
+          storage_key.origin(), storage_key.ToPartialNetIsolationInfo()),
       std::move(receiver));
 }
 
@@ -764,6 +785,13 @@ void SharedWorkerHost::OnReadyForInspection(
 void SharedWorkerHost::OnScriptLoadFailed(const std::string& error_message) {
   for (const ClientInfo& info : clients_) {
     info.client->OnScriptLoadFailed(error_message);
+  }
+}
+
+void SharedWorkerHost::OnReportException(
+    blink::mojom::SharedWorkerExceptionDetailsPtr details) {
+  for (const ClientInfo& info : clients_) {
+    info.client->OnReportException(details.Clone());
   }
 }
 

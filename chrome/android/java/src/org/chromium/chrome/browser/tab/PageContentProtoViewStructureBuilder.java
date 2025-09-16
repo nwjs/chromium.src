@@ -10,6 +10,7 @@ import android.view.ViewStructure;
 
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.optimization_guide.PageContentProtoProviderBridge;
@@ -166,16 +167,20 @@ public class PageContentProtoViewStructureBuilder implements VirtualStructurePro
             structure.setChildCount(0);
             return;
         }
+        structure.setChildCount(1);
+        final ViewStructure rootNode = structure.asyncNewChild(0);
 
         PageContentProtoProviderBridge.getAiPageContent(
                 webContents,
                 result -> {
+                    RecordHistogram.recordBooleanHistogram(
+                            "Android.PageContentProtoViewStructureBuilder.Result",
+                            !result.isEmpty());
+
                     if (result.isEmpty()) {
-                        structure.setChildCount(0);
+                        rootNode.asyncCommit();
                         return;
                     }
-                    structure.setChildCount(1);
-                    final ViewStructure rootNode = structure.asyncNewChild(0);
                     populateVirtualStructureWithPageContentProto(rootNode, result.get());
                 });
     }

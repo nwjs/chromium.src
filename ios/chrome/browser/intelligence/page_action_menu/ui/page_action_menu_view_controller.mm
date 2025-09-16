@@ -31,7 +31,11 @@ const CGFloat kStackViewMargins = 16;
 // The padding surrounding the menu's content.
 const CGFloat kMenuSidePadding = 16;
 const CGFloat kMenuTopPadding = 8;
+#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+const CGFloat kMenuBottomPadding = 60;
+#else
 const CGFloat kMenuBottomPadding = 54;
+#endif
 
 // The height of the menu's buttons.
 const CGFloat kLargeButtonHeight = 60;
@@ -84,6 +88,9 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
   // Stack view containing the menu's main content.
   UIStackView* _contentStackView;
 
+  // The entry point for Ask Gemini.
+  UIButton* _BWGButton;
+
   // The entry point for the Lens overlay.
   UIButton* _lensButton;
 }
@@ -133,11 +140,11 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
   // (above) if Reader mode is available and active.
   if (IsReaderModeAvailable() && ![self.mutator isReaderModeActive]) {
     // Adds the large Gemini entry point button.
-    UIButton* BWGButton = [self createBWGButton];
-    [_contentStackView addArrangedSubview:BWGButton];
+    _BWGButton = [self createBWGButton];
+    [_contentStackView addArrangedSubview:_BWGButton];
 
     [NSLayoutConstraint activateConstraints:@[
-      [BWGButton.heightAnchor
+      [_BWGButton.heightAnchor
           constraintGreaterThanOrEqualToConstant:kLargeButtonHeight],
     ]];
   }
@@ -229,6 +236,12 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
   // Nothing to do.
 }
 
+#pragma mark - PageActionMenuConsumer
+
+- (void)pageLoadStatusChanged {
+  [self updateButton:_BWGButton enabled:[self.mutator isGeminiAvailable]];
+}
+
 #pragma mark - Private
 
 // Dismisses the page action menu.
@@ -265,7 +278,7 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
   horizontalStackView.translatesAutoresizingMaskIntoConstraints = NO;
   horizontalStackView.clipsToBounds = YES;
   horizontalStackView.backgroundColor =
-      [[UIColor colorNamed:kPrimaryBackgroundColor]
+      [[UIColor colorNamed:kGroupedSecondaryBackgroundColor]
           colorWithAlphaComponent:kSmallButtonOpacity];
   horizontalStackView.layer.cornerRadius = kButtonsCornerRadius;
 
@@ -389,7 +402,7 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
   NSMutableAttributedString* attributedTitle =
       [[NSMutableAttributedString alloc]
           initWithString:l10n_util::GetNSString(
-                             IDS_IOS_READER_MODE_OPTIONS_HIDE_BUTTON_LABEL)
+                             IDS_IOS_AI_HUB_HIDE_BUTTON_LABEL)
               attributes:attributes];
   configuration.attributedTitle = attributedTitle;
 
@@ -448,15 +461,15 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
                forControlEvents:UIControlEventTouchUpInside];
     [stackView addArrangedSubview:readerModeButton];
   } else {
-    UIButton* BWGSmallButton =
+    _BWGButton =
         [self createSmallButtonWithIcon:[self askGeminiIcon]
                                   title:l10n_util::GetNSString(
                                             IDS_IOS_AI_HUB_GEMINI_LABEL)
                                 enabled:[self.mutator isGeminiAvailable]];
-    [BWGSmallButton addTarget:self
-                       action:@selector(handleBWGTapped:)
-             forControlEvents:UIControlEventTouchUpInside];
-    [stackView addArrangedSubview:BWGSmallButton];
+    [_BWGButton addTarget:self
+                   action:@selector(handleBWGTapped:)
+         forControlEvents:UIControlEventTouchUpInside];
+    [stackView addArrangedSubview:_BWGButton];
   }
 
   return stackView;
@@ -497,6 +510,8 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
                 action:@selector(handleBWGTapped:)
       forControlEvents:UIControlEventTouchUpInside];
 
+  [self updateButton:button enabled:[self.mutator isGeminiAvailable]];
+
   return button;
 }
 
@@ -535,14 +550,18 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
          forKey:NSFontAttributeName];
   NSMutableAttributedString* string =
       [[NSMutableAttributedString alloc] initWithString:title];
+  NSRange titleRange = NSMakeRange(0, string.length);
   [string addAttributes:titleAttributes range:NSMakeRange(0, string.length)];
+  [string addAttribute:NSForegroundColorAttributeName
+                 value:[UIColor colorNamed:kTextPrimaryColor]
+                 range:titleRange];
   buttonConfiguration.attributedTitle = string;
 
   UIButton* button = [UIButton buttonWithConfiguration:buttonConfiguration
                                          primaryAction:nil];
   button.translatesAutoresizingMaskIntoConstraints = NO;
 
-  [self updateSmallButton:button enabled:enabled];
+  [self updateButton:button enabled:enabled];
 
   return button;
 }
@@ -584,10 +603,18 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
 // Dismisses the view controller and starts Reader mode.
 - (void)handleReaderModeTapped:(UIButton*)button {
   RecordAIHubAction(IOSAIHubAction::kReaderMode);
-  PageActionMenuViewController* __weak weakSelf = self;
-  [self.pageActionMenuHandler dismissPageActionMenuWithCompletion:^{
-    [weakSelf toggleReaderModeVisibility];
-  }];
+  __weak __typeof(self.readerModeHandler) weakReaderModeHandler =
+      self.readerModeHandler;
+  if ([self.mutator isReaderModeActive]) {
+    [self.pageActionMenuHandler dismissPageActionMenuWithCompletion:^{
+      [weakReaderModeHandler hideReaderMode];
+    }];
+  } else {
+    [self.pageActionMenuHandler dismissPageActionMenuWithCompletion:^{
+      [weakReaderModeHandler
+          showReaderModeFromAccessPoint:ReaderModeAccessPoint::kAIHub];
+    }];
+  }
 }
 
 // Navigates to the Reader mode options.
@@ -598,46 +625,19 @@ const CGFloat kReaderModeContentStackVerticalPadding = 10;
 
 #pragma mark - Private
 
-// Toggles the visibility of the Reading mode UI on the current page.
-- (void)toggleReaderModeVisibility {
-  if ([self.mutator isReaderModeActive]) {
-    [self.readerModeHandler hideReaderMode];
-  } else {
-    [self.readerModeHandler
-        showReaderModeFromAccessPoint:ReaderModeAccessPoint::kAIHub];
-  }
-}
-
 // Updates the availability of the Lens entry point.
 - (void)updateLensAvailability:(UITraitCollection*)traitCollection {
-  [self
-      updateSmallButton:_lensButton
-                enabled:[self.mutator
-                            isLensAvailableForTraitCollection:traitCollection]];
+  [self updateButton:_lensButton
+             enabled:[self.mutator
+                         isLensAvailableForTraitCollection:traitCollection]];
 }
 
-// Updates a `button` for whether it's `enabled`, modifying the tint and enabled
-// property.
-- (void)updateSmallButton:(UIButton*)button enabled:(BOOL)enabled {
-  [button setEnabled:enabled];
-
-  NSMutableAttributedString* attributedTitle =
-      [button.configuration.attributedTitle mutableCopy];
-  NSRange titleRange = NSMakeRange(0, attributedTitle.length);
-
-  if (enabled) {
-    // If enabled, add the custom color attribute to override the tint.
-    [attributedTitle addAttribute:NSForegroundColorAttributeName
-                            value:[UIColor colorNamed:kTextPrimaryColor]
-                            range:titleRange];
-  } else {
-    // If disabled, remove the custom color attribute so it returns to its
-    // default tint.
-    [attributedTitle removeAttribute:NSForegroundColorAttributeName
-                               range:titleRange];
-  }
-
-  [button setAttributedTitle:attributedTitle forState:UIControlStateNormal];
+// Updates a `button` for whether it's `enabled`.
+- (void)updateButton:(UIButton*)button enabled:(BOOL)enabled {
+  // Only disable user interaction to not affect the tint color of the title and
+  // image.
+  button.userInteractionEnabled = enabled;
+  button.alpha = enabled ? 1.0 : 0.5;
 }
 
 @end

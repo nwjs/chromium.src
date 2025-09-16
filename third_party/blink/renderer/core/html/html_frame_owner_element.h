@@ -31,6 +31,7 @@
 #include "third_party/blink/renderer/core/frame/dom_window.h"
 #include "third_party/blink/renderer/core/frame/embedded_content_view.h"
 #include "third_party/blink/renderer/core/frame/frame_owner.h"
+#include "third_party/blink/renderer/core/html/display_ad_element_monitor.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/permissions_policy/permissions_policy_parser.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
@@ -42,7 +43,6 @@
 
 namespace blink {
 
-class ExceptionState;
 class Frame;
 class LayoutEmbeddedContent;
 class LazyLoadFrameObserver;
@@ -72,7 +72,7 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
 
   virtual const QualifiedName& SubResourceAttributeName() const;
 
-  Document* getSVGDocument(ExceptionState&) const;
+  Document* getSVGDocument() const;
 
   void SetEmbeddedContentView(EmbeddedContentView*);
   EmbeddedContentView* ReleaseEmbeddedContentView();
@@ -163,6 +163,8 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
   void CancelPendingLazyLoad();
 
   void ParseAttribute(const AttributeModificationParams&) override;
+
+  void DidSetAdStatus();
 
   // Element overrides:
   bool IsAdRelated() const override;
@@ -264,6 +266,7 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
   FramePolicy frame_policy_;
 
   Member<LazyLoadFrameObserver> lazy_load_frame_observer_;
+  Member<DisplayAdElementMonitor> display_ad_element_monitor_;
   mojom::blink::ResourceTimingInfoPtr fallback_timing_info_;
   bool should_lazy_load_children_;
   bool is_swapping_frames_{false};

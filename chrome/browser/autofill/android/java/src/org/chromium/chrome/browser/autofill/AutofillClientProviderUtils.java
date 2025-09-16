@@ -13,6 +13,7 @@ import android.view.autofill.AutofillManager;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ResettersForTesting;
@@ -20,11 +21,9 @@ import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.components.autofill.AndroidAutofillFeatures;
 import org.chromium.components.autofill.AutofillManagerWrapper;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -64,10 +63,6 @@ public class AutofillClientProviderUtils {
      * @return true iff CCTs should be constructed with support for Android Autofill.
      */
     public static boolean isAutofillEnabledForCct(Profile profile) {
-        if (!AndroidAutofillFeatures.ANDROID_AUTOFILL_VIRTUAL_VIEW_STRUCTURE_ANDROID_IN_CCT
-                .isEnabled()) {
-            return false;
-        }
         return AutofillClientProviderUtils.getAndroidAutofillFrameworkAvailability(
                         UserPrefs.get(profile))
                 == AndroidAutofillAvailabilityStatus.AVAILABLE;
@@ -83,14 +78,10 @@ public class AutofillClientProviderUtils {
      *     or a reason why it can't.
      */
     @CalledByNative
-    public static int getAndroidAutofillFrameworkAvailability(PrefService prefs) {
+    public static int getAndroidAutofillFrameworkAvailability(
+            @JniType("PrefService*") PrefService prefs) {
         if (sAndroidAutofillFrameworkAvailabilityForTesting != null) {
             return sAndroidAutofillFrameworkAvailabilityForTesting;
-        }
-        if (!ChromeFeatureList.isEnabled(
-                ChromeFeatureList.AUTOFILL_VIRTUAL_VIEW_STRUCTURE_ANDROID)) {
-            // Technically correct. Not a useful status since the feature must be set.
-            return AndroidAutofillAvailabilityStatus.SETTING_TURNED_OFF;
         }
         if (!prefs.getBoolean(Pref.AUTOFILL_THIRD_PARTY_PASSWORD_MANAGERS_ALLOWED)) {
             return AndroidAutofillAvailabilityStatus.NOT_ALLOWED_BY_POLICY;

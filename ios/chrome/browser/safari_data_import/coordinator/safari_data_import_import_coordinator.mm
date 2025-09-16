@@ -15,6 +15,7 @@
 #import "components/history/core/browser/history_service.h"
 #import "components/keyed_service/core/service_access_type.h"
 #import "components/password_manager/core/browser/ui/saved_passwords_presenter.h"
+#import "components/prefs/pref_service.h"
 #import "components/reading_list/core/reading_list_model.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/affiliations/model/ios_chrome_affiliation_service_factory.h"
@@ -135,6 +136,7 @@
         ReadingListModelFactory::GetForProfile(profile);
     syncer::SyncService* syncService =
         SyncServiceFactory::GetForProfile(profile);
+    PrefService* prefService = profile->GetPrefs();
     FaviconLoader* faviconLoader =
         IOSChromeFaviconLoaderFactory::GetForProfile(profile);
     /// Initialize mediator.
@@ -146,6 +148,7 @@
                           bookmarkModel:bookmarkModel
                        readingListModel:readingListModel
                             syncService:syncService
+                            prefService:prefService
                           faviconLoader:faviconLoader];
     _mediator.importStageTransitionHandler = self;
     _mediator.itemConsumer = _tableView;
@@ -159,8 +162,7 @@
         IDS_IOS_SAFARI_IMPORT_IMPORT_FAILURE_MESSAGE_TITLE);
     NSString* description = l10n_util::GetNSString(
         IDS_IOS_SAFARI_IMPORT_IMPORT_FAILURE_MESSAGE_DESCRIPTION);
-    NSString* buttonText = l10n_util::GetNSString(
-        IDS_IOS_SAFARI_IMPORT_IMPORT_FAILURE_MESSAGE_OK_BUTTON);
+    NSString* buttonText = l10n_util::GetNSString(IDS_OK);
     __weak __typeof(self) weakSelf = self;
     UIAlertAction* dismiss = [UIAlertAction
         actionWithTitle:buttonText

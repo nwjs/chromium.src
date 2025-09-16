@@ -71,6 +71,7 @@ constexpr auto kPageActionProperties =
             {
                 .histogram_name = "PwaInstall",
                 .type = PageActionIconType::kPwaInstall,
+                .element_identifier = kInstallPwaElementId,
             },
         },
         {
@@ -87,14 +88,6 @@ constexpr auto kPageActionProperties =
                 .histogram_name = "Discounts",
                 .type = PageActionIconType::kDiscounts,
                 .element_identifier = kDiscountsChipElementId,
-            },
-        },
-        {
-            kActionCommerceProductSpecifications,
-            {
-                .histogram_name = "ProductSpecifications",
-                .type = PageActionIconType::kProductSpecifications,
-                .element_identifier = kProductSpecificationsChipElementId,
             },
         },
         {

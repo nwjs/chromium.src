@@ -607,7 +607,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, MAYBE_ThirtyFourTabs) {
 #else
       17;
 #endif
-  if (base::SysInfo::AmountOfPhysicalMemoryMB() >= 2048) {
+  if (base::SysInfo::AmountOfPhysicalMemory().InGiB() >= 2) {
     EXPECT_GE(CountRenderProcessHosts(), kExpectedProcessCount);
   } else {
     EXPECT_LT(CountRenderProcessHosts(), kExpectedProcessCount);
@@ -2704,7 +2704,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, DISABLED_ChangeDisplayMode) {
       ->EnterFullscreen(
           url::Origin(),
           EXCLUSIVE_ACCESS_BUBBLE_TYPE_BROWSER_FULLSCREEN_EXIT_INSTRUCTION,
-          display::kInvalidDisplayId);
+          FullscreenTabParams());
 
   // Sync navigation just to make sure IPC has passed (updated
   // display mode is delivered to RP).

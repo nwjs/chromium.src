@@ -14,6 +14,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
+import android.os.Process;
 
 import androidx.annotation.GuardedBy;
 
@@ -24,6 +25,7 @@ import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.build.BuildConfig;
+import org.chromium.build.NativeLibraries;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
@@ -126,7 +128,7 @@ public final class DeviceInfo {
     }
 
     private static DeviceInfo getInstance() {
-        // Some tests mock out things BuildInfo is based on, so disable caching in tests to ensure
+        // Some tests mock out things DeviceInfo is based on, so disable caching in tests to ensure
         // such mocking is not defeated by caching.
         if (BuildConfig.IS_FOR_TEST) {
             return new DeviceInfo();
@@ -150,6 +152,20 @@ public final class DeviceInfo {
         } else {
             return pi.versionCode;
         }
+    }
+
+    /**
+     * @return CPU architecture name, see "arch:" in:
+     *     https://chromium.googlesource.com/chromium/src.git/+/master/docs/updater/protocol_3_1.md
+     */
+    public static String getArch() {
+        boolean is64Bit = Process.is64Bit();
+        if (NativeLibraries.sCpuFamily == NativeLibraries.CPU_FAMILY_ARM) {
+            return is64Bit ? "arm64" : "arm";
+        } else if (NativeLibraries.sCpuFamily == NativeLibraries.CPU_FAMILY_X86) {
+            return is64Bit ? "x86_64" : "x86";
+        }
+        return "";
     }
 
     private DeviceInfo() {
@@ -190,14 +206,15 @@ public final class DeviceInfo {
             mIDeviceInfo.isAutomotive = sIsAutomotiveForTesting;
         }
 
-        // Detect whether device is foldable.
-        mIDeviceInfo.isFoldable =
-                Build.VERSION.SDK_INT >= VERSION_CODES.R
-                        && pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE);
-
         mIDeviceInfo.isDesktop =
                 (BuildConfig.IS_DESKTOP_ANDROID && pm.hasSystemFeature(PackageManager.FEATURE_PC))
                         || CommandLine.getInstance().hasSwitch(BaseSwitches.FORCE_DESKTOP_ANDROID);
+
+        // Detect whether device is foldable.
+        mIDeviceInfo.isFoldable =
+                !mIDeviceInfo.isDesktop
+                        && Build.VERSION.SDK_INT >= VERSION_CODES.R
+                        && pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE);
 
         int vulkanLevel = 0;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

@@ -32,8 +32,10 @@
 #include "pdf/document_layout.h"
 #include "pdf/document_metadata.h"
 #include "pdf/loader/document_loader.h"
+#include "pdf/pdf_annotation_agent.h"
 #include "pdf/pdf_caret.h"
 #include "pdf/pdf_caret_client.h"
+#include "pdf/pdf_rect.h"
 #include "pdf/pdfium/pdfium_engine_client.h"
 #include "pdf/pdfium/pdfium_form_filler.h"
 #include "pdf/pdfium/pdfium_page.h"
@@ -68,6 +70,7 @@
 #include "pdf/pdf_ink_ids.h"
 #include "pdf/pdf_ink_metrics_handler.h"
 #include "third_party/ink/src/ink/geometry/partitioned_mesh.h"
+#include "ui/gfx/geometry/transform.h"
 #endif
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
@@ -146,6 +149,7 @@ using AddSearchResultCallback = base::RepeatingCallback<void(PDFiumRange)>;
 // Many methods in this class are virtual to facilitate testing.
 class PDFiumEngine : public DocumentLoader::Client,
                      public IFSDK_PAUSE,
+                     public PdfAnnotationAgent::Container,
                      public PdfCaretClient {
  public:
   // Maximum number of parameters a nameddest view can contain.
@@ -465,9 +469,13 @@ class PDFiumEngine : public DocumentLoader::Client,
   // `point` must be in device coordinates. Virtual to support testing.
   virtual bool ExtendSelectionByPoint(const gfx::PointF& point);
 
-  // Returns all current text selection rects in screen coordinates. Virtual to
-  // support testing.
-  virtual std::vector<gfx::Rect> GetSelectionRects();
+  // Returns the transform required to convert canonical coordinates to PDF
+  // coordinates. Virtual to support testing.
+  virtual gfx::Transform GetCanonicalToPdfTransform(int page_index);
+
+  // Returns all current text selection rects in PDF coordinates, indexed by
+  // their page indices. Virtual to support testing.
+  virtual std::map<int, std::vector<PdfRect>> GetSelectionRectMap();
 
   // Returns whether `point` is within a selectable text area or within a link
   // area, excluding form fields. `point` must be in device coordinates. Virtual
@@ -499,9 +507,17 @@ class PDFiumEngine : public DocumentLoader::Client,
 
   // PdfCaretClient:
   uint32_t GetCharCount(uint32_t page_index) const override;
-  std::vector<gfx::Rect> GetScreenRectsForChar(
+  std::vector<gfx::Rect> GetScreenRectsForCaret(
       const PageCharacterIndex& index) const override;
   void InvalidateRect(const gfx::Rect& rect) override;
+  bool IsSynthesizedNewline(const PageCharacterIndex& index) const override;
+  bool PageIndexInBounds(int index) const override;
+
+  // `PdfAnnotationAgent::Container`:
+  bool FindAndHighlightTextFragments(
+      base::span<const std::string> text_fragments) override;
+  void ScrollTextFragmentIntoView() override;
+  void RemoveTextFragments() override;
 
 #if defined(PDF_ENABLE_XFA)
   void UpdatePageCount();
@@ -559,20 +575,11 @@ class PDFiumEngine : public DocumentLoader::Client,
   // Sets whether form highlight should be enabled or cleared.
   virtual void SetFormHighlight(bool enable_form);
 
-  // Attempts to find and highlight all the `text_fragments` in the PDF. Returns
-  // true if any of the fragments is found, and caches the results in
-  // `text_fragment_highlights_`.
-  virtual bool FindAndHighlightTextFragments(
-      base::span<const std::string> text_fragments);
-
   // Scrolls to and highlights the first entry in `text_fragment_highlights_`.
   // Only valid if `text_fragment_highlights_` is non-empty (gated by a CHECK).
   // `force_smooth_scroll` forces smooth scrolling regardless of the current
   // animation settings.
   virtual void ScrollToFirstTextFragment(bool force_smooth_scroll);
-
-  // Removes the text fragments and their highlights.
-  virtual void RemoveTextFragments();
 
   // Searches for a text fragment within the text of the PDF.
   void SearchForFragment(const std::u16string& term,
@@ -897,6 +904,11 @@ class PDFiumEngine : public DocumentLoader::Client,
   // coordinates. (i.e. 0,0 is top left corner of plugin area)
   gfx::Rect GetScreenRect(const gfx::Rect& rect) const;
 
+  // Returns screen rects for a caret at the top-left of the no-text PDF page,
+  // or an empty vector if the caret cannot fit on the page.
+  std::vector<gfx::Rect> GetNoTextPageScreenRectsForCaret(
+      PDFiumPage* page) const;
+
   // Given an image `region`, highlights `rect`.
   // `highlighted_rects` contains the already highlighted rectangles and will be
   // updated to include `rect` if `rect` has not already been highlighted.
@@ -959,7 +971,6 @@ class PDFiumEngine : public DocumentLoader::Client,
   bool IsAnnotationAnEditableFormTextArea(FPDF_ANNOTATION annot,
                                           int form_type) const;
 
-  bool PageIndexInBounds(int index) const;
   bool IsPageCharacterIndexInBounds(const PageCharacterIndex& index) const;
 
   void ScheduleTouchTimer(const blink::WebTouchEvent& event);

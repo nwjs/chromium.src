@@ -4,16 +4,20 @@
 
 #include "chrome/browser/actor/tools/attempt_login_tool.h"
 
+#include "base/barrier_closure.h"
+#include "base/containers/flat_set.h"
 #include "base/notimplemented.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/tools/observation_delay_controller.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
 #include "chrome/browser/password_manager/actor_login/actor_login_service.h"
 #include "chrome/common/actor/action_result.h"
+#include "chrome/common/actor_webui.mojom.h"
+#include "components/favicon/core/favicon_service.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "content/public/browser/web_contents.h"
-
-// TODO(crbug.com/427817201): Throughout this file replace
-// ActionResultCode::kError with new error codes.
+#include "ui/gfx/image/image.h"
+#include "url/gurl.h"
 
 namespace actor {
 
@@ -38,10 +42,21 @@ mojom::ActionResultCode LoginErrorToActorError(
 
 mojom::ActionResultCode LoginResultToActorResult(
     actor_login::LoginStatusResult login_result) {
+  // TODO(crbug.com/427817201): Re-assess whether all success statuses should
+  // map to kOk or if differentiation is needed.
   switch (login_result) {
     case actor_login::LoginStatusResult::kSuccessUsernameAndPasswordFilled:
+    case actor_login::LoginStatusResult::kSuccessUsernameFilled:
+    case actor_login::LoginStatusResult::kSuccessPasswordFilled:
       return mojom::ActionResultCode::kOk;
     case actor_login::LoginStatusResult::kErrorNoSigninForm:
+      return mojom::ActionResultCode::kLoginNotLoginPage;
+    case actor_login::LoginStatusResult::kErrorInvalidCredential:
+      return mojom::ActionResultCode::kLoginNoCredentialsAvailable;
+    case actor_login::LoginStatusResult::kErrorNoFillableFields:
+      return mojom::ActionResultCode::kLoginNoFillableFields;
+    case actor_login::LoginStatusResult::kErrorFillingNotAllowed:
+      // TODO(crbug.com/427817201): Replace with a specific error code.
       return mojom::ActionResultCode::kError;
   }
 }
@@ -56,6 +71,12 @@ AttemptLoginTool::AttemptLoginTool(TaskId task_id,
 AttemptLoginTool::~AttemptLoginTool() = default;
 
 void AttemptLoginTool::Validate(ValidateCallback callback) {
+  if (!base::FeatureList::IsEnabled(password_manager::features::kActorLogin)) {
+    PostResponseTask(std::move(callback),
+                     MakeResult(mojom::ActionResultCode::kToolUnknown));
+    return;
+  }
+
   PostResponseTask(std::move(callback), MakeOkResult());
 }
 
@@ -81,19 +102,21 @@ void AttemptLoginTool::OnGetCredentials(
     return;
   }
 
-  std::vector<actor_login::Credential> creds = credentials.value();
-  if (creds.empty()) {
-    PostResponseTask(std::move(invoke_callback_),
-                     MakeResult(mojom::ActionResultCode::kError));
+  credentials_ = std::move(credentials.value());
+  if (credentials_.empty()) {
+    PostResponseTask(
+        std::move(invoke_callback_),
+        MakeResult(mojom::ActionResultCode::kLoginNoCredentialsAvailable));
     return;
   }
 
-  std::erase_if(creds, [](const actor_login::Credential& cred) {
+  std::erase_if(credentials_, [](const actor_login::Credential& cred) {
     return !cred.immediatelyAvailableToLogin;
   });
-  if (creds.empty()) {
-    PostResponseTask(std::move(invoke_callback_),
-                     MakeResult(mojom::ActionResultCode::kError));
+  if (credentials_.empty()) {
+    PostResponseTask(
+        std::move(invoke_callback_),
+        MakeResult(mojom::ActionResultCode::kLoginNoCredentialsAvailable));
     return;
   }
 
@@ -104,9 +127,108 @@ void AttemptLoginTool::OnGetCredentials(
     return;
   }
 
-  // TODO(crbug.com/427817882): Ask the client to choose the credential.
+  FetchFavicons();
+}
+
+void AttemptLoginTool::FetchFavicons() {
+  favicon::FaviconService* favicon_service =
+      tool_delegate().GetFaviconService();
+  if (!favicon_service) {
+    // If there is no favicon service, just proceed without favicons.
+    tool_delegate().PromptToSelectCredential(
+        credentials_,
+        /*favicons=*/{},
+        base::BindOnce(&AttemptLoginTool::OnCredentialSelected,
+                       weak_ptr_factory_.GetWeakPtr()));
+    return;
+  }
+
+  base::flat_set<GURL> unique_sites;
+  for (const auto& cred : credentials_) {
+    if (!cred.source_site_or_app.empty()) {
+      unique_sites.insert(GURL(cred.source_site_or_app));
+    }
+  }
+
+  // OnAllFaviconsFetched is called immediately if unique_sites is empty.
+  base::RepeatingClosure barrier = base::BarrierClosure(
+      unique_sites.size(),
+      base::BindOnce(&AttemptLoginTool::OnAllFaviconsFetched,
+                     weak_ptr_factory_.GetWeakPtr()));
+  favicon_requests_tracker_ =
+      std::vector<base::CancelableTaskTracker>(unique_sites.size());
+
+  size_t i = 0u;
+  for (const GURL& site : unique_sites) {
+    favicon_service->GetFaviconImageForPageURL(
+        site,
+        base::BindOnce(&AttemptLoginTool::OnFaviconFetched,
+                       weak_ptr_factory_.GetWeakPtr(), barrier, site),
+        &favicon_requests_tracker_[i]);
+    ++i;
+  }
+}
+
+void AttemptLoginTool::OnFaviconFetched(
+    base::RepeatingClosure barrier,
+    GURL site,
+    const favicon_base::FaviconImageResult& result) {
+  if (!result.image.IsEmpty()) {
+    fetched_favicons_[site] = result.image;
+  }
+  barrier.Run();
+}
+
+void AttemptLoginTool::OnAllFaviconsFetched() {
+  tool_delegate().PromptToSelectCredential(
+      credentials_, fetched_favicons_,
+      base::BindOnce(&AttemptLoginTool::OnCredentialSelected,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void AttemptLoginTool::OnCredentialSelected(
+    webui::mojom::SelectCredentialDialogResponsePtr response) {
+  std::optional<actor_login::Credential> selected_credential;
+  std::vector<actor_login::Credential> credentials = std::move(credentials_);
+  if (response->error_reason ==
+      webui::mojom::SelectCredentialDialogErrorReason::
+          kDialogPromiseNoSubscriber) {
+    VLOG(1) << "selectCredentialDialogRequestHandler() has no subscriber. "
+               "The web client is likely not set up correctly.";
+  } else if (response->selected_credential_id.has_value()) {
+    auto it = std::find_if(
+        credentials.begin(), credentials.end(),
+        [&](const actor_login::Credential& credential) {
+          return credential.id ==
+                 actor_login::Credential::Id(*response->selected_credential_id);
+        });
+    if (it != credentials.end()) {
+      selected_credential = *it;
+    } else {
+      VLOG(1) << "Selected credential id " << *response->selected_credential_id
+              << " not found in the credentials list.";
+    }
+  } else {
+    VLOG(2) << "SelectCredentialDialogResponse has no selected "
+               "credential id.";
+  }
+  if (!selected_credential.has_value()) {
+    // We don't need to distinguish between no credentials being available and a
+    // user declining the usage of a credential.
+    PostResponseTask(
+        std::move(invoke_callback_),
+        MakeResult(mojom::ActionResultCode::kLoginNoCredentialsAvailable));
+    return;
+  }
+
+  tabs::TabInterface* tab = tab_handle_.Get();
+  if (!tab) {
+    PostResponseTask(std::move(invoke_callback_),
+                     MakeResult(mojom::ActionResultCode::kTabWentAway));
+    return;
+  }
   GetActorLoginService().AttemptLogin(
-      tab, creds.front(),
+      tab, *selected_credential,
       base::BindOnce(&AttemptLoginTool::OnAttemptLogin,
                      weak_ptr_factory_.GetWeakPtr()));
 }

@@ -5,6 +5,7 @@
 #ifndef SERVICES_WEBNN_WEBNN_SWITCHES_H_
 #define SERVICES_WEBNN_WEBNN_SWITCHES_H_
 
+#include "base/containers/span.h"
 #include "build/build_config.h"
 #include "services/webnn/buildflags.h"
 
@@ -50,7 +51,24 @@ inline constexpr char kWebNNOrtLibraryPathForTesting[] =
 // Files\ONNXRuntime-EP" --allow-third-party-modules
 inline constexpr char kWebNNOrtEpLibraryPathForTesting[] =
     "webnn-ort-ep-library-path-for-testing";
+
+// Configure the graph optimization level of ONNX Runtime.
+// Usage: --webnn-ort-graph-optimization-level=DISABLE_ALL
+// Other levels could be "BASIC", "EXTENDED" and "ALL".
+inline constexpr char kWebNNOrtGraphOptimizationLevel[] =
+    "webnn-ort-graph-optimization-level";
+
+// This switch allows us to collect ORT profile data for performance analysis.
+// The profile data file is generated in Chrome's folder with a fixed naming
+// format "prefix_date_time.json". The prefix can be provided by user or use
+// "WebNNOrtProfile" as default.
+// Usage: --no-sandbox --webnn-ort-enable-profiling="WebNNOrtOvCpuProfile"
+inline constexpr char kWebNNOrtEnableProfiling[] = "webnn-ort-enable-profiling";
 #endif  // BUILDFLAG(IS_WIN)
+
+extern base::span<const char* const> GetWebNNSwitchesCopiedFromGpuProcessHost();
+// extern const base::span<const char* const>
+//     kWebNNSwitchesCopiedFromGpuProcessHost;
 
 }  // namespace switches
 

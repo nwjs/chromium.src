@@ -29,7 +29,9 @@
 #include "pdf/buildflags.h"
 #include "pdf/page_rotation.h"
 #include "pdf/pdf_features.h"
+#include "pdf/pdf_rect.h"
 #include "pdf/pdfium/pdfium_api_string_buffer_adapter.h"
+#include "pdf/pdfium/pdfium_api_wrappers.h"
 #include "pdf/pdfium/pdfium_engine.h"
 #include "pdf/pdfium/pdfium_ocr.h"
 #include "pdf/pdfium/pdfium_rotation.h"
@@ -331,20 +333,10 @@ bool AreTextStyleEqual(FPDF_PAGEOBJECT text_object,
          char_style.is_bold == style.is_bold;
 }
 
-// Returns the bounds with the smallest left, smallest bottom, largest right,
-// and largest top.
-FS_RECTF GetLargestBounds(const FS_RECTF& largest_bounds,
-                          const FS_RECTF& bounds) {
-  return {std::min(largest_bounds.left, bounds.left),
-          std::max(largest_bounds.top, bounds.top),
-          std::max(largest_bounds.right, bounds.right),
-          std::min(largest_bounds.bottom, bounds.bottom)};
-}
-
 gfx::RectF GetRotatedRectF(PageRotation rotation,
                            gfx::SizeF page_size,
-                           const FS_RECTF& original_bounds) {
-  FS_RECTF bounds;
+                           const PdfRect& original_bounds) {
+  PdfRect bounds;
 
   // When the page is rotated 90 degrees or 270 degrees, the page width and
   // height are swapped. Swap it back for calculations.
@@ -359,30 +351,32 @@ gfx::RectF GetRotatedRectF(PageRotation rotation,
       break;
     }
     case PageRotation::kRotate90: {
-      bounds.left = original_bounds.bottom;
-      bounds.top = page_size.width() - original_bounds.left;
-      bounds.right = original_bounds.top;
-      bounds.bottom = page_size.width() - original_bounds.right;
+      bounds = PdfRect(
+          /*left=*/original_bounds.bottom(),
+          /*bottom=*/page_size.width() - original_bounds.right(),
+          /*right=*/original_bounds.top(),
+          /*top=*/page_size.width() - original_bounds.left());
       break;
     }
     case PageRotation::kRotate180: {
-      bounds.left = page_size.width() - original_bounds.right;
-      bounds.top = page_size.height() - original_bounds.bottom;
-      bounds.right = page_size.width() - original_bounds.left;
-      bounds.bottom = page_size.height() - original_bounds.top;
+      bounds = PdfRect(
+          /*left=*/page_size.width() - original_bounds.right(),
+          /*bottom=*/page_size.height() - original_bounds.top(),
+          /*right=*/page_size.width() - original_bounds.left(),
+          /*top=*/page_size.height() - original_bounds.bottom());
       break;
     }
     case PageRotation::kRotate270: {
-      bounds.left = page_size.height() - original_bounds.top;
-      bounds.top = original_bounds.right;
-      bounds.right = page_size.height() - original_bounds.bottom;
-      bounds.bottom = original_bounds.left;
+      bounds = PdfRect(
+          /*left=*/page_size.height() - original_bounds.top(),
+          /*bottom=*/original_bounds.left(),
+          /*right=*/page_size.height() - original_bounds.bottom(),
+          /*top=*/original_bounds.right());
       break;
     }
   }
 
-  return gfx::RectF(bounds.left, bounds.bottom, bounds.right - bounds.left,
-                    bounds.top - bounds.bottom);
+  return bounds.AsGfxRectF();
 }
 
 // Get the effective crop box. If empty or failed to calculate the effective
@@ -392,10 +386,10 @@ gfx::RectF GetEffectiveCropBox(FPDF_PAGE page,
                                PageRotation rotation,
                                const gfx::SizeF& page_size) {
   gfx::RectF effective_crop_box;
-  FS_RECTF effective_crop_bounds;
-  if (FPDF_GetPageBoundingBox(page, &effective_crop_bounds)) {
+  const std::optional<PdfRect> maybe_crop_bounds = GetPageBoundingBox(page);
+  if (maybe_crop_bounds.has_value()) {
     effective_crop_box =
-        GetRotatedRectF(rotation, page_size, effective_crop_bounds);
+        GetRotatedRectF(rotation, page_size, maybe_crop_bounds.value());
   }
 
   if (effective_crop_box.IsEmpty()) {
@@ -791,18 +785,15 @@ gfx::RectF PDFiumPage::GetCharBounds(int char_index) {
 
 gfx::RectF PDFiumPage::GetCroppedRect() {
   FPDF_PAGE page = GetPage();
-  FS_RECTF raw_rect;
-  if (!FPDF_GetPageBoundingBox(page, &raw_rect))
+  std::optional<PdfRect> maybe_cropped_bounds = GetPageBoundingBox(page);
+  if (!maybe_cropped_bounds.has_value()) {
     return gfx::RectF();
+  }
 
-  if (raw_rect.right < raw_rect.left)
-    std::swap(raw_rect.right, raw_rect.left);
-  if (raw_rect.bottom > raw_rect.top)
-    std::swap(raw_rect.bottom, raw_rect.top);
-
-  gfx::RectF rect(raw_rect.left, raw_rect.bottom,
-                  raw_rect.right - raw_rect.left,
-                  raw_rect.top - raw_rect.bottom);
+  PdfRect& cropped_bounds = maybe_cropped_bounds.value();
+  cropped_bounds.Normalize();
+  gfx::RectF rect(cropped_bounds.left(), cropped_bounds.bottom(),
+                  cropped_bounds.width(), cropped_bounds.height());
   return FloatPageRectToPixelRect(page, rect);
 }
 
@@ -819,18 +810,21 @@ gfx::RectF PDFiumPage::GetBoundingBox() {
   // Start with bounds with the left and bottom values at the max possible
   // bounds and the right and top values at the min possible bounds. Bounds are
   // relative to the media box.
-  FS_RECTF largest_bounds = {page_size.width(), 0, 0, page_size.height()};
+  PdfRect largest_bounds(/*left=*/page_size.width(),
+                         /*bottom=*/page_size.height(), /*right=*/0, /*top=*/0);
   for (int i = 0; i < FPDFPage_CountObjects(page); ++i) {
     FPDF_PAGEOBJECT page_object = FPDFPage_GetObject(page, i);
     if (!page_object) {
       continue;
     }
 
-    FS_RECTF bounds;
-    if (FPDFPageObj_GetBounds(page_object, &bounds.left, &bounds.bottom,
-                              &bounds.right, &bounds.top)) {
-      largest_bounds = GetLargestBounds(largest_bounds, bounds);
+    const std::optional<PdfRect> maybe_bounds =
+        GetPageObjectBounds(page_object);
+    if (!maybe_bounds.has_value()) {
+      continue;
     }
+
+    largest_bounds.Union(maybe_bounds.value());
   }
   for (int i = 0; i < FPDFPage_GetAnnotCount(page); ++i) {
     ScopedFPDFAnnotation annotation(FPDFPage_GetAnnot(page, i));
@@ -838,10 +832,12 @@ gfx::RectF PDFiumPage::GetBoundingBox() {
       continue;
     }
 
-    FS_RECTF bounds;
-    if (FPDFAnnot_GetRect(annotation.get(), &bounds)) {
-      largest_bounds = GetLargestBounds(largest_bounds, bounds);
+    const std::optional<PdfRect> maybe_bounds = GetAnnotRect(annotation.get());
+    if (!maybe_bounds.has_value()) {
+      continue;
     }
+
+    largest_bounds.Union(maybe_bounds.value());
   }
 
   gfx::RectF bounding_box =
@@ -1373,16 +1369,14 @@ void PDFiumPage::PopulateAnnotationLinks() {
     if (area == NONSELECTABLE_AREA)
       continue;
 
-    FS_RECTF link_rect;
-    if (!FPDFLink_GetAnnotRect(link_annot, &link_rect))
+    PdfRect link_rect;
+    if (!FPDFLink_GetAnnotRect(link_annot, &FsRectFFromPdfRect(link_rect))) {
       continue;
+    }
 
     // The horizontal/vertical coordinates in PDF Links could be
     // flipped. Swap the coordinates before further processing.
-    if (link_rect.right < link_rect.left)
-      std::swap(link_rect.right, link_rect.left);
-    if (link_rect.bottom > link_rect.top)
-      std::swap(link_rect.bottom, link_rect.top);
+    link_rect.Normalize();
 
     int quad_point_count = FPDFLink_CountQuadPoints(link_annot);
     // Calculate the bounds of link using the quad points data.
@@ -1400,16 +1394,14 @@ void PDFiumPage::PopulateAnnotationLinks() {
         }
       }
     } else {
-      link.bounding_rects.push_back(PageToScreen(
-          gfx::Point(), 1.0, link_rect.left, link_rect.top, link_rect.right,
-          link_rect.bottom, PageOrientation::kOriginal));
+      link.bounding_rects.push_back(PageToScreen(gfx::Point(), 1.0, link_rect,
+                                                 PageOrientation::kOriginal));
     }
 
     // Calculate underlying text range of link.
     GetUnderlyingTextRangeForRect(
-        gfx::RectF(link_rect.left, link_rect.bottom,
-                   std::abs(link_rect.right - link_rect.left),
-                   std::abs(link_rect.bottom - link_rect.top)),
+        gfx::RectF(link_rect.left(), link_rect.bottom(), link_rect.width(),
+                   link_rect.height()),
         &link.start_char_index, &link.char_count);
     links_.emplace_back(link);
   }
@@ -1424,19 +1416,20 @@ void PDFiumPage::CalculateImages() {
   int page_object_count = FPDFPage_CountObjects(page);
   for (int i = 0; i < page_object_count; ++i) {
     FPDF_PAGEOBJECT page_object = FPDFPage_GetObject(page, i);
-    if (FPDFPageObj_GetType(page_object) != FPDF_PAGEOBJ_IMAGE)
+    if (FPDFPageObj_GetType(page_object) != FPDF_PAGEOBJ_IMAGE) {
       continue;
-    float left;
-    float top;
-    float right;
-    float bottom;
-    if (!FPDFPageObj_GetBounds(page_object, &left, &bottom, &right, &top))
+    }
+
+    const std::optional<PdfRect> maybe_bounds =
+        GetPageObjectBounds(page_object);
+    if (!maybe_bounds.has_value()) {
       continue;
+    }
 
     Image image;
     image.page_object_index = i;
-    image.bounding_rect = PageToScreen(gfx::Point(), 1.0, left, top, right,
-                                       bottom, PageOrientation::kOriginal);
+    image.bounding_rect = PageToScreen(gfx::Point(), 1.0, maybe_bounds.value(),
+                                       PageOrientation::kOriginal);
 
     if (engine_->IsPDFDocTagged()) {
       // Collect all marked content IDs for image objects so that they can
@@ -1587,18 +1580,19 @@ void PDFiumPage::PopulateHighlight(FPDF_ANNOTATION annot) {
   DCHECK(annot);
   DCHECK_EQ(FPDFAnnot_GetSubtype(annot), FPDF_ANNOT_HIGHLIGHT);
 
-  FS_RECTF rect;
-  if (!FPDFAnnot_GetRect(annot, &rect))
+  std::optional<PdfRect> maybe_rect = GetAnnotRect(annot);
+  if (!maybe_rect.has_value()) {
     return;
+  }
 
+  auto& rect = maybe_rect.value();
   Highlight highlight;
   // We use the bounding box of the highlight as the bounding rect.
   highlight.bounding_rect =
-      PageToScreen(gfx::Point(), 1.0, rect.left, rect.top, rect.right,
-                   rect.bottom, PageOrientation::kOriginal);
+      PageToScreen(gfx::Point(), 1.0, rect, PageOrientation::kOriginal);
+  rect.Normalize();
   GetUnderlyingTextRangeForRect(
-      gfx::RectF(rect.left, rect.bottom, std::abs(rect.right - rect.left),
-                 std::abs(rect.bottom - rect.top)),
+      gfx::RectF(rect.left(), rect.bottom(), rect.width(), rect.height()),
       &highlight.start_char_index, &highlight.char_count);
 
   // Retrieve the color of the highlight.
@@ -1728,14 +1722,14 @@ void PDFiumPage::PopulateFormField(FPDF_ANNOTATION annot) {
 bool PDFiumPage::PopulateFormFieldProperties(FPDF_ANNOTATION annot,
                                              FormField* form_field) {
   DCHECK(annot);
-  FS_RECTF rect;
-  if (!FPDFAnnot_GetRect(annot, &rect))
+  const std::optional<PdfRect> maybe_rect = GetAnnotRect(annot);
+  if (!maybe_rect.has_value()) {
     return false;
+  }
 
   // We use the bounding box of the form field as the bounding rect.
-  form_field->bounding_rect =
-      PageToScreen(gfx::Point(), 1.0, rect.left, rect.top, rect.right,
-                   rect.bottom, PageOrientation::kOriginal);
+  form_field->bounding_rect = PageToScreen(
+      gfx::Point(), 1.0, maybe_rect.value(), PageOrientation::kOriginal);
   FPDF_FORMHANDLE form_handle = engine_->form();
   form_field->name = base::UTF16ToUTF8(CallPDFiumWideStringBufferApi(
       base::BindRepeating(&FPDFAnnot_GetFormFieldName, form_handle, annot),
@@ -1787,6 +1781,14 @@ bool PDFiumPage::GetUnderlyingTextRangeForRect(const gfx::RectF& rect,
   *char_len = cur_char_count;
   *start_index = start_char_index;
   return true;
+}
+
+gfx::Rect PDFiumPage::PageToScreen(const gfx::Point& page_point,
+                                   double zoom,
+                                   const PdfRect& rect,
+                                   PageOrientation orientation) const {
+  return PageToScreen(page_point, zoom, rect.left(), rect.top(), rect.right(),
+                      rect.bottom(), orientation);
 }
 
 gfx::Rect PDFiumPage::PageToScreen(const gfx::Point& page_point,
@@ -1884,6 +1886,10 @@ Thumbnail PDFiumPage::GenerateThumbnail(float device_pixel_ratio) {
   const uint32_t fill_color = has_alpha ? 0x00000000 : 0xFFFFFFFF;
   FPDFBitmap_FillRect(fpdf_bitmap.get(), /*left=*/0, /*top=*/0,
                       image_size.width(), image_size.height(), fill_color);
+
+  if (thumbnail.should_render_blank()) {
+    return thumbnail;
+  }
 
   // The combination of the `FPDF_REVERSE_BYTE_ORDER` rendering flag and the
   // `FPDFBitmap_BGRA` format when initializing `fpdf_bitmap` results in an RGBA

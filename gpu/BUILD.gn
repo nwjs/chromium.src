@@ -320,6 +320,10 @@ test("gl_tests") {
   deps += [ "//third_party/angle:translator" ]
 
   if (use_ozone) {
+    if (enable_vulkan) {
+      sources +=
+          [ "command_buffer/service/drm_modifiers_filter_vulkan_unittest.cc" ]
+    }
     deps += [ "//ui/ozone" ]
     sources += [ "command_buffer/service/shared_image/ozone_image_backing_factory_unittest.cc" ]
   }
@@ -605,6 +609,7 @@ test("gpu_unittests") {
   if (use_dawn) {
     sources += [
       "command_buffer/service/dawn_caching_interface_unittest.cc",
+      "command_buffer/service/dawn_platform_unittest.cc",
       "config/webgpu_blocklist_unittest.cc",
     ]
   }

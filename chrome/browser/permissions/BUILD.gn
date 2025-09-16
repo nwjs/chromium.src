@@ -70,11 +70,11 @@ source_set("permissions") {
   deps = [
     ":permissions_proto",
     "//chrome/browser:browser_process",
+    "//chrome/browser/app_mode",
     "//chrome/browser/content_extraction",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/favicon",
     "//chrome/browser/optimization_guide",
-    "//chrome/browser/profiles",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/safe_browsing",
@@ -85,6 +85,7 @@ source_set("permissions") {
     "//chrome/browser/translate",
     "//chrome/browser/ui/hats",
     "//chrome/browser/ui/page_info",
+    "//chrome/browser/ui/safety_hub",
     "//chrome/common",
     "//chrome/common:chrome_features",
     "//chrome/common:constants",
@@ -104,6 +105,7 @@ source_set("permissions") {
     "//components/pref_registry",
     "//components/prefs",
     "//components/privacy_sandbox:tracking_protection_settings",
+    "//components/safe_browsing/core/browser:safe_browsing_metrics_collector",
     "//components/safe_browsing/core/browser/db:database_manager",
     "//components/safe_browsing/core/common",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
@@ -153,6 +155,7 @@ source_set("permissions") {
       "//chrome/browser/ash/privacy_hub",
       "//chrome/browser/ash/shimless_rma",
       "//chromeos/ash/components/browser_context_helper",
+      "//chromeos/components/kiosk",
     ]
     allow_circular_includes_from += [
       "//chrome/browser/ash/app_mode/web_app",
@@ -169,13 +172,17 @@ source_set("permissions") {
       deps += [ "//third_party/tflite_support" ]
     }
     deps += [
+      "//chrome/browser/passage_embeddings",
       "//components/passage_embeddings",
       "//components/segmentation_platform/internal:optimization_guide_segmentation_handler",
     ]
   }
 
   if (!is_android) {
-    deps += [ "//chrome/browser/ui/permission_bubble" ]
+    deps += [
+      "//chrome/browser/actor",
+      "//chrome/browser/ui/permission_bubble",
+    ]
   }
 
   if (safe_browsing_mode != 0) {
@@ -236,9 +243,12 @@ source_set("unit_tests") {
     "//chrome/browser/optimization_guide:test_support",
     "//chrome/browser/permissions/system",
     "//chrome/browser/search_engines",
+    "//chrome/browser/ui/safety_hub",
+    "//chrome/browser/ui/safety_hub:test_support",
     "//chrome/test:test_support",
     "//components/optimization_guide/core:test_support",
     "//components/permissions/prediction_service",
+    "//components/safe_browsing/core/browser:safe_browsing_metrics_collector",
     "//components/site_engagement/content",
     "//components/ukm/content",
     "//components/unified_consent",

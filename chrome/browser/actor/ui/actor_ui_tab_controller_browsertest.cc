@@ -12,9 +12,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert.h"
+#include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
-#include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -71,30 +71,26 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
   ASSERT_NE(state_manager, nullptr);
   tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
   ASSERT_NE(tab, nullptr);
-  ActorUiTabControllerInterface* controller =
-      tab->GetTabFeatures()->actor_ui_tab_controller();
+  ActorUiTabControllerInterface* controller = ActorUiTabController::From(tab);
   ASSERT_NE(controller, nullptr);
 
   // Initially, the indicator should not be visible.
-  std::vector<tabs::TabAlert> initial_alerts = GetTabAlertStatesForTab(tab);
-  EXPECT_EQ(std::find(initial_alerts.begin(), initial_alerts.end(),
-                      tabs::TabAlert::ACTOR_ACCESSING),
-            initial_alerts.end());
+  tabs::TabAlertController* const tab_alert_controller =
+      tabs::TabAlertController::From(tab);
+  EXPECT_FALSE(
+      tab_alert_controller->IsAlertActive(tabs::TabAlert::ACTOR_ACCESSING));
 
   // Start acting on the tab.
   TestFuture<ActionResultPtr> result;
   state_manager->OnUiEvent(
       StartingToActOnTab(tab->GetHandle(), actor::TaskId(1)),
       result.GetCallback());
+  ASSERT_TRUE(result.Wait());
   actor::ExpectOkResult(result);
 
   // The indicator should now be visible.
-  std::vector<tabs::TabAlert> alerts_during_actuation =
-      GetTabAlertStatesForTab(tab);
-  EXPECT_NE(
-      std::find(alerts_during_actuation.begin(), alerts_during_actuation.end(),
-                tabs::TabAlert::ACTOR_ACCESSING),
-      alerts_during_actuation.end());
+  EXPECT_TRUE(
+      tab_alert_controller->IsAlertActive(tabs::TabAlert::ACTOR_ACCESSING));
 
   TestFuture<void> future;
   static_cast<ActorUiTabController*>(controller)
@@ -106,10 +102,8 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
   ASSERT_TRUE(future.Wait());
 
   // The indicator should be hidden again.
-  std::vector<tabs::TabAlert> final_alerts = GetTabAlertStatesForTab(tab);
-  EXPECT_EQ(std::find(final_alerts.begin(), final_alerts.end(),
-                      tabs::TabAlert::ACTOR_ACCESSING),
-            final_alerts.end());
+  EXPECT_FALSE(
+      tab_alert_controller->IsAlertActive(tabs::TabAlert::ACTOR_ACCESSING));
 }
 #else   // !BUILDFLAG(ENABLE_GLIC)
 IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
@@ -120,8 +114,7 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
   ASSERT_NE(state_manager, nullptr);
   tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
   ASSERT_NE(tab, nullptr);
-  ActorUiTabControllerInterface* controller =
-      tab->GetTabFeatures()->actor_ui_tab_controller();
+  ActorUiTabControllerInterface* controller = ActorUiTabController::From(tab);
   ASSERT_NE(controller, nullptr);
 
   TestFuture<void> future;
@@ -129,10 +122,10 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
       ->SetCallbackForTesting(future.GetCallback());
 
   // Initially, the indicator should not be visible.
-  std::vector<tabs::TabAlert> initial_alerts = GetTabAlertStatesForTab(tab);
-  EXPECT_EQ(std::find(initial_alerts.begin(), initial_alerts.end(),
-                      tabs::TabAlert::ACTOR_ACCESSING),
-            initial_alerts.end());
+  tabs::TabAlertController* const tab_alert_controller =
+      tabs::TabAlertController::From(tab);
+  EXPECT_FALSE(
+      tab_alert_controller->IsAlertActive(tabs::TabAlert::ACTOR_ACCESSING));
 
   // Start acting on the tab.
   TestFuture<ActionResultPtr> result;
@@ -143,12 +136,8 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
 
   ASSERT_TRUE(future.Wait());
   // The indicator should still not be visible.
-  std::vector<tabs::TabAlert> alerts_during_actuation =
-      GetTabAlertStatesForTab(tab);
-  EXPECT_EQ(
-      std::find(alerts_during_actuation.begin(), alerts_during_actuation.end(),
-                tabs::TabAlert::ACTOR_ACCESSING),
-      alerts_during_actuation.end());
+  EXPECT_FALSE(
+      tab_alert_controller->IsAlertActive(tabs::TabAlert::ACTOR_ACCESSING));
 }
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
@@ -205,8 +194,7 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerDisabledTest,
   ASSERT_NE(state_manager, nullptr);
   tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
   ASSERT_NE(tab, nullptr);
-  ActorUiTabControllerInterface* controller =
-      tab->GetTabFeatures()->actor_ui_tab_controller();
+  ActorUiTabControllerInterface* controller = ActorUiTabController::From(tab);
   ASSERT_NE(controller, nullptr);
 
   TestFuture<void> future;
@@ -214,10 +202,10 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerDisabledTest,
       ->SetCallbackForTesting(future.GetCallback());
 
   // Initially, the indicator should not be visible.
-  std::vector<tabs::TabAlert> initial_alerts = GetTabAlertStatesForTab(tab);
-  EXPECT_EQ(std::find(initial_alerts.begin(), initial_alerts.end(),
-                      tabs::TabAlert::ACTOR_ACCESSING),
-            initial_alerts.end());
+  tabs::TabAlertController* const tab_alert_controller =
+      tabs::TabAlertController::From(tab);
+  EXPECT_FALSE(
+      tab_alert_controller->IsAlertActive(tabs::TabAlert::ACTOR_ACCESSING));
 
   // Start acting on the tab.
   TestFuture<ActionResultPtr> result;
@@ -228,12 +216,8 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerDisabledTest,
 
   ASSERT_TRUE(future.Wait());
   // The indicator should still not be visible.
-  std::vector<tabs::TabAlert> alerts_during_actuation =
-      GetTabAlertStatesForTab(tab);
-  EXPECT_EQ(
-      std::find(alerts_during_actuation.begin(), alerts_during_actuation.end(),
-                tabs::TabAlert::ACTOR_ACCESSING),
-      alerts_during_actuation.end());
+  EXPECT_FALSE(
+      tab_alert_controller->IsAlertActive(tabs::TabAlert::ACTOR_ACCESSING));
 }
 
 }  // namespace

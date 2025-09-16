@@ -2,11 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
+
+#include "chrome/browser/ui/views/frame/browser_view.h"
+
 #include "chrome/browser/extensions/api/tabs/tabs_api.h"
+
+#include "base/strings/pattern.h"
 
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/types/optional_util.h"
@@ -22,6 +29,7 @@
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tabs/tab_list_interface.h"
 #include "chrome/common/pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -40,10 +48,22 @@
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/base_window.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
+#include "ui/display/screen.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
+#include "chrome/browser/resource_coordinator/tab_manager.h"
+#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/platform_util.h"
 #endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ash/boca/on_task/locked_quiz_session_manager_factory.h"
+#include "chrome/browser/ui/browser.h"
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
 #include "chrome/browser/safe_browsing/extension_telemetry/extension_telemetry_service.h"
@@ -57,6 +77,38 @@ namespace windows = api::windows;
 constexpr char kCannotDetermineLanguageOfUnloadedTab[] =
     "Cannot determine language: tab not loaded";
 constexpr char kFrameNotFoundError[] = "No frame with id * in tab *.";
+
+namespace {
+
+// Returns the last active browser with the given `profile`. If
+// `include_incognito_information` is true, this will also return a browser
+// that crosses the incognito boundary.
+BrowserWindowInterface* GetLastActiveBrowserWithProfile(
+    Profile* profile,
+    bool include_incognito_information) {
+  BrowserWindowInterface* last_active_browser = nullptr;
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [&](BrowserWindowInterface* browser) {
+        if (browser->GetProfile() == profile ||
+            (include_incognito_information &&
+             profile->IsSameOrParent(browser->GetProfile()))) {
+          last_active_browser = browser;
+          return false;  // Stop iterating.
+        }
+        return true;  // Continue iterating.
+      });
+
+  return last_active_browser;
+}
+
+// Returns true if either |boolean| is disengaged, or if |boolean| and
+// |value| are equal. This function is used to check if a tab's parameters match
+// those of the browser.
+bool MatchesBool(const std::optional<bool>& boolean, bool value) {
+  return !boolean || *boolean == value;
+}
+
+}  // namespace
 
 namespace tabs_internal {
 
@@ -149,6 +201,44 @@ content::WebContents* GetTabsAPIDefaultWebContents(ExtensionFunction* function,
   return web_contents;
 }
 
+ui::mojom::WindowShowState ConvertToWindowShowState(
+    windows::WindowState state) {
+  switch (state) {
+    case windows::WindowState::kHidden:
+      return ui::mojom::WindowShowState::kHidden;
+    case windows::WindowState::kNormal:
+      return ui::mojom::WindowShowState::kNormal;
+    case windows::WindowState::kMinimized:
+      return ui::mojom::WindowShowState::kMinimized;
+    case windows::WindowState::kMaximized:
+      return ui::mojom::WindowShowState::kMaximized;
+    case windows::WindowState::kFullscreen:
+    case windows::WindowState::kLockedFullscreen:
+      return ui::mojom::WindowShowState::kFullscreen;
+    case windows::WindowState::kNone:
+      return ui::mojom::WindowShowState::kDefault;
+  }
+  NOTREACHED();
+}
+
+// Returns whether the given `bounds` intersect with at least 50% of all the
+// displays.
+bool WindowBoundsIntersectDisplays(const gfx::Rect& bounds) {
+  // Bail if `bounds` has an overflown area.
+  auto checked_area = bounds.size().GetCheckedArea();
+  if (!checked_area.IsValid()) {
+    return false;
+  }
+
+  int intersect_area = 0;
+  for (const auto& display : display::Screen::Get()->GetAllDisplays()) {
+    gfx::Rect display_bounds = display.bounds();
+    display_bounds.Intersect(bounds);
+    intersect_area += display_bounds.size().GetArea();
+  }
+  return intersect_area >= (bounds.size().GetArea() / 2);
+}
+
 }  // namespace tabs_internal
 
 void ZoomModeToZoomSettings(zoom::ZoomController::ZoomMode zoom_mode,
@@ -228,16 +318,16 @@ ExtensionFunction::ResponseAction WindowsGetLastFocusedFunction::Run() {
       extractor(params);
 
   BrowserWindowInterface* last_focused_browser = nullptr;
-  std::vector<BrowserWindowInterface*> browsers_by_activation =
-      GetBrowserWindowInterfacesOrderedByActivation();
-  for (BrowserWindowInterface* browser : browsers_by_activation) {
-    if (windows_util::CanOperateOnWindow(
-            this, BrowserExtensionWindowController::From(browser),
-            extractor.type_filters())) {
-      last_focused_browser = browser;
-      break;
-    }
-  }
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [&](BrowserWindowInterface* browser) {
+        if (windows_util::CanOperateOnWindow(
+                this, BrowserExtensionWindowController::From(browser),
+                extractor.type_filters())) {
+          last_focused_browser = browser;
+          return false;  // Stop iterating.
+        }
+        return true;  // Continue iterating.
+      });
   if (!last_focused_browser) {
     return RespondNow(Error(tabs_constants::kNoLastFocusedWindowError));
   }
@@ -274,6 +364,262 @@ ExtensionFunction::ResponseAction WindowsGetAllFunction::Run() {
   }
 
   return RespondNow(WithArguments(std::move(window_list)));
+}
+
+ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
+  std::optional<windows::Update::Params> params =
+      windows::Update::Params::Create(args());
+  EXTENSION_FUNCTION_VALIDATE(params);
+
+  WindowController* window_controller = nullptr;
+  std::string error;
+  if (!windows_util::GetControllerFromWindowID(
+          this, params->window_id, WindowController::GetAllWindowFilter(),
+          &window_controller, &error)) {
+    return RespondNow(Error(std::move(error)));
+  }
+
+  BrowserWindowInterface* browser =
+      window_controller->GetBrowserWindowInterface();
+  Browser* b = window_controller->GetBrowser();
+  if (!browser) {
+    return RespondNow(Error(ExtensionTabUtil::kNoCrashBrowserError));
+  }
+  ui::BaseWindow* browser_window = browser->GetWindow();
+
+  // Don't allow locked fullscreen operations on a window without the proper
+  // permission (also don't allow any operations on a locked window if the
+  // extension doesn't have the permission).
+  // TODO(https://crbug.com/432056907): Determine if we need locked-fullscreen
+  // support on desktop android.
+  const bool is_locked_fullscreen =
+#if BUILDFLAG(IS_CHROMEOS)
+      platform_util::IsBrowserLockedFullscreen(
+          browser->GetBrowserForMigrationOnly());
+#else
+      false;
+#endif
+
+  if ((params->update_info.state == windows::WindowState::kLockedFullscreen ||
+       is_locked_fullscreen) &&
+      !tabs_internal::ExtensionHasLockedFullscreenPermission(extension())) {
+    return RespondNow(
+        Error(tabs_internal::kMissingLockWindowFullscreenPrivatePermission));
+  }
+
+  // Before changing any of a window's state, validate the update parameters.
+  // This prevents Chrome from performing "half" an update.
+
+  // Update the window bounds if the bounds from the update parameters intersect
+  // the displays.
+  gfx::Rect window_bounds = browser_window->IsMinimized()
+                                ? browser_window->GetRestoredBounds()
+                                : browser_window->GetBounds();
+  bool set_window_bounds = false;
+  bool set_pos_only = false;
+  bool set_min_size = false;
+  bool set_max_size = false;
+  gfx::Size min_size = BrowserView::GetBrowserViewForBrowser(b)->GetMinimumSize();
+  gfx::Size max_size = BrowserView::GetBrowserViewForBrowser(b)->GetMaximumSize();
+  if (params->update_info.min_width) {
+    min_size.set_width(*params->update_info.min_width);
+    set_min_size = true;
+  }
+  if (params->update_info.min_height) {
+    min_size.set_height(*params->update_info.min_height);
+    set_min_size = true;
+  }
+  if (params->update_info.max_width) {
+    max_size.set_width(*params->update_info.max_width);
+    set_max_size = true;
+  }
+  if (params->update_info.max_height) {
+    max_size.set_height(*params->update_info.max_height);
+    set_max_size = true;
+  }
+  if (set_min_size)
+    b->window()->SetMinimumSize(min_size);
+  if (set_max_size)
+    b->window()->SetMaximumSize(max_size);
+
+  if (params->update_info.left) {
+    window_bounds.set_x(*params->update_info.left);
+    set_window_bounds = true;
+    set_pos_only = true;
+  }
+  if (params->update_info.top) {
+    window_bounds.set_y(*params->update_info.top);
+    set_window_bounds = true;
+    set_pos_only = true;
+  }
+  if (params->update_info.width) {
+    window_bounds.set_width(*params->update_info.width);
+    set_window_bounds = true;
+    set_pos_only = true;
+  }
+  if (params->update_info.height) {
+    window_bounds.set_height(*params->update_info.height);
+    set_window_bounds = true;
+    set_pos_only = true;
+  }
+
+  bool set_client_bounds = false;
+  BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(b)->frame();
+  gfx::Rect client_bounds = frame->non_client_view()->frame_view()->GetBoundsForClientView();
+  client_bounds.Offset(window_bounds.OffsetFromOrigin());
+
+  if (params->update_info.inner_width) {
+    client_bounds.set_width(*params->update_info.inner_width);
+    set_client_bounds = true;
+  }
+
+  if (params->update_info.inner_height) {
+    client_bounds.set_height(*params->update_info.inner_height);
+    set_client_bounds = true;
+  }
+
+  if (set_client_bounds) {
+    gfx::Rect win_bounds = frame->non_client_view()->GetWindowBoundsForClientBounds(client_bounds);
+    b->window()->SetBounds(win_bounds);
+  }
+
+  if (set_window_bounds &&
+      !tabs_internal::WindowBoundsIntersectDisplays(window_bounds)) {
+    return RespondNow(Error(tabs_constants::kInvalidWindowBoundsError));
+  }
+
+  ui::mojom::WindowShowState show_state =
+      tabs_internal::ConvertToWindowShowState(params->update_info.state);
+  if (set_window_bounds &&
+      (show_state == ui::mojom::WindowShowState::kMinimized ||
+       show_state == ui::mojom::WindowShowState::kMaximized ||
+       show_state == ui::mojom::WindowShowState::kFullscreen)) {
+    return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
+  }
+
+  if (params->update_info.focused) {
+    bool focused = *params->update_info.focused;
+    // A window cannot be focused and minimized, or not focused and maximized
+    // or fullscreened.
+    if (focused && show_state == ui::mojom::WindowShowState::kMinimized) {
+      return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
+    }
+    if (!focused && (show_state == ui::mojom::WindowShowState::kMaximized ||
+                     show_state == ui::mojom::WindowShowState::kFullscreen)) {
+      return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
+    }
+  }
+
+  // Parameters are valid. Now to perform the actual updates.
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // state will be WINDOW_STATE_NONE if the state parameter wasn't passed from
+  // the JS side, and in that case we don't want to change the locked state.
+  Browser* const target_browser = browser->GetBrowserForMigrationOnly();
+  if (target_browser) {
+    Profile* const browser_profile = target_browser->profile();
+    if (is_locked_fullscreen &&
+        params->update_info.state != windows::WindowState::kLockedFullscreen &&
+        params->update_info.state != windows::WindowState::kNone) {
+      ash::boca::LockedQuizSessionManagerFactory::GetInstance()
+          ->GetForBrowserContext(browser_profile)
+          ->SetLockedFullscreenState(target_browser,
+                                     /*pinned=*/false);
+    } else if (!is_locked_fullscreen &&
+               params->update_info.state ==
+                   windows::WindowState::kLockedFullscreen) {
+      ash::boca::LockedQuizSessionManagerFactory::GetInstance()
+          ->GetForBrowserContext(browser_profile)
+          ->SetLockedFullscreenState(target_browser,
+                                     /*pinned=*/true);
+    }
+  }
+#endif  // IS_CHROMEOS
+
+  if (show_state != ui::mojom::WindowShowState::kFullscreen &&
+      show_state != ui::mojom::WindowShowState::kDefault) {
+    window_controller->SetFullscreenMode(false, extension()->url());
+  }
+
+  switch (show_state) {
+    case ui::mojom::WindowShowState::kMinimized:
+      browser_window->Minimize();
+      break;
+    case ui::mojom::WindowShowState::kMaximized:
+      browser_window->Maximize();
+      break;
+    case ui::mojom::WindowShowState::kFullscreen:
+      if (browser_window->IsMinimized() || browser_window->IsMaximized()) {
+        browser_window->Restore();
+      }
+      window_controller->SetFullscreenMode(true, extension()->url());
+      break;
+    case ui::mojom::WindowShowState::kNormal:
+      browser_window->Show();
+      browser_window->Restore();
+      break;
+    case ui::mojom::WindowShowState::kHidden:
+      b->window()->Hide();
+      break;
+    default:
+      break;
+  }
+
+  if (set_window_bounds) {
+    // TODO(varkha): Updating bounds during a drag can cause problems and a more
+    // general solution is needed. See http://crbug.com/251813 .
+#if defined(OS_WIN)
+    if (set_pos_only)
+      b->window()->SetPosition(window_bounds.origin());
+    else
+#endif
+      browser_window->SetBounds(window_bounds);
+  }
+
+  if (params->update_info.position &&
+      *params->update_info.position == "center")
+    BrowserView::GetBrowserViewForBrowser(b)->frame()->CenterWindow(window_bounds.size());
+  if (params->update_info.position &&
+      *params->update_info.position == "mouse") {
+    BrowserFrame* browser_frame =
+      BrowserView::GetBrowserViewForBrowser(b)->frame();
+      gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
+      gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
+      bounds.set_origin(cursor_pos);
+      browser_frame->SetBounds(bounds);
+  }
+
+  if (params->update_info.focused) {
+    if (*params->update_info.focused) {
+      browser_window->Activate();
+    } else {
+      browser_window->Deactivate();
+    }
+  }
+
+  if (params->update_info.show && *params->update_info.show) {
+    b->window()->Show();
+  }
+  if (params->update_info.resizable) {
+    b->window()->SetResizable(*params->update_info.resizable);
+  }
+  if (params->update_info.all_visible) {
+    b->window()->SetAllVisible(*params->update_info.all_visible);
+  }
+  if (params->update_info.always_on_top) {
+    b->window()->SetZOrderLevel(*params->update_info.always_on_top ? ui::ZOrderLevel::kFloatingWindow : ui::ZOrderLevel::kNormal);
+  }
+  if (params->update_info.show_in_taskbar) {
+    b->window()->SetShowInTaskbar(*params->update_info.show_in_taskbar);
+  }
+  if (params->update_info.draw_attention) {
+    browser_window->FlashFrame(*params->update_info.draw_attention);
+  }
+
+  return RespondNow(
+      WithArguments(window_controller->CreateWindowValueForExtension(
+          extension(), WindowController::kDontPopulateTabs,
+          source_context_type())));
 }
 
 ExtensionFunction::ResponseAction WindowsRemoveFunction::Run() {
@@ -407,6 +753,338 @@ ExtensionFunction::ResponseAction TabsGetAllInWindowFunction::Run() {
 
   return RespondNow(WithArguments(
       window_controller->CreateTabList(extension(), source_context_type())));
+}
+
+ExtensionFunction::ResponseAction TabsQueryFunction::Run() {
+  std::optional<tabs::Query::Params> params =
+      tabs::Query::Params::Create(args());
+  EXTENSION_FUNCTION_VALIDATE(params);
+
+  bool loading_status_set = params->query_info.status != tabs::TabStatus::kNone;
+
+  URLPatternSet url_patterns;
+  if (params->query_info.url) {
+    std::vector<std::string> url_pattern_strings;
+    if (params->query_info.url->as_string) {
+      url_pattern_strings.push_back(*params->query_info.url->as_string);
+    } else if (params->query_info.url->as_strings) {
+      url_pattern_strings.swap(*params->query_info.url->as_strings);
+    }
+    // It is o.k. to use URLPattern::SCHEME_ALL here because this function does
+    // not grant access to the content of the tabs, only to seeing their URLs
+    // and meta data.
+    std::string error;
+    if (!url_patterns.Populate(url_pattern_strings, URLPattern::SCHEME_ALL,
+                               true, &error)) {
+      return RespondNow(Error(std::move(error)));
+    }
+  }
+
+  std::string title = params->query_info.title.value_or(std::string());
+
+  int window_id = extension_misc::kUnknownWindowId;
+  if (params->query_info.window_id) {
+    window_id = *params->query_info.window_id;
+  }
+
+  std::optional<int> group_id = std::nullopt;
+  if (params->query_info.group_id) {
+    group_id = *params->query_info.group_id;
+  }
+
+  std::optional<int> split_id = std::nullopt;
+  if (params->query_info.split_view_id) {
+    split_id = *params->query_info.split_view_id;
+  }
+
+  int index = -1;
+  if (params->query_info.index) {
+    index = *params->query_info.index;
+  }
+
+  std::string window_type;
+  if (params->query_info.window_type != tabs::WindowType::kNone) {
+    window_type = tabs::ToString(params->query_info.window_type);
+  }
+
+  base::Value::List result;
+  Profile* profile = Profile::FromBrowserContext(browser_context());
+  BrowserWindowInterface* last_active_browser =
+      GetLastActiveBrowserWithProfile(profile, include_incognito_information());
+
+  // Note that the current browser is allowed to be null: you can still query
+  // the tabs in this case.
+  BrowserWindowInterface* current_browser = nullptr;
+  WindowController* current_window_controller =
+      ChromeExtensionFunctionDetails(this).GetCurrentWindowController();
+  if (current_window_controller) {
+    current_browser = current_window_controller->GetBrowserWindowInterface();
+    // Note: current_browser may still be null.
+  }
+
+  const bool include_incognito = include_incognito_information();
+  auto matches_profile = [profile, include_incognito](Profile* other_profile) {
+    if (!profile->IsSameOrParent(other_profile)) {
+      return false;
+    }
+    if (!include_incognito && profile != other_profile) {
+      return false;
+    }
+    return true;
+  };
+
+  // Historically, we queried browsers in creation order. Maintain that behavior
+  // (for now).
+  std::vector<BrowserWindowInterface*> all_browsers =
+      GetAllBrowserWindowInterfaces();
+  for (auto* browser : all_browsers) {
+#if !BUILDFLAG(IS_ANDROID)
+    // TODO(https://crbug.com/429037015): Android browser windows don't yet
+    // return a proper profile, so we look at the individual tabs instead.
+    if (!matches_profile(browser->GetProfile())) {
+      continue;
+    }
+#endif
+
+    if (!browser->GetWindow()) {
+      continue;
+    }
+
+    WindowController* window_controller =
+        BrowserExtensionWindowController::From(browser);
+    CHECK(window_controller);
+    if (!window_controller->IsVisibleToTabsAPIForExtension(
+            extension(), /*allow_dev_tools_windows=*/false)) {
+      continue;
+    }
+
+    if (window_id >= 0 && window_id != ExtensionTabUtil::GetWindowId(browser)) {
+      continue;
+    }
+
+    if (window_id == extension_misc::kCurrentWindowId &&
+        browser != current_browser) {
+      continue;
+    }
+
+    if (!MatchesBool(params->query_info.current_window,
+                     browser == current_browser)) {
+      continue;
+    }
+
+    if (!MatchesBool(params->query_info.last_focused_window,
+                     browser == last_active_browser)) {
+      continue;
+    }
+
+    if (!window_type.empty() &&
+        window_type != window_controller->GetWindowTypeText()) {
+      continue;
+    }
+
+    TabListInterface* tab_list = TabListInterface::From(browser);
+    for (int i = 0; i < tab_list->GetTabCount(); ++i) {
+      if (index > -1 && i != index) {
+        continue;
+      }
+
+      ::tabs::TabInterface* tab = tab_list->GetTab(i);
+      CHECK(tab);
+      content::WebContents* web_contents = tab->GetContents();
+
+      if (!web_contents) {
+        continue;
+      }
+
+#if BUILDFLAG(IS_ANDROID)
+      Profile* tab_profile =
+          Profile::FromBrowserContext(web_contents->GetBrowserContext());
+      if (!matches_profile(tab_profile)) {
+        continue;
+      }
+#endif
+
+      if (!MatchesBool(params->query_info.highlighted, tab->IsSelected())) {
+        continue;
+      }
+
+      if (!MatchesBool(params->query_info.active, tab->IsActivated())) {
+        continue;
+      }
+
+      if (!MatchesBool(params->query_info.pinned, tab->IsPinned())) {
+        continue;
+      }
+
+      if (group_id.has_value()) {
+        std::optional<tab_groups::TabGroupId> group = tab->GetGroup();
+        if (group_id.value() == -1) {
+          if (group.has_value()) {
+            continue;
+          }
+        } else if (!group.has_value()) {
+          continue;
+        } else if (ExtensionTabUtil::GetGroupId(group.value()) !=
+                   group_id.value()) {
+          continue;
+        }
+      }
+
+      if (split_id.has_value()) {
+        std::optional<split_tabs::SplitTabId> split = tab->GetSplit();
+        if (split_id.value() == -1) {
+          if (split.has_value()) {
+            continue;
+          }
+        } else if (!split.has_value() ||
+                   ExtensionTabUtil::GetSplitId(split.value()) !=
+                       split_id.value()) {
+          continue;
+        }
+      }
+
+      auto* audible_helper =
+          RecentlyAudibleHelper::FromWebContents(web_contents);
+      if (!MatchesBool(params->query_info.audible,
+                       audible_helper->WasRecentlyAudible())) {
+        continue;
+      }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+      auto* tab_lifecycle_unit_external =
+          resource_coordinator::TabLifecycleUnitExternal::FromWebContents(
+              web_contents);
+
+      if (!MatchesBool(params->query_info.frozen,
+                       tab_lifecycle_unit_external->GetTabState() ==
+                           ::mojom::LifecycleUnitState::FROZEN)) {
+        continue;
+      }
+
+      if (!MatchesBool(params->query_info.discarded,
+                       tab_lifecycle_unit_external->GetTabState() ==
+                           ::mojom::LifecycleUnitState::DISCARDED)) {
+        continue;
+      }
+
+      if (!MatchesBool(params->query_info.auto_discardable,
+                       tab_lifecycle_unit_external->IsAutoDiscardable())) {
+        continue;
+      }
+#endif
+
+      if (!MatchesBool(params->query_info.muted,
+                       web_contents->IsAudioMuted())) {
+        continue;
+      }
+
+      if (!title.empty() || !url_patterns.is_empty()) {
+        // "title" and "url" properties are considered privileged data and can
+        // only be checked if the extension has the "tabs" permission or it has
+        // access to the WebContents's origin. Otherwise, this tab is considered
+        // not matched.
+        if (!extension_->permissions_data()->HasAPIPermissionForTab(
+                ExtensionTabUtil::GetTabId(web_contents),
+                mojom::APIPermissionID::kTab) &&
+            !extension_->permissions_data()->HasHostPermission(
+                web_contents->GetURL())) {
+          continue;
+        }
+
+        if (!title.empty() && !base::MatchPattern(web_contents->GetTitle(),
+                                                  base::UTF8ToUTF16(title))) {
+          continue;
+        }
+
+        if (!url_patterns.is_empty() &&
+            !url_patterns.MatchesURL(web_contents->GetURL())) {
+          continue;
+        }
+      }
+
+      if (loading_status_set &&
+          params->query_info.status !=
+              ExtensionTabUtil::GetLoadingStatus(web_contents)) {
+        continue;
+      }
+
+      result.Append(
+          tabs_internal::CreateTabObjectHelper(
+              web_contents, extension(), source_context_type(), browser, i)
+              .ToValue());
+    }
+  }
+
+  return RespondNow(WithArguments(std::move(result)));
+}
+
+ExtensionFunction::ResponseAction TabsDuplicateFunction::Run() {
+  std::optional<tabs::Duplicate::Params> params =
+      tabs::Duplicate::Params::Create(args());
+  EXTENSION_FUNCTION_VALIDATE(params);
+  if (!ExtensionTabUtil::IsTabStripEditable()) {
+    return RespondNow(Error(ExtensionTabUtil::kTabStripNotEditableError));
+  }
+  int tab_id = params->tab_id;
+
+  WindowController* window = nullptr;
+  int tab_index = -1;
+  std::string error;
+  content::WebContents* web_contents = nullptr;
+  if (!tabs_internal::GetTabById(tab_id, browser_context(),
+                                 include_incognito_information(), &window,
+                                 &web_contents, &tab_index, &error)) {
+    return RespondNow(Error(std::move(error)));
+  }
+  if (!window) {
+    return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
+  }
+  BrowserWindowInterface* browser = window->GetBrowserWindowInterface();
+
+  if (!browser || !ExtensionTabUtil::IsTabStripEditable()) {
+    return RespondNow(Error(ExtensionTabUtil::kTabStripNotEditableError));
+  }
+
+  TabListInterface* tab_list = TabListInterface::From(browser);
+  if (!tab_list) {
+    return RespondNow(Error(tabs_constants::kCannotDuplicateTab,
+                            base::NumberToString(tab_id)));
+  }
+  ::tabs::TabInterface* tab_interface =
+      ::tabs::TabInterface::MaybeGetFromContents(web_contents);
+  // We found the tab above, so we should always, always have a TabInterface
+  // for it.
+  CHECK(tab_interface);
+
+  ::tabs::TabInterface* new_tab =
+      tab_list->DuplicateTab(tab_interface->GetHandle());
+
+  if (!new_tab) {
+    return RespondNow(Error(ErrorUtils::FormatErrorMessage(
+        tabs_constants::kCannotDuplicateTab, base::NumberToString(tab_id))));
+  }
+
+  if (!has_callback()) {
+    return RespondNow(NoArguments());
+  }
+
+  // Duplicated tab may not be in the same window as the original, so find
+  // the new window.
+  TabListInterface* new_tab_list = nullptr;
+  int new_tab_index = -1;
+  content::WebContents* new_contents = new_tab->GetContents();
+  if (!ExtensionTabUtil::GetTabListInterface(*new_contents, &new_tab_list,
+                                             &new_tab_index)) {
+    return RespondNow(Error(kUnknownErrorDoNotUse));
+  }
+
+  ExtensionTabUtil::ScrubTabBehavior scrub_tab_behavior =
+      ExtensionTabUtil::GetScrubTabBehavior(extension(), source_context_type(),
+                                            new_contents);
+  return RespondNow(
+      ArgumentList(tabs::Get::Results::Create(ExtensionTabUtil::CreateTabObject(
+          new_contents, scrub_tab_behavior, extension(), new_tab_list,
+          new_tab_index))));
 }
 
 TabsRemoveFunction::TabsRemoveFunction() = default;

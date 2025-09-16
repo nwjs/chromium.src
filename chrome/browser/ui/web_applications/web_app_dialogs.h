@@ -21,7 +21,7 @@
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/interaction/element_identifier.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_window_types.h"
 
 static_assert(BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
               BUILDFLAG(IS_CHROMEOS));
@@ -186,6 +186,10 @@ void ShowWebAppDetailedInstallDialog(
 // without any user interaction.
 base::AutoReset<bool> SetAutoAcceptPWAInstallConfirmationForTesting();
 
+// Sets whether |ShowSimpleInstallDialogForWebApps| should decline immediately
+// without any user interaction.
+base::AutoReset<bool> SetAutoDeclinePWAInstallConfirmationForTesting();
+
 // Sets whether |ShowDiyInstallDialogForWebApps| should accept immediately
 // without any user interaction.
 void SetAutoAcceptDiyAppsInstallDialogForTesting(bool auto_accept);
@@ -230,6 +234,14 @@ void ShowWebInstallAppLaunchDialog(
 
 // Sets whether |ShowWebInstallAppLaunchDialog| should accept immediately.
 base::AutoReset<bool> SetAutoAcceptWebInstallLaunchDialogForTesting();
+
+// Shows the install not supported dialog for web apps. This dialog is
+// displayed when the user tries to install a web app in an unsupported
+// environment, such as Incognito or Guest mode. The |callback| is called
+// when the dialog is closed.
+void ShowInstallNotSupportedDialog(content::WebContents* web_contents,
+                                   Profile* profile,
+                                   base::OnceClosure callback);
 
 }  // namespace web_app
 

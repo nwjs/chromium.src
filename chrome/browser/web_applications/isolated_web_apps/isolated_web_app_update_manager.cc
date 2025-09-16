@@ -28,6 +28,7 @@
 #include "base/timer/timer.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
+#include "base/types/optional_util.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -72,7 +73,7 @@ IsolatedWebAppUpdateOptions::IsolatedWebAppUpdateOptions(
     const GURL& update_manifest_url,
     UpdateChannel update_channel,
     bool allow_downgrades,
-    const std::optional<base::Version>& pinned_version)
+    const std::optional<IwaVersion>& pinned_version)
     : update_manifest_url(update_manifest_url),
       update_channel(update_channel),
       allow_downgrades(allow_downgrades),
@@ -90,7 +91,7 @@ IsolatedWebAppUpdateOptions::~IsolatedWebAppUpdateOptions() = default;
 class IsolatedWebAppUpdateManager::LocalDevModeUpdateDiscoverer {
  public:
   using Callback =
-      base::OnceCallback<void(base::expected<base::Version, std::string>)>;
+      base::OnceCallback<void(base::expected<IwaVersion, std::string>)>;
 
   LocalDevModeUpdateDiscoverer(Profile& profile, WebAppProvider& provider)
       : profile_(profile), provider_(provider) {}
@@ -208,7 +209,7 @@ IwaBundleIdToUpdateOptionsMap GetBundleIdToIsolatedWebAppsUpdateOptionsMap(
 }
 
 bool ShouldProceedWithVersionChange(
-    const base::Version& pinned_version,
+    const IwaVersion& pinned_version,
     bool allow_downgrades,
     const web_package::SignedWebBundleId& web_bundle_id,
     const IsolationData& isolation_data) {
@@ -473,7 +474,7 @@ void IsolatedWebAppUpdateManager::DiscoverUpdatesForApp(
     const GURL& update_manifest_url,
     const UpdateChannel& update_channel,
     bool allow_downgrades,
-    const std::optional<base::Version>& pinned_version,
+    const std::optional<IwaVersion>& pinned_version,
     bool dev_mode) {
   task_queue_.Push(std::make_unique<IsolatedWebAppUpdateDiscoveryTask>(
       IwaUpdateDiscoveryTaskParams(update_manifest_url, update_channel,
@@ -496,7 +497,7 @@ size_t IsolatedWebAppUpdateManager::DiscoverUpdatesNow() {
 void IsolatedWebAppUpdateManager::DiscoverApplyAndPrioritizeLocalDevModeUpdate(
     const IwaSourceDevModeWithFileOp& location,
     const IsolatedWebAppUrlInfo& url_info,
-    base::OnceCallback<void(base::expected<base::Version, std::string>)>
+    base::OnceCallback<void(base::expected<IwaVersion, std::string>)>
         callback) {
   local_dev_mode_update_discoverer_->DiscoverLocalUpdate(
       location, url_info,
@@ -505,9 +506,7 @@ void IsolatedWebAppUpdateManager::DiscoverApplyAndPrioritizeLocalDevModeUpdate(
                      std::move(callback)));
 }
 
-void IsolatedWebAppUpdateManager::OnComponentUpdateSuccess(
-    const base::Version& version,
-    bool is_preloaded) {
+void IsolatedWebAppUpdateManager::OnComponentUpdateSuccess(bool is_preloaded) {
   // The corresponding observer is added during `Start()`.
   CHECK(has_started_);
 
@@ -614,11 +613,10 @@ bool IsolatedWebAppUpdateManager::MaybeQueueUpdateDiscoveryTask(
     return false;
   }
 
-  if (update_options->pinned_version &&
-      !ShouldProceedWithVersionChange(update_options->pinned_version.value(),
-                                      update_options->allow_downgrades,
-                                      url_info.web_bundle_id(),
-                                      isolation_data.value())) {
+  if (update_options->pinned_version.has_value() &&
+      !ShouldProceedWithVersionChange(
+          *update_options->pinned_version, update_options->allow_downgrades,
+          url_info.web_bundle_id(), isolation_data.value())) {
     // By default, pinning an app to a lower version than the current one is
     // impossible.
     // The same version updates can only be performed when allowed by key
@@ -769,9 +767,8 @@ void IsolatedWebAppUpdateManager::RemoveObserver(Observer* observer) {
 
 void IsolatedWebAppUpdateManager::OnLocalUpdateDiscovered(
     IsolatedWebAppUrlInfo url_info,
-    base::OnceCallback<void(base::expected<base::Version, std::string>)>
-        callback,
-    base::expected<base::Version, std::string> update_discovery_result) {
+    base::OnceCallback<void(base::expected<IwaVersion, std::string>)> callback,
+    base::expected<IwaVersion, std::string> update_discovery_result) {
   ASSIGN_OR_RETURN(auto update_version, update_discovery_result,
                    [&](const auto& error) {
                      std::move(callback).Run(base::unexpected(error));
@@ -787,17 +784,13 @@ void IsolatedWebAppUpdateManager::OnLocalUpdateDiscovered(
 
 void IsolatedWebAppUpdateManager::OnLocalUpdateApplyTaskCreated(
     IsolatedWebAppUrlInfo url_info,
-    base::Version update_version,
-    base::OnceCallback<void(base::expected<base::Version, std::string>)>
+    IwaVersion update_version,
+    base::OnceCallback<void(base::expected<IwaVersion, std::string>)>
         callback) {
   auto transform_status =
-      [](base::Version update_version,
+      [](IwaVersion update_version,
          IsolatedWebAppUpdateApplyTask::CompletionStatus status) {
-        return status
-            .transform(
-                [&](const IsolatedWebAppApplyUpdateCommandSuccess& success) {
-                  return update_version;
-                })
+        return status.transform([&]() { return update_version; })
             .transform_error(
                 [](const IsolatedWebAppApplyUpdateCommandError& error) {
                   return error.message;

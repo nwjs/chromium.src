@@ -1314,7 +1314,8 @@ void ApplyNetworkRequestOverrides(
     std::optional<std::vector<net::SourceStreamType>>*
         devtools_accepted_stream_types,
     bool* devtools_user_agent_overridden,
-    bool* devtools_accept_language_overridden) {
+    bool* devtools_accept_language_overridden,
+    GURL* referrer_override) {
   for (auto* network : protocol::NetworkHandler::ForAgentHost(agent_host)) {
     if (!network->enabled()) {
       continue;
@@ -1323,7 +1324,7 @@ void ApplyNetworkRequestOverrides(
       *network_instrumentation_enabled = true;
     }
     network->ApplyOverrides(headers, skip_service_worker, disable_cache,
-                            devtools_accepted_stream_types);
+                            devtools_accepted_stream_types, referrer_override);
   }
 
   for (auto* emulation : protocol::EmulationHandler::ForAgentHost(agent_host)) {
@@ -1355,7 +1356,7 @@ void ApplyAuctionNetworkRequestOverrides(
   ApplyNetworkRequestOverrides(
       agent_host, &request->headers, &disable_cache,
       network_instrumentation_enabled, &request->skip_service_worker,
-      &request->devtools_accepted_stream_types, nullptr, nullptr);
+      &request->devtools_accepted_stream_types, nullptr, nullptr, nullptr);
   if (disable_cache) {
     request->load_flags = net::LOAD_BYPASS_CACHE;
   }
@@ -1368,7 +1369,8 @@ void ApplyNetworkRequestOverrides(
     std::optional<std::vector<net::SourceStreamType>>*
         devtools_accepted_stream_types,
     bool* devtools_user_agent_overridden,
-    bool* devtools_accept_language_overridden) {
+    bool* devtools_accept_language_overridden,
+    GURL* referrer_override) {
   *devtools_user_agent_overridden = false;
   *devtools_accept_language_overridden = false;
   bool disable_cache = false;
@@ -1382,7 +1384,8 @@ void ApplyNetworkRequestOverrides(
   ApplyNetworkRequestOverrides(
       agent_host, &headers, &disable_cache, report_raw_headers,
       &begin_params->skip_service_worker, devtools_accepted_stream_types,
-      devtools_user_agent_overridden, devtools_accept_language_overridden);
+      devtools_user_agent_overridden, devtools_accept_language_overridden,
+      referrer_override);
   if (disable_cache) {
     begin_params->load_flags &=
         ~(net::LOAD_VALIDATE_CACHE | net::LOAD_SKIP_CACHE_VALIDATION |
@@ -2133,6 +2136,14 @@ BuildUserReidentificationIssue(
                               : protocol::Audits::AffectedRequest::Create()
                                     .SetUrl(issue_details->request->url)
                                     .Build();
+  auto source_code_location =
+      issue_details->sourceCodeLocation.is_null()
+          ? nullptr
+          : protocol::Audits::SourceCodeLocation::Create()
+                .SetUrl(issue_details->sourceCodeLocation->url.value())
+                .SetLineNumber(issue_details->sourceCodeLocation->line)
+                .SetColumnNumber(issue_details->sourceCodeLocation->column)
+                .Build();
   std::string issue_type;
   switch (issue_details->type) {
     case blink::mojom::UserReidentificationIssueType::kBlockedFrameNavigation:
@@ -2142,6 +2153,10 @@ BuildUserReidentificationIssue(
     case blink::mojom::UserReidentificationIssueType::kBlockedSubresource:
       issue_type = protocol::Audits::UserReidentificationIssueTypeEnum::
           BlockedSubresource;
+      break;
+    case blink::mojom::UserReidentificationIssueType::kNoisedCanvasReadback:
+      issue_type = protocol::Audits::UserReidentificationIssueTypeEnum::
+          NoisedCanvasReadback;
       break;
     default:
       NOTREACHED();
@@ -2434,7 +2449,7 @@ void OnWorkerMainScriptRequestWillBeSent(
   ApplyNetworkRequestOverrides(owner_host, &request.headers, &disable_cache,
                                nullptr, &request.skip_service_worker,
                                &request.devtools_accepted_stream_types, nullptr,
-                               nullptr);
+                               nullptr, nullptr);
   if (disable_cache) {
     request.load_flags &=
         ~(net::LOAD_VALIDATE_CACHE | net::LOAD_SKIP_CACHE_VALIDATION |

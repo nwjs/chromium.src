@@ -36,7 +36,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LanguageDetection.TFLiteModel.ClassifyText.Duration"
-    units="ms" expires_after="2025-11-30">
+    units="ms" expires_after="2026-02-01">
   <owner>fergal@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -65,7 +65,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LanguageDetection.TFLiteModel.ClassifyText.Size"
-    units="characters" expires_after="2025-11-30">
+    units="characters" expires_after="2026-02-01">
   <owner>fergal@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -92,7 +92,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LanguageDetection.TFLiteModel.Create.Duration" units="ms"
-    expires_after="2025-11-30">
+    expires_after="2026-02-01">
   <owner>fergal@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -105,7 +105,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LanguageDetection.TFLiteModel.DetectPageLanguage.Duration"
-    units="ms" expires_after="2025-11-30">
+    units="ms" expires_after="2026-02-01">
   <owner>fergal@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -151,7 +151,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LanguageDetection.TFLiteModel.WasModelAvailableForDetection"
-    enum="BooleanAvailable" expires_after="2025-12-21">
+    enum="BooleanAvailable" expires_after="2026-02-22">
   <owner>mcrouse@chromium.org</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -197,7 +197,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LanguageSettings.AppLanguagePrompt.Action"
-    enum="LanguageSettingsAppLanguagePromptAction" expires_after="2025-12-21">
+    enum="LanguageSettingsAppLanguagePromptAction" expires_after="2026-02-22">
   <owner>perrier@chromium.org</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -276,7 +276,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LanguageSettings.AppLanguagePrompt.TopULPMatchStatus"
-    enum="ULPTopLanguageMatch" expires_after="2025-12-21">
+    enum="ULPTopLanguageMatch" expires_after="2026-02-22">
   <owner>perrier@chromium.org</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -326,8 +326,20 @@ chromium-metrics-reviews@google.com.
   <owner>dvallet@chromium.org</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
-    The number of accepted languages in the user preferences recored once per
+    The number of accepted languages in the user preferences recorded once per
     profile initialization. Incognito profiles are ignored.
+  </summary>
+</histogram>
+
+<histogram name="LanguageUsage.AcceptLanguage.Count2" units="count"
+    expires_after="2026-01-25">
+  <owner>victortan@chromium.org</owner>
+  <owner>katabolism-finch@google.com</owner>
+  <summary>
+    The number of accepted languages in the user preferences recorded when the
+    user's language preferences change. This metric ignores cases when the
+    Accept-Language header was added before requests are handled by network
+    layer. Incognito profiles are ignored.
   </summary>
 </histogram>
 
@@ -527,7 +539,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LanguageUsage.ULP.Initiation.Count" units="count"
-    expires_after="2025-12-10">
+    expires_after="2026-02-09">
   <owner>perrier@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>

@@ -51,6 +51,9 @@ public abstract class TabModelJniBridge implements TabModelInternal {
     /** Native TabModelJniBridge pointer, which will be set by {@link #initializeNative()}. */
     private long mNativeTabModelJniBridge;
 
+    /** Native AndroidBrowserWindow pointer. */
+    private long mNativeAndroidBrowserWindow;
+
     /**
      * @param profile The profile this TabModel belongs to.
      */
@@ -119,6 +122,17 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         return mProfile;
     }
 
+    @Override
+    public void associateWithBrowserWindow(long nativeAndroidBrowserWindow) {
+        // Ensure this isn't set multiple times.
+        assert mNativeAndroidBrowserWindow == 0;
+        mNativeAndroidBrowserWindow = nativeAndroidBrowserWindow;
+
+        assert nativeAndroidBrowserWindow != 0;
+        TabModelJniBridgeJni.get()
+                .associateWithBrowserWindow(mNativeTabModelJniBridge, nativeAndroidBrowserWindow);
+    }
+
     @CalledByNative
     @Override
     public abstract boolean isActiveModel();
@@ -154,6 +168,20 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         TabModelJniBridgeJni.get()
                 .duplicateTabForTesting( // IN-TEST
                         mNativeTabModelJniBridge, tab);
+    }
+
+    protected void moveTabToWindowForTesting(
+            Tab tab, long nativeAndroidBrowserWindow, int newIndex) {
+        TabModelJniBridgeJni.get()
+                .moveTabToWindowForTesting( // IN-TEST
+                        mNativeTabModelJniBridge, tab, nativeAndroidBrowserWindow, newIndex);
+    }
+
+    protected void moveTabGroupToWindowForTesting(
+            Token tabGroupId, long nativeAndroidBrowserWindow, int newIndex) {
+        TabModelJniBridgeJni.get()
+                .moveTabGroupToWindowForTesting( // IN-TEST
+                        mNativeTabModelJniBridge, tabGroupId, nativeAndroidBrowserWindow, newIndex);
     }
 
     /**
@@ -435,12 +463,14 @@ public abstract class TabModelJniBridge implements TabModelInternal {
      *
      * @param parentTab The tab to duplicate.
      * @param webContents The {@link WebContents} for the new tab.
+     * @return The new tab, if the duplication succeeded.
      */
     @CalledByNative
-    public void duplicateTab(@JniType("TabAndroid*") Tab parentTab, WebContents webContents) {
+    public @JniType("TabAndroid*") @Nullable Tab duplicateTab(
+            @JniType("TabAndroid*") Tab parentTab, WebContents webContents) {
         // TODO(crbug.com/431997520): Insert tab next to parent instead of next to the other
         // children tabs.
-        getTabCreator()
+        return getTabCreator()
                 .createTabWithWebContents(
                         parentTab,
                         parentTab.getIsPinned(),
@@ -513,6 +543,26 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         unpinTab(tabId);
     }
 
+    @CalledByNative
+    private void moveTabToWindowInternal(
+            @JniType("TabAndroid*") Tab tab, @Nullable Activity activity, int newIndex) {
+        if (activity == null) return;
+        moveTabToWindow(tab, activity, newIndex);
+    }
+
+    protected abstract void moveTabToWindow(
+            @JniType("TabAndroid*") Tab tab, Activity activity, int newIndex);
+
+    @CalledByNative
+    private void moveTabGroupToWindowInternal(
+            @JniType("base::Token") Token tabGroupId, @Nullable Activity activity, int newIndex) {
+        if (activity == null) return;
+        moveTabGroupToWindow(tabGroupId, activity, newIndex);
+    }
+
+    protected abstract void moveTabGroupToWindow(
+            @JniType("base::Token") Token tabGroupId, Activity activity, int newIndex);
+
     @NativeMethods
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public interface Natives {
@@ -528,7 +578,22 @@ public abstract class TabModelJniBridge implements TabModelInternal {
 
         void tabAddedToModel(long nativeTabModelJniBridge, @JniType("TabAndroid*") Tab tab);
 
+        void associateWithBrowserWindow(
+                long nativeTabModelJniBridge, long nativeAndroidBrowserWindow);
+
         void duplicateTabForTesting( // IN-TEST
                 long nativeTabModelJniBridge, @JniType("TabAndroid*") Tab tab);
+
+        void moveTabToWindowForTesting( // IN-TEST
+                long nativeTabModelJniBridge,
+                @JniType("TabAndroid*") Tab tab,
+                long nativeAndroidBrowserWindow,
+                int newIndex);
+
+        void moveTabGroupToWindowForTesting( // IN-TEST
+                long nativeTabModelJniBridge,
+                @JniType("base::Token") Token tabGroupId,
+                long nativeAndroidBrowserWindow,
+                int newIndex);
     }
 }

@@ -16,8 +16,6 @@ import androidx.annotation.IntDef;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.ShoppingPersistedTabDataFetcher;
-import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabActionButtonData;
-import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabActionListener;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -112,9 +110,13 @@ public class TabProperties {
 
     public static final WritableObjectPropertyKey<TabActionListener> TAB_LONG_CLICK_LISTENER =
             new WritableObjectPropertyKey<>();
+    public static final WritableObjectPropertyKey<TabActionListener> TAB_CONTEXT_CLICK_LISTENER =
+            new WritableObjectPropertyKey<>();
 
     // This will be initialized to 0, which is TabCardHighlightState.NOT_HIGHLIGHTED.
     public static final WritableIntPropertyKey HIGHLIGHT_STATE = new WritableIntPropertyKey();
+
+    public static final WritableBooleanPropertyKey IS_PINNED = new WritableBooleanPropertyKey();
 
     public static final WritableObjectPropertyKey<TabActionButtonData> TAB_ACTION_BUTTON_DATA =
             new WritableObjectPropertyKey<>();
@@ -206,6 +208,7 @@ public class TabProperties {
                 IS_SELECTED,
                 TAB_CLICK_LISTENER,
                 TAB_LONG_CLICK_LISTENER,
+                TAB_CONTEXT_CLICK_LISTENER,
                 TAB_ACTION_BUTTON_DATA,
                 FAVICON_FETCHED,
                 FAVICON_FETCHER,
@@ -239,6 +242,7 @@ public class TabProperties {
                         HAS_NOTIFICATION_BUBBLE,
                         TAB_CARD_LABEL_DATA,
                         HIGHLIGHT_STATE,
+                        IS_PINNED,
                         MEDIA_INDICATOR
                     },
                     COMMON_KEYS_TAB_AND_GROUP_GRID);
@@ -269,6 +273,7 @@ public class TabProperties {
                 TAB_ACTION_BUTTON_DATA,
                 TAB_CLICK_LISTENER,
                 TAB_LONG_CLICK_LISTENER,
+                TAB_CONTEXT_CLICK_LISTENER,
                 ACTION_BUTTON_DESCRIPTION_TEXT_RESOLVER,
                 CONTENT_DESCRIPTION_TEXT_RESOLVER,
             };

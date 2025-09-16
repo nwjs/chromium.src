@@ -23,7 +23,7 @@ import sys
 _DISALLOW_NON_BLINK_MOJOM = (
     # network::mojom::Foo is allowed to use as non-blink mojom type.
     # mojom::RendererContentSettingsPtr is allowed.
-    '(?!network::)(\w+::)?mojom::(?!RendererContentSettingsPtr)(?!blink).+',
+    r'(?!network::)(\w+::)?mojom::(?!RendererContentSettingsPtr)(?!blink).+',
     'Consider using "ns::mojom::blink::Foo" instead of "[[::]ns::]mojom::Foo" '
     'for non-blink mojom types, or "mojom::blink::Foo" instead of '
     '"[[::]blink::]mojom::Foo" for blink mojom types, unless you have clear '
@@ -71,7 +71,9 @@ _CONFIG = [
             'base::as_writable_chars',
             'base::AutoReset',
             'base::bit_cast',
+            'base::ByteCount',
             'base::byte_span(_with_nul)?_from_cstring',
+            'base::ByteCount',
             'base::CheckedContiguousIterator',
             'base::ConditionVariable',
             'base::Contains',
@@ -88,6 +90,7 @@ _CONFIG = [
             'base::FunctionRef',
             'base::GetUniqueIdForProcess',
             'base::GetSystemMemoryInfo',
+            'base::GiB',
             'base::HashingLRUCache',
             'base::HashInts',
             'base::HashMetricName',
@@ -100,6 +103,7 @@ _CONFIG = [
             'base::i18n::ToUCharPtr',
             'base::JobDelegate',
             'base::JobHandle',
+            'base::KiB',
             'base::kInvalidThreadId',
             'base::Location',
             'base::MakeRefCounted',
@@ -107,6 +111,7 @@ _CONFIG = [
             'base::MatchPattern',
             'base::MessagePump',
             'base::MetricsSubSampler',
+            'base::MiB',
             'base::Microseconds',
             'base::Milliseconds',
             'base::Minutes',
@@ -144,7 +149,7 @@ _CONFIG = [
             'base::StringPiece',
             'base::SubstringSetMatcher',
             'base::SysInfo',
-            'base::SystemMemoryInfoKB',
+            'base::SystemMemoryInfo',
             'base::ThreadChecker',
             'base::ThreadTicks',
             'base::ThreadType',
@@ -1049,6 +1054,14 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/renderer/core/timing/performance_resource_timing.cc'
+        ],
+        'allowed': [
+            'base::MakeFixedFlatSet',
+        ],
+    },
+    {
+        'paths': [
             'third_party/blink/renderer/core',
             'third_party/blink/public/common/messaging/accelerated_image_info.h',
             'third_party/blink/public/common/messaging/accelerated_static_bitmap_image_mojom_traits.h',
@@ -1341,6 +1354,10 @@ _CONFIG = [
             # types are generally allowed for interop with non-Blink code, as
             # containers like WTF::Vector are not exposed outside Blink.
             'std::.+',
+
+            # Blink code shouldn't need to be qualified with the Blink namespace,
+            # but there are exceptions, e.g. ambiguous BindRepeating.
+            'blink::BindRepeating',
         ],
     },
     {
@@ -1448,6 +1465,7 @@ _CONFIG = [
         'paths': ['third_party/blink/renderer/core/style/computed_style.h'],
         'allowed': [
             'css_longhand::.+',
+            'css_shorthand::.+',
         ],
     },
     {
@@ -1668,8 +1686,7 @@ _CONFIG = [
         'allowed': [
             'gfx::BufferFormat',
             'gpu::ENABLE_WEBGL_TIMER_QUERY_EXTENSIONS',
-            'gpu::IsImageFromGpuMemoryBufferFormatSupported',
-            'gpu::IsImageSizeValidForGpuMemoryBufferFormat',
+            'gpu::IsFormatSupportedForSIWithNativeBuffer',
             'viz::SinglePlaneSharedImageFormatToBufferFormat',
         ],
     },
@@ -1823,6 +1840,14 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/renderer/modules/mediasource/',
+        ],
+        'allowed': [
+            'media::.+',
+        ]
+    },
+    {
+        'paths': [
             'third_party/blink/renderer/modules/mediastream/',
         ],
         'allowed': [
@@ -1933,12 +1958,12 @@ _CONFIG = [
         ],
         'allowed': [
             'base::CommandLine',
-            'switches::kEnableUnsafeWebGPU',
-            # The WebGPU Blink module needs access to the WebGPU control
-            # command buffer interface.
+            'gpu::WebGPUTextureScopedAccess',
             'gpu::webgpu::PowerPreference',
+            'gpu::webgpu::WEBGPU_MAILBOX_NONE',
             'gpu::webgpu::WebGPUInterface',
             'media::PIXEL_FORMAT_NV12',
+            'switches::kEnableUnsafeWebGPU',
         ],
     },
     {
@@ -2452,6 +2477,15 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/renderer/core/frame/ad_tracker.cc',
+            'third_party/blink/renderer/core/frame/ad_tracker.h',
+        ],
+        'allowed': [
+            'subresource_filter::ScopedRule',
+        ]
+    },
+    {
+        'paths': [
             'third_party/blink/renderer/core/frame/attribution_src_loader.cc',
             'third_party/blink/renderer/core/frame/attribution_src_loader.h',
         ],
@@ -2653,6 +2687,15 @@ _CONFIG = [
         ],
         'allowed': [
             'mojom::OriginTrialFeature',
+        ]
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/modules/canvas/canvas_noise_test_util.h',
+            'third_party/blink/renderer/modules/canvas/canvas_noise_test_util.cc',
+        ],
+        'allowed': [
+            'viz::TestRasterInterface',
         ]
     }
 ]

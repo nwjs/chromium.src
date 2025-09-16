@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/on_device_internals/on_device_internals_page_handler.h"
 
+#include "base/byte_count.h"
 #include "base/files/file_util.h"
 #include "base/functional/callback_helpers.h"
 #include "base/json/values_util.h"
@@ -93,15 +94,14 @@ base::flat_map<std::string, std::string> GetCriteria(
 
   // Disk criteria, needs to show what's available vs. required when not met.
   std::string disk_space_string =
-      base::ToString(criteria->disk_space_available);
-  if (!criteria->disk_space_available) {
-    int disk_space_required_mb = optimization_guide::features::
-        GetDiskSpaceRequiredInMbForOnDeviceModelInstall();
-    int disk_space_available_mb =
-        debug_state.disk_space_available_ / (1024 * 1024);
+      base::ToString(criteria->is_disk_space_available());
+  if (!criteria->is_disk_space_available()) {
+    base::ByteCount disk_space_required = optimization_guide::features::
+        GetDiskSpaceRequiredForOnDeviceModelInstall();
+    base::ByteCount disk_space_available = criteria->disk_space_free;
     disk_space_string = base::StrCat(
-        {" (", base::NumberToString(disk_space_available_mb),
-         " MiB available, ", base::NumberToString(disk_space_required_mb),
+        {" (", base::NumberToString(disk_space_available.InMiB()),
+         " MiB available, ", base::NumberToString(disk_space_required.InMiB()),
          " MiB required)"});
   }
   mojom_criteria["disk space available"] = disk_space_string;
@@ -252,12 +252,13 @@ void PageHandler::OnModelLoaded(
                      on_device_model::mojom::LoadModelResult::kSuccess));
 }
 
-void PageHandler::GetDevicePerformanceInfo(
-    GetDevicePerformanceInfoCallback callback) {
-  GetService().GetDevicePerformanceInfo(
+void PageHandler::GetDeviceAndPerformanceInfo(
+    GetDeviceAndPerformanceInfoCallback callback) {
+  GetService().GetDeviceAndPerformanceInfo(
       mojo::WrapCallbackWithDefaultInvokeIfNotRun(
           std::move(callback),
-          on_device_model::mojom::DevicePerformanceInfo::New()));
+          on_device_model::mojom::DevicePerformanceInfo::New(),
+          on_device_model::mojom::DeviceInfo::New()));
 }
 
 void PageHandler::GetDefaultModelPath(GetDefaultModelPathCallback callback) {
@@ -289,9 +290,10 @@ void PageHandler::OnLogMessageAdded(
 
 void PageHandler::OnReceivedPerformanceInfoForPageData(
     PageHandler::GetPageDataCallback callback,
-    on_device_model::mojom::DevicePerformanceInfoPtr performance_info) {
+    on_device_model::mojom::DevicePerformanceInfoPtr perf_info,
+    on_device_model::mojom::DeviceInfoPtr device_info) {
   auto data = mojom::PageData::New();
-  data->performance_info = std::move(performance_info);
+  data->performance_info = std::move(perf_info);
 
   auto* component_manager =
       optimization_guide_keyed_service_->GetComponentManager();
@@ -306,6 +308,9 @@ void PageHandler::OnReceivedPerformanceInfoForPageData(
   if (debug_state.state_) {
     auto info = mojom::BaseModelInfo::New();
     info->file_path = debug_state.state_->GetInstallDirectory().AsUTF8Unsafe();
+    std::optional<int64_t> file_size =
+        base::GetFileSize(debug_state.state_->GetInstallDirectory());
+    info->file_size = file_size ? static_cast<uint64_t>(*file_size) : 0u;
     info->component_version =
         debug_state.state_->GetComponentVersion().GetString();
     info->version = debug_state.state_->GetBaseModelSpec().model_version;
@@ -327,8 +332,8 @@ void PageHandler::OnReceivedPerformanceInfoForPageData(
   }
 
   // Get crash counts
-  PrefService* prefs = g_browser_process->local_state();
-  data->model_crash_count = prefs->GetInteger(kOnDeviceModelCrashCount);
+  const PrefService* local_state = g_browser_process->local_state();
+  data->model_crash_count = local_state->GetInteger(kOnDeviceModelCrashCount);
   data->max_model_crash_count =
       optimization_guide::features::GetOnDeviceModelCrashCountBeforeDisable();
 
@@ -336,7 +341,8 @@ void PageHandler::OnReceivedPerformanceInfoForPageData(
   optimization_guide::OnDeviceModelServiceController& controller =
       *optimization_guide_keyed_service_->GetModelExecutionManager()
            ->GetOnDeviceModelServiceController();
-  const PrefService* local_state = g_browser_process->local_state();
+  optimization_guide::UsageTracker& usage_tracker =
+      optimization_guide_keyed_service_->GetGlobalState().usage_tracker();
   for (const auto feature : optimization_guide::kAllModelBasedCapabilityKeys) {
     if (!optimization_guide::features::internal::
             GetOptimizationTargetForCapability(feature)) {
@@ -346,7 +352,7 @@ void PageHandler::OnReceivedPerformanceInfoForPageData(
     feature_adaptation_info->feature_name = base::ToString(feature);
     feature_adaptation_info->feature_key = static_cast<int32_t>(feature);
     feature_adaptation_info->is_recently_used =
-        WasOnDeviceEligibleFeatureRecentlyUsed(feature, *local_state);
+        usage_tracker.WasOnDeviceEligibleFeatureRecentlyUsed(feature);
     feature_adaptation_info->version =
         controller.GetFeatureMetadata(feature)
             .transform(
@@ -360,7 +366,7 @@ void PageHandler::OnReceivedPerformanceInfoForPageData(
 }
 
 void PageHandler::GetPageData(PageHandler::GetPageDataCallback callback) {
-  GetDevicePerformanceInfo(
+  GetDeviceAndPerformanceInfo(
       base::BindOnce(&PageHandler::OnReceivedPerformanceInfoForPageData,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }

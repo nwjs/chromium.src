@@ -29,17 +29,16 @@ import androidx.annotation.CallSuper;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
 import androidx.annotation.LayoutRes;
-import androidx.annotation.StyleRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.color.DynamicColors;
 
-import org.chromium.base.BuildInfo;
 import org.chromium.base.BundleUtils;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
@@ -64,17 +63,17 @@ import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerCreator;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeFieldTrialImpl;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.SimpleEdgeToEdgeController;
-import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeManager;
-import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
-import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeSystemBarColorHelper;
-import org.chromium.components.browser_ui.edge_to_edge.SystemBarColorHelper;
-import org.chromium.components.browser_ui.edge_to_edge.layout.EdgeToEdgeLayoutCoordinator;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.util.AutomotiveUtils;
 import org.chromium.ui.base.ImmutableWeakReference;
 import org.chromium.ui.base.UiAndroidFeatureList;
 import org.chromium.ui.display.DisplaySwitches;
 import org.chromium.ui.display.DisplayUtil;
+import org.chromium.ui.edge_to_edge.EdgeToEdgeManager;
+import org.chromium.ui.edge_to_edge.EdgeToEdgeStateProvider;
+import org.chromium.ui.edge_to_edge.EdgeToEdgeSystemBarColorHelper;
+import org.chromium.ui.edge_to_edge.SystemBarColorHelper;
+import org.chromium.ui.edge_to_edge.layout.EdgeToEdgeLayoutCoordinator;
 import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManagerHolder;
@@ -84,7 +83,6 @@ import org.chromium.ui.util.XrUtils;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
-import java.util.LinkedHashSet;
 
 /**
  * A subclass of {@link AppCompatActivity} that maintains states and objects applied to all
@@ -131,7 +129,6 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
             new ObservableSupplierImpl<>();
 
     private NightModeStateProvider mNightModeStateProvider;
-    private final LinkedHashSet<Integer> mThemeResIds = new LinkedHashSet<>();
     private @Nullable ServiceTracingProxyProvider mServiceTracingProxyProvider;
     private InsetObserver mInsetObserver;
     // Created in #onCreate
@@ -252,7 +249,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
      * instance for that supplier, or creates a controller creator that will create and supply an
      * EdgeToEdgeController when all conditions are met for the device to draw edge-to-edge.
      */
-    protected ObservableSupplier<EdgeToEdgeController> getEdgeToEdgeSupplier() {
+    public ObservableSupplier<EdgeToEdgeController> getEdgeToEdgeSupplier() {
         if (ChromeFeatureList.sEdgeToEdgeMonitorConfigurations.isEnabled()) {
             if (mEdgeToEdgeControllerCreator == null) {
                 mEdgeToEdgeControllerCreator =
@@ -351,12 +348,6 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     }
 
     @Override
-    public void setTheme(@StyleRes int resid) {
-        super.setTheme(resid);
-        mThemeResIds.add(resid);
-    }
-
-    @Override
     public void onMultiWindowModeChanged(boolean inMultiWindowMode, Configuration configuration) {
         super.onMultiWindowModeChanged(inMultiWindowMode, configuration);
         onMultiWindowModeChanged(inMultiWindowMode);
@@ -366,7 +357,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         NightModeUtils.updateConfigurationForNightMode(
-                this, mNightModeStateProvider.isInNightMode(), newConfig, mThemeResIds);
+                this, mNightModeStateProvider.isInNightMode(), newConfig);
         // newConfig will have the default system locale so reapply the app locale override if
         // needed: https://crbug.com/1248944
         GlobalAppLocaleController.getInstance().maybeOverrideContextConfig(this);
@@ -383,7 +374,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     // the warning should be acceptable.
     @SuppressWarnings("NullAway")
     @Override
-    public ModalDialogManager getModalDialogManager() {
+    public @Nullable ModalDialogManager getModalDialogManager() {
         // TODO(jinsukkim): Remove this method in favor of getModalDialogManagerSupplier().
         return getModalDialogManagerSupplier().get();
     }
@@ -416,8 +407,6 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
                                     .getValue(),
                             ChromeFeatureList.sEdgeToEdgeUseBackupNavbarInsetsUseTappable
                                     .getValue());
-            mEdgeToEdgeLayoutCoordinator.setIsDebugging(
-                    EdgeToEdgeUtils.isEdgeToEdgeEverywhereDebugging());
         }
         return mEdgeToEdgeLayoutCoordinator;
     }
@@ -481,7 +470,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
 
     @VisibleForTesting
     static void applyOverridesForAutomotive(Context baseContext, Configuration overrideConfig) {
-        if (BuildInfo.getInstance().isAutomotive) {
+        if (DeviceInfo.isAutomotive()) {
             // Potentially clamp scaling for automotive devices.
             if (ChromeFeatureList.sClampAutomotiveScaling.isEnabled()) {
                 float maxScalingFactor =
@@ -542,7 +531,9 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         // in org.chromium.chrome.browser.WarmupManager#applyContextOverrides for Custom Tabs
         // UI that's pre-inflated using a themed application context as part of CCT warmup.
         // Note: this should be called before any calls to `Window#getDecorView`.
-        DynamicColors.applyToActivityIfAvailable(this);
+        if (shouldApplyDynamicColors()) {
+            DynamicColors.applyToActivityIfAvailable(this);
+        }
 
         DeferredStartupHandler.getInstance()
                 .addDeferredTask(
@@ -574,14 +565,17 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
             applySingleThemeOverlay(R.style.ThemeOverlay_BrowserUI_OptOutEdgeToEdge);
         }
 
-        if (StripLayoutUtils.shouldApplyMoreDensity()) {
+        if (ChromeFeatureList.sAndroidDesktopDensity.isEnabled() && DeviceInfo.isDesktop()) {
             applySingleThemeOverlay(R.style.ThemeOverlay_BrowserUI_DesktopDensity);
+        }
+
+        if (StripLayoutUtils.shouldApplyMoreDensity()) {
+            applySingleThemeOverlay(R.style.ThemeOverlay_BrowserUI_DesktopDensity_TabStrip);
         }
     }
 
     protected void applySingleThemeOverlay(int themeOverlay) {
         getTheme().applyStyle(themeOverlay, /* force= */ true);
-        mThemeResIds.add(themeOverlay);
     }
 
     /** Sets the default task description that will appear in the recents UI. */
@@ -632,7 +626,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
 
     @Override
     public void setContentView(@LayoutRes int layoutResID) {
-        if (BuildInfo.getInstance().isAutomotive
+        if (DeviceInfo.isAutomotive()
                 && getAutomotiveToolbarImplementation()
                         == AutomotiveToolbarImplementation.WITH_TOOLBAR_VIEW) {
             super.setContentView(AutomotiveUtils.getAutomotiveLayoutWithBackButtonToolbar(this));
@@ -651,7 +645,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
 
     @Override
     public void setContentView(View view) {
-        if (BuildInfo.getInstance().isAutomotive
+        if (DeviceInfo.isAutomotive()
                 && getAutomotiveToolbarImplementation()
                         == AutomotiveToolbarImplementation.WITH_TOOLBAR_VIEW) {
             super.setContentView(AutomotiveUtils.getAutomotiveLayoutWithBackButtonToolbar(this));
@@ -667,7 +661,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
 
     @Override
     public void setContentView(View view, ViewGroup.LayoutParams params) {
-        if (BuildInfo.getInstance().isAutomotive
+        if (DeviceInfo.isAutomotive()
                 && getAutomotiveToolbarImplementation()
                         == AutomotiveToolbarImplementation.WITH_TOOLBAR_VIEW) {
             super.setContentView(AutomotiveUtils.getAutomotiveLayoutWithBackButtonToolbar(this));
@@ -684,7 +678,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
 
     @Override
     public void addContentView(View view, ViewGroup.LayoutParams params) {
-        if (BuildInfo.getInstance().isAutomotive
+        if (DeviceInfo.isAutomotive()
                 && params.width == MATCH_PARENT
                 && params.height == MATCH_PARENT) {
             ViewGroup automotiveLayout =
@@ -756,5 +750,10 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
                     });
         }
         AutomotiveBackButtonToolbarCoordinator.hideBackButtonToolbar(this);
+    }
+
+    /** Returns whether dynamic colors should be applied. */
+    protected boolean shouldApplyDynamicColors() {
+        return true;
     }
 }

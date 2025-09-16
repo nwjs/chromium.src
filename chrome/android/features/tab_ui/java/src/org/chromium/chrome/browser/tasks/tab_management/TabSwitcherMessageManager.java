@@ -10,6 +10,7 @@ import static org.chromium.chrome.browser.tasks.tab_management.UiTypeHelper.mess
 import android.app.Activity;
 import android.view.ViewGroup;
 
+import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
@@ -17,7 +18,6 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.ValueChangedCallback;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -45,7 +45,7 @@ import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tasks.tab_management.MessageCardViewProperties.MessageCardScope;
-import org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType;
+import org.chromium.chrome.browser.tasks.tab_management.MessageService.Message;
 import org.chromium.chrome.browser.tasks.tab_management.PriceMessageService.PriceWelcomeMessageReviewActionProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
@@ -58,11 +58,41 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.LayoutViewBuilder;
 import org.chromium.ui.modelutil.PropertyModel;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.List;
+import java.util.function.Supplier;
 
 /** Manages message related glue for the {@link TabSwitcher}. */
 @NullMarked
 public class TabSwitcherMessageManager {
+    /** Represents the types of messages that can be shown in the tab switcher. */
+    @IntDef({
+        MessageType.IPH,
+        MessageType.PRICE_MESSAGE,
+        MessageType.INCOGNITO_REAUTH_PROMO_MESSAGE,
+        MessageType.ARCHIVED_TABS_MESSAGE,
+        MessageType.ARCHIVED_TABS_IPH_MESSAGE,
+        MessageType.COLLABORATION_ACTIVITY,
+        MessageType.TAB_GROUP_SUGGESTION_MESSAGE,
+        MessageType.ALL
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    @Target({ElementType.TYPE_USE})
+    public @interface MessageType {
+        int FOR_TESTING = 0;
+        int IPH = 1;
+        int PRICE_MESSAGE = 2;
+        int INCOGNITO_REAUTH_PROMO_MESSAGE = 3;
+        int ARCHIVED_TABS_MESSAGE = 4;
+        int ARCHIVED_TABS_IPH_MESSAGE = 5;
+        int COLLABORATION_ACTIVITY = 6;
+        int TAB_GROUP_SUGGESTION_MESSAGE = 7;
+        int ALL = 8;
+    }
+
     /** Used to observe updates to message cards. */
     public interface MessageUpdateObserver {
         /** Invoked when messages are added. */
@@ -121,7 +151,8 @@ public class TabSwitcherMessageManager {
     private final MultiWindowModeStateDispatcher mMultiWindowModeStateDispatcher;
     private final SnackbarManager mSnackbarManager;
     private final ModalDialogManager mModalDialogManager;
-    private final MessageCardProviderCoordinator mMessageCardProviderCoordinator;
+    private final MessageCardProviderCoordinator<@MessageType Integer>
+            mMessageCardProviderCoordinator;
     private final Callback<@Nullable TabGroupModelFilter> mOnTabGroupModelFilterChanged =
             new ValueChangedCallback<>(this::onTabGroupModelFilterChanged);
     private final ObservableSupplierImpl<@Nullable PriceWelcomeMessageReviewActionProvider>
@@ -209,7 +240,8 @@ public class TabSwitcherMessageManager {
                     return assumeNonNull(tabGroupModelFilter.getTabModel().getProfile());
                 };
         mMessageCardProviderCoordinator =
-                new MessageCardProviderCoordinator(activity, profileSupplier, this::dismissHandler);
+                new MessageCardProviderCoordinator<@MessageType Integer>(
+                        activity, profileSupplier, this::dismissHandler);
 
         mTabGridIphDialogCoordinator =
                 new TabGridIphDialogCoordinator(activity, mModalDialogManager);
@@ -382,7 +414,8 @@ public class TabSwitcherMessageManager {
      */
     private void translateStartMergeAnimation(
             @TabId int targetTabId, List<@TabId Integer> tabIdsToMerge, Runnable onAnimationEnd) {
-        if (!mTabListCoordinatorSupplier.hasValue()) return;
+        TabListCoordinator oldTabListCoordinator = mTabListCoordinatorSupplier.get();
+        if (oldTabListCoordinator == null) return;
 
         TabListCoordinator tabListCoordinator = assumeNonNull(mTabListCoordinatorSupplier.get());
         int targetTabIndex = tabListCoordinator.getTabIndexFromTabId(targetTabId);
@@ -454,7 +487,7 @@ public class TabSwitcherMessageManager {
         TabListCoordinator tabListCoordinator = mTabListCoordinatorSupplier.get();
         if (tabListCoordinator == null) return;
 
-        MessageCardProviderMediator.Message nextMessage =
+        Message<@MessageType Integer> nextMessage =
                 mMessageCardProviderCoordinator.getNextMessageItemForType(messageType);
         if (nextMessage == null || !shouldAppendMessage(nextMessage)) return;
         switch (messageType) {
@@ -481,27 +514,30 @@ public class TabSwitcherMessageManager {
         assert tabListCoordinator != null;
 
         sAppendedMessagesForTesting = false;
-        List<MessageCardProviderMediator.Message> messages =
-                mMessageCardProviderCoordinator.getMessageItems();
-        for (int i = 0; i < messages.size(); i++) {
-            if (!shouldAppendMessage(messages.get(i))) continue;
-            @MessageType int messageType = messages.get(i).type;
+        List<MessageService<@MessageType Integer>> messageServices =
+                mMessageCardProviderCoordinator.getMessageServices();
+        for (MessageService<@MessageType Integer> service : messageServices) {
+            Message<@MessageType Integer> message = service.getNextMessageItem();
+            if (message == null || !shouldAppendMessage(message)) continue;
+
+            @MessageType int messageType = message.type;
             switch (messageType) {
                 case MessageType.INCOGNITO_REAUTH_PROMO_MESSAGE -> {
-                    if (!mayAddIncognitoReauthPromoCard(messages.get(i).model)) {
+                    if (!mayAddIncognitoReauthPromoCard(message.model)) {
                         // Skip incrementing index if the message was not added.
                         continue;
                     }
                 }
                     // Always add the archived tabs message to the start.
                 case MessageType.ARCHIVED_TABS_MESSAGE -> tabListCoordinator.addSpecialListItem(
-                        0, UiType.ARCHIVED_TABS_MESSAGE, messages.get(i).model);
+                        0, UiType.ARCHIVED_TABS_MESSAGE, message.model);
                 default -> tabListCoordinator.addSpecialListItem(
-                        index, messageTypeToUiType(messageType), messages.get(i).model);
+                        index, messageTypeToUiType(messageType), message.model);
             }
             index++;
+            sAppendedMessagesForTesting = true;
         }
-        if (!messages.isEmpty()) sAppendedMessagesForTesting = true;
+
         for (MessageUpdateObserver observer : mObservers) {
             observer.onAppendedMessage();
         }
@@ -522,7 +558,7 @@ public class TabSwitcherMessageManager {
         return false;
     }
 
-    private boolean shouldAppendMessage(MessageCardProviderMediator.Message message) {
+    private boolean shouldAppendMessage(Message<@MessageType Integer> message) {
         TabListCoordinator tabListCoordinator = mTabListCoordinatorSupplier.get();
         assert tabListCoordinator != null;
         if (tabListCoordinator.specialItemExists(message.type)) return false;
@@ -557,8 +593,13 @@ public class TabSwitcherMessageManager {
                 UiType.INCOGNITO_REAUTH_PROMO_MESSAGE, MessageType.INCOGNITO_REAUTH_PROMO_MESSAGE);
         tabListCoordinator.removeSpecialListItem(
                 UiType.ARCHIVED_TABS_MESSAGE, MessageType.ARCHIVED_TABS_MESSAGE);
-        tabListCoordinator.removeSpecialListItem(
-                UiType.TAB_GROUP_SUGGESTION_MESSAGE, MessageType.TAB_GROUP_SUGGESTION_MESSAGE);
+
+        // TODO(crbug.com/441040016): Refactor the lifecycle of the TabGroupSuggestionMessageService
+        // so that we don't need to pass a dismiss runnable.
+        if (mTabGroupSuggestionMessageService != null) {
+            mTabGroupSuggestionMessageService.dismissMessage(
+                    tabListCoordinator.getTabListHighlighter()::unhighlightTabs);
+        }
 
         sAppendedMessagesForTesting = false;
         for (MessageUpdateObserver observer : mObservers) {
@@ -579,13 +620,15 @@ public class TabSwitcherMessageManager {
                 != null;
 
         sAppendedMessagesForTesting = false;
-        List<MessageCardProviderMediator.Message> messages =
-                mMessageCardProviderCoordinator.getMessageItems();
-        for (int i = 0; i < messages.size(); i++) {
-            if (!shouldAppendMessage(messages.get(i))) continue;
+        List<MessageService<@MessageType Integer>> messageServices =
+                mMessageCardProviderCoordinator.getMessageServices();
+        for (MessageService<@MessageType Integer> service : messageServices) {
+            Message<@MessageType Integer> message = service.getNextMessageItem();
+            if (message == null || !shouldAppendMessage(message)) continue;
+
             // The restore of PRICE_MESSAGE is handled in the restorePriceWelcomeMessage() below.
-            PropertyModel model = messages.get(i).model;
-            @MessageType int msgType = messages.get(i).type;
+            PropertyModel model = message.model;
+            @MessageType int msgType = message.type;
             switch (msgType) {
                 case MessageType.PRICE_MESSAGE, MessageType.TAB_GROUP_SUGGESTION_MESSAGE -> {}
                 case MessageType.ARCHIVED_TABS_MESSAGE -> tabListCoordinator.addSpecialListItem(
@@ -595,8 +638,9 @@ public class TabSwitcherMessageManager {
                         messageTypeToUiType(msgType),
                         model);
             }
+            sAppendedMessagesForTesting = true;
         }
-        sAppendedMessagesForTesting = !messages.isEmpty();
+
         for (MessageUpdateObserver observer : mObservers) {
             observer.onRestoreAllAppendedMessage();
         }
@@ -662,7 +706,7 @@ public class TabSwitcherMessageManager {
         TabListCoordinator tabListCoordinator = mTabListCoordinatorSupplier.get();
         if (tabListCoordinator == null) return;
 
-        MessageCardProviderMediator.Message nextMessage =
+        Message<@MessageType Integer> nextMessage =
                 mMessageCardProviderCoordinator.getNextMessageItemForType(messageType);
         if (nextMessage == null || !shouldAppendMessage(nextMessage)) return;
 

@@ -6,12 +6,15 @@
 
 #include "base/trace_event/trace_event.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_cssnumericvalue_double.h"
-#include "third_party/blink/renderer/core/animation/animation_trigger.h"
+#include "third_party/blink/renderer/core/animation/css/css_animation.h"
 #include "third_party/blink/renderer/core/animation/document_animations.h"
 #include "third_party/blink/renderer/core/animation/keyframe_effect.h"
+#include "third_party/blink/renderer/core/animation/timeline_trigger.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
+#include "third_party/blink/renderer/core/dom/named_animation_trigger_map.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
 
@@ -214,18 +217,17 @@ void AnimationTimeline::MarkPendingIfCompositorPropertyAnimationChanges(
   }
 }
 
-void AnimationTimeline::AddAnimationTrigger(AnimationTrigger* trigger) {
-  DCHECK(trigger && trigger->GetTimelineInternal() == this);
+void AnimationTimeline::AddTrigger(TimelineTrigger* trigger) {
   triggers_.insert(trigger);
   update_triggers_ = true;
 }
 
-void AnimationTimeline::RemoveAnimationTrigger(AnimationTrigger* trigger) {
+void AnimationTimeline::RemoveTrigger(TimelineTrigger* trigger) {
   DCHECK(trigger && trigger->GetTimelineInternal() == this);
   triggers_.erase(trigger);
 }
 
-void AnimationTimeline::ServiceAnimationTriggers() {
+void AnimationTimeline::ServiceTriggers() {
   DCHECK(RuntimeEnabledFeatures::AnimationTriggerEnabled());
   PhaseAndTime current_phase_and_time = CurrentPhaseAndTime();
 
@@ -234,12 +236,63 @@ void AnimationTimeline::ServiceAnimationTriggers() {
   }
 
   if (update_triggers_) {
-    for (AnimationTrigger* trigger : triggers_) {
+    for (TimelineTrigger* trigger : triggers_) {
       trigger->Update();
     }
   }
 
   update_triggers_ = false;
+}
+
+void AnimationTimeline::UpdateAnimationTriggerAttachments() {
+  if (!GetDocument() || !GetDocument()->View()) {
+    return;
+  }
+
+  for (Animation* animation : animations_) {
+    CSSAnimation* css_animation = DynamicTo<CSSAnimation>(animation);
+    if (!css_animation) {
+      continue;
+    }
+
+    const std::optional<Vector<AtomicString>>& animation_trigger_names =
+        css_animation->GetTriggerNames();
+    if (!animation_trigger_names.has_value()) {
+      continue;
+    }
+
+    Element* element = animation->OwningElement();
+
+    while (element) {
+      LayoutBox* element_box = element->GetLayoutBox();
+      if (!element_box) {
+        element = element->parentElement();
+        continue;
+      }
+
+      for (const auto& fragment : element_box->PhysicalFragments()) {
+        const GCedNamedAnimationTriggerMap* named_triggers =
+            fragment.NamedTriggers();
+        if (!named_triggers) {
+          continue;
+        }
+
+        for (auto& entry : *named_triggers) {
+          AnimationTrigger* trigger = entry.value.Get();
+
+          for (auto name : *animation_trigger_names) {
+            if (name == entry.key->GetName()) {
+              // TODO(crbug.com/c/429392773): This attaches all triggers of
+              // matching names. When a resolution for resolving triggers with
+              // the same name has been reached, we should update this.
+              trigger->addAnimation(animation, ASSERT_NO_EXCEPTION);
+            }
+          }
+        }
+      }
+      element = element->parentElement();
+    }
+  }
 }
 
 void AnimationTimeline::Trace(Visitor* visitor) const {

@@ -37,7 +37,8 @@ import time
 import urllib
 
 from update import (CDS_URL, CHROMIUM_DIR, CLANG_REVISION, LLVM_BUILD_DIR,
-                    FORCE_HEAD_REVISION_FILE, PACKAGE_VERSION, RELEASE_VERSION,
+                    FORCE_HEAD_REVISION_FILENAME, FORCE_HEAD_REVISION_FILE,
+                    PACKAGE_VERSION, RELEASE_VERSION, STAMP_FILENAME,
                     STAMP_FILE, THIS_DIR, DownloadUrl, DownloadAndUnpack,
                     DownloadAndUnpackPackage, EnsureDirExists, GetDefaultHostOs,
                     ReadStampFile, RmTree, WriteStampFile)
@@ -191,6 +192,14 @@ MODIFICATION_DATES = {
 }
 
 
+def IsGitAncestorToHead(git_repository, commit):
+  """Returns if commit is an ancestor of HEAD."""
+  return RunCommand([
+      'git', '-C', git_repository, 'merge-base', '--is-ancestor', commit, 'HEAD'
+  ],
+                           fail_hard=False)
+
+
 def GitCherryPick(git_repository,
                   commit,
                   git_remote=None,
@@ -203,10 +212,7 @@ def GitCherryPick(git_repository,
     RunCommand(git_cmd +
                ['fetch', '--recurse-submodules=no', git_remote_name, commit])
 
-  is_ancestor = RunCommand(git_cmd +
-                           ['merge-base', '--is-ancestor', commit, 'HEAD'],
-                           fail_hard=False)
-  if is_ancestor:
+  if IsGitAncestorToHead(git_repository, commit):
     print('Commit already an ancestor; skipping.')
     return
 
@@ -221,6 +227,9 @@ def GitCherryPick(git_repository,
 
 def GitRevert(git_repository, commit):
   print(f'Reverting {commit} in {git_repository}')
+  if not IsGitAncestorToHead(git_repository, commit):
+    print('Commit not an ancestor; skipping.')
+    return
   env = os.environ.copy()
   env.update(MODIFICATION_DATES)
   RunCommand(['git', '-C', git_repository, 'revert', '--no-edit', commit],
@@ -763,10 +772,17 @@ def main():
                       dest='with_zstd',
                       action='store_false',
                       help='Disable zstd in the build')
+  parser.add_argument('--preserve-gcs-signature',
+                      action='store_true',
+                      help='By default, this script removes gcs hash files '
+                      'so that third_party/llvm-build is clobbered on the next'
+                      'run of gclient sync. This disables that, so that the'
+                      'directory will be preserved when syncing. Useful for'
+                      'local development.')
 
   args = parser.parse_args()
 
-  global CLANG_REVISION, PACKAGE_VERSION, LLVM_BUILD_DIR
+  global CLANG_REVISION, PACKAGE_VERSION, LLVM_BUILD_DIR, STAMP_FILE, FORCE_HEAD_REVISION_FILE
 
   # TODO(crbug.com/432036065): Remove in next Clang roll.
   if args.llvm_force_head_revision:
@@ -818,6 +834,12 @@ def main():
 
   if args.build_dir:
     LLVM_BUILD_DIR = args.build_dir
+    # These files record that we've done a local build of clang, and may be
+    # checked by the build system to validate the compiler. If we have a custom
+    # build directory, make sure they appear there instead of the default one.
+    STAMP_FILE = os.path.normpath(os.path.join(LLVM_BUILD_DIR, STAMP_FILENAME))
+    FORCE_HEAD_REVISION_FILE = os.path.normpath(
+        os.path.join(LLVM_BUILD_DIR, "..", FORCE_HEAD_REVISION_FILENAME))
 
   if args.llvm_force_head_revision:
     checkout_revision = GetLatestLLVMCommit()
@@ -833,8 +855,12 @@ def main():
     PACKAGE_VERSION = '%s-0' % CLANG_REVISION
 
   print('Locally building clang %s...' % PACKAGE_VERSION)
-  WriteStampFile('', STAMP_FILE)
-  WriteStampFile('', FORCE_HEAD_REVISION_FILE)
+  WriteStampFile('',
+                 STAMP_FILE,
+                 preserve_hash_files=args.preserve_gcs_signature)
+  WriteStampFile('',
+                 FORCE_HEAD_REVISION_FILE,
+                 preserve_hash_files=args.preserve_gcs_signature)
 
   if not args.use_system_cmake:
     AddCMakeToPath()
@@ -1146,7 +1172,7 @@ def main():
 
     # Train by building some C++ code.
     #
-    # pgo_training-1.ii is a preprocessed (on Linux) version of
+    # pgo_training-3.ii is a preprocessed (on Linux) version of
     # src/third_party/blink/renderer/core/layout/layout_object.cc, selected
     # because it's a large translation unit in Blink, which is normally the
     # slowest part of Chromium to compile. Using this, we get ~20% shorter
@@ -1167,11 +1193,11 @@ def main():
     # from PGO as well. Perhaps the training could be done asynchronously by
     # dedicated buildbots that upload profiles to the cloud.
     with timer.time('pgo training'):
-      training_source = 'pgo_training-1.ii'
+      training_source = 'pgo_training-3.ii'
       with open(training_source, 'wb') as f:
         DownloadUrl(CDS_URL + '/' + training_source, f)
       train_cmd = [os.path.join(LLVM_INSTRUMENTED_DIR, 'bin', 'clang++'),
-                  '-target', 'x86_64-unknown-unknown', '-O2', '-g', '-std=c++14',
+                  '-target', 'x86_64-unknown-unknown', '-O2', '-g', '-std=c++20',
                    '-fno-exceptions', '-fno-rtti', '-w', '-c', training_source]
       if sys.platform == 'darwin':
         train_cmd.extend(['-isysroot', isysroot])
@@ -1192,6 +1218,12 @@ def main():
   if args.llvm_force_head_revision:
     cflags += ['-DLLVM_FORCE_HEAD_REVISION']
     cxxflags += ['-DLLVM_FORCE_HEAD_REVISION']
+
+  # TODO(https://crbug.com/437910658): remove once we roll past clang change
+  if IsGitAncestorToHead(LLVM_DIR,
+                         '91cdd35008e9ab32dffb7e401cdd7313b3461892'):
+    cflags += ['-DCLANG_ELABORATED_TYPE_CHANGES']
+    cxxflags += ['-DCLANG_ELABORATED_TYPE_CHANGES']
 
   # Build PDBs for archival on Windows.  Don't use RelWithDebInfo since it
   # has different optimization defaults than Release.
@@ -1635,8 +1667,12 @@ def main():
     with timer.time('install'):
       RunCommand(['ninja', 'install'], setenv=True)
 
-  WriteStampFile(PACKAGE_VERSION, STAMP_FILE)
-  WriteStampFile(PACKAGE_VERSION, FORCE_HEAD_REVISION_FILE)
+  WriteStampFile(PACKAGE_VERSION,
+                 STAMP_FILE,
+                 preserve_hash_files=args.preserve_gcs_signature)
+  WriteStampFile(PACKAGE_VERSION,
+                 FORCE_HEAD_REVISION_FILE,
+                 preserve_hash_files=args.preserve_gcs_signature)
 
   print('Clang build was successful.')
 

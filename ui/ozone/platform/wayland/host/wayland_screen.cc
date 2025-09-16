@@ -39,8 +39,7 @@
 #include "ui/ozone/platform/wayland/host/wayland_output.h"
 #include "ui/ozone/platform/wayland/host/wayland_output_manager.h"
 #include "ui/ozone/platform/wayland/host/wayland_window.h"
-#include "ui/ozone/platform/wayland/host/wayland_zcr_color_management_output.h"
-#include "ui/ozone/platform/wayland/host/wayland_zcr_color_manager.h"
+#include "ui/ozone/platform/wayland/host/wayland_wp_color_management_output.h"
 #include "ui/ozone/platform/wayland/host/zwp_idle_inhibit_manager.h"
 
 #if BUILDFLAG(USE_DBUS)
@@ -233,9 +232,17 @@ void WaylandScreen::AddOrUpdateDisplay(const WaylandOutput::Metrics& metrics) {
   changed_display.UpdateWorkAreaFromInsets(metrics.insets);
 
   gfx::DisplayColorSpaces color_spaces;
+  if (auto* wayland_output =
+          connection_->wayland_output_manager()->GetOutput(metrics.output_id)) {
+    if (auto* output = wayland_output->wp_color_management_output()) {
+      if (auto* output_color_spaces = output->display_color_spaces()) {
+        color_spaces = *output_color_spaces;
+      }
+    }
+  }
   color_spaces.SetOutputBufferFormats(image_format_no_alpha_.value(),
                                       image_format_alpha_.value());
-  changed_display.SetColorSpaces(color_spaces);
+  changed_display.SetColorSpaces(std::move(color_spaces));
 
   // There are 2 cases where |changed_display| must be set as primary:
   // 1. When it is the first one being added to the |display_list_|. Or
@@ -264,6 +271,10 @@ void WaylandScreen::AddOrUpdateDisplay(const WaylandOutput::Metrics& metrics) {
   }
   display_id_map_[metrics.output_id] = metrics.display_id;
   display_list_.AddOrUpdateDisplay(changed_display, type);
+}
+
+void WaylandScreen::ResetConnection() {
+  connection_ = nullptr;
 }
 
 WaylandOutput::Id WaylandScreen::GetOutputIdForDisplayId(int64_t display_id) {

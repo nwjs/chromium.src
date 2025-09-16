@@ -32,7 +32,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.EnsuresNonNullIf;
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
@@ -76,6 +75,7 @@ import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.LoadUrlResult;
+import org.chromium.chrome.browser.tab.Tab.MediaState;
 import org.chromium.chrome.browser.tab.TabClosingSource;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -118,6 +118,7 @@ import org.chromium.url.GURL;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * This class handles managing which StripLayoutHelper is currently active and dispatches all input
@@ -204,6 +205,7 @@ public class StripLayoutHelperManager
     private @MonotonicNonNull TabModelSelector mTabModelSelector; // Set on native initialization.
     private final LayoutManagerHost mManagerHost;
     private final LayoutUpdateHost mUpdateHost;
+    private final LayoutRenderHost mRenderHost;
 
     // Event Filters
     private @Nullable AreaMotionEventFilter mEventFilter;
@@ -479,6 +481,7 @@ public class StripLayoutHelperManager
         Resources res = context.getResources();
         mManagerHost = managerHost;
         mUpdateHost = updateHost;
+        mRenderHost = renderHost;
         mLayerTitleCacheSupplier = layerTitleCacheSupplier;
         mDensity = res.getDisplayMetrics().density;
         mTabStripTreeProvider = new TabStripSceneLayer(mDensity);
@@ -549,6 +552,7 @@ public class StripLayoutHelperManager
         mNormalHelper =
                 new StripLayoutHelper(
                         context,
+                        this,
                         managerHost,
                         updateHost,
                         renderHost,
@@ -567,6 +571,7 @@ public class StripLayoutHelperManager
         mIncognitoHelper =
                 new StripLayoutHelper(
                         context,
+                        this,
                         managerHost,
                         updateHost,
                         renderHost,
@@ -593,8 +598,9 @@ public class StripLayoutHelperManager
                 });
 
         if (tabModelStartupInfoSupplier != null) {
-            if (tabModelStartupInfoSupplier.hasValue()) {
-                setTabModelStartupInfo(tabModelStartupInfoSupplier.get());
+            var tabModelStartupInfo = tabModelStartupInfoSupplier.get();
+            if (tabModelStartupInfo != null) {
+                setTabModelStartupInfo(tabModelStartupInfo);
             } else {
                 tabModelStartupInfoSupplier.addObserver(this::setTabModelStartupInfo);
             }
@@ -861,8 +867,8 @@ public class StripLayoutHelperManager
                 hoveredTabId,
                 getStripTransitionScrimColor(),
                 mStripTransitionScrimOpacity,
-                mLeftPadding,
-                mRightPadding,
+                getActiveStripLayoutHelper().getLeftPaddingToDraw(),
+                getActiveStripLayoutHelper().getRightPaddingToDraw(),
                 mTopPadding);
         return mTabStripTreeProvider;
     }
@@ -1121,6 +1127,10 @@ public class StripLayoutHelperManager
         return getActiveStripLayoutHelper().shouldShowTabOutline(tab);
     }
 
+    public @MediaState int getMediaIndicatorState(StripLayoutTab tab) {
+        return getActiveStripLayoutHelper().getMediaIndicatorState(tab);
+    }
+
     /**
      * @return The touch target offset to be applied to the new tab button.
      */
@@ -1284,8 +1294,7 @@ public class StripLayoutHelperManager
         List<TabModel> models = mTabModelSelector.getModels();
         for (int i = 0; i < models.size(); i++) {
             TabModel model = models.get(i);
-            for (int j = 0; j < model.getCount(); j++) {
-                Tab tab = model.getTabAt(j);
+            for (Tab tab : model) {
                 if (tab != null) {
                     titleCache.getUpdatedTitle(
                             tab, tab.getContext().getString(R.string.tab_loading_default_title));
@@ -1399,20 +1408,14 @@ public class StripLayoutHelperManager
 
                     @Override
                     public void tabClosureCommitted(Tab tab) {
-                        if (mLayerTitleCacheSupplier.hasValue()) {
-                            mLayerTitleCacheSupplier.get().removeTabTitle(tab.getId());
+                        LayerTitleCache titleCache = mLayerTitleCacheSupplier.get();
+                        if (titleCache != null) {
+                            titleCache.removeTabTitle(tab.getId());
                         }
                     }
 
                     @Override
-                    public void tabPendingClosure(Tab tab, @TabClosingSource int closingSource) {
-                        getStripLayoutHelper(tab.isIncognitoBranded())
-                                .tabClosed(time(), tab.getId());
-                        updateModelSwitcherButton();
-                    }
-
-                    @Override
-                    public void multipleTabsPendingClosure(
+                    public void onTabClosePending(
                             List<Tab> tabs,
                             boolean isAllTabs,
                             @TabClosingSource int closingSource) {
@@ -1515,6 +1518,11 @@ public class StripLayoutHelperManager
                             mTabStripTreeProvider.updateOffsetTag(
                                     offsetTagsInfo.getContentOffsetTag());
                         }
+                    }
+
+                    @Override
+                    public void onMediaStateChanged(Tab tab, int mediaState) {
+                        mRenderHost.requestRender();
                     }
                 };
 
@@ -1719,6 +1727,17 @@ public class StripLayoutHelperManager
      */
     public boolean openKeyboardFocusedContextMenu() {
         return getActiveStripLayoutHelper().openKeyboardFocusedContextMenu();
+    }
+
+    /**
+     * Reorders the currently keyboard-focused item, if applicable.
+     *
+     * @param toLeft Whether the focused item should be reordered to the left (note: this is still
+     *     left in RTL).
+     * @return Whether the item was successfully reordered.
+     */
+    public boolean reorderKeyboardFocusedItem(boolean toLeft) {
+        return getActiveStripLayoutHelper().moveSelectedStripView(toLeft);
     }
 
     private boolean isActivityInXrFullSpaceModeNow() {

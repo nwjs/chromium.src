@@ -6,15 +6,14 @@
 #define CONTENT_BROWSER_PRELOADING_PREFETCH_PREFETCH_PARAMS_H_
 
 #include <optional>
-#include <string_view>
 
 #include "base/time/time.h"
-#include "content/browser/preloading/prefetch/prefetch_type.h"
 #include "content/common/content_export.h"
-#include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom.h"
 #include "url/gurl.h"
 
 namespace content {
+
+class PrefetchType;
 
 // The url of the tunnel proxy.
 CONTENT_EXPORT GURL PrefetchProxyHost(const GURL& default_proxy_url);
@@ -121,10 +120,6 @@ inline constexpr size_t kMaxNumberOfNonImmediatePrefetchesPerPage = 2;
 
 // Returns true if NIK prefetch scope is enabled. See crbug.com/1502326
 bool PrefetchNIKScopeEnabled();
-
-// Returns true if browser-initiated prefetch is enabled.
-// Please see crbug.com/40946257 for more details.
-bool PrefetchBrowserInitiatedTriggersEnabled();
 
 size_t GetPrefetchDataPipeTeeBodySizeLimit();
 

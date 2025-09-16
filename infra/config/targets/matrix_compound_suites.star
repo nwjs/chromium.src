@@ -149,17 +149,27 @@ targets.legacy_matrix_compound_suite(
 targets.legacy_matrix_compound_suite(
     name = "chromeos_brya_skylab_tests",
     basic_suites = {
-        "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_all_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                "skylab-50-tests-per-shard",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
         ),
-        "chromeos_chrome_criticalstaging_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_criticalstaging_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                "skylab-40-tests-per-shard",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
         ),
-        "chromeos_chrome_disabled_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_disabled_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                # Setting smaller max_in_shard to offset tast level retries.
+                "skylab-20-tests-per-shard",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
@@ -185,21 +195,26 @@ targets.legacy_matrix_compound_suite(
 targets.legacy_matrix_compound_suite(
     name = "chromeos_jacuzzi_skylab_tests",
     basic_suites = {
-        "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_all_tast_tests_tfc": targets.legacy_matrix_config(
             mixins = [
-                # jacuzzi is slow. So that we use more number of shards.
-                "skylab-shards-30",
+                "skylab-40-tests-per-shard",
             ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
         ),
-        "chromeos_chrome_criticalstaging_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_criticalstaging_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                "skylab-40-tests-per-shard",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
         ),
-        "chromeos_chrome_disabled_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_disabled_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                "skylab-20-tests-per-shard",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
@@ -220,7 +235,10 @@ targets.legacy_matrix_compound_suite(
 targets.legacy_matrix_compound_suite(
     name = "chromeos_octopus_skylab_tests",
     basic_suites = {
-        "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_all_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                "skylab-50-tests-per-shard",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
@@ -236,10 +254,26 @@ targets.legacy_matrix_compound_suite(
 targets.legacy_matrix_compound_suite(
     name = "chromeos_trogdor_skylab_tests",
     basic_suites = {
-        "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_all_tast_tests_tfc": targets.legacy_matrix_config(
             mixins = [
-                # trogdor is slow. So that we use more number of shards.
-                "skylab-shards-20",
+                "skylab-40-tests-per-shard",
+            ],
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_chrome_criticalstaging_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                "skylab-40-tests-per-shard",
+            ],
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_chrome_disabled_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                # Setting smaller max_in_shard to offset tast level retries.
+                "skylab-20-tests-per-shard",
             ],
             variants = [
                 "CROS_RELEASE_LKGM",
@@ -261,17 +295,27 @@ targets.legacy_matrix_compound_suite(
 targets.legacy_matrix_compound_suite(
     name = "chromeos_volteer_skylab_tests",
     basic_suites = {
-        "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_all_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                "skylab-50-tests-per-shard",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
         ),
-        "chromeos_chrome_criticalstaging_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_criticalstaging_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                "skylab-40-tests-per-shard",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
         ),
-        "chromeos_chrome_disabled_tast_tests": targets.legacy_matrix_config(
+        "chromeos_chrome_disabled_tast_tests_tfc": targets.legacy_matrix_config(
+            mixins = [
+                # Setting smaller max_in_shard to offset tast level retries.
+                "skylab-20-tests-per-shard",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],

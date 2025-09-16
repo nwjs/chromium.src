@@ -7,6 +7,7 @@
 #include <memory>
 #include <string_view>
 
+#include "base/byte_count.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
@@ -19,7 +20,6 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/performance_controls/tab_resource_usage_tab_helper.h"
-#include "chrome/browser/ui/tabs/alert/tab_alert.h"
 #include "chrome/browser/ui/tabs/tab_activity_simulator.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -28,7 +28,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_view_layout.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/tab_strip_view_interface.h"
 #include "chrome/browser/ui/views/frame/test_with_browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
@@ -69,7 +69,7 @@ namespace {
 // Tab strip bounds depend on the window frame sizes.
 gfx::Point ExpectedTabStripRegionOrigin(BrowserView* browser_view) {
   gfx::Rect tabstrip_bounds(browser_view->frame()->GetBoundsForTabStripRegion(
-      browser_view->tab_strip_region_view()->GetMinimumSize()));
+      browser_view->tab_strip_view()->GetMinimumSize()));
   gfx::Point tabstrip_region_origin(tabstrip_bounds.origin());
   views::View::ConvertPointToTarget(browser_view->parent(), browser_view,
                                     &tabstrip_region_origin);
@@ -237,7 +237,7 @@ TEST_F(BrowserViewTest, DISABLED_BrowserViewLayout) {
       browser_view()->GetContentsContainerForTest();
   views::WebView* contents_web_view = browser_view()->contents_web_view();
   views::WebView* devtools_web_view =
-      browser_view()->GetDevToolsWebViewForTest();
+      browser_view()->GetActiveContentsContainerView()->devtools_web_view();
 
   // Start with a single tab open to a normal page.
   AddTab(browser, GURL("about:blank"));
@@ -415,7 +415,7 @@ TEST_F(BrowserViewTest, FindBrowserWindowWithWebContentsTabSwitch) {
 #if !BUILDFLAG(IS_MAC)
 // Test that repeated accelerators are processed or ignored depending on the
 // commands that they refer to. The behavior for different commands is dictated
-// by IsCommandRepeatable() in chrome/browser/ui/views/accelerator_table.h.
+// by IsCommandRepeatable() in chrome/browser/ui/accelerator_table.h.
 TEST_F(BrowserViewTest, DISABLED_RepeatedAccelerators) {
   // A non-repeated Ctrl-L accelerator should be processed.
   const ui::Accelerator kLocationAccel(ui::VKEY_L, ui::EF_PLATFORM_ACCELERATOR);
@@ -462,52 +462,6 @@ TEST_F(BrowserViewTest, MAYBE_BookmarkBarInvisibleOnShutdown) {
   BookmarkBarView::DisableAnimationsForTesting(false);
 }
 
-TEST_F(BrowserViewTest, DISABLED_AccessibleWindowTitle) {
-  EXPECT_EQ(SubBrowserName(u"Untitled - ", u""),
-            browser_view()->GetAccessibleWindowTitleForChannelAndProfile(
-                version_info::Channel::STABLE, browser()->profile()));
-  EXPECT_EQ(SubBrowserName(u"Untitled - ", u" Beta"),
-            browser_view()->GetAccessibleWindowTitleForChannelAndProfile(
-                version_info::Channel::BETA, browser()->profile()));
-  EXPECT_EQ(SubBrowserName(u"Untitled - ", u" Dev"),
-            browser_view()->GetAccessibleWindowTitleForChannelAndProfile(
-                version_info::Channel::DEV, browser()->profile()));
-  EXPECT_EQ(SubBrowserName(u"Untitled - ", u" Canary"),
-            browser_view()->GetAccessibleWindowTitleForChannelAndProfile(
-                version_info::Channel::CANARY, browser()->profile()));
-
-  AddTab(browser(), GURL("about:blank"));
-  EXPECT_EQ(SubBrowserName(u"about:blank - ", u""),
-            browser_view()->GetAccessibleWindowTitleForChannelAndProfile(
-                version_info::Channel::STABLE, browser()->profile()));
-
-  Tab* tab = browser_view()->tabstrip()->tab_at(0);
-  TabRendererData start_media;
-  start_media.alert_state = {tabs::TabAlert::AUDIO_PLAYING};
-  tab->SetData(std::move(start_media));
-  EXPECT_EQ(SubBrowserName(u"about:blank - Audio playing - ", u""),
-            browser_view()->GetAccessibleWindowTitleForChannelAndProfile(
-                version_info::Channel::STABLE, browser()->profile()));
-
-  TabRendererData network_error;
-  network_error.network_state = TabNetworkState::kError;
-  tab->SetData(std::move(network_error));
-  EXPECT_EQ(SubBrowserName(u"about:blank - Network error - ", u" Beta"),
-            browser_view()->GetAccessibleWindowTitleForChannelAndProfile(
-                version_info::Channel::BETA, browser()->profile()));
-
-  TestingProfile* profile = profile_manager()->CreateTestingProfile("Sadia");
-  EXPECT_EQ(SubBrowserName(u"about:blank - Network error - ", u" Dev - Sadia"),
-            browser_view()->GetAccessibleWindowTitleForChannelAndProfile(
-                version_info::Channel::DEV, profile));
-
-  EXPECT_EQ(
-      SubBrowserName(u"about:blank - Network error - ", u" Canary (Incognito)"),
-      browser_view()->GetAccessibleWindowTitleForChannelAndProfile(
-          version_info::Channel::CANARY,
-          TestingProfile::Builder().BuildIncognito(profile)));
-}
-
 TEST_F(BrowserViewTest, UpdateWindowTitle) {
   AddTab(browser(), GURL("about:blank"));
   AddTab(browser(), GURL("about:blank"));
@@ -527,7 +481,7 @@ TEST_F(BrowserViewTest, UpdateWindowTitle) {
 TEST_F(BrowserViewTest, WindowTitleOmitsLowMemoryUsage) {
   scoped_refptr<TabResourceUsage> tab_resource_usage_ =
       base::MakeRefCounted<TabResourceUsage>();
-  tab_resource_usage_->SetMemoryUsageInBytes(100);
+  tab_resource_usage_->SetMemoryUsage(base::ByteCount(100));
 
   TabRendererData memory_usage;
   memory_usage.tab_resource_usage = tab_resource_usage_;
@@ -539,8 +493,9 @@ TEST_F(BrowserViewTest, WindowTitleOmitsLowMemoryUsage) {
   // Expect that low memory usage isn't in the window title.
   EXPECT_EQ(SubBrowserName(u"about:blank - ", u""),
             browser_view()->GetAccessibleWindowTitle());
-  uint64_t memory_used = TabResourceUsage::kHighMemoryUsageThresholdBytes + 1;
-  tab_resource_usage_->SetMemoryUsageInBytes(memory_used);
+  base::ByteCount memory_used =
+      TabResourceUsage::kHighMemoryUsageThreshold + base::ByteCount(1);
+  tab_resource_usage_->SetMemoryUsage(memory_used);
 
   // Expect that high memory usage is in the window title.
   EXPECT_TRUE(browser_view()->GetAccessibleWindowTitle().find(

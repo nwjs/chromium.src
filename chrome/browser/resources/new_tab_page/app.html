@@ -73,9 +73,22 @@ import {nothing} from '//resources/lit/v3_0/lit.rollup.js';
         </ntp-modules>
       `}
     ` : ''}
-    ${this.browserPromosEnabled_ ? html`
-      <ntp-single-promo></ntp-single-promo>
-    ` : ''}
+    ${ (() => { switch (this.getBrowserPromoType_()) {
+     case "simple":
+      return html`
+        <individual-promos maxPromos="${this.browserPromoLimit_}">
+        </individual-promos>
+
+      `;
+     case "setuplist":
+      return html`
+        <setup-list-module-wrapper maxPromos="${this.browserPromoLimit_}"
+            maxCompletedPromos="${this.browserPromoCompletedLimit_}">
+        </setup-list-module-wrapper>
+      `;
+     default:
+      return '';
+    } })() }
   ${!this.isFooterVisible_ ? html`
       <a id="backgroundImageAttribution"
           href="${this.backgroundImageAttributionUrl_}"
@@ -100,7 +113,7 @@ import {nothing} from '//resources/lit/v3_0/lit.rollup.js';
           ?show-wallpaper-search-button="${this.showWallpaperSearchButton_}"
           ?wallpaper-search-button-animation-enabled="${this.wallpaperSearchButtonAnimationEnabled_}"
           @customize-click="${this.onCustomizeClick_}"
-          @wallpaper-search-click="${this.onWallpaperSearchClick_}">
+          @wallpaper-search-click="${this.onWallpaperSearchClick_}" show-shadow>
       </ntp-customize-buttons>
     ` : ''}
     ${this.showThemeAttribution_() ? html`

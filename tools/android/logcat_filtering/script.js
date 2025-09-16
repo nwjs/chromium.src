@@ -32,12 +32,26 @@
 
 const controlsDiv = document.getElementById('controls');
 const fileUploadButton = document.getElementById('file-upload-button');
+const pasteLogcatButton = document.getElementById('paste-logcat-button');
+const pasteLogcatButtonLabel = document.querySelector(
+  'label[for="paste-logcat-button"]');
 const nextExceptionButton = document.getElementById('next-exception-button');
+const nextExceptionFeedback = document.getElementById(
+  'next-exception-feedback');
+const prevExceptionButton = document.getElementById('prev-exception-button');
+const prevExceptionFeedback = document.getElementById(
+  'prev-exception-feedback');
 const nextTestButton = document.getElementById('next-test-button');
+const nextTestFeedback = document.getElementById('next-test-feedback');
+const prevTestButton = document.getElementById('prev-test-button');
+const prevTestFeedback = document.getElementById('prev-test-feedback');
 const dropdownHeaderProcess = document.getElementById(
   'dropdown-header-process');
+const dropdownSearchProcess = document.getElementById(
+  'dropdown-search-process');
 const dropdownListProcess = document.getElementById('dropdown-list-process');
 const dropdownHeaderTag = document.getElementById('dropdown-header-tag');
+const dropdownSearchTag = document.getElementById('dropdown-search-tag');
 const dropdownListTag = document.getElementById('dropdown-list-tag');
 const dropdownHeaderPriority = document.getElementById(
   'dropdown-header-priority');
@@ -48,20 +62,34 @@ const displayNonLogcatCheckbox = document.getElementById(
   'display-non-logcat-checkbox');
 const toggleDarkModeCheckbox = document.getElementById(
   'toggle-dark-mode-checkbox');
+const alwaysShowActivityManagerCheckbox = document.getElementById(
+  'always-show-activity-manager-checkbox');
 const textDisplayArea = document.getElementById('text-display-area');
 
 // Event listeners:
 
 fileUploadButton.addEventListener('change', handleFileUpload);
 
+pasteLogcatButton.addEventListener('click', handlePasteLogcatButtonClick);
+
 nextExceptionButton.addEventListener('click', jumpToNextException);
 
+prevExceptionButton.addEventListener('click', jumpToPreviousException);
+
 nextTestButton.addEventListener('click', jumpToNextTest);
+
+prevTestButton.addEventListener('click', jumpToPreviousTest);
 
 dropdownHeaderProcess.addEventListener('click', (event) => {
   // Prevent this click from propagating to the document
   event.stopPropagation();
   toggleDropdown(dropdownListProcess);
+});
+
+dropdownSearchProcess.addEventListener('input', (event) => {
+  filterDropdownItems(
+    event.target.value,
+    displaySingleNamedProcess.concat(displaySingleUnnamedProcess));
 });
 
 dropdownListProcess.addEventListener('click', handleProcessFilterOptionClick);
@@ -70,6 +98,10 @@ dropdownHeaderTag.addEventListener('click', (event) => {
   // Prevent this click from propagating to the document
   event.stopPropagation();
   toggleDropdown(dropdownListTag);
+});
+
+dropdownSearchTag.addEventListener('input', (event) => {
+  filterDropdownItems(event.target.value, displaySingleTag);
 });
 
 dropdownListTag.addEventListener('click', handleTagFilterOptionClick);
@@ -108,6 +140,9 @@ toggleDarkModeCheckbox.addEventListener('change', () => {
   }
 });
 
+alwaysShowActivityManagerCheckbox.addEventListener('change',
+  updateTextDisplayArea);
+
 // Global click listener to close dropdowns when clicking outside
 document.addEventListener('click', (event) => {
   document.querySelectorAll('.dropdown-list').forEach(dropdown => {
@@ -118,6 +153,27 @@ document.addEventListener('click', (event) => {
       dropdown.style.display = 'none';
     }
   });
+});
+
+// Check for system color scheme preference on page load
+const prefersDarkScheme = window.matchMedia('(prefers-color-scheme:dark)');
+if (prefersDarkScheme.matches) {
+  document.body.classList.add('dark-mode');
+  document.body.classList.remove('light-mode');
+  toggleDarkModeCheckbox.checked = true;
+}
+
+// Listen for changes in system color scheme preference
+prefersDarkScheme.addEventListener('change', (event) => {
+  if (event.matches) {
+    document.body.classList.add('dark-mode');
+    document.body.classList.remove('light-mode');
+    toggleDarkModeCheckbox.checked = true;
+  } else {
+    document.body.classList.add('light-mode');
+    document.body.classList.remove('dark-mode');
+    toggleDarkModeCheckbox.checked = false;
+  }
 });
 
 // Global variables:
@@ -239,9 +295,33 @@ function handleFileUpload(event) {
       textDisplayArea.innerHTML = 'Encountered an error when reading the file.';
     };
     reader.readAsText(file);
+  }
+
+  // Reset the value of the file input element after the file is processed.
+  if (event.target) {
+    event.target.value = '';
+  }
+}
+
+/**
+ * This function is called when the user clicks on the paste logcat button.
+ * @param {Event} event
+ */
+function handlePasteLogcatButtonClick(event) {
+  if (pasteLogcatButtonLabel.textContent.includes('Paste Logcat')) {
+    // Change the UI to allow the user to paste text.
+    pasteLogcatButtonLabel.innerHTML =
+      '<i class="material-icons">done</i> Finish Pasting';
+    textDisplayArea.innerHTML = '';
+    textDisplayArea.contentEditable = 'true';
+    textDisplayArea.focus();
   } else {
-    setUpElements([]);
-    textDisplayArea.innerHTML = 'Please select a file.';
+    // Finish the pasting process and change the UI back to normal.
+    pasteLogcatButtonLabel.innerHTML =
+      '<i class="material-icons">content_paste</i> Paste Logcat';
+    textDisplayArea.contentEditable = 'false';
+    setUpElements(textDisplayArea.innerText.split('\n'));
+    updateTextDisplayArea(false);
   }
 }
 
@@ -299,28 +379,33 @@ function processCurrentFileLines(currentFileLines) {
  */
 function parseOneLine(line) {
   const tokens = splitString(line, 7);
-  if (tokens.length < 7) {
+  if (tokens.length !== 13) {
     return { isLogcat: false, originalLine: line };
   }
 
   const date = tokens[0];
-  const time = tokens[1];
-  const pid = parseInt(tokens[2], 10);
+  const time = tokens[2];
+  const pid = parseInt(tokens[4], 10);
   if (isNaN(pid)) {
     return { isLogcat: false, originalLine: line };
   }
-  const tid = parseInt(tokens[3], 10);
+  const tid = parseInt(tokens[6], 10);
   if (isNaN(tid)) {
     return { isLogcat: false, originalLine: line };
   }
-  const priority = tokens[4];
-  let tag = tokens[5];
+  const priority = tokens[8];
+  let tag = tokens[10];
   if (tag.endsWith(':')) {
     tag = tag.slice(0, -1);
   }
-  let message = tokens[6];
+  let message = tokens[12];
   if (message.startsWith(': ')) {
     message = message.slice(2);
+  } else {
+    const whitespaceBeforeMessage = tokens[11];
+    if (whitespaceBeforeMessage.length > 1) {
+      message = whitespaceBeforeMessage.slice(1) + message;
+    }
   }
 
   return { isLogcat: true, date, time, pid, tid, priority, tag, message };
@@ -330,6 +415,10 @@ function parseOneLine(line) {
  * Split the input string into at most |maxParts| parts by whitespace.
  * If there are more than |maxParts| parts, the last part will contain all the
  * rest of the string so that the return value has exactly |maxParts| parts.
+ * In addition to the parts that are not whitespace, the return value also
+ * contains the whitespaces in between each part. For example, if the input
+ * string is "abc def  ghi jk" and maxParts is 3, then the return value is
+ * ["abc", " ", "def", "  ", "ghi jk"].
  * @param {string} inputString
  * @param {number} maxParts
  * @return {Array<string>}
@@ -339,12 +428,15 @@ function splitString(inputString, maxParts) {
   const whitespaceRegex = /\s+/g;
   let previousIndex = 0;
 
-  while (parts.length < maxParts - 1) {
+  // Each part except the last one corresponds to two entries in the parts array
+  // so this loop keeps iterating while parts.length < (maxParts - 1) * 2
+  while (parts.length < maxParts * 2 - 2) {
     const match = whitespaceRegex.exec(inputString);
     if (!match) {
       break;
     }
     parts.push(inputString.substring(previousIndex, match.index));
+    parts.push(match[0]);
     previousIndex = whitespaceRegex.lastIndex;
   }
 
@@ -442,7 +534,9 @@ function handleProcessFilterOptionClick(event) {
   const type = listItem.dataset.type;
 
   listItem.classList.toggle('selected');
-  checkbox.checked = !checkbox.checked;
+  if (event.target.type !== 'checkbox') {
+    checkbox.checked = !checkbox.checked;
+  }
   const isSelected = checkbox.checked;
 
   if (type === 'main-process' && value === 'all') {
@@ -553,7 +647,9 @@ function handleTagFilterOptionClick(event) {
   const type = listItem.dataset.type;
 
   listItem.classList.toggle('selected');
-  checkbox.checked = !checkbox.checked;
+  if (event.target.type !== 'checkbox') {
+    checkbox.checked = !checkbox.checked;
+  }
   const isSelected = checkbox.checked;
 
   if (type === 'main-tag' && value === 'all') {
@@ -606,7 +702,9 @@ function handlePriorityFilterOptionClick(event) {
   const type = listItem.dataset.type;
 
   listItem.classList.toggle('selected');
-  checkbox.checked = !checkbox.checked;
+  if (event.target.type !== 'checkbox') {
+    checkbox.checked = !checkbox.checked;
+  }
   const isSelected = checkbox.checked;
 
   if (type === 'main-priority' && value === 'all') {
@@ -629,6 +727,25 @@ function updateDisplayAllPrioritySelection() {
     filterOption => filterOption.checkbox.checked);
   displayAllPriorities.li.classList.toggle('selected', allSelected);
   displayAllPriorities.checkbox.checked = allSelected;
+}
+
+/**
+ * Filters the dropdown items based on the search term.
+ * @param {string} searchTerm The text to search for.
+ * @param {Array<FilterOption>} filterOptions The array of dropdown items to
+ * filter.
+ */
+function filterDropdownItems(searchTerm, filterOptions) {
+  const lowerCaseSearchTerm = searchTerm.toLowerCase();
+  for (const filterOption of filterOptions) {
+    const labelText = filterOption.li.querySelector('label')
+      .textContent.toLowerCase();
+    if (labelText.includes(lowerCaseSearchTerm)) {
+      filterOption.li.style.display = ''; // Show the item
+    } else {
+      filterOption.li.style.display = 'none'; // Hide the item
+    }
+  }
 }
 
 /**
@@ -681,6 +798,7 @@ function updateTextDisplayArea(restoreScrollPosition = true) {
   // selected by the user.
   const displayedLineNumbers = [];
   const displayNonLogcatLines = displayNonLogcatCheckbox.checked;
+  const alwaysShowActivityManager = alwaysShowActivityManagerCheckbox.checked;
 
   for (const [i, parsedLine] of currentFileParsedLines.entries()) {
     if (!parsedLine.isLogcat) {
@@ -688,6 +806,13 @@ function updateTextDisplayArea(restoreScrollPosition = true) {
         displayedLineNumbers.push(i);
       }
       continue;
+    }
+
+    if (alwaysShowActivityManager) {
+      if (parsedLine.tag === 'ActivityManager') {
+        displayedLineNumbers.push(i);
+        continue;
+      }
     }
 
     if (selectedPids.has(parsedLine.pid) && selectedTags.has(parsedLine.tag) &&
@@ -909,6 +1034,46 @@ function jumpToNextException() {
       }
     }
   }
+
+  // If no next exception is found, display a feedback text.
+  nextExceptionFeedback.textContent = 'There is no next exception';
+  nextExceptionFeedback.classList.remove('hidden-element');
+  setTimeout(() => {
+    nextExceptionFeedback.classList.add('hidden-element');
+  }, 5000);
+}
+
+/**
+ * Scroll to the previous logcat line that represents a program exception.
+ */
+function jumpToPreviousException() {
+  // Find the first logcat line that is fully visible to the user.
+  const [firstVisibleLineNumber, _] = findFirstVisibleLine();
+  if (firstVisibleLineNumber === -1) {
+    return;
+  }
+
+  // Find the last line before the firstVisibleLine that represents
+  // a program exception and scroll to that line.
+  const logcatLines = Array.from(textDisplayArea.children);
+  for (let i = logcatLines.length - 1; i >= 0; i--) {
+    const logcatLine = logcatLines[i];
+    const lineNumber = parseInt(logcatLine.dataset.lineNumber, 10);
+    if (!isNaN(lineNumber) && lineNumber < firstVisibleLineNumber) {
+      const parsedLine = currentFileParsedLines[lineNumber];
+      if (isStartOfStackTrace(parsedLine)) {
+        scrollToLine(logcatLine);
+        return;
+      }
+    }
+  }
+
+  // If no previous exception is found, display a feedback text.
+  prevExceptionFeedback.textContent = 'There is no previous exception';
+  prevExceptionFeedback.classList.remove('hidden-element');
+  setTimeout(() => {
+    prevExceptionFeedback.classList.add('hidden-element');
+  }, 5000);
 }
 
 /**
@@ -947,6 +1112,46 @@ function jumpToNextTest() {
       }
     }
   }
+
+  // If no next test is found, display a feedback text.
+  nextTestFeedback.textContent = 'There is no next test';
+  nextTestFeedback.classList.remove('hidden-element');
+  setTimeout(() => {
+    nextTestFeedback.classList.add('hidden-element');
+  }, 5000);
+}
+
+/**
+ * Scroll to the previous logcat line that represents the start of a test.
+ */
+function jumpToPreviousTest() {
+  // Find the first logcat line that is fully visible to the user.
+  const [firstVisibleLineNumber, _] = findFirstVisibleLine();
+  if (firstVisibleLineNumber === -1) {
+    return;
+  }
+
+  // Find the last line before the firstVisibleLine that represents
+  // the start of a test and scroll to that line.
+  const logcatLines = Array.from(textDisplayArea.children);
+  for (let i = logcatLines.length - 1; i >= 0; i--) {
+    const logcatLine = logcatLines[i];
+    const lineNumber = parseInt(logcatLine.dataset.lineNumber, 10);
+    if (!isNaN(lineNumber) && lineNumber < firstVisibleLineNumber) {
+      const parsedLine = currentFileParsedLines[lineNumber];
+      if (isStartOfTest(parsedLine)) {
+        scrollToLine(logcatLine);
+        return;
+      }
+    }
+  }
+
+  // If no previous test is found, display a feedback text.
+  prevTestFeedback.textContent = 'There is no previous test';
+  prevTestFeedback.classList.remove('hidden-element');
+  setTimeout(() => {
+    prevTestFeedback.classList.add('hidden-element');
+  }, 5000);
 }
 
 /**

@@ -20,6 +20,7 @@
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -47,6 +48,7 @@
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
+#include "chrome/browser/ui/lens/lens_search_feature_flag_utils.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_client.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
@@ -80,7 +82,6 @@
 #include "chrome/browser/ui/views/passwords/manage_passwords_icon_views.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_dashboard_view.h"
-#include "chrome/browser/ui/views/sharing_hub/sharing_hub_icon_view.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
@@ -458,7 +459,7 @@ void LocationBarView::Init() {
     }
   }
 
-  if (browser_ && lens::features::IsLensOverlayEduActionChipEnabled()) {
+  if (browser_ && lens::IsLensOverlayEduActionChipEnabled()) {
     // Position in the leading position, like the expanding entrypoint for
     // kLensOverlay above. While both chips may be enabled, they will not appear
     // at the same time due to different focus behavior.
@@ -1123,6 +1124,11 @@ bool LocationBarView::ShouldHidePageActionIcons() const {
     return false;
   }
 
+  if (ShouldHidePageActionIconsForContext(
+          omnibox_view_->model()->GetPageClassification())) {
+    return true;
+  }
+
   // When the user is typing in the omnibox, the page action icons are no longer
   // associated with the current omnibox text, so hide them.
   if (omnibox_view_->model()->user_input_in_progress()) {
@@ -1154,6 +1160,29 @@ bool LocationBarView::ShouldHidePageActionIcon(
   return pinned_toolbar_actions_container &&
          pinned_toolbar_actions_container->IsActionPinnedOrPoppedOut(
              icon_view->action_id().value_or(-1));
+}
+
+bool LocationBarView::ShouldHidePageActionIconsForContext(
+    metrics::OmniboxEventProto::PageClassification page_context) const {
+  switch (page_context) {
+    case metrics::OmniboxEventProto::
+        INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS: {
+      // When the user is on the NTP and the AIM page action is eligible to be
+      // shown, suppress all other page actions in order to minimize UI
+      // instability when going from the steady-state to the on-focus Omnibox.
+      const auto* aim_eligibility_service =
+          AimEligibilityServiceFactory::GetForProfile(profile_);
+      const bool is_aim_page_action_enabled =
+          OmniboxFieldTrial::IsAimOmniboxEntrypointEnabled(
+              aim_eligibility_service);
+      const bool hide_other_page_actions_on_ntp =
+          omnibox_feature_configs::AiModeOmniboxEntryPoint::Get()
+              .hide_other_page_actions_on_ntp;
+      return is_aim_page_action_enabled && hide_other_page_actions_on_ntp;
+    }
+    default:
+      return false;
+  }
 }
 
 // static

@@ -20,7 +20,6 @@
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
 #include "components/autofill/core/browser/data_quality/addresses/profile_token_quality_test_api.h"
-#include "components/autofill/core/browser/strike_databases/test_inmemory_strike_database.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/browser/webdata/addresses/address_autofill_table.h"
 #include "components/autofill/core/browser/webdata/autofill_change.h"
@@ -33,6 +32,7 @@
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
+#include "components/strike_database/test_inmemory_strike_database.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/webdata/common/web_database_service.h"
@@ -89,7 +89,9 @@ class AddressDataManagerTest : public testing::Test {
         profile_web_database_,
         base::SingleThreadTaskRunner::GetCurrentDefault());
     profile_database_service_->Init(base::NullCallback());
-    ResetAddressDataManager();
+    MakePrimaryAccountAvailable(/*use_sync_transport_mode=*/false,
+                                identity_test_env_, sync_service_);
+    RecreateAddressDataManager();
   }
 
   void TearDown() override { profile_web_database_->ShutdownDatabase(); }
@@ -107,10 +109,7 @@ class AddressDataManagerTest : public testing::Test {
     run_loop.Run();
   }
 
-  void ResetAddressDataManager(bool use_sync_transport_mode = false) {
-    address_data_manager_.reset();
-    MakePrimaryAccountAvailable(use_sync_transport_mode, identity_test_env_,
-                                sync_service_);
+  void RecreateAddressDataManager() {
     address_data_manager_ = std::make_unique<AddressDataManager>(
         profile_database_service_, prefs_.get(), prefs_.get(), &sync_service_,
         identity_test_env_.identity_manager(), &strike_database_,
@@ -610,10 +609,10 @@ TEST_F(AddressDataManagerTest, AddUpdateRemoveProfiles) {
   EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile2)));
 
-  // Reset the PersonalDataManager.  This tests that the personal data was saved
-  // to the web database, and that we can load the profiles from the web
+  // Recreate the address data manager. This tests that the address data was
+  // saved to the web database, and that we can load the profiles from the web
   // database.
-  ResetAddressDataManager();
+  RecreateAddressDataManager();
 
   // Verify that we've loaded the profiles from the web database.
   EXPECT_THAT(address_data_manager().GetProfiles(),
@@ -813,10 +812,10 @@ TEST_F(AddressDataManagerTest, SetEmptyProfile) {
   // Add the empty profile to the database.
   AddProfileToAddressDataManager(profile0);
 
-  // Reset the PersonalDataManager.  This tests that the personal data was saved
-  // to the web database, and that we can load the profiles from the web
+  // Recreate the address data manager. This tests that the address data was
+  // saved to the web database, and that we can load the profiles from the web
   // database.
-  ResetAddressDataManager();
+  RecreateAddressDataManager();
 
   // Verify that we've loaded the profiles from the web database.
   ASSERT_EQ(0U, address_data_manager().GetProfiles().size());
@@ -1212,8 +1211,10 @@ TEST_F(AddressDataManagerTest,
 }
 
 TEST_F(AddressDataManagerTest, AutofillSyncToggleAvailableInTransportMode) {
-  ResetAddressDataManager(
-      /*use_sync_transport_mode=*/true);
+  identity_test_env_.ClearPrimaryAccount();
+  MakePrimaryAccountAvailable(/*use_sync_transport_mode=*/true,
+                              identity_test_env_, sync_service_);
+  RecreateAddressDataManager();
   const CoreAccountInfo& account = sync_service_.GetAccountInfo();
   identity_test_env_.SimulateSuccessfulFetchOfAccountInfo(
       account.account_id, account.email, account.gaia,
@@ -1227,6 +1228,26 @@ TEST_F(AddressDataManagerTest, AutofillSyncToggleAvailableInTransportMode) {
   EXPECT_FALSE(address_data_manager().IsAutofillSyncToggleAvailable());
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+// Tests that any `kAccountNameEmail` is created on construction of
+// `AddressDataManager`.
+TEST_F(AddressDataManagerTest, CreateAccountNameEmailProfileAfterInitalLoad) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillEnableSupportForNameAndEmail};
+
+  const CoreAccountInfo core_info =
+      identity_test_env_.identity_manager()->GetPrimaryAccountInfo(
+          signin::ConsentLevel::kSignin);
+  identity_test_env_.SimulateSuccessfulFetchOfAccountInfo(
+      core_info.account_id, core_info.email, core_info.gaia, "", "Full Name",
+      "Full", "en-US", "");
+  RecreateAddressDataManager();
+
+  EXPECT_THAT(address_data_manager().GetProfiles(),
+              ElementsAre(testing::Property(
+                  &AutofillProfile::record_type,
+                  AutofillProfile::RecordType::kAccountNameEmail)));
+}
 
 }  // namespace
 

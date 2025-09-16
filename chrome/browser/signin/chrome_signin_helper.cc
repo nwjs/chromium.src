@@ -39,6 +39,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/signin/android/signin_bridge.h"
+#include "chrome/browser/signin/android/signin_bridge_factory.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/common/webui_url_constants.h"
@@ -197,7 +198,8 @@ bool IsWebContentsForemost(Profile* profile,
   }
   return true;
 #elif BUILDFLAG(IS_ANDROID)
-  if (!base::FeatureList::IsEnabled(kIgnoreMirrorHeadersInBackgoundTabs)) {
+  if (!base::FeatureList::IsEnabled(
+          switches::kIgnoreMirrorHeadersInBackgoundTabs)) {
     return true;
   }
   TabModel* tab_model = TabModelList::GetTabModelForWebContents(web_contents);
@@ -333,30 +335,41 @@ void ProcessMirrorHeader(
   return;
 
 #elif BUILDFLAG(IS_ANDROID)
+  GURL continue_url = GURL(manage_accounts_params.continue_url.empty()
+                               ? chrome::kChromeUINativeNewTabURL
+                               : manage_accounts_params.continue_url);
+
   if (manage_accounts_params.show_consistency_promo) {
-    SigninBridge::OpenAccountPickerBottomSheet(
-        web_contents, manage_accounts_params.continue_url.empty()
-                          ? chrome::kChromeUINativeNewTabURL
-                          : manage_accounts_params.continue_url);
+    SigninBridgeFactory::GetForProfile(profile)->OpenAccountPickerBottomSheet(
+        web_contents, continue_url);
     return;
   }
+
   if (service_type == signin::GAIA_SERVICE_TYPE_INCOGNITO) {
-    GURL url(manage_accounts_params.continue_url.empty()
-                 ? chrome::kChromeUINativeNewTabURL
-                 : manage_accounts_params.continue_url);
     web_contents->OpenURL(
-        content::OpenURLParams(url, content::Referrer(),
+        content::OpenURLParams(continue_url, content::Referrer(),
                                WindowOpenDisposition::OFF_THE_RECORD,
                                ui::PAGE_TRANSITION_AUTO_TOPLEVEL, false),
         /*navigation_handle_callback=*/{});
-  } else {
-    signin_metrics::LogAccountReconcilorStateOnGaiaResponse(
-        account_reconcilor->GetState());
-    auto* window = web_contents->GetNativeView()->GetWindowAndroid();
-    if (!window)
-      return;
-    SigninBridge::OpenAccountManagementScreen(window, service_type);
+    return;
   }
+
+  auto* window = web_contents->GetNativeView()->GetWindowAndroid();
+  if (!window) {
+    return;
+  }
+
+  if (service_type == signin::GAIA_SERVICE_TYPE_ADDSESSION &&
+      base::FeatureList::IsEnabled(switches::kSupportWebSigninAddSession)) {
+    SigninBridgeFactory::GetForProfile(profile)->StartAddAccountFlow(
+        window, manage_accounts_params.email, continue_url);
+    return;
+  }
+
+  signin_metrics::LogAccountReconcilorStateOnGaiaResponse(
+      account_reconcilor->GetState());
+  SigninBridgeFactory::GetForProfile(profile)->OpenAccountManagementScreen(
+      window, service_type);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 #endif  // BUILDFLAG(ENABLE_MIRROR)

@@ -559,6 +559,8 @@ SitePerProcessBrowserTest::SitePerProcessBrowserTest() {
   InitAndEnableRenderDocumentFeature(&feature_list_, GetParam());
 }
 
+SitePerProcessBrowserTest::~SitePerProcessBrowserTest() = default;
+
 std::string SitePerProcessBrowserTest::GetExpectedOrigin(
     const std::string& host) {
   GURL url = embedded_test_server()->GetURL(host, "/");
@@ -6413,31 +6415,6 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   EXPECT_EQ(3u, Shell::windows().size());
 }
 
-// Intercepts calls to PopupWidgetHost's RequestClosePopup mojo method, and
-// discards it. The caller has to guarantee that `render_widget_host` lives at
-// least as long as RequestCloseWidgetInterceptor.
-class RequestCloseWidgetInterceptor
-    : public blink::mojom::PopupWidgetHostInterceptorForTesting {
- public:
-  explicit RequestCloseWidgetInterceptor(
-      RenderWidgetHostImpl* render_widget_host)
-      : swapped_impl_(
-            render_widget_host->popup_widget_host_receiver_for_testing(),
-            this) {}
-
-  ~RequestCloseWidgetInterceptor() override = default;
-
-  blink::mojom::PopupWidgetHost* GetForwardingInterface() override {
-    return swapped_impl_.old_impl();
-  }
-
-  void RequestClosePopup() override {}
-
- private:
-  mojo::test::ScopedSwapImplForTesting<blink::mojom::PopupWidgetHost>
-      swapped_impl_;
-};
-
 // Intercepts calls to PopupWidgetHost's ShowPopup mojo method, and
 // invokes the provided callback. The caller has to guarantee that
 // `render_widget_host` lives at least as long as
@@ -9962,7 +9939,9 @@ class TouchSelectionControllerClientAndroidSiteIsolationTest
     ui::MotionEventAndroid::Pointer p(0, point.x(), point.y(), 10, 0, 0, 0, 0,
                                       0);
     JNIEnv* env = base::android::AttachCurrentThread();
-    auto time_ns = (ui::EventTimeForNow() - base::TimeTicks()).InNanoseconds();
+    auto event_time = ui::EventTimeForNow();
+    auto down_time_ms =
+        base::TimeTicks::FromUptimeMillis(event_time.ToUptimeMillis());
 
     base::android::ScopedJavaLocalRef<jobject> obj =
         JNI_MotionEvent::Java_MotionEvent_obtain(
@@ -9974,7 +9953,9 @@ class TouchSelectionControllerClientAndroidSiteIsolationTest
         /*ticks_x=*/0,
         /*ticks_y=*/0,
         /*tick_multiplier=*/0,
-        /*oldest_event_time=*/base::TimeTicks::FromJavaNanoTime(time_ns),
+        /*oldest_event_time=*/event_time,
+        /*latest_event_time=*/event_time,
+        /*down_time_ms=*/down_time_ms,
         /*android_action=*/ui::MotionEventAndroid::GetAndroidAction(action),
         /*pointer_count=*/1,
         /*history_size=*/0,
@@ -9986,7 +9967,8 @@ class TouchSelectionControllerClientAndroidSiteIsolationTest
         /*raw_offset_y_pixels=*/0,
         /*for_touch_handle=*/false,
         /*pointer0=*/&p,
-        /*pointer1=*/nullptr);
+        /*pointer1=*/nullptr,
+        /*is_latest_event_time_resampled=*/false);
     view->OnTouchEvent(*touch);
   }
 
@@ -10876,7 +10858,7 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   EXPECT_FALSE(second_shell_instance->IsRelatedSiteInstance(
       root->current_frame_host()->GetSiteInstance()));
   RenderProcessHost* bar_process = second_shell_instance->GetProcess();
-  EXPECT_EQ(ProcessReusePolicy::DEFAULT,
+  EXPECT_EQ(ProcessReusePolicy::kDefault,
             second_shell_instance->process_reuse_policy());
 
   // Now navigate the first tab's subframe to bar.com.  Confirm that it reuses
@@ -10885,7 +10867,7 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   EXPECT_EQ(bar_url, child->current_url());
   EXPECT_EQ(bar_process, child->current_frame_host()->GetProcess());
   EXPECT_EQ(
-      ProcessReusePolicy::REUSE_PENDING_OR_COMMITTED_SITE_SUBFRAME,
+      ProcessReusePolicy::kReusePendingOrCommittedSiteSubframe,
       child->current_frame_host()->GetSiteInstance()->process_reuse_policy());
 
   EXPECT_TRUE(child->current_frame_host()->IsCrossProcessSubframe());
@@ -10977,7 +10959,7 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessNoSharingBrowserTest,
   EXPECT_EQ(foo_url, second_child->current_url());
   scoped_refptr<SiteInstanceImpl> second_child_foo_instance =
       second_child->current_frame_host()->GetSiteInstance();
-  EXPECT_EQ(ProcessReusePolicy::REUSE_PENDING_OR_COMMITTED_SITE_SUBFRAME,
+  EXPECT_EQ(ProcessReusePolicy::kReusePendingOrCommittedSiteSubframe,
             second_child_foo_instance->process_reuse_policy());
   EXPECT_NE(foo_instance, second_child_foo_instance);
   EXPECT_EQ(foo_instance->GetProcess(),
@@ -11911,9 +11893,9 @@ class GpuInfoUpdateObserver : public GpuDataManagerObserver {
 };
 
 // Checks if RenderInputRouterDelegate mojo connection is reset when GPU process
-// restarts.
+// restarts. Disabled due to flake: crbug.com/439855865.
 IN_PROC_BROWSER_TEST_P(AndroidInputBrowserTest,
-                       RestartingGPUProcessResetsMojoConnection) {
+                       DISABLED_RestartingGPUProcessResetsMojoConnection) {
   base::test::TestTraceProcessor ttp;
   ttp.StartTrace("viz");
   RenderFrameSubmissionObserver render_frame_submission_observer(
@@ -14090,9 +14072,9 @@ IN_PROC_BROWSER_TEST_P(DisableProcessReusePolicyTest,
 
   scoped_refptr<SiteInstanceImpl> second_shell_instance =
       second_child->current_frame_host()->GetSiteInstance();
-  EXPECT_NE(ProcessReusePolicy::REUSE_PENDING_OR_COMMITTED_SITE_WORKER,
+  EXPECT_NE(ProcessReusePolicy::kReusePendingOrCommittedSiteWorker,
             second_shell_instance->process_reuse_policy());
-  EXPECT_NE(ProcessReusePolicy::REUSE_PENDING_OR_COMMITTED_SITE_SUBFRAME,
+  EXPECT_NE(ProcessReusePolicy::kReusePendingOrCommittedSiteSubframe,
             second_shell_instance->process_reuse_policy());
 
   EXPECT_NE(child->current_frame_host()->GetProcess(),
@@ -14532,12 +14514,22 @@ class SitePerProcessWithMainFrameThresholdLocalhostTest
       public ::testing::WithParamInterface<bool> {
  public:
   SitePerProcessWithMainFrameThresholdLocalhostTest() {
-    scoped_feature_list_.InitAndEnableFeatureWithParameters(
-        features::kProcessPerSiteUpToMainFrameThreshold,
-        {{"ProcessPerSiteMainFrameThreshold",
-          base::StringPrintf("%zu", kDefaultThreshold)},
-         {"ProcessPerSiteMainFrameAllowIPAndLocalhost",
-          base::ToString(IsLocalhostAllowed())}});
+    std::vector<base::test::FeatureRefAndParams> enabled_features = {
+        {features::kProcessPerSiteUpToMainFrameThreshold,
+         {
+             {"ProcessPerSiteMainFrameThreshold",
+              base::StringPrintf("%zu", kDefaultThreshold)},
+         }}};
+    std::vector<base::test::FeatureRef> disabled_features;
+    if (IsLocalhostAllowed()) {
+      enabled_features.emplace_back(base::test::FeatureRefAndParams(
+          features::kMainFrameProcessReuseAllowIPAndLocalhost, {}));
+    } else {
+      disabled_features.emplace_back(
+          features::kMainFrameProcessReuseAllowIPAndLocalhost);
+    }
+    scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features,
+                                                       disabled_features);
   }
   ~SitePerProcessWithMainFrameThresholdLocalhostTest() override = default;
 

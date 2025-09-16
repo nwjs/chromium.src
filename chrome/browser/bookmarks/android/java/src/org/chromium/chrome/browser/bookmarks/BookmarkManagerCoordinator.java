@@ -43,7 +43,6 @@ import org.chromium.chrome.browser.ui.signin.signin_promo.BookmarkSigninPromoDel
 import org.chromium.chrome.browser.ui.signin.signin_promo.SigninPromoCoordinator;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
-import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.browser_ui.util.GlobalDiscardableReferencePool;
 import org.chromium.components.browser_ui.widget.dragreorder.DragReorderableRecyclerViewAdapter;
@@ -57,6 +56,7 @@ import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.image_fetcher.ImageFetcherConfig;
 import org.chromium.components.image_fetcher.ImageFetcherFactory;
 import org.chromium.ui.KeyboardVisibilityDelegate;
+import org.chromium.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
@@ -74,7 +74,7 @@ public class BookmarkManagerCoordinator
     private final SelectionDelegate<BookmarkId> mSelectionDelegate =
             new SelectionDelegate<>() {
                 @Override
-                public boolean toggleSelectionForItem(@Nullable BookmarkId bookmarkId) {
+                public boolean toggleSelectionForItem(BookmarkId bookmarkId) {
                     BookmarkItem bookmarkItem = mBookmarkModel.getBookmarkById(bookmarkId);
                     if (bookmarkItem != null && !bookmarkItem.isEditable()) {
                         return false;

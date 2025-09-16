@@ -62,6 +62,13 @@ export function createSpeechErrorEvent(
       'type', {utterance: utterance, error: errorCode});
 }
 
+export function createWordBoundaryEvent(
+    utterance: SpeechSynthesisUtterance, charIndex: number,
+    charLength?: number) {
+  return new SpeechSynthesisEvent(
+      'type', {name: 'word', utterance, charIndex, charLength});
+}
+
 export function setupBasicSpeech(speech: TestSpeechBrowserProxy) {
   VoiceLanguageController.getInstance().enableLang('en');
   createAndSetVoices(
@@ -118,10 +125,10 @@ export function setSimpleAxTreeWithText(text: string) {
 
 export function setSimpleNodeStoreWithText(text: string) {
   const id = 2;
-  chrome.readingMode.getCurrentText = () => [id];
+  chrome.readingMode.getCurrentTextSegments =
+      () => [{nodeId: id, start: 0, length: text.length}];
+  chrome.readingMode.getCurrentTextContent = () => text;
   chrome.readingMode.getTextContent = () => text;
-  chrome.readingMode.getCurrentTextStartIndex = () => 0;
-  chrome.readingMode.getCurrentTextEndIndex = () => text.length;
   NodeStore.getInstance().setDomNode(document.createTextNode(text), id);
 }
 

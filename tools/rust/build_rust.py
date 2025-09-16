@@ -50,19 +50,23 @@ import urllib
 from pathlib import Path
 
 # Get variables and helpers from Clang update script.
+THIS_DIR = os.path.dirname(__file__)
 sys.path.append(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'clang',
                  'scripts'))
 
 from build import (AddCMakeToPath, AddZlibToPath, CheckoutGitRepo, CopyFile,
                    DownloadDebianSysroot, GetLibXml2Dirs, GitCherryPick,
+                   GitRevert, LLVM_DIR, IsGitAncestorToHead,
                    LLVM_BUILD_TOOLS_DIR, RunCommand)
 from update import (CHROMIUM_DIR, DownloadAndUnpack, EnsureDirExists,
-                    GetDefaultHostOs, RmTree, UpdatePackage)
+                    GetDefaultHostOs, RmTree, WriteStampFile, UpdatePackage)
 
 from update_rust import (RUST_REVISION, RUST_TOOLCHAIN_OUT_DIR,
                          STAGE0_JSON_SHA256, THIRD_PARTY_DIR, VERSION_SRC_PATH,
                          GetRustClangRevision)
+
+from package import TeeCmd
 
 EXCLUDED_TESTS = [
     # Temporarily disabled due to https://crbug.com/396424971
@@ -76,6 +80,9 @@ EXCLUDED_TESTS_WINDOWS = [
 
     # Temporarily disabled due to https://crbug.com/400524229
     os.path.join('tests', 'ui', 'process', 'win-command-child-path.rs'),
+
+    # Temporarily disabled due to https://crbug.com/436652831
+    os.path.join('tests', 'ui', 'asm', 'x86_64', 'may_unwind.rs'),
 ]
 EXCLUDED_TESTS_MAC = [
 ]
@@ -112,6 +119,10 @@ RUST_HOST_LLVM_INSTALL_DIR = os.path.join(CHROMIUM_DIR, 'third_party',
                                           'rust-toolchain-intermediate',
                                           'llvm-host-install')
 
+RUST_BETA_SYSROOT_DIR = os.path.join(THIRD_PARTY_DIR,
+                                     'rust-toolchain-intermediate',
+                                     'beta-sysroot')
+
 # CIPD Versions from:
 # - List all platforms
 # cipd ls infra/3pp/static_libs/openssl/
@@ -146,6 +157,19 @@ TEST_SUITES = [
     'tests/codegen-llvm',
     'tests/ui',
 ]
+
+
+def InstallRustBetaSysroot(rust_git_hash, target_triples):
+    if os.path.exists(RUST_BETA_SYSROOT_DIR):
+        RmTree(RUST_BETA_SYSROOT_DIR)
+    InstallBetaPackage(FetchBetaPackage('cargo', rust_git_hash),
+                       RUST_BETA_SYSROOT_DIR)
+    InstallBetaPackage(FetchBetaPackage('rustc', rust_git_hash),
+                       RUST_BETA_SYSROOT_DIR)
+    for t in target_triples:
+        InstallBetaPackage(
+            FetchBetaPackage('rust-std', rust_git_hash, triple=t),
+            RUST_BETA_SYSROOT_DIR)
 
 
 def AddOpenSSLToEnv():
@@ -521,7 +545,7 @@ def RustTargetTriple():
 
 
 # Build the LLVM libraries and install them .
-def BuildLLVMLibraries(skip_build):
+def BuildLLVMLibraries(skip_build, llvm_force_head_revision):
     if not skip_build:
         print(f'Building the host LLVM in {RUST_HOST_LLVM_BUILD_DIR}...')
         build_cmd = [
@@ -536,6 +560,8 @@ def BuildLLVMLibraries(skip_build):
             # Not using this in Rust yet, see also crbug.com/1476464.
             '--without-zstd',
         ]
+        if llvm_force_head_revision:
+            build_cmd.append('--llvm-force-head-revision')
         if sys.platform.startswith('linux'):
             build_cmd.append('--without-android')
             build_cmd.append('--without-fuchsia')
@@ -596,6 +622,9 @@ def GitApplyCherryPicks():
     # with `GitMoveSubmoduleBranch()`.
     #############################
 
+    # TODO(https://crbug.com/441524277): remove revert after resolving issue upstream
+    GitRevert(RUST_SRC_DIR, '8ea3b093819aabd92a605b42989341da0c97c0d6')
+
     print('Finished applying cherry-picks.')
 
 
@@ -638,6 +667,14 @@ def main():
     parser.add_argument('--skip-install',
                         action='store_true',
                         help='do not install to RUST_TOOLCHAIN_OUT_DIR')
+    parser.add_argument(
+        '--preserve-gcs-signature',
+        action='store_true',
+        help='By default, this script removes gcs hash files '
+        'so that third_party/llvm-build is clobbered on the next'
+        'run of gclient sync. This disables that, so that the'
+        'directory will be preserved when syncing. Useful for'
+        'local development.')
     parser.add_argument('--rust-force-head-revision',
                         action='store_true',
                         help='build the latest revision')
@@ -653,6 +690,28 @@ def main():
         'running specified command, skipping all normal build steps. For '
         'debugging. Running x.py directly will not set the appropriate env '
         'variables nor update config.toml')
+    parser.add_argument(
+        '--llvm-force-head-revision',
+        action='store_true',
+        help='Checkout and build against the most recent llvm revision,'
+        'rather than the one specified in tools/clang/scripts/update.py')
+    parser.add_argument(
+        '--build-bindgen',
+        action='store_true',
+        help='After building rust, also build bindgen using build_bindgen.py')
+    parser.add_argument(
+        '--build-vet',
+        action='store_true',
+        help='After building rust, also build cargo-vet using build_vet.py')
+    parser.add_argument(
+        '--build-crubit',
+        action='store_true',
+        help='After building rust, also build crubit using build_crubit.py')
+    parser.add_argument(
+        '--gnrt-stdlib',
+        action='store_true',
+        help='After building rust, also generate stdlib GN rules using '
+        'gnrt_stdlib.py')
     if sys.platform == 'win32':
         parser.add_argument('--sh', help='path to the sh.exe to use')
     args, rest = parser.parse_known_args()
@@ -780,14 +839,17 @@ def main():
     if args.sync_for_gnrt:
         return 0
 
-    VerifyStage0JsonHash()
+    # If we're pulling the most recent rust, we shouldn't expect its stage 0
+    # hash to match the pinned one.
+    if not args.rust_force_head_revision:
+        VerifyStage0JsonHash()
     if args.verify_stage0_hash:
         # The above function exits and prints the actual hash if
         # verification failed so we just quit here; if we reach this point,
         # the hash is valid.
         return 0
 
-    BuildLLVMLibraries(args.skip_llvm_build)
+    BuildLLVMLibraries(args.skip_llvm_build, args.llvm_force_head_revision)
 
     AddCMakeToPath()
 
@@ -818,24 +880,58 @@ def main():
         print('Installing stage 2 artifacts...')
         xpy.run('build', xpy_args + ['--stage', '2'] + BUILD_TARGETS)
 
-    if args.skip_install:
-        # Rust is fully built. We can quit.
-        return 0
+    if not args.skip_install:
+        print(f'Installing Rust to {RUST_TOOLCHAIN_OUT_DIR} ...')
+        # Clean output directory.
+        if os.path.exists(RUST_TOOLCHAIN_OUT_DIR):
+            RmTree(RUST_TOOLCHAIN_OUT_DIR)
 
-    print(f'Installing Rust to {RUST_TOOLCHAIN_OUT_DIR} ...')
-    # Clean output directory.
-    if os.path.exists(RUST_TOOLCHAIN_OUT_DIR):
-        RmTree(RUST_TOOLCHAIN_OUT_DIR)
+        xpy.run('install', xpy_args + [])
 
-    xpy.run('install', xpy_args + [])
+        WriteStampFile(MakeVersionStamp(checkout_revision), VERSION_SRC_PATH,
+                       args.preserve_gcs_signature)
 
     # The Rust stdlib deps are vendored to rust-src/library/vendor, and later
     # the x.py install process copies all subdirs of rust-src/library to the
     # toolchain package, so we do not need to explicitly copy the vendor dir.
     # This is left as a note in case that behavior changes.
 
-    with open(VERSION_SRC_PATH, 'w') as stamp:
-        stamp.write(MakeVersionStamp(checkout_revision))
+    with open(os.path.join(THIRD_PARTY_DIR,
+                           f'rust-buildlog-{checkout_revision}.txt'),
+              'w',
+              encoding='utf-8') as log:
+        if args.build_bindgen:
+            build_cmd = [
+                sys.executable,
+                os.path.join(THIS_DIR, 'build_bindgen.py')
+            ]
+            TeeCmd(build_cmd, log)
+
+        if args.build_vet:
+            build_cmd = [
+                sys.executable,
+                os.path.join(THIS_DIR, 'build_vet.py')
+            ]
+            TeeCmd(build_cmd, log)
+
+        if args.build_crubit:
+            build_cmd = [
+                sys.executable,
+                os.path.join(THIS_DIR, 'build_crubit.py')
+            ]
+            # TODO: crbug.com/40226863 - Remove `fail_hard=False` once we can
+            # depend on the OSS Crubit build staying green with latest Rust and
+            # Clang.
+            TeeCmd(build_cmd, log, fail_hard=False)
+
+        if args.gnrt_stdlib:
+            InstallRustBetaSysroot(checkout_revision, [RustTargetTriple()])
+            build_cmd = [
+                sys.executable,
+                os.path.join(THIS_DIR, 'gnrt_stdlib.py'), '--skip-prep'
+            ]
+            TeeCmd(build_cmd, log)
+
 
     return 0
 

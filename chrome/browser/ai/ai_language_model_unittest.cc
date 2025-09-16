@@ -1093,8 +1093,6 @@ TEST_F(AILanguageModelTest, ModelDownload) {
       update_client::ComponentState::kDownloading, kTestModelDownloadSize));
 
   mock_monitor.ExpectReceivedNormalizedUpdate(0, kTestModelDownloadSize);
-  mock_monitor.ExpectReceivedNormalizedUpdate(kTestModelDownloadSize,
-                                              kTestModelDownloadSize);
 }
 
 TEST_F(AILanguageModelTest, MeasureInputUsage) {
@@ -1339,10 +1337,9 @@ TEST_F(AILanguageModelTest, MAYBE_CanCreate_WaitsForEligibility) {
       eligibility_future;
   EXPECT_CALL(*mock_optimization_guide_keyed_service_,
               GetOnDeviceModelEligibilityAsync(_, _, _))
-      .WillOnce(
-          testing::Invoke([&](auto feature, auto capabilities, auto callback) {
-            eligibility_future.SetValue(std::move(callback));
-          }));
+      .WillOnce([&](auto feature, auto capabilities, auto callback) {
+        eligibility_future.SetValue(std::move(callback));
+      });
 
   base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult>
       result_future;

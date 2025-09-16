@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.ntp_customization;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
+import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.CHROME_COLORS;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.FEED;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.MAIN;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.MVT;
@@ -23,6 +24,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.provider.Browser;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsIntent;
@@ -39,8 +41,8 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.edge_to_edge.EdgeToEdgeStateProvider;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -54,13 +56,13 @@ public class NtpCustomizationUtils {
     @IntDef({
         NtpBackgroundImageType.DEFAULT,
         NtpBackgroundImageType.IMAGE_FROM_DISK,
-        NtpBackgroundImageType.COLOR_COLOR,
+        NtpBackgroundImageType.CHROME_COLOR,
         NtpBackgroundImageType.CHROME_THEME
     })
     public @interface NtpBackgroundImageType {
         int DEFAULT = 0;
         int IMAGE_FROM_DISK = 1;
-        int COLOR_COLOR = 2;
+        int CHROME_COLOR = 2;
         int CHROME_THEME = 3;
         int NUM_ENTRIES = 4;
     }
@@ -113,6 +115,8 @@ public class NtpCustomizationUtils {
             case THEME_COLLECTIONS:
             case SINGLE_THEME_COLLECTION:
                 return R.string.ntp_customization_theme_collections_bottom_sheet;
+            case CHROME_COLORS:
+                return R.string.ntp_customization_chrome_colors_bottom_sheet;
             default:
                 assert false : "Bottom sheet type not supported!";
                 return -1;
@@ -139,6 +143,8 @@ public class NtpCustomizationUtils {
             case THEME_COLLECTIONS:
             case SINGLE_THEME_COLLECTION:
                 return R.string.ntp_customization_theme_collections_bottom_sheet_opened_full;
+            case CHROME_COLORS:
+                return R.string.ntp_customization_chrome_colors_bottom_sheet_opened_full;
             default:
                 assert false : "Bottom sheet type not supported!";
                 return -1;
@@ -284,13 +290,44 @@ public class NtpCustomizationUtils {
         return BitmapFactory.decodeFile(file.getPath(), null);
     }
 
+    /**
+     * Sets the NTP's background color to the SharedPreference.
+     *
+     * @param color The new background color.
+     */
+    static void setBackgroundColor(@ColorInt int color) {
+        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
+        prefsManager.writeInt(ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR, color);
+    }
+
+    /** Gets the NTP's background color from the SharedPreference. */
+    static @ColorInt int getBackgroundColorFromSharedPreference(@ColorInt int defaultColor) {
+        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
+        return prefsManager.readInt(
+                ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR, defaultColor);
+    }
+
+    /** Removes the NTP's background color key from the SharedPreference. */
+    static void resetBackgroundColor() {
+        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
+        prefsManager.removeKey(ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR);
+    }
+
     /** Returns whether all flags are enabled to allow edge-to-edge for customized theme. */
     public static boolean canEnableEdgeToEdgeForCustomizedTheme(
             WindowAndroid windowAndroid, boolean isTablet) {
+        return canEnableEdgeToEdgeForCustomizedTheme(isTablet)
+                && EdgeToEdgeStateProvider.isEdgeToEdgeEnabledForWindow(windowAndroid);
+    }
+
+    /**
+     * Returns whether all flags are enabled to allow edge-to-edge for customized theme. This method
+     * doesn't check EdgeToEdgeStateProvider.
+     */
+    public static boolean canEnableEdgeToEdgeForCustomizedTheme(boolean isTablet) {
         return !isTablet
                 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-                && ChromeFeatureList.sNewTabPageCustomizationV2.isEnabled()
-                && EdgeToEdgeStateProvider.isEdgeToEdgeEnabledForWindow(windowAndroid);
+                && ChromeFeatureList.sNewTabPageCustomizationV2.isEnabled();
     }
 
     /**
@@ -326,5 +363,6 @@ public class NtpCustomizationUtils {
     public static void resetSharedPreferenceForTesting() {
         SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
         prefsManager.removeKey(ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_IMAGE_TYPE);
+        prefsManager.removeKey(ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR);
     }
 }

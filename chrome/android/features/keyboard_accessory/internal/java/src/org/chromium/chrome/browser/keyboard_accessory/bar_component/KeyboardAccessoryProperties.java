@@ -15,9 +15,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
+import org.chromium.chrome.browser.keyboard_accessory.AccessoryAction;
+import org.chromium.chrome.browser.keyboard_accessory.ManualFillingMetricsRecorder;
+import org.chromium.chrome.browser.keyboard_accessory.R;
 import org.chromium.chrome.browser.keyboard_accessory.button_group_component.KeyboardAccessoryButtonGroupCoordinator.SheetOpenerCallbacks;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData.Action;
-import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.autofill.AutofillProfilePayload;
 import org.chromium.components.autofill.AutofillSuggestion;
@@ -31,7 +34,6 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModel.ReadableBooleanPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.ReadableObjectPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableBooleanPropertyKey;
-import org.chromium.ui.modelutil.PropertyModel.WritableIntPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
 
 import java.lang.annotation.Retention;
@@ -39,10 +41,9 @@ import java.lang.annotation.RetentionPolicy;
 
 /**
  * As model of the keyboard accessory component, this class holds the data relevant to the visual
- * state of the accessory.
- * This includes the visibility of the accessory, its relative position and actions. Whenever the
- * state changes, it notifies its listeners - like the {@link KeyboardAccessoryMediator} or a
- * ModelChangeProcessor.
+ * state of the accessory. This includes the visibility of the accessory, its relative position and
+ * actions. Whenever the state changes, it notifies its listeners - like the {@link
+ * KeyboardAccessoryMediator} or a ModelChangeProcessor.
  */
 class KeyboardAccessoryProperties {
     static final ReadableObjectPropertyKey<ListModel<BarItem>> BAR_ITEMS =
@@ -50,11 +51,14 @@ class KeyboardAccessoryProperties {
     static final WritableBooleanPropertyKey VISIBLE = new WritableBooleanPropertyKey("visible");
     static final WritableBooleanPropertyKey SKIP_CLOSING_ANIMATION =
             new WritableBooleanPropertyKey("skip_closing_animation");
-    static final WritableIntPropertyKey BOTTOM_OFFSET_PX = new WritableIntPropertyKey("offset");
     static final WritableObjectPropertyKey<SheetOpenerBarItem> SHEET_OPENER_ITEM =
             new WritableObjectPropertyKey<>("sheet_opener_item");
+    static final WritableObjectPropertyKey<DismissBarItem> DISMISS_ITEM =
+            new WritableObjectPropertyKey<>("dismiss_item");
     static final ReadableBooleanPropertyKey DISABLE_ANIMATIONS_FOR_TESTING =
             new ReadableBooleanPropertyKey("skip_all_animations_for_testing");
+    static final WritableObjectPropertyKey<KeyboardAccessoryStyle> STYLE =
+            new WritableObjectPropertyKey<>("style");
     static final WritableObjectPropertyKey<Callback<Integer>> OBFUSCATED_CHILD_AT_CALLBACK =
             new WritableObjectPropertyKey<>("obfuscated_child_at_callback");
     static final PropertyModel.WritableObjectPropertyKey<Callback<Boolean>>
@@ -64,6 +68,8 @@ class KeyboardAccessoryProperties {
             new WritableBooleanPropertyKey("show_swiping_iph");
     static final WritableBooleanPropertyKey HAS_SUGGESTIONS =
             new WritableBooleanPropertyKey("has_suggestions");
+    static final WritableBooleanPropertyKey HAS_STICKY_LAST_ITEM =
+            new WritableBooleanPropertyKey("has_sticky_last_item");
 
     static final WritableObjectPropertyKey<KeyboardAccessoryView.AnimationListener>
             ANIMATION_LISTENER = new WritableObjectPropertyKey<>("animation_listener");
@@ -74,12 +80,14 @@ class KeyboardAccessoryProperties {
                         BAR_ITEMS,
                         VISIBLE,
                         SKIP_CLOSING_ANIMATION,
-                        BOTTOM_OFFSET_PX,
+                        STYLE,
                         SHEET_OPENER_ITEM,
+                        DISMISS_ITEM,
                         OBFUSCATED_CHILD_AT_CALLBACK,
                         ON_TOUCH_EVENT_CALLBACK,
                         SHOW_SWIPING_IPH,
                         HAS_SUGGESTIONS,
+                        HAS_STICKY_LAST_ITEM,
                         ANIMATION_LISTENER)
                 .with(BAR_ITEMS, new ListModel<>())
                 .with(VISIBLE, false)
@@ -101,7 +109,8 @@ class KeyboardAccessoryProperties {
             Type.LOYALTY_CARD_SUGGESTION,
             Type.HOME_AND_WORK_SUGGESTION,
             Type.TAB_LAYOUT,
-            Type.ACTION_CHIP
+            Type.ACTION_CHIP,
+            Type.DISMISS_CHIP
         })
         @Retention(RetentionPolicy.SOURCE)
         @interface Type {
@@ -111,6 +120,7 @@ class KeyboardAccessoryProperties {
             int HOME_AND_WORK_SUGGESTION = 3;
             int TAB_LAYOUT = 4;
             int ACTION_CHIP = 5;
+            int DISMISS_CHIP = 6;
         }
 
         private final @Type int mType;
@@ -174,6 +184,9 @@ class KeyboardAccessoryProperties {
                 case Type.ACTION_CHIP:
                     typeName = "ACTION_CHIP";
                     break;
+                case Type.DISMISS_CHIP:
+                    typeName = "DISMISS_CHIP";
+                    break;
             }
             return typeName + ": " + mAction;
         }
@@ -193,9 +206,10 @@ class KeyboardAccessoryProperties {
          *
          * @param suggestion An {@link AutofillSuggestion}.
          * @param action An {@link Action}.
+         * @param profile The {@link Profile} associated with the autofill data.
          */
-        AutofillBarItem(AutofillSuggestion suggestion, Action action) {
-            super(getBarItemType(suggestion), action, 0);
+        AutofillBarItem(AutofillSuggestion suggestion, Action action, Profile profile) {
+            super(getBarItemType(suggestion, profile), action, 0);
             mSuggestion = suggestion;
         }
 
@@ -222,18 +236,17 @@ class KeyboardAccessoryProperties {
         }
 
         @VisibleForTesting
-        public static @Type int getBarItemType(AutofillSuggestion suggestion) {
+        public static @Type int getBarItemType(AutofillSuggestion suggestion, Profile profile) {
             AutofillProfilePayload payload = suggestion.getAutofillProfilePayload();
             if (FillingProductBridge.getFillingProductFromSuggestionType(
                                     suggestion.getSuggestionType())
                             == FillingProduct.ADDRESS
                     && payload != null) {
                 PersonalDataManager personalDataManager =
-                        PersonalDataManagerFactory.getForProfile(
-                                ProfileManager.getLastUsedRegularProfile());
-                AutofillProfile profile = personalDataManager.getProfile(payload.getGuid());
-                if (profile != null) {
-                    @RecordType int type = profile.getRecordType();
+                        PersonalDataManagerFactory.getForProfile(profile);
+                AutofillProfile autofillProfile = personalDataManager.getProfile(payload.getGuid());
+                if (autofillProfile != null) {
+                    @RecordType int type = autofillProfile.getRecordType();
                     if (type == RecordType.ACCOUNT_HOME || type == RecordType.ACCOUNT_WORK) {
                         return Type.HOME_AND_WORK_SUGGESTION;
                     }
@@ -264,6 +277,27 @@ class KeyboardAccessoryProperties {
 
         void notifyAboutViewDestruction(View view) {
             mSheetOpenerCallbacks.onViewUnbound(view);
+        }
+    }
+
+    /**
+     * A {@link BarItem} that represents a "Dismiss" button.
+     *
+     * <p>This item triggers the provided runnable, which handles the logic for closing the
+     * associated keyboard accessory.
+     */
+    static final class DismissBarItem extends BarItem {
+        DismissBarItem(Runnable dismissRunnable) {
+            super(
+                    Type.DISMISS_CHIP,
+                    new Action(
+                            AccessoryAction.DISMISS,
+                            unused -> {
+                                ManualFillingMetricsRecorder.recordActionSelected(
+                                        AccessoryAction.DISMISS);
+                                dismissRunnable.run();
+                            }),
+                    R.string.keyboard_accessory_dismiss_button);
         }
     }
 

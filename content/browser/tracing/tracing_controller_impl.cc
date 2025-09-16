@@ -36,7 +36,6 @@
 #include "base/values.h"
 #include "base/version_info/version_info.h"
 #include "build/build_config.h"
-#include "components/tracing/common/trace_to_console.h"
 #include "components/tracing/common/tracing_switches.h"
 #include "components/variations/active_field_trials.h"
 #include "content/browser/gpu/compositor_util.h"
@@ -353,7 +352,8 @@ std::optional<base::Value::Dict> TracingControllerImpl::GenerateMetadataDict() {
   metadata_dict.Set("cpu-stepping", cpu.stepping());
   metadata_dict.Set("num-cpus", base::SysInfo::NumberOfProcessors());
   metadata_dict.Set("physical-memory",
-                    base::SysInfo::AmountOfPhysicalMemoryMB());
+                    base::saturated_cast<int>(
+                        base::SysInfo::AmountOfPhysicalMemory().InMiB()));
 
   metadata_dict.Set("cpu-brand", cpu.cpu_brand());
 

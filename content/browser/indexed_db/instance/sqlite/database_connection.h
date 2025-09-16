@@ -15,6 +15,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/types/expected.h"
 #include "base/types/pass_key.h"
+#include "content/browser/indexed_db/indexed_db_external_object_storage.h"
 #include "content/browser/indexed_db/instance/backing_store.h"
 #include "content/browser/indexed_db/instance/sqlite/active_blob_streamer.h"
 #include "content/browser/indexed_db/instance/sqlite/backing_store_impl.h"
@@ -98,7 +99,8 @@ class DatabaseConnection {
   Status CommitTransactionPhaseOne(
       base::PassKey<BackingStoreTransactionImpl>,
       const BackingStoreTransactionImpl& transaction,
-      BlobWriteCallback callback);
+      BlobWriteCallback callback,
+      SerializeFsaCallback serialize_fsa_handle);
   Status CommitTransactionPhaseTwo(
       base::PassKey<BackingStoreTransactionImpl>,
       const BackingStoreTransactionImpl& transaction);
@@ -200,7 +202,8 @@ class DatabaseConnection {
   // `ActiveBlobStreamer`.
   std::vector<blink::mojom::IDBExternalObjectPtr> CreateAllExternalObjects(
       base::PassKey<BackingStoreTransactionImpl>,
-      const std::vector<IndexedDBExternalObject>& objects);
+      const std::vector<IndexedDBExternalObject>& objects,
+      DeserializeFsaCallback deserialize_fsa_handle);
 
   // Called when the IDB database associated with this connection is deleted.
   // This should drop all data with the exception of active blobs, which may
@@ -218,18 +221,24 @@ class DatabaseConnection {
   // May return `nullptr` if the statement has been destroyed.
   sql::Statement* GetLongLivedStatement(uint64_t id);
 
+  // Returns a `Status` for the last operation on `db_`.
+  Status GetStatusOfLastOperation();
+
   // Also for internal use only; exposed for RecordIterator implementations.
   // This adds external objects to `value` which should later be further hooked
   // up via `CreateAllExternalObjects()`.
-  IndexedDBValue AddExternalObjectMetadataToValue(IndexedDBValue value,
-                                                  int64_t record_row_id);
+  StatusOr<IndexedDBValue> AddExternalObjectMetadataToValue(
+      IndexedDBValue value,
+      int64_t record_row_id);
 
  private:
-  DatabaseConnection(base::FilePath path,
-                     std::unique_ptr<sql::Database> db,
-                     std::unique_ptr<sql::MetaTable> meta_table,
-                     blink::IndexedDBDatabaseMetadata metadata,
-                     BackingStoreImpl& backing_store);
+  DatabaseConnection(base::FilePath path, BackingStoreImpl& backing_store);
+
+  // All startup/initialization tasks that can error are performed here. Will
+  // return Status::OK() on success. `name` must be provided if the database is
+  // new. If the database is pre-existing, `name` may not be provided, but if it
+  // is, it must match the database's stored name.
+  Status Init(std::optional<std::u16string_view> name);
 
   bool HasActiveVersionChangeTransaction() const {
     return metadata_snapshot_.has_value();
@@ -238,6 +247,15 @@ class DatabaseConnection {
   // Invoked by an owned `BlobWriter` when it's done writing, or has encountered
   // an error.
   void OnBlobWriteComplete(int64_t blob_row_id, bool success);
+
+  // Invoked when an FSA handle has been serialized. `token` will be empty if
+  // the serialization was not successful.
+  void OnFsaHandleSerialized(int64_t blob_row_id,
+                             const std::vector<uint8_t>& token);
+
+  // Cancels all outstanding external object processing/writing, including blob
+  // writes and FSA handle serialization/writing. This is to be called on error.
+  void CancelBlobWriting();
 
   // Called when a blob that was opened for reading stops being "active", i.e.
   // when `ActiveBlobStreamer` in `active_blobs_` no longer has connections.
@@ -298,6 +316,16 @@ class DatabaseConnection {
   // are done writing successfully, or at least one has failed.
   std::map<int64_t, std::unique_ptr<BlobWriter>> blob_writers_;
 
+  // Tracks the number of currently existing operations that will write blobs
+  // into the database, resulting from a call to WriteNewBlobs(). This will be
+  // the sum of `blob_writers_.size()` and the number of FSA handle
+  // serialization operations that have not yet finished. This is eventually the
+  // same as the number of weak pointers currently vended from
+  // `blob_writers_weak_factory_`, but will be updated *while* an operation
+  // bound to such a weak pointer is executed (whereas the weak pointer itself
+  // will be destroyed only *after* the operation completes).
+  size_t outstanding_external_object_writes_ = 0U;
+
   // This is non-null whenever `blob_writers_` is non-empty.
   BlobWriteCallback blob_write_callback_;
 
@@ -312,6 +340,10 @@ class DatabaseConnection {
   // table to stay in sync with `active_blobs_` regardless of whether the
   // transaction is ultimately committed or rolled back.
   bool sync_active_blobs_after_transaction_ = false;
+
+  // False until `Init()` completes successfully. This is currently only used
+  // for verifying expectations wrt error handling.
+  bool inited_ = false;
 
   // TODO(crbug.com/419203257): this should invalidate its weak pointers when
   // `db_` is closed.

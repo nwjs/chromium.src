@@ -17,6 +17,7 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/omnibox/browser/actions/contextual_search_action.h"
 #include "components/omnibox/browser/actions/omnibox_answer_action.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/autocomplete_enums.h"
@@ -2065,6 +2066,7 @@ TEST_F(AutocompleteControllerTest, UpdateResult_ContextualSuggestionsAndLens) {
   contextual_search_config.Get().contextual_zps_limit = 3;
   contextual_search_config.Get().show_open_lens_action = true;
   contextual_search_config.Get().use_apc_paywall_signal = true;
+  contextual_search_config.Get().show_suggestions_on_no_apc = true;
 
   // Populate TemplateURLService with a keyword.
   TemplateURLData turl_data;
@@ -2142,9 +2144,9 @@ TEST_F(AutocompleteControllerTest, UpdateResult_ContextualSuggestionsAndLens) {
     check_results(/*expect_contextual=*/false, /*expect_lens=*/true);
   }
 
-  // Paywall is unknown. No contextual suggestions but has Lens entrypoint.
+  // Paywall is unknown. Contextual suggestions and Lens entrypoint.
   {
-    SCOPED_TRACE("Paywall statis is unknown");
+    SCOPED_TRACE("Paywall status is unknown");
     EXPECT_CALL(*provider_client(), AreLensEntrypointsVisible())
         .WillRepeatedly(testing::Return(true));
     EXPECT_CALL(*provider_client(), IsPagePaywalled())
@@ -2152,7 +2154,7 @@ TEST_F(AutocompleteControllerTest, UpdateResult_ContextualSuggestionsAndLens) {
 
     controller_.SimulateAutocompletePass(/*sync=*/true, /*done=*/true,
                                          provider_matches, zps_input);
-    check_results(/*expect_contextual=*/false, /*expect_lens=*/true);
+    check_results(/*expect_contextual=*/true, /*expect_lens=*/true);
   }
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
@@ -2722,6 +2724,54 @@ TEST_F(AutocompleteControllerTest,
   EXPECT_EQ(
       OmniboxActionId::CONTEXTUAL_SEARCH_FULFILLMENT,
       controller_.internal_result_.match_at(1)->takeover_action->ActionId());
+}
+
+TEST_F(AutocompleteControllerTest, ContextualQueryAppendsSearchboxStats) {
+  omnibox_feature_configs::ScopedConfigForTesting<
+      omnibox_feature_configs::ContextualSearch>
+      contextual_search_config;
+  contextual_search_config.Get().contextual_zero_suggest_lens_fulfillment =
+      true;
+  TemplateURLData turl_data;
+  turl_data.SetShortName(u"Contextual");
+  turl_data.SetKeyword(u"contextual");
+  turl_data.SetURL(
+      "https://google.com/search?q={searchTerms}/{google:assistedQueryStats}");
+  controller_.template_url_service_->Add(
+      std::make_unique<TemplateURL>(turl_data));
+
+  // Create input with lens searchbox page classification.
+  controller_.input_ = AutocompleteInput(u"", metrics::OmniboxEventProto::OTHER,
+                                         TestSchemeClassifier());
+  controller_.input_.set_focus_type(
+      metrics::OmniboxFocusType::INTERACTION_FOCUS);
+
+  SetAutocompleteMatches(
+      {CreateZeroSuggestContextualSearchMatch(u"Summary"),
+       CreateZeroSuggestContextualSearchMatch(u"Summarize this page")});
+
+  controller_.AttachActions();
+  UpdateSearchboxStats();
+
+  // The takeover action should be for the contextual search action, not pedals.
+  ASSERT_TRUE(controller_.internal_result_.match_at(0)->takeover_action);
+  auto* contextual_takover_action_0 =
+      ContextualSearchFulfillmentAction::FromAction(
+          controller_.internal_result_.match_at(0)->takeover_action.get());
+  EXPECT_EQ(OmniboxActionId::CONTEXTUAL_SEARCH_FULFILLMENT,
+            contextual_takover_action_0->ActionId());
+  EXPECT_TRUE(base::Contains(
+      contextual_takover_action_0->get_fulfillment_url_for_testing().spec(),
+      "gs_lcrp="));
+  ASSERT_TRUE(controller_.internal_result_.match_at(1)->takeover_action);
+  auto* contextual_takover_action_1 =
+      ContextualSearchFulfillmentAction::FromAction(
+          controller_.internal_result_.match_at(1)->takeover_action.get());
+  EXPECT_EQ(OmniboxActionId::CONTEXTUAL_SEARCH_FULFILLMENT,
+            contextual_takover_action_1->ActionId());
+  EXPECT_TRUE(base::Contains(
+      contextual_takover_action_1->get_fulfillment_url_for_testing().spec(),
+      "gs_lcrp="));
 }
 
 TEST_F(AutocompleteControllerTest,

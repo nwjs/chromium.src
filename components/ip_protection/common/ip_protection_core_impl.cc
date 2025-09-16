@@ -15,6 +15,7 @@
 #include "base/timer/elapsed_timer.h"
 #include "components/content_settings/core/common/content_settings_rules.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
+#include "components/ip_protection/common/ip_protection_core_impl.h"
 #include "components/ip_protection/common/ip_protection_data_types.h"
 #include "components/ip_protection/common/ip_protection_probabilistic_reveal_token_manager.h"
 #include "components/ip_protection/common/ip_protection_proxy_config_manager.h"
@@ -28,6 +29,7 @@
 #include "net/base/network_change_notifier.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
+#include "net/base/schemeful_site.h"
 #include "services/network/public/cpp/features.h"
 #include "url/gurl.h"
 
@@ -100,8 +102,9 @@ IpProtectionCoreImpl::IpProtectionCoreImpl(
                                                : MdlType::kRegularBrowsing)
                     : MdlType::kIncognito) {
   net::NetworkChangeNotifier::AddNetworkChangeObserver(this);
-  bool should_request_prts = ip_protection_incognito ||
-       !net::features::kProbabilisticRevealTokensOnlyInIncognito.Get();
+  bool should_request_prts =
+      ip_protection_incognito ||
+      !net::features::kProbabilisticRevealTokensOnlyInIncognito.Get();
   if (ipp_prt_manager_ && should_request_prts) {
     ipp_prt_manager_->RequestTokens();
   }
@@ -185,16 +188,12 @@ std::optional<BlindSignedAuthToken> IpProtectionCoreImpl::GetAuthToken(
 }
 
 std::optional<std::string> IpProtectionCoreImpl::GetProbabilisticRevealToken(
-    const std::string& top_level,
-    const std::string& third_party) {
+    const GURL& url,
+    const net::SchemefulSite& top_frame_site) {
   if (!ipp_prt_manager_) {
     return std::nullopt;
   }
-  return ipp_prt_manager_->GetToken(top_level, third_party);
-}
-
-bool IpProtectionCoreImpl::IsProbabilisticRevealTokenAvailable() {
-  return (ipp_prt_manager_ && ipp_prt_manager_->IsTokenAvailable());
+  return ipp_prt_manager_->GetToken(url, top_frame_site);
 }
 
 IpProtectionTokenManager*
@@ -209,9 +208,8 @@ IpProtectionCoreImpl::GetIpProtectionProxyConfigManagerForTesting() {
 }
 
 bool IpProtectionCoreImpl::IsProxyListAvailable() {
-  return ipp_proxy_config_manager_ != nullptr
-             ? ipp_proxy_config_manager_->IsProxyListAvailable()
-             : false;
+  return ipp_proxy_config_manager_ &&
+         ipp_proxy_config_manager_->IsProxyListAvailable();
 }
 
 void IpProtectionCoreImpl::QuicProxiesFailed() {
@@ -315,6 +313,26 @@ void IpProtectionCoreImpl::SetTrackingProtectionContentSetting(
     const ContentSettingsForOneType& settings) {
   tp_content_settings_ =
       content_settings::HostIndexedContentSettings::Create(settings);
+}
+
+IpProxyStatus IpProtectionCoreImpl::GetIpProxyStatus() {
+  // Checking conditions that may cause IP protection to not work when it is
+  // eligible to be run
+  if (!net::features::kIpPrivacyEnableIppInDevTools.Get() ||
+      !base::FeatureList::IsEnabled(net::features::kEnableIpProtectionProxy)) {
+    return IpProxyStatus::kFeatureNotEnabled;
+  }
+  if (!masked_domain_list_manager_->IsEnabled()) {
+    return IpProxyStatus::kMaskedDomainListNotEnabled;
+  }
+  if (!IpProtectionCoreImpl::IsMdlPopulated()) {
+    return IpProxyStatus::kMaskedDomainListNotPopulated;
+  }
+  if (!AreAuthTokensAvailable()) {
+    return IpProxyStatus::kAuthTokensUnavailable;
+  }
+  return IsIpProtectionEnabled() ? IpProxyStatus::kOk
+                                 : IpProxyStatus::kUnavailable;
 }
 
 }  // namespace ip_protection

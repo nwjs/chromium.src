@@ -12,7 +12,7 @@
 #include "third_party/blink/renderer/core/layout/column_spanner_path.h"
 #include "third_party/blink/renderer/core/layout/constraint_space_builder.h"
 #include "third_party/blink/renderer/core/layout/fragmentation_utils.h"
-#include "third_party/blink/renderer/core/layout/gap_fragment_data.h"
+#include "third_party/blink/renderer/core/layout/gap/gap_geometry.h"
 #include "third_party/blink/renderer/core/layout/geometry/fragment_geometry.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_size.h"
 #include "third_party/blink/renderer/core/layout/geometry/margin_strut.h"
@@ -299,12 +299,6 @@ const LayoutResult* ColumnLayoutAlgorithm::Layout() {
   column_inline_progression_ = column_inline_size_ + column_gap_size_;
   used_column_count_ =
       ResolveUsedColumnCount(Style(), ChildAvailableSize().inline_size);
-
-  // Write the column count back to the legacy flow thread if we're at the first
-  // fragment. The legacy fragmentainer group machinery needs the count.
-  if (!IsBreakInside(GetBreakToken())) {
-    node_.StoreColumnCount(used_column_count_);
-  }
 
   // If we know the block-size of the fragmentainers in an outer fragmentation
   // context (if any), our columns may be constrained by that, meaning that we
@@ -1325,7 +1319,7 @@ const LayoutResult* ColumnLayoutAlgorithm::LayoutRow(
 
   wtf_size_t column_index_in_row = 0;
   // Commit all column fragments to the fragment builder.
-  for (auto result_with_offset : new_columns) {
+  for (const auto& result_with_offset : new_columns) {
     const PhysicalBoxFragment& column = result_with_offset.Fragment();
     container_builder_.AddChild(column, result_with_offset.offset);
     PropagateBaselineFromChild(column, result_with_offset.offset.block_offset);

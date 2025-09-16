@@ -53,7 +53,7 @@
 #include "chrome/browser/webauthn/gpm_user_verification_policy.h"
 #include "chrome/browser/webauthn/mechanism_sorter.h"
 #include "chrome/browser/webauthn/passkey_model_factory.h"
-#include "chrome/browser/webauthn/password_credential_controller.h"
+#include "chrome/browser/webauthn/password_credential_fetcher.h"
 #include "chrome/browser/webauthn/webauthn_metrics_util.h"
 #include "chrome/browser/webauthn/webauthn_pref_names.h"
 #include "chrome/grit/generated_resources.h"
@@ -114,7 +114,7 @@ using UIPresentation =
     content::AuthenticatorRequestClientDelegate::UIPresentation;
 using device::AuthenticatorType;
 using device::FidoRequestType;
-using PasswordCredentials = PasswordCredentialController::PasswordCredentials;
+using PasswordCredentials = PasswordCredentialFetcher::PasswordCredentials;
 
 constexpr int GetMessageIdForTransportDescription(
     AuthenticatorTransport transport) {
@@ -138,30 +138,6 @@ constexpr int GetMessageIdForTransportDescription(
 
 std::u16string GetTransportDescription(AuthenticatorTransport transport) {
   const int msg_id = GetMessageIdForTransportDescription(transport);
-  if (!msg_id) {
-    return std::u16string();
-  }
-  return l10n_util::GetStringUTF16(msg_id);
-}
-
-constexpr int GetMessageIdForTransportShortDescription(
-    AuthenticatorTransport transport) {
-  switch (transport) {
-    case AuthenticatorTransport::kUsbHumanInterfaceDevice:
-      return IDS_WEBAUTHN_TRANSPORT_POPUP_USB;
-    case AuthenticatorTransport::kInternal:
-      return IDS_WEBAUTHN_TRANSPORT_POPUP_INTERNAL;
-    case AuthenticatorTransport::kHybrid:
-      return IDS_WEBAUTHN_TRANSPORT_POPUP_CABLE;
-    case AuthenticatorTransport::kDeprecatedAoa:
-    case AuthenticatorTransport::kBluetoothLowEnergy:
-    case AuthenticatorTransport::kNearFieldCommunication:
-      NOTREACHED();
-  }
-}
-
-std::u16string GetTransportShortDescription(AuthenticatorTransport transport) {
-  const int msg_id = GetMessageIdForTransportShortDescription(transport);
   if (!msg_id) {
     return std::u16string();
   }
@@ -1045,11 +1021,6 @@ void AuthenticatorRequestDialogController::OnCableConnectingTimerComplete() {
       model_->step() == Step::kCableV2Connecting) {
     SetCurrentStep(Step::kCableV2Connected);
   }
-}
-
-void AuthenticatorRequestDialogController::StartPhonePairing() {
-  DCHECK(model_->cable_qr_string);
-  SetCurrentStep(Step::kCableV2QRCode);
 }
 
 void AuthenticatorRequestDialogController::EnsureBleAdapterIsPoweredAndContinue(
@@ -2012,7 +1983,7 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
       Mechanism::Type mechanism_type = Mechanism::Credential(
           {cred.source, cred.user.id, cred.last_used_time});
       auto& mechanism = model_->mechanisms.emplace_back(
-          mechanism_type, name, name,
+          mechanism_type, name,
           GetMechanismIcon(mechanism_type, ui_presentation()),
           base::BindRepeating(
               base::IgnoreResult(
@@ -2096,7 +2067,7 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
         l10n_util::GetStringUTF16(IDS_WEBAUTHN_SOURCE_GOOGLE_PASSWORD_MANAGER);
     Mechanism::Type mechanism_type = Mechanism::Enclave();
     Mechanism mechanism(
-        mechanism_type, name, name,
+        mechanism_type, name,
         GetMechanismIcon(mechanism_type, ui_presentation()),
         base::BindRepeating(&AuthenticatorRequestDialogController::StartEnclave,
                             base::Unretained(this)));
@@ -2114,7 +2085,7 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
         l10n_util::GetStringUTF16(IDS_WEBAUTHN_SIGN_IN_AGAIN_TITLE);
     Mechanism::Type mechanism_type = Mechanism::SignInAgain();
     Mechanism enclave(
-        mechanism_type, name, name,
+        mechanism_type, name,
         GetMechanismIcon(mechanism_type, ui_presentation()),
         base::BindRepeating(
             &AuthenticatorRequestDialogController::ReauthForSyncRestore,
@@ -2136,7 +2107,7 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
         l10n_util::GetStringUTF16(IDS_WEBAUTHN_TRANSPORT_ICLOUD_KEYCHAIN);
     Mechanism::Type mechanism_type = Mechanism::ICloudKeychain();
     model_->mechanisms.emplace_back(
-        mechanism_type, name, name,
+        mechanism_type, name,
         GetMechanismIcon(mechanism_type, ui_presentation()),
         base::BindRepeating(
             &AuthenticatorRequestDialogController::StartICloudKeychain,
@@ -2172,7 +2143,7 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
         l10n_util::GetStringUTF16(GetHybridButtonLabel(merge_usb_and_hybrid));
     Mechanism::Type mechanism_type = Mechanism::AddPhone();
     model_->mechanisms.emplace_back(
-        mechanism_type, label, label,
+        mechanism_type, label,
         GetMechanismIcon(mechanism_type, ui_presentation()),
         base::BindRepeating(
             &AuthenticatorRequestDialogController::StartGuidedFlowForAddPhone,
@@ -2192,7 +2163,6 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
     Mechanism::Type mechanism_type = Mechanism::Transport(transport);
     model_->mechanisms.emplace_back(
         mechanism_type, GetTransportDescription(transport),
-        GetTransportShortDescription(transport),
         GetMechanismIcon(mechanism_type, ui_presentation()),
         base::BindRepeating(
             &AuthenticatorRequestDialogController::StartGuidedFlowForTransport,
@@ -2214,7 +2184,7 @@ void AuthenticatorRequestDialogController::AddWindowsButton(
   const std::u16string desc = l10n_util::GetStringUTF16(label);
   Mechanism::Type mechanism_type = Mechanism::WindowsAPI();
   model_->mechanisms.emplace_back(
-      mechanism_type, desc, desc,
+      mechanism_type, desc,
       GetMechanismIcon(mechanism_type, ui_presentation(), transport),
       base::BindRepeating(
           &AuthenticatorRequestDialogController::StartWinNativeApi,
@@ -2448,6 +2418,7 @@ void AuthenticatorRequestDialogController::StartPasskeyUpgradeRequest() {
   SetCurrentStep(Step::kPasskeyUpgrade);
 
   if (!enclave_request_callback_) {
+    RecordPasskeyUpgradeResultHistogram(PasskeyUpgradeResult::kGpmDisabled);
     FIDO_LOG(ERROR)
         << "Passkey upgrade request failed because GPM is disabled by policy.";
     PasskeyUpgradeFailed();
@@ -2468,7 +2439,7 @@ void AuthenticatorRequestDialogController::PopulatePasswords() {
         AuthenticatorRequestDialogModel::Mechanism::PasswordInfo(
             password->date_last_used));
     Mechanism mechanism(
-        mechanism_type, password->username_value, password->username_value,
+        mechanism_type, password->username_value,
         GetMechanismIcon(mechanism_type, ui_presentation()),
         base::BindRepeating(
             &AuthenticatorRequestDialogModel::OnPasswordCredentialSelected,

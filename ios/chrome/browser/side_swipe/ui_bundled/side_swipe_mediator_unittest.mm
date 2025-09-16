@@ -16,6 +16,7 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_consumer.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_mediator+Testing.h"
+#import "ios/chrome/browser/snapshots/model/snapshot_source_tab_helper.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/test/scoped_key_window.h"
 #import "ios/web/common/crw_web_view_content_view.h"
@@ -179,7 +180,15 @@ TEST_F(SideSwipeMediatorTest, TestEdgeNavigationEnabled) {
 }
 
 // Tests that pages with Reader Mode enabled will use Chromium native swipe.
-TEST_F(SideSwipeMediatorTest, TestEdgeNavigationEnabledForReaderMode) {
+// TODO(crbug.com/438221177): Fails on device.
+#if TARGET_IPHONE_SIMULATOR
+#define MAYBE_TestEdgeNavigationEnabledForReaderMode \
+  TestEdgeNavigationEnabledForReaderMode
+#else
+#define MAYBE_TestEdgeNavigationEnabledForReaderMode \
+  DISABLED_TestEdgeNavigationEnabledForReaderMode
+#endif
+TEST_F(SideSwipeMediatorTest, MAYBE_TestEdgeNavigationEnabledForReaderMode) {
   auto fake_web_state = CreateWebState();
   auto fake_navigation_manager = std::make_unique<web::FakeNavigationManager>();
   std::unique_ptr<web::NavigationItem> item = web::NavigationItem::Create();
@@ -279,6 +288,7 @@ TEST_F(SideSwipeMediatorTest, SnapshotUpdatedWithoutActiveWebState) {
 // the snapshot state only once on completion.
 TEST_F(SideSwipeMediatorTest, SnapshotUpdatedOnceOnCallback) {
   SnapshotTabHelper::CreateForWebState(original_web_state_);
+  SnapshotSourceTabHelper::CreateForWebState(original_web_state_);
   base::RunLoop run_loop;
   int snapshot_updated = 0;
   [side_swipe_mediator_

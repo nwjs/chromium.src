@@ -24,7 +24,6 @@
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
-#include "chrome/browser/ui/autofill/payments/payments_ui_constants.h"
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_controller_impl.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -814,7 +813,7 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTest,
   // UMA should have recorded bubble rejection.
   histogram_tester.ExpectUniqueSample(
       "Autofill.SaveCreditCardPromptResult.Local.FirstShow",
-      autofill_metrics::SaveCardPromptResult::kCancelled, 1);
+      autofill_metrics::LegacySaveCardPromptResult::kCancelled, 1);
 }
 
 // Tests the upload save bubble. Ensures that clicking the [Save] button
@@ -935,18 +934,12 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTest,
 class SaveCardBubbleViewsFullFormBrowserTestSettings
     : public SaveCardBubbleViewsFullFormBrowserTest {
  public:
-  SaveCardBubbleViewsFullFormBrowserTestSettings() = default;
-
-  void SetUpOnMainThread() override {
-    SaveCardBubbleViewsFullFormBrowserTest::SetUpOnMainThread();
+  SaveCardBubbleViewsFullFormBrowserTestSettings() {
 #if BUILDFLAG(IS_CHROMEOS)
     // OpenSettingsFromManageCardsPrompt() tries to retrieve the PhoneHubManager
     // keyed service, whose factory implementation relies on ChromeOS having a
-    // single profile, and consequently a single service instance. Creating a
-    // service for both browser()->profile() and GetProfile(0) hits a CHECK,
-    // so prevent this by disabling the feature.
-    GetProfile(0)->GetPrefs()->SetBoolean(
-        ash::multidevice_setup::kPhoneHubAllowedPrefName, false);
+    // single profile, and consequently a single service instance.
+    SetUsePrimaryUserProfile(true);
 #endif
   }
 
@@ -1043,7 +1036,7 @@ IN_PROC_BROWSER_TEST_P(
   // UMA should have recorded bubble acceptance.
   histogram_tester.ExpectUniqueSample(
       "Autofill.SaveCreditCardPromptResult.Upload.FirstShow",
-      autofill_metrics::SaveCardPromptResult::kAccepted, 1);
+      autofill_metrics::LegacySaveCardPromptResult::kAccepted, 1);
 }
 
 // On Chrome OS, the test profile starts with a primary account already set, so
@@ -1182,7 +1175,7 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsSyncTransportFullFormBrowserTest,
   // UMA should have recorded bubble acceptance.
   histogram_tester.ExpectUniqueSample(
       "Autofill.SaveCreditCardPromptResult.Upload.FirstShow",
-      autofill_metrics::SaveCardPromptResult::kAccepted, 1);
+      autofill_metrics::LegacySaveCardPromptResult::kAccepted, 1);
 }
 
 #endif  // !BUILDFLAG(IS_CHROMEOS)
@@ -1223,7 +1216,7 @@ IN_PROC_BROWSER_TEST_P(
   // UMA should have recorded bubble rejection.
   histogram_tester.ExpectUniqueSample(
       "Autofill.SaveCreditCardPromptResult.Upload.FirstShow",
-      autofill_metrics::SaveCardPromptResult::kCancelled, 1);
+      autofill_metrics::LegacySaveCardPromptResult::kCancelled, 1);
 }
 
 // Tests the upload save bubble. Ensures that clicking the top-right [X] close
@@ -2229,11 +2222,11 @@ IN_PROC_BROWSER_TEST_P(
   // the ".RequestingCardholderName" subhistogram.
   histogram_tester.ExpectUniqueSample(
       "Autofill.SaveCreditCardPromptResult.Upload.FirstShow",
-      autofill_metrics::SaveCardPromptResult::kAccepted, 1);
+      autofill_metrics::LegacySaveCardPromptResult::kAccepted, 1);
   histogram_tester.ExpectUniqueSample(
       "Autofill.SaveCreditCardPromptResult.Upload.FirstShow."
       "RequestingCardholderName",
-      autofill_metrics::SaveCardPromptResult::kAccepted, 1);
+      autofill_metrics::LegacySaveCardPromptResult::kAccepted, 1);
 }
 
 // Tests the local save bubble. Ensures that clicking the [Save] button
@@ -2250,7 +2243,7 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTest,
   // UMA should have recorded bubble acceptance.
   histogram_tester.ExpectUniqueSample(
       "Autofill.SaveCreditCardPromptResult.Local.FirstShow",
-      autofill_metrics::SaveCardPromptResult::kAccepted, 1);
+      autofill_metrics::LegacySaveCardPromptResult::kAccepted, 1);
 
   // The local save bubble should not be visible, but the card icon should
   // remain visible for the clickable [Manage cards] option.

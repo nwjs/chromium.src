@@ -105,7 +105,7 @@ bool DeviceHasEnoughMemoryForPrerender() {
       blink::features::kPrerender2MemoryThresholdParamName,
       kDefaultMemoryThresholdMb);
 
-  return base::SysInfo::AmountOfPhysicalMemoryMB() > memory_threshold_mb;
+  return base::SysInfo::AmountOfPhysicalMemory().InMiB() > memory_threshold_mb;
 }
 
 base::MemoryPressureListener::MemoryPressureLevel
@@ -120,7 +120,8 @@ GetCurrentMemoryPressureLevel() {
   if (!monitor) {
     return base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE;
   }
-  return monitor->GetCurrentPressureLevel();
+  return monitor->GetCurrentPressureLevel(
+      base::MemoryPressureMonitorTag::kPrerenderHostRegistry);
 }
 
 // Create a resource request for `back_url` that only checks whether the
@@ -165,15 +166,9 @@ std::unique_ptr<network::SimpleURLLoader> CreateHttpCacheQueryingResourceLoad(
           semantics {
             sender: "Prerender"
             description:
-              "This is not actually a network request. It is used internally "
-              "by the browser to determine if the HTTP cache would be used if "
-              "the user were to navigate back in session history. It only "
-              "checks the cache and does not hit the network."
+              "This is not actually a network request. It is used internally by the browser to determine if the HTTP cache would be used if the user were to navigate back in session history. It only checks the cache and does not hit the network."
             trigger:
-              "When the user performs an action that would suggest that they "
-              "intend to navigate back soon. Examples include hovering the "
-              "mouse over the back button and the start of a gestural back "
-              "navigation."
+              "When the user performs an action that would suggest that they intend to navigate back soon. Examples include hovering the mouse over the back button and the start of a gestural back navigation."
             user_data {
               type: NONE
             }
@@ -522,6 +517,7 @@ bool IsSlowNetwork(WebContents* web_contents) {
 PrerenderHostRegistry::PrerenderHostRegistry(WebContents& web_contents)
     : memory_pressure_listener_(
           FROM_HERE,
+          base::MemoryPressureListenerTag::kPrerenderHostRegistry,
           base::BindRepeating(&PrerenderHostRegistry::OnMemoryPressure,
                               base::Unretained(this))) {
   Observe(&web_contents);
@@ -1111,6 +1107,7 @@ bool PrerenderHostRegistry::CancelHostInternal(
   std::unique_ptr<PrerenderHost> prerender_host = std::move(iter->second);
   prerender_host_by_frame_tree_node_id_.erase(iter);
 
+  prerender_host->OnWillBeCancelled(reason);
   reason.ReportMetrics(prerender_host->GetHistogramSuffix());
 
   NotifyCancel(prerender_host->frame_tree_node_id(), reason);
@@ -1895,20 +1892,6 @@ void PrerenderHostRegistry::NotifyCancel(
   for (Observer& obs : observers_) {
     obs.OnCancel(host_frame_tree_node_id, reason);
   }
-}
-
-PreloadingTriggerType PrerenderHostRegistry::GetPrerenderTriggerType(
-    FrameTreeNodeId frame_tree_node_id) {
-  CHECK(reserved_prerender_host_);
-  CHECK_EQ(reserved_prerender_host_->frame_tree_node_id(), frame_tree_node_id);
-  return reserved_prerender_host_->trigger_type();
-}
-
-const std::string& PrerenderHostRegistry::GetPrerenderEmbedderHistogramSuffix(
-    FrameTreeNodeId frame_tree_node_id) {
-  CHECK(reserved_prerender_host_);
-  CHECK_EQ(reserved_prerender_host_->frame_tree_node_id(), frame_tree_node_id);
-  return reserved_prerender_host_->embedder_histogram_suffix();
 }
 
 PrerenderHostRegistry::PrerenderLimitGroup

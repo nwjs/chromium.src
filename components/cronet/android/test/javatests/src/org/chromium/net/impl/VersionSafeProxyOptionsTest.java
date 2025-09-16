@@ -6,6 +6,7 @@ package org.chromium.net.impl;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
@@ -179,12 +180,12 @@ public class VersionSafeProxyOptionsTest {
                                         "not-existing-hostname",
                                         8080,
                                         httpsProxyCallback),
-                                (Proxy) null,
                                 new Proxy(
                                         Proxy.HTTP,
                                         "not-existing-hostname",
                                         8080,
-                                        httpProxyCallback)));
+                                        httpProxyCallback),
+                                (Proxy) null));
         VersionSafeProxyOptions safeProxyOptions = new VersionSafeProxyOptions(proxyOptions);
         org.chromium.net.impl.proto.ProxyOptions proxyOptionsProto =
                 safeProxyOptions.createProxyOptionsProto();
@@ -198,8 +199,8 @@ public class VersionSafeProxyOptionsTest {
                                 .collect(Collectors.toList()))
                 .containsExactly(
                         org.chromium.net.impl.proto.ProxyScheme.HTTPS,
-                        org.chromium.net.impl.proto.ProxyScheme.DIRECT,
-                        org.chromium.net.impl.proto.ProxyScheme.HTTP)
+                        org.chromium.net.impl.proto.ProxyScheme.HTTP,
+                        org.chromium.net.impl.proto.ProxyScheme.DIRECT)
                 .inOrder();
         // Confirm that the original order within ProxyOptions#getProxyList is maintained for
         // Callback's proto.
@@ -208,11 +209,11 @@ public class VersionSafeProxyOptionsTest {
         assertThat(safeProxyCallbacks).isNotNull();
         assertThat(safeProxyCallbacks).hasSize(3);
         // Verify the order by verifying that we're calling the right mock.
-        safeProxyCallbacks.get(0).onBeforeTunnelRequest();
-        Mockito.verify(httpsProxyCallback, times(1)).onBeforeTunnelRequest();
-        Mockito.verify(httpProxyCallback, never()).onBeforeTunnelRequest();
-        assertThat(safeProxyCallbacks.get(1)).isNull();
-        safeProxyCallbacks.get(2).onBeforeTunnelRequest();
-        Mockito.verify(httpProxyCallback, times(1)).onBeforeTunnelRequest();
+        safeProxyCallbacks.get(0).onBeforeTunnelRequest(any());
+        Mockito.verify(httpsProxyCallback, times(1)).onBeforeTunnelRequest(any());
+        Mockito.verify(httpProxyCallback, never()).onBeforeTunnelRequest(any());
+        assertThat(safeProxyCallbacks.get(2)).isNull();
+        safeProxyCallbacks.get(1).onBeforeTunnelRequest(any());
+        Mockito.verify(httpProxyCallback, times(1)).onBeforeTunnelRequest(any());
     }
 }

@@ -9,11 +9,10 @@
 #include <optional>
 #include <string>
 
-#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
-#include "base/scoped_observation.h"
 #include "base/sequence_checker.h"
 #include "base/supports_user_data.h"
+#include "components/autofill/core/browser/webdata/autofill_ai/entity_table.h"
 #include "components/autofill/core/browser/webdata/autofill_sync_metadata_table.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_backend.h"
 #include "components/autofill/core/browser/webdata/valuables/valuables_table.h"
@@ -33,6 +32,15 @@ class AutofillWebDataService;
 class ValuableSyncBridge : public base::SupportsUserData::Data,
                            public syncer::DataTypeSyncBridge {
  public:
+  // Result of a database operation in the `ValuableSyncBridge`.
+  enum class ValuableDatabaseOperationResult {
+    // The operation was successful and the database was changed.
+    kDataChanged,
+    // The operation was successful, but no changes were necessary.
+    kNoChange,
+    // An error occurred during the operation.
+    kDatabaseError,
+  };
   ValuableSyncBridge(
       std::unique_ptr<syncer::DataTypeLocalChangeProcessor> change_processor,
       AutofillWebDataBackend* backend);
@@ -76,6 +84,14 @@ class ValuableSyncBridge : public base::SupportsUserData::Data,
   // the processor.
   void LoadMetadata();
 
+  // Sets `loyalty_cards` in the database.
+  ValuableDatabaseOperationResult SetLoyaltyCards(
+      std::vector<LoyaltyCard> loyalty_cards);
+
+  // Sets `entities` in the database.
+  ValuableDatabaseOperationResult SetEntities(
+      std::vector<EntityInstance> entities);
+
   // Sets the Wallet data from `entity_data` to this client and records metrics
   // about added/deleted data. Returns a ModelError if any errors occured.
   std::optional<syncer::ModelError> SetSyncData(
@@ -86,6 +102,9 @@ class ValuableSyncBridge : public base::SupportsUserData::Data,
 
   // Returns the `ValuablesTable` associated with the `web_data_backend_`.
   ValuablesTable* GetValuablesTable();
+
+  // Returns the `EntityTable` associated with the `web_data_backend_`.
+  EntityTable* GetEntityTable();
 
   AutofillSyncMetadataTable* GetSyncMetadataStore();
 

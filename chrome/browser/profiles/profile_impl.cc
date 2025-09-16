@@ -228,7 +228,6 @@
 #else
 #include "chrome/browser/accessibility/ax_main_node_annotator_controller_factory.h"
 #include "chrome/browser/first_run/first_run.h"
-#include "chrome/browser/profiles/guest_profile_creation_logger.h"
 #include "content/public/common/page_zoom.h"
 #include "ui/accessibility/accessibility_features.h"
 #endif
@@ -773,15 +772,6 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
   }
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
-  if (IsGuestSession()) {
-    // Note: We need to record the creation of the guest parent before the
-    // `delegate_`'s `OnProfileCreationFinished()` callback executes, as it
-    // might trigger the creation of a child OTR profile.
-    profile::RecordGuestParentCreation(this);
-  }
-#endif  // !BUILDFLAG(IS_ANDROID)
-
 #if !BUILDFLAG(IS_CHROMEOS)
   // Listen for bookmark model load, to bootstrap the sync service.
   // Not necessary for profiles that don't have a BookmarkModel.
@@ -984,10 +974,6 @@ ProfileImpl::CreateZoomLevelDelegate(const base::FilePath& partition_path) {
       zoom::ZoomEventManager::GetForBrowserContext(this)->GetWeakPtr());
 }
 
-base::FilePath ProfileImpl::GetPath() {
-  return path_;
-}
-
 base::FilePath ProfileImpl::GetPath() const {
   return path_;
 }
@@ -1156,6 +1142,19 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
   FullBrowserTransitionManager::Get()->OnProfileCreated(this);
 
   SimpleDependencyManager::GetInstance()->CreateServices(GetProfileKey());
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Check that the IdentityManager was not created before the browser context
+  // services were created. This ensures that browser tests can override the
+  // IdentityManager with a fake.
+
+  // TODO(msarda): This invariant is violated on Android. Remove this check
+  // once the IdentityManager is no longer created as part of the initialization
+  // of the storage partition on Android.
+  CHECK(!IdentityManagerFactory::GetForProfileIfExists(this),
+        base::NotFatalUntil::M160);
+#endif
+
   BrowserContextDependencyManager::GetInstance()->CreateBrowserContextServices(
       this);
 

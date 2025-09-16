@@ -43,6 +43,7 @@
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
+#include "chrome/browser/web_applications/web_app_icon_generator.h"
 #include "chrome/browser/web_applications/web_app_install_finalizer.h"
 #include "chrome/browser/web_applications/web_app_install_manager.h"
 #include "chrome/browser/web_applications/web_app_management_type.h"
@@ -963,7 +964,7 @@ TEST_F(WebAppRegistrarTest, GetAllIsolatedWebAppStoragePartitionConfigs) {
   isolated_web_app->SetIsolationData(
       IsolationData::Builder(
           IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
-          base::Version("1.0.0"))
+          *IwaVersion::Create("1.0.0"))
           .Build());
   RegisterAppUnsafe(std::move(isolated_web_app));
 
@@ -993,7 +994,7 @@ TEST_F(
   isolated_web_app->SetIsolationData(
       IsolationData::Builder(
           IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
-          base::Version("1.0.0"))
+          *IwaVersion::Create("1.0.0"))
           .Build());
   isolated_web_app->SetInstallState(
       proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE);
@@ -1024,7 +1025,7 @@ TEST_F(WebAppRegistrarTest, SaveAndGetInMemoryControlledFramePartitionConfig) {
   isolated_web_app->SetIsolationData(
       IsolationData::Builder(
           IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
-          base::Version("1.0.0"))
+          *IwaVersion::Create("1.0.0"))
           .Build());
   RegisterAppUnsafe(std::move(isolated_web_app));
 
@@ -1109,7 +1110,7 @@ TEST_F(WebAppRegistrarTest,
   web_app->SetIsolationData(
       IsolationData::Builder(
           IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
-          base::Version("1.0.0"))
+          *IwaVersion::Create("1.0.0"))
           .Build());
 
   RegisterAppUnsafe(std::move(web_app));
@@ -1134,7 +1135,7 @@ TEST_F(WebAppRegistrarTest,
   web_app->SetIsolationData(
       IsolationData::Builder(
           IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
-          base::Version("1.0.0"))
+          *IwaVersion::Create("1.0.0"))
           .Build());
 
   RegisterAppUnsafe(std::move(web_app));
@@ -1158,7 +1159,7 @@ TEST_F(WebAppRegistrarTest,
   web_app->SetIsolationData(
       IsolationData::Builder(
           IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
-          base::Version("1.0.0"))
+          *IwaVersion::Create("1.0.0"))
           .Build());
 
   RegisterAppUnsafe(std::move(web_app));
@@ -1702,6 +1703,35 @@ TEST_F(WebAppRegistrarTest, MultipleTrustedIconsUseSmallerCloserToSize) {
                 app_id, /*input_size=*/512));
 }
 
+TEST_F(WebAppRegistrarTest, TrustedIconMetrics) {
+  base::HistogramTester histogram_tester;
+
+  // Set up the registry with 10 apps, and set trusted icons on 5 of them.
+  Registry test_registry =
+      CreateRegistryForTesting("https://example.com/path", 10);
+  int i = 0;
+  apps::IconInfo icon_info(GURL("https://www.example.com/icon.png"),
+                           icon_size::k48);
+  for (auto& apps : test_registry) {
+    if (i % 2 == 0) {
+      apps.second->SetTrustedIcons({icon_info});
+    }
+    i++;
+  }
+
+  PopulateRegistry(std::move(test_registry));
+  StartWebAppProvider();
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("WebApp.InstalledCount.HasTrustedIcons"),
+      base::BucketsAre(base::Bucket(/*min=*/5,
+                                    /*count=*/1)));
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("WebApp.InstalledCount.HasNoTrustedIcons"),
+      base::BucketsAre(base::Bucket(/*min=*/5,
+                                    /*count=*/1)));
+}
+
 #if BUILDFLAG(IS_CHROMEOS)
 
 class WebAppRegistrarAshTest : public WebAppTest {
@@ -1817,7 +1847,7 @@ class WebAppRegistrarDisplayModeTest
       web_app->SetIsolationData(
           IsolationData::Builder(
               IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
-              base::Version("1.0.0"))
+              *IwaVersion::Create("1.0.0"))
               .Build());
     }
 
@@ -2101,7 +2131,7 @@ TEST_P(WebAppRegistrarParameterizedTest, Filter_IsIsolatedApp) {
   isolated_web_app->SetIsolationData(
       IsolationData::Builder(
           IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
-          base::Version("1.0.0"))
+          *IwaVersion::Create("1.0.0"))
           .Build());
   isolated_web_app->SetDisplayMode(DisplayMode::kBrowser);
   isolated_web_app->SetUserDisplayMode(mojom::UserDisplayMode::kBrowser);

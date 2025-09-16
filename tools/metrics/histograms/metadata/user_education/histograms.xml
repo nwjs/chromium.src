@@ -71,6 +71,27 @@ chromium-metrics-reviews@google.com.
       summary="Promotion for Close Unused Tabs in the app menu."/>
 </variants>
 
+<!-- LINT.IfChange(NtpPromoActions) -->
+
+<variants name="NtpPromoAction">
+  <variant name="Clicked" summary="Promo was clicked"/>
+  <variant name="Completed" summary="Promo was completed"/>
+  <variant name="Shown" summary="Promo was shown"/>
+  <variant name="ShownTopSpot" summary="Promo was shown in the top spot"/>
+</variants>
+
+<!-- LINT.ThenChange(//components/user_education/common/ntp_promo/ntp_promo_controller.cc:NtpPromoActions) -->
+
+<!-- LINT.IfChange(NtpPromoIdentifiers) -->
+
+<variants name="NtpPromoIdentifier">
+  <variant name="Customization" summary="Customize Chrome promo"/>
+  <variant name="Extensions" summary="Extensions promo"/>
+  <variant name="SignIn" summary="Sign-In promo"/>
+</variants>
+
+<!-- LINT.ThenChange(//chrome/browser/user_education/ntp_promo_identifiers.h:NtpPromoIdentifiers) -->
+
 <variants name="TutorialID">
   <variant name="" summary="any tutorial"/>
   <variant name="CustomizeChromeSidePanel"
@@ -96,6 +117,11 @@ chromium-metrics-reviews@google.com.
       summary="the module for Generative Theming"/>
   <variant name="GlicIntro" summary="the module for Glic Intro"/>
   <variant name="GlicLearnMore" summary="the module for Glic Learn More"/>
+  <variant name="GlitterAIFeaturesVideo"
+      summary="the module for Glitter AI Features Video"/>
+  <variant name="GlitterAIMode" summary="the module for Glitter AI Mode"/>
+  <variant name="GlitterPermissionsAI"
+      summary="the module for Glitter Permissions AI"/>
   <variant name="GoogleLens" summary="the module for Google Lens"/>
   <variant name="Googlepayreauth" summary="the module for Google Pay Re-auth"/>
   <variant name="HelpMeWrite" summary="the module for Help Me Write"/>
@@ -255,7 +281,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UserEducation.MessageShown.TimeInQueue" units="ms"
-    expires_after="2025-12-14">
+    expires_after="2026-02-22">
   <owner>dfried@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -316,6 +342,31 @@ chromium-metrics-reviews@google.com.
     Completed&quot;.
   </summary>
   <token key="NewBadgeFeature" variants="NewBadgeFeature"/>
+</histogram>
+
+<histogram
+    name="UserEducation.NtpPromos.Promos.{NtpPromoIdentifier}.{NtpPromoAction}"
+    units="int" expires_after="2026-09-01">
+  <owner>cjgrant@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records when the NTP {NtpPromoIdentifier} promo sees a {NtpPromoAction}
+    event. Logged on desktop platforms.
+  </summary>
+  <token key="NtpPromoIdentifier" variants="NtpPromoIdentifier"/>
+  <token key="NtpPromoAction" variants="NtpPromoAction"/>
+</histogram>
+
+<histogram name="UserEducation.NtpPromos.ShowResult" enum="ShowNtpPromosResult"
+    expires_after="2026-09-01">
+  <owner>dfried@chromium.org</owner>
+  <owner>cjgrant@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Recorded when the NTP decides whether or not to show NTP promos, and why.
+    Recorded every time a fresh NTP is loaded. This is intended as a health
+    check for the NTP promo system, to better understand why promos do not show.
+  </summary>
 </histogram>
 
 <histogram name="UserEducation.Session.ActivePeriodDuration.Min.Under1Hour"

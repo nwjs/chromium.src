@@ -66,6 +66,7 @@
 #include "net/spdy/spdy_session.h"
 #include "net/ssl/ssl_connection_status_flags.h"
 #include "net/ssl/ssl_info.h"
+#include "net/third_party/quiche/src/quiche/quic/core/crypto/crypto_protocol.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_stream_priority.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_types.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_utils.h"
@@ -1717,6 +1718,9 @@ quic::QuicSSLConfig QuicChromiumClientSession::GetSSLConfig() const {
                                   ech_config_list_.end());
   }
   if (base::FeatureList::IsEnabled(features::kTLSTrustAnchorIDs)) {
+    // TODO(crbug.com/432044228): This should still configure the extension when
+    // `trust_anchor_ids_` is empty, after QUICHE has been updated to make
+    // `trust_anchor_ids` a `std::optional`.
     if (!trust_anchor_ids_.empty() &&
         !ssl_context_config.trust_anchor_ids.empty()) {
       std::vector<uint8_t> selected_trust_anchor_ids =

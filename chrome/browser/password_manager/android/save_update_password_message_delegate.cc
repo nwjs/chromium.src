@@ -8,7 +8,6 @@
 #include <optional>
 #include <utility>
 
-#include "base/android/build_info.h"
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -30,7 +29,6 @@
 #include "components/password_manager/core/browser/password_form_metrics_recorder.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_ui_utils.h"
-#include "components/password_manager/core/browser/split_stores_and_local_upm.h"
 #include "components/prefs/pref_service.h"
 #include "components/url_formatter/elide_url.h"
 #include "content/public/browser/web_contents.h"
@@ -45,9 +43,6 @@ using password_manager::PasswordForm;
 
 // Duration of message before timeout; 20 seconds.
 const int kMessageDismissDurationMs = 20000;
-
-constexpr base::TimeDelta kUpdateGMSCoreMessageDisplayDelay =
-    base::Milliseconds(500);
 
 }  // namespace
 
@@ -128,7 +123,7 @@ void SaveUpdatePasswordMessageDelegate::DisplaySaveUpdatePasswordPromptInternal(
   account_email_ = GetAccountForMessageDescription(account_info);
 
   CreateMessage(update_password);
-  RecordMessageShownMetrics();
+  RecordMessageShownMetrics(update_password);
   password_manager::metrics_util::LogFormSubmissionsVsSavePromptsHistogram(
       password_manager::metrics_util::SaveFlowStep::kSavePromptShown);
   messages::MessageDispatcherBridge::Get()->EnqueueMessage(
@@ -298,12 +293,6 @@ void SaveUpdatePasswordMessageDelegate::HandleSaveButtonClicked() {
 void SaveUpdatePasswordMessageDelegate::SavePassword() {
   if (!device_lock_bridge_->ShouldShowDeviceLockUi()) {
     passwords_state_.form_manager()->Save();
-    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(
-            &SaveUpdatePasswordMessageDelegate::MaybeNudgeToUpdateGmsCore,
-            weak_ptr_factory_.GetWeakPtr()),
-        kUpdateGMSCoreMessageDisplayDelay);
     return;
   }
   device_lock_bridge_->LaunchDeviceLockUiIfNeededBeforeRunningCallback(
@@ -318,12 +307,6 @@ void SaveUpdatePasswordMessageDelegate::SavePasswordAfterDeviceLockUi(
   CHECK(device_lock_bridge_->RequiresDeviceLock());
   if (is_device_lock_requirement_met) {
     passwords_state_.form_manager()->Save();
-    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(
-            &SaveUpdatePasswordMessageDelegate::MaybeNudgeToUpdateGmsCore,
-            weak_ptr_factory_.GetWeakPtr()),
-        kUpdateGMSCoreMessageDisplayDelay);
   }
   ClearState();
 }
@@ -452,11 +435,15 @@ void SaveUpdatePasswordMessageDelegate::ClearState() {
   web_contents_ = nullptr;
 }
 
-void SaveUpdatePasswordMessageDelegate::RecordMessageShownMetrics() {
+void SaveUpdatePasswordMessageDelegate::RecordMessageShownMetrics(
+    bool update_password) {
   if (auto* recorder = passwords_state_.form_manager()->GetMetricsRecorder()) {
     recorder->RecordPasswordBubbleShown(
         passwords_state_.form_manager()->GetCredentialSource(),
-        password_manager::metrics_util::AUTOMATIC_WITH_PASSWORD_PENDING);
+        update_password
+            ? password_manager::metrics_util::
+                  AUTOMATIC_WITH_PASSWORD_PENDING_UPDATE
+            : password_manager::metrics_util::AUTOMATIC_WITH_PASSWORD_PENDING);
   }
 }
 
@@ -497,15 +484,4 @@ SaveUpdatePasswordMessageDelegate::
       break;
   }
   return ui_dismissal_reason;
-}
-
-void SaveUpdatePasswordMessageDelegate::MaybeNudgeToUpdateGmsCore() {
-  if (passwords_state_.client()
-          ->GetPasswordFeatureManager()
-          ->ShouldUpdateGmsCore()) {
-    passwords_state_.client()->ShowPasswordManagerErrorMessage(
-        password_manager::ErrorMessageFlowType::kSaveFlow,
-        password_manager::PasswordStoreBackendErrorType::
-            kGMSCoreOutdatedSavingPossible);
-  }
 }

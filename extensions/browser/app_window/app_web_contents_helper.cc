@@ -4,6 +4,8 @@
 
 #include "extensions/browser/app_window/app_web_contents_helper.h"
 
+#include "content/public/browser/navigation_controller.h"
+
 #include "base/strings/stringprintf.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "content/public/browser/page_navigator.h"
@@ -16,6 +18,7 @@
 #include "extensions/common/permissions/api_permission.h"
 #include "third_party/blink/public/common/input/web_gesture_event.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
+#include "third_party/blink/public/mojom/input/pointer_lock_result.mojom.h"
 
 namespace extensions {
 

@@ -44,6 +44,7 @@
 #include "components/autofill/core/browser/integrators/compose/autofill_compose_delegate.h"
 #include "components/autofill/core/browser/integrators/compose/mock_autofill_compose_delegate.h"
 #include "components/autofill/core/browser/integrators/identity_credential/mock_identity_credential_delegate.h"
+#include "components/autofill/core/browser/integrators/password_manager/mock_otp_delegate.h"
 #include "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/integrators/plus_addresses/mock_autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/metrics/autofill_in_devtools_metrics.h"
@@ -328,6 +329,7 @@ class AutofillExternalDelegateTest : public testing::Test {
  protected:
   void SetUp() override {
     client().set_entity_data_manager(std::make_unique<EntityDataManager>(
+        client().GetPrefs(), client().GetIdentityManager(),
         webdata_helper_.autofill_webdata_service(), /*history_service=*/nullptr,
         /*strike_database=*/nullptr));
     autofill_driver_ =
@@ -794,7 +796,7 @@ TEST_F(AutofillExternalDelegateTest, AcceptedBnplEntry_FormIsFilled) {
   CreditCard card = test::GetVirtualCard();
   card.set_issuer_id(kBnplAffirmIssuerId);
 
-  const uint64_t expected_amount = 50'000'000;
+  const std::optional<uint64_t> expected_amount = 50'000'000;
 
   EXPECT_CALL(*manager().GetPaymentsBnplManager(),
               OnDidAcceptBnplSuggestion(expected_amount, _))
@@ -1429,11 +1431,18 @@ TEST_F(AutofillExternalDelegateTest, AcceptManageAutofillAi) {
 }
 
 TEST_F(AutofillExternalDelegateTest, AcceptedOtpSuggestion) {
+  client().set_otp_delegate(std::make_unique<NiceMock<MockOtpDelegate>>());
   IssueOnQuery();
 
   std::u16string otp_value = u"123456";
-  Suggestion::OneTimePasswordPayload otp_payload(
-      {{queried_field().global_id(), otp_value}});
+  OtpFillData otp_fill_data;
+  otp_fill_data[queried_field().global_id()] = otp_value;
+
+  EXPECT_CALL(
+      static_cast<MockOtpDelegate&>(*client().GetOtpDelegate()),
+      GetFillDataForOtpSuggestion(queried_form().global_id(),
+                                  queried_field().global_id(), otp_value))
+      .WillOnce(Return(otp_fill_data));
 
   // Expect that suggestion trigger source translates to source `kPopup` or
   // `kKeyboardAccessory`, depending on the platform.
@@ -1443,15 +1452,14 @@ TEST_F(AutofillExternalDelegateTest, AcceptedOtpSuggestion) {
 #else
       AutofillTriggerSource::kPopup;
 #endif
-  EXPECT_CALL(manager(),
-              FillOrPreviewForm(mojom::ActionPersistence::kFill,
-                                HasQueriedFormId(), IsQueriedFieldId(),
-                                OtpPayloadPointeeEq(otp_payload.filling_data),
-                                expected_source));
+  EXPECT_CALL(
+      manager(),
+      FillOrPreviewForm(mojom::ActionPersistence::kFill, HasQueriedFormId(),
+                        IsQueriedFieldId(), OtpPayloadPointeeEq(otp_fill_data),
+                        expected_source));
   external_delegate().DidAcceptSuggestion(
       test::CreateAutofillSuggestion(SuggestionType::kOneTimePasswordEntry,
-                                     /*main_text_value=*/otp_value,
-                                     otp_payload),
+                                     /*main_text_value=*/otp_value),
       {});
 }
 

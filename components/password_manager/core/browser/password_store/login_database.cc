@@ -1604,18 +1604,8 @@ bool LoginDatabase::RemoveLogin(const PasswordForm& form,
   s.BindString16(2, form.username_value);
   s.BindString16(3, form.password_element);
   s.BindString(4, form.signon_realm);
-  ScopedDbErrorHandler db_error_handler(&db_);
 
-  if (!s.Run()) {
-    std::string_view suffix_for_store =
-        is_account_store_.value() ? ".AccountStore" : ".ProfileStore";
-    sql::UmaHistogramSqliteResult(
-        base::StrCat(
-            {kPasswordManager, suffix_for_store, ".RemoveLoginDBError"}),
-        db_error_handler.get_error_code());
-    return false;
-  }
-  if (db_.GetLastChangeCount() == 0) {
+  if (!s.Run() || db_.GetLastChangeCount() == 0) {
     return false;
   }
   if (changes) {
@@ -1919,23 +1909,10 @@ bool LoginDatabase::GetAllLoginsWithBlocklistSetting(
   return true;
 }
 
-LoginDatabase::LoginDatabaseEmptinessState LoginDatabase::IsEmpty() {
+bool LoginDatabase::IsEmpty() {
   sql::Statement count_all_logins(db_.GetCachedStatement(
       SQL_FROM_HERE, "SELECT EXISTS(SELECT 1 FROM logins)"));
-  // `blacklisted_by_user = 0` means the entry is not a blocklisted entry.
-  // `LENGTH(federation_url) = 0` means the entry is not a federated credential.
-  // `scheme <> 4` means the entry is not a username-only credential.
-  sql::Statement count_autofillable_credentials(db_.GetCachedStatement(
-      SQL_FROM_HERE,
-      "SELECT EXISTS(SELECT 1 FROM logins WHERE blacklisted_by_user = 0 AND "
-      "LENGTH(federation_url) = 0 AND scheme <> 4)"));
-
-  return LoginDatabase::LoginDatabaseEmptinessState{
-      .no_login_found =
-          (count_all_logins.Step() && count_all_logins.ColumnInt(0) == 0),
-      .autofillable_credentials_exist =
-          (count_autofillable_credentials.Step() &&
-           count_autofillable_credentials.ColumnInt(0) > 0)};
+  return count_all_logins.Step() && count_all_logins.ColumnInt(0) == 0;
 }
 
 bool LoginDatabase::DeleteAndRecreateDatabaseFile() {

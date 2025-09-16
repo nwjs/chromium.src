@@ -27,7 +27,6 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.password_manager.GmsUpdateLauncher;
 import org.chromium.chrome.browser.password_manager.ManagePasswordsReferrer;
 import org.chromium.chrome.browser.password_manager.PasswordCheckReferrer;
 import org.chromium.chrome.browser.password_manager.PasswordManagerHelper;
@@ -105,7 +104,7 @@ class SafetyCheckMediator {
      */
     private final SettingsCustomTabLauncher mSettingsCustomTabLauncher;
 
-    private final ObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier;
+    private final ObservableSupplier<@Nullable ModalDialogManager> mModalDialogManagerSupplier;
 
     /** Callbacks and related objects to show the checking state for at least 1 second. */
     private Handler mHandler;
@@ -196,7 +195,7 @@ class SafetyCheckMediator {
             PasswordStoreBridge passwordStoreBridge,
             PasswordCheckControllerFactory passwordCheckControllerFactory,
             PasswordManagerHelper passwordManagerHelper,
-            ObservableSupplier<ModalDialogManager> modalDialogManagerSupplier,
+            ObservableSupplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
             SettingsCustomTabLauncher settingsCustomTabLauncher) {
         mSafetyCheckModel = safetyCheckModel;
         mPasswordsCheckAccountStorageModel = passwordsCheckAccountModel;
@@ -512,12 +511,6 @@ class SafetyCheckMediator {
                                 mModalDialogManagerSupplier,
                                 account,
                                 mSettingsCustomTabLauncher);
-                        return true;
-                    };
-        } else if (state == PasswordsState.BACKEND_VERSION_NOT_SUPPORTED) {
-            listener =
-                    (p) -> {
-                        GmsUpdateLauncher.launch(p.getContext());
                         return true;
                     };
         }

@@ -21,6 +21,7 @@
 #include "base/system/sys_info.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
 #include "build/build_config.h"
 #include "gpu/command_buffer/common/constants.h"
@@ -42,6 +43,7 @@
 #include "gpu/ipc/service/gpu_channel_manager_delegate.h"
 #include "gpu/ipc/service/gpu_memory_buffer_factory.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "third_party/skia/include/core/SkGraphics.h"
 #include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 #include "third_party/skia/include/gpu/ganesh/GrTypes.h"
@@ -202,9 +204,9 @@ void GpuChannelManager::GpuPeakMemoryMonitor::StartGpuMemoryTracking(
   sequence_trackers_.emplace(
       sequence_num,
       SequenceTracker(current_memory_, current_memory_per_source_));
-  TRACE_EVENT_ASYNC_BEGIN2("gpu", "PeakMemoryTracking", sequence_num, "start",
-                           current_memory_, "start_sources",
-                           StartTrackingTracedValue());
+  TRACE_EVENT_BEGIN("gpu", "PeakMemoryTracking", perfetto::Track(sequence_num),
+                    "start", current_memory_, "start_sources",
+                    StartTrackingTracedValue());
 }
 
 // Runs on GpuMain thread, called from GpuServiceImpl
@@ -213,9 +215,9 @@ void GpuChannelManager::GpuPeakMemoryMonitor::StopGpuMemoryTracking(
   base::AutoLock auto_lock(peak_mem_lock_);
   auto sequence = sequence_trackers_.find(sequence_num);
   if (sequence != sequence_trackers_.end()) {
-    TRACE_EVENT_ASYNC_END2("gpu", "PeakMemoryTracking", sequence_num, "peak",
-                           sequence->second.total_memory_, "end_sources",
-                           StopTrackingTracedValue(sequence->second));
+    TRACE_EVENT_END("gpu", perfetto::Track(sequence_num), "peak",
+                    sequence->second.total_memory_, "end_sources",
+                    StopTrackingTracedValue(sequence->second));
     sequence_trackers_.erase(sequence);
   }
 }
@@ -362,6 +364,7 @@ GpuChannelManager::GpuChannelManager(
       use_shader_cache_shm_count_(use_shader_cache_shm_count),
       memory_pressure_listener_(
           FROM_HERE,
+          base::MemoryPressureListenerTag::kGpuChannelManager,
           base::BindRepeating(&GpuChannelManager::HandleMemoryPressure,
                               base::Unretained(this))),
       dawn_caching_interface_factory_(dawn_caching_interface_factory),
@@ -592,6 +595,8 @@ void GpuChannelManager::PopulateCache(const gpu::GpuDiskCacheHandle& handle,
     case gpu::GpuDiskCacheType::kDawnWebGPU:
     case gpu::GpuDiskCacheType::kDawnGraphite: {
 #if BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
+      TRACE_EVENT1("gpu", "GpuChannelManager::PopulateCacheDawn", "handle_type",
+                   gpu::GetHandleType(handle));
       std::unique_ptr<gpu::webgpu::DawnCachingInterface>
           dawn_caching_interface =
               dawn_caching_interface_factory()->CreateInstance(handle);

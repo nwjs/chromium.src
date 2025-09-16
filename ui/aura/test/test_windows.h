@@ -10,6 +10,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/aura/client/window_types.h"
 #include "ui/aura/test/aura_test_base.h"
+#include "ui/aura/test/test_window_builder.h"
 #include "ui/aura/test/test_window_delegate.h"
 
 namespace aura {
@@ -22,8 +23,13 @@ namespace test {
 void SetEnvForTestWindows(Env* env);
 Env* GetEnvForTestWindows();
 
+// Creates a test window. It internally uses TestWindowBuilder.
+std::unique_ptr<Window> CreateTestWindow(WindowBuilderParams params = {},
+                                         Window* parent = nullptr);
+
 // Creates a test window. If parent window is nullptr, then the caller must take
 // ownership of the created window.
+// Deprecated: Use CreateTestWindow above.
 Window* CreateTestWindowWithId(int id, Window* parent);
 Window* CreateTestWindowWithBounds(const gfx::Rect& bounds, Window* parent);
 Window* CreateTestWindow(SkColor color,

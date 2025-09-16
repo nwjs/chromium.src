@@ -64,8 +64,8 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
-import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -75,6 +75,7 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.signin.services.SigninFlowTimestampsLogger.FlowVariant;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.signin.services.SigninPreferencesManager;
 import org.chromium.chrome.browser.ui.signin.R;
@@ -187,6 +188,7 @@ public class AccountPickerBottomSheetTest {
         when(mSigninManagerMock.extractDomainName(TestAccounts.ACCOUNT1.getEmail()))
                 .thenReturn(DOMAIN1);
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
+        when(mAccountPickerDelegateMock.getSigninFlowVariant()).thenReturn(FlowVariant.OTHER);
     }
 
     @After
@@ -1313,8 +1315,10 @@ public class AccountPickerBottomSheetTest {
                 bottomSheetView.findViewById(R.id.account_picker_selected_account).isShown();
 
         clickContinueButton(bottomSheetView);
-        if (clearDeviceLock && BuildInfo.getInstance().isAutomotive) {
-            SigninTestUtil.completeDeviceLock(mDeviceLockActivityLauncher, true);
+        if (clearDeviceLock) {
+            if (DeviceInfo.isAutomotive()) {
+                SigninTestUtil.completeDeviceLock(mDeviceLockActivityLauncher, true);
+            }
         }
     }
 

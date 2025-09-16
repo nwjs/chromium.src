@@ -18,6 +18,7 @@
 #include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "components/history/content/browser/history_context_helper.h"
+#include "components/history/core/browser/features.h"
 #include "components/history/core/browser/history_constants.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_types.h"
@@ -25,8 +26,10 @@
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "components/sessions/content/navigation_task_id.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/page.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "net/http/http_response_headers.h"
@@ -309,13 +312,12 @@ history::HistoryAddPageArgs HistoryTabHelper::CreateHistoryAddPageArgs(
                                       .has_value()
                                 : false;
 
-  // If `blink::features::kVisitedLinksOnErrorNavigation` is enabled, visits to
-  // reachable URLs that result in a 404 response will be saved to history. We
-  // don't want to count 404 navigations as visits when calculating the Most
-  // Visited, so we filter them out here.
+  // If `history::kVisitedLinksOn404` is enabled, visits to reachable URLs that
+  // result in a 404 response will be saved to history. We don't want to count
+  // 404 navigations as visits when calculating the Most Visited, so we filter
+  // them out here.
   const bool status_code_qualifies_for_ntp_most_visited =
-      !(base::FeatureList::IsEnabled(
-            blink::features::kVisitedLinksOnErrorNavigation) &&
+      !(base::FeatureList::IsEnabled(history::kVisitedLinksOn404) &&
         http_response_code == 404);
   const bool should_consider_for_ntp_most_visited =
       status_code_qualifies_for_ntp_most_visited &&
@@ -397,6 +399,10 @@ history::HistoryAddPageArgs HistoryTabHelper::CreateHistoryAddPageArgs(
       frame_url = referrer_url;
     }
   }
+  bool has_actor_task_id = chrome_ui_data && chrome_ui_data->actor_task_id();
+  const history::VisitResponseCodeCategory response_code_category =
+      http_response_code == 404 ? history::VisitResponseCodeCategory::k404
+                                : history::VisitResponseCodeCategory::kNot404;
 
   // TODO(crbug.com/434976953): Move TaskId to be accessible by
   // HistoryAddPageArgs, so we can pass actor_task_id() directly without getting
@@ -406,12 +412,13 @@ history::HistoryAddPageArgs HistoryTabHelper::CreateHistoryAddPageArgs(
       history::ContextIDForWebContents(web_contents()), nav_entry_id,
       navigation_handle->GetNavigationId(), referrer_url,
       navigation_handle->GetRedirectChain(), page_transition, hidden,
-      history::SOURCE_BROWSED, navigation_handle->DidReplaceEntry(),
+      has_actor_task_id ? history::SOURCE_ACTOR : history::SOURCE_BROWSED,
+      response_code_category, navigation_handle->DidReplaceEntry(),
       should_consider_for_ntp_most_visited, is_ephemeral, title, top_level_url,
       frame_url, opener,
       chrome_ui_data == nullptr ? std::nullopt : chrome_ui_data->bookmark_id(),
       app_id_, std::move(context_annotations),
-      (chrome_ui_data && chrome_ui_data->actor_task_id())
+      has_actor_task_id
           ? std::make_optional(chrome_ui_data->actor_task_id().value())
           : std::nullopt);
 
@@ -518,6 +525,13 @@ void HistoryTabHelper::DidFinishNavigation(
     return;
 
   UpdateHistoryForNavigation(add_page_args);
+
+  if (add_page_args.response_code_category ==
+      history::VisitResponseCodeCategory::k404) {
+    // Don't notify `HistoryClusters` and `HistoryEmbeddings` for 404 visits,
+    // since 404s aren't relevant for those features.
+    return;
+  }
 
   if (HistoryClustersTabHelper* clusters_tab_helper =
           HistoryClustersTabHelper::FromWebContents(web_contents())) {

@@ -21,6 +21,7 @@
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -50,7 +51,8 @@ constexpr auto kRecordTypeMapping =
         {{"account", AutofillProfile::RecordType::kAccount},
          {"accountHome", AutofillProfile::RecordType::kAccountHome},
          {"accountWork", AutofillProfile::RecordType::kAccountWork},
-         {"localOrSyncable", AutofillProfile::RecordType::kLocalOrSyncable}});
+         {"localOrSyncable", AutofillProfile::RecordType::kLocalOrSyncable},
+         {"accountNameEmail", AutofillProfile::RecordType::kAccountNameEmail}});
 constexpr std::string_view kKeyInitialCreatorId = "initial_creator_id";
 
 // Checks if the `profile` is changed by `FinalizeAfterImport()`. See
@@ -173,12 +175,12 @@ void RemoveAllExistingProfiles(AddressDataManager& adm) {
 void SetData(
     base::WeakPtr<PersonalDataManager> pdm,
     std::optional<AutofillProfilesAndCreditCards> profiles_or_credit_cards) {
-  // This check intentionally crashes when the data is malformed, to prevent
-  // testing with incorrect data.
-  LOG_IF(FATAL, !profiles_or_credit_cards.has_value() ||
-                    !profiles_or_credit_cards->profiles.has_value() ||
-                    !profiles_or_credit_cards->credit_cards.has_value())
-      << "Intentional crash, the provided JSON import data is incorrect.";
+  if (!profiles_or_credit_cards.has_value() ||
+      !profiles_or_credit_cards->profiles.has_value() ||
+      !profiles_or_credit_cards->credit_cards.has_value()) {
+    LOG(ERROR) << "The provided JSON import data is incorrect.";
+    return;
+  }
   if (pdm == nullptr) {
     return;
   }

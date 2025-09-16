@@ -26,6 +26,7 @@
 #include "services/webnn/webnn_context_impl.h"
 #include "services/webnn/webnn_context_provider_impl.h"
 #include "services/webnn/webnn_tensor_impl.h"
+#include "services/webnn/webnn_test_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -70,7 +71,7 @@ class BadMessageTestHelper {
 };
 
 struct CreateContextSuccess {
-  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
+  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
   blink::WebNNContextToken webnn_context_handle;
 };
 
@@ -95,7 +96,7 @@ class WebNNTensorImplBackendTest : public dml::TestBase {
 
   base::test::ScopedFeatureList scoped_feature_list_;
   scoped_refptr<dml::Adapter> adapter_;
-  raw_ptr<WebNNContextProviderImpl, DanglingUntriaged> provider_impl_ = nullptr;
+  WebNNTestEnvironment webnn_test_environment_;
   mojo::Remote<mojom::WebNNContextProvider> webnn_provider_remote_;
 };
 
@@ -112,12 +113,8 @@ void WebNNTensorImplBackendTest::SetUp() {
   // DirectML version 1.2 or DML_FEATURE_LEVEL_2_1, so skip the tests if the
   // DirectML version doesn't support this feature.
   SKIP_TEST_IF(!adapter_->IsDMLDeviceCompileGraphSupportedForTesting());
-  // Testing WebGpuInterop usage relies on the WebNNContextProvider
-  // interface implementation in order to lookup WebNNTensorImpls from
-  // non-WebNNContextProviderImpls.
-  provider_impl_ = WebNNContextProviderImpl::CreateForTesting(
-                       webnn_provider_remote_.BindNewPipeAndPassReceiver())
-                       .as_ptr();
+  webnn_test_environment_.BindWebNNContextProvider(
+      webnn_provider_remote_.BindNewPipeAndPassReceiver());
 }
 #elif BUILDFLAG(IS_MAC)
 class WebNNTensorImplBackendTest : public testing::Test {
@@ -135,6 +132,7 @@ class WebNNTensorImplBackendTest : public testing::Test {
 
   base::test::ScopedFeatureList scoped_feature_list_;
   base::test::TaskEnvironment task_environment_;
+  WebNNTestEnvironment webnn_test_environment_;
   mojo::Remote<mojom::WebNNContextProvider> webnn_provider_remote_;
 };
 
@@ -144,7 +142,7 @@ void WebNNTensorImplBackendTest::SetUp() {
                  << base::mac::MacOSVersion();
   }
 
-  WebNNContextProviderImpl::CreateForTesting(
+  webnn_test_environment_.BindWebNNContextProvider(
       webnn_provider_remote_.BindNewPipeAndPassReceiver());
 
   GTEST_SKIP() << "WebNNTensor not implemented on macOS";
@@ -155,7 +153,7 @@ class WebNNTensorImplBackendTest : public testing::Test {
   WebNNTensorImplBackendTest()
       : scoped_feature_list_(
             webnn::mojom::features::kWebMachineLearningNeuralNetwork) {
-    WebNNContextProviderImpl::CreateForTesting(
+    webnn_test_environment_.BindWebNNContextProvider(
         webnn_provider_remote_.BindNewPipeAndPassReceiver());
   }
 
@@ -167,13 +165,15 @@ class WebNNTensorImplBackendTest : public testing::Test {
 
   base::test::ScopedFeatureList scoped_feature_list_;
   base::test::TaskEnvironment task_environment_;
+  WebNNTestEnvironment webnn_test_environment_;
   mojo::Remote<mojom::WebNNContextProvider> webnn_provider_remote_;
 };
 #endif  // BUILDFLAG(WEBNN_USE_TFLITE)
 
 void WebNNTensorImplBackendTest::TearDown() {
-  webnn_provider_remote_.reset();
   base::RunLoop().RunUntilIdle();
+  // Give WebNNContext a chance to disconnect.
+  webnn_provider_remote_.reset();
 }
 
 base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
@@ -186,7 +186,7 @@ WebNNTensorImplBackendTest::CreateWebNNContext() {
       create_context_future.GetCallback());
   auto create_context_result = create_context_future.Take();
   if (create_context_result->is_success()) {
-    mojo::Remote<mojom::WebNNContext> webnn_context_remote;
+    mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
     webnn_context_remote.Bind(
         std::move(create_context_result->get_success()->context_remote));
     return CreateContextSuccess{
@@ -198,8 +198,9 @@ WebNNTensorImplBackendTest::CreateWebNNContext() {
 }
 
 base::expected<CreateTensorSuccess, webnn::mojom::Error::Code>
-CreateWebNNTensor(mojo::Remote<mojom::WebNNContext>& webnn_context_remote,
-                  mojom::TensorInfoPtr tensor_info) {
+CreateWebNNTensor(
+    mojo::AssociatedRemote<mojom::WebNNContext>& webnn_context_remote,
+    mojom::TensorInfoPtr tensor_info) {
   base::test::TestFuture<mojom::CreateTensorResultPtr> create_tensor_future;
   webnn_context_remote->CreateTensor(std::move(tensor_info),
                                      mojo_base::BigBuffer(0),
@@ -226,7 +227,7 @@ bool IsBufferDataEqual(const mojo_base::BigBuffer& a,
 TEST_F(WebNNTensorImplBackendTest, CreateTensorImplTest) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
+  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -256,7 +257,7 @@ TEST_F(WebNNTensorImplBackendTest, CreateTensorImplTest) {
 TEST_F(WebNNTensorImplBackendTest, CreateTensorImplManyTest) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
+  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -295,7 +296,7 @@ TEST_F(WebNNTensorImplBackendTest, MAYBE_CreateTooLargeTensorTest) {
 
   BadMessageTestHelper bad_message_helper;
 
-  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
+  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -324,7 +325,7 @@ TEST_F(WebNNTensorImplBackendTest, MAYBE_CreateTooLargeTensorTest) {
 TEST_F(WebNNTensorImplBackendTest, WriteTensorImplTest) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
+  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -368,7 +369,7 @@ TEST_F(WebNNTensorImplBackendTest, WriteTensorImplTest) {
 TEST_F(WebNNTensorImplBackendTest, WriteTensorImplTooLargeTest) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
+  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -405,7 +406,7 @@ TEST_F(WebNNTensorImplBackendTest, WriteTensorImplTooLargeTest) {
 TEST_F(WebNNTensorImplBackendTest, CreateContextImplManyTest) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::Remote<mojom::WebNNContext> webnn_context_remote_1;
+  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote_1;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_1_result = CreateWebNNContext();
   if (!context_1_result.has_value() &&
@@ -418,7 +419,7 @@ TEST_F(WebNNTensorImplBackendTest, CreateContextImplManyTest) {
 
   EXPECT_TRUE(webnn_context_remote_1.is_bound());
 
-  mojo::Remote<mojom::WebNNContext> webnn_context_remote_2;
+  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote_2;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_2_result = CreateWebNNContext();
   if (!context_2_result.has_value() &&
@@ -438,7 +439,8 @@ TEST_F(WebNNTensorImplBackendTest, CreateContextImplManyTest) {
 TEST_F(WebNNTensorImplBackendTest, ContextImplSyncToken) {
   BadMessageTestHelper bad_message_helper;
 
-  mojo::Remote<mojom::WebNNContext> webnn_context_remote;
+  blink::WebNNContextToken webnn_context_handle;
+  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote;
   base::expected<CreateContextSuccess, webnn::mojom::Error::Code>
       context_result = CreateWebNNContext();
   if (!context_result.has_value() &&
@@ -447,34 +449,27 @@ TEST_F(WebNNTensorImplBackendTest, ContextImplSyncToken) {
   } else {
     webnn_context_remote =
         std::move(context_result.value().webnn_context_remote);
+    webnn_context_handle =
+        std::move(context_result.value().webnn_context_handle);
   }
 
-  gpu::SyncToken last_sync_token_fence;
-  {
-    base::test::TestFuture<const gpu::SyncToken&> gen_sync_token_future;
-    webnn_context_remote->GenVerifiedSyncToken(
-        gen_sync_token_future.GetCallback());
-    last_sync_token_fence = gen_sync_token_future.Take();
-  }
+  base::optional_ref<WebNNContextImpl> context_impl =
+      webnn_test_environment_.context_provider()->GetWebNNContextImplForTesting(
+          webnn_context_handle);
 
+  gpu::SyncToken last_sync_token_fence = context_impl->GenVerifiedSyncToken();
   EXPECT_EQ(last_sync_token_fence.release_count(), 1u);
 
   // Tell WebNN IPC to flush itself by waiting on its own SyncToken it had
   // previously generated.
-  webnn_context_remote->WaitSyncToken(last_sync_token_fence);
+  context_impl->WaitSyncToken(last_sync_token_fence);
 
-  {
-    base::test::TestFuture<const gpu::SyncToken&> gen_sync_token_future;
-    webnn_context_remote->GenVerifiedSyncToken(
-        gen_sync_token_future.GetCallback());
-    last_sync_token_fence = gen_sync_token_future.Take();
-  }
-
+  last_sync_token_fence = context_impl->GenVerifiedSyncToken();
   EXPECT_EQ(last_sync_token_fence.release_count(), 2u);
 
   // Waiting on the same SyncToken should nop.
-  webnn_context_remote->WaitSyncToken(last_sync_token_fence);
-  webnn_context_remote->WaitSyncToken(last_sync_token_fence);
+  context_impl->WaitSyncToken(last_sync_token_fence);
+  context_impl->WaitSyncToken(last_sync_token_fence);
 
   EXPECT_FALSE(bad_message_helper.GetLastBadMessage().has_value());
 }
@@ -510,14 +505,15 @@ class WebNNTensorImplDmlBackendTest : public WebNNTensorImplBackendTest {
   base::WeakPtr<native::d3d12::WebNNTensor> GetWebNNTensor(
       const blink::WebNNTensorToken& webnn_tensor_handle) const {
     base::optional_ref<WebNNContextImpl> context_impl =
-        provider_impl_->GetWebNNContextImplForTesting(webnn_context_handle_);
+        webnn_test_environment_.context_provider()
+            ->GetWebNNContextImplForTesting(webnn_context_handle_);
     return static_cast<dml::TensorImplDml*>(
                context_impl->GetWebNNTensorImpl(webnn_tensor_handle).get())
         ->AsWeakPtr();
   }
 
  protected:
-  mojo::Remote<mojom::WebNNContext> webnn_context_remote_;
+  mojo::AssociatedRemote<mojom::WebNNContext> webnn_context_remote_;
   blink::WebNNContextToken webnn_context_handle_;
 };
 
@@ -736,9 +732,10 @@ TEST_F(WebNNTensorImplDmlBackendTest, MAYBE_AccessOnDifferentQueueTest) {
 
   {
     ASSERT_HRESULT_SUCCEEDED(command_recorder->Open());
-    UploadBufferWithBarrier(command_recorder.get(),
-                            webnn_tensor->GetD3D12Buffer(), upload_buffer,
-                            kTensorSize);
+    UploadBufferWithBarrier(
+        command_recorder.get(),
+        static_cast<dml::TensorImplDml*>(webnn_tensor.get())->buffer(),
+        upload_buffer, kTensorSize);
     ASSERT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   }
 
@@ -775,9 +772,10 @@ TEST_F(WebNNTensorImplDmlBackendTest, MAYBE_AccessOnDifferentQueueTest) {
         webnn_fence_to_wait_for_2->GetD3D12Fence(),
         webnn_fence_to_wait_for_2->GetFenceValue()));
     ASSERT_HRESULT_SUCCEEDED(command_recorder->Open());
-    UploadBufferWithBarrier(command_recorder.get(),
-                            webnn_tensor->GetD3D12Buffer(), upload_buffer,
-                            kTensorSize);
+    UploadBufferWithBarrier(
+        command_recorder.get(),
+        static_cast<dml::TensorImplDml*>(webnn_tensor.get())->buffer(),
+        upload_buffer, kTensorSize);
     ASSERT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   }
 

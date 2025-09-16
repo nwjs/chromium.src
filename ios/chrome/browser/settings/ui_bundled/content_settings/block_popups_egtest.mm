@@ -81,7 +81,15 @@ class ScopedBlockPopupsException {
 
 // Opens the block popups settings page and verifies that accessibility is set
 // up properly.
-- (void)testAccessibilityOfBlockPopupSettings {
+// TODO(crbug.com/438657821): Flaky on device.
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+#define MAYBE_testAccessibilityOfBlockPopupSettings \
+  FLAKY_testAccessibilityOfBlockPopupSettings
+#else
+#define MAYBE_testAccessibilityOfBlockPopupSettings \
+  testAccessibilityOfBlockPopupSettings
+#endif
+- (void)MAYBE_testAccessibilityOfBlockPopupSettings {
   [ChromeEarlGreyUI openSettingsMenu];
   [ChromeEarlGreyUI tapSettingsMenuButton:ContentSettingsButton()];
   [[EarlGrey selectElementWithMatcher:BlockPopupsSettingsButton()]
@@ -172,7 +180,15 @@ class ScopedBlockPopupsException {
 
 // Tests that the "exceptions" section on the settings page is hidden and
 // revealed properly when the preference switch is toggled.
-- (void)testSettingsPageWithExceptions {
+// TODO(crbug.com/441738071): Flaky on device.
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+#define MAYBE_testSettingsPageWithExceptions \
+  FLAKY_testSettingsPageWithExceptions
+#else
+#define MAYBE_testSettingsPageWithExceptions \
+  testSettingsPageWithExceptions
+#endif
+- (void)MAYBE_testSettingsPageWithExceptions {
   std::string allowedPattern = "[*.]example.com";
   ScopedBlockPopupsPref prefSetter(CONTENT_SETTING_BLOCK);
   ScopedBlockPopupsException exceptionSetter(allowedPattern);

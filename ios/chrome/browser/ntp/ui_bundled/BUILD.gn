@@ -49,10 +49,7 @@ source_set("theme") {
 }
 
 source_set("logo") {
-  sources = [
-    "logo_animation_controller.h",
-    "logo_vendor.h",
-  ]
+  sources = [ "logo_animation_controller.h" ]
   frameworks = [ "UIKit.framework" ]
 }
 
@@ -121,7 +118,6 @@ source_set("coordinator") {
     ":component_factory_protocol",
     ":constants",
     ":feature_flags",
-    ":logo",
     ":ntp_internal",
     ":theme",
     ":ui_bundled",
@@ -130,7 +126,7 @@ source_set("coordinator") {
     "//components/feed/core/v2/public:common",
     "//components/feed/core/v2/public/ios:feed_ios_public",
     "//components/image_fetcher/ios",
-    "//components/omnibox/browser",
+    "//components/omnibox/browser:aim_eligibility_service_features",
     "//components/omnibox/common",
     "//components/policy:policy_code_generate",
     "//components/pref_registry",
@@ -244,9 +240,9 @@ source_set("ntp_internal") {
   deps = [
     ":constants",
     ":feature_flags",
-    ":logo",
     ":theme",
     ":ui_bundled",
+    ":utils",
     "//base",
     "//components/feature_engagement/public",
     "//components/image_fetcher/core",
@@ -278,6 +274,7 @@ source_set("ntp_internal") {
     "//ios/chrome/browser/discover_feed/model:discover_feed_visibility_browser_agent",
     "//ios/chrome/browser/home_customization/coordinator",
     "//ios/chrome/browser/home_customization/model",
+    "//ios/chrome/browser/home_customization/ui",
     "//ios/chrome/browser/lens/ui_bundled:lens_availability",
     "//ios/chrome/browser/lens/ui_bundled:lens_entrypoint",
     "//ios/chrome/browser/location_bar/ui_bundled:fakebox_buttons_snapshot",
@@ -356,7 +353,6 @@ source_set("unit_tests") {
     ":component_factory",
     ":coordinator",
     ":feature_flags",
-    ":logo",
     ":ntp_internal",
     ":theme",
     ":ui_bundled",
@@ -441,6 +437,7 @@ source_set("eg2_tests") {
   sources = [ "new_tab_page_egtest.mm" ]
   deps = [
     "//base/test:test_support",
+    "//components/omnibox/browser:aim_eligibility_service_features",
     "//components/policy:generated",
     "//components/policy/core/common:test_support",
     "//components/signin/public/base:signin_switches",
@@ -490,8 +487,10 @@ source_set("utils") {
   ]
   deps = [
     ":feature_flags",
+    ":theme",
     "//components/search_engines",
     "//ios/chrome/browser/first_run/ui_bundled:utils",
+    "//ios/chrome/common/ui/colors",
     "//third_party/omnibox_proto",
   ]
   public_deps = [ "//base" ]

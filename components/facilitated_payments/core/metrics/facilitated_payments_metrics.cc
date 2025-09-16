@@ -86,6 +86,18 @@ std::string ResultToString(bool result) {
   return result ? "Success" : "Failure";
 }
 
+std::string PaymentLinkFopSelectorTypesToString(
+    PaymentLinkFopSelectorTypes payment_link_fop_selector_type) {
+  switch (payment_link_fop_selector_type) {
+    case PaymentLinkFopSelectorTypes::kEwalletOnly:
+      return "EwalletOnly";
+    case PaymentLinkFopSelectorTypes::kA2AOnly:
+      return "A2AOnly";
+    case PaymentLinkFopSelectorTypes::kEwalletAndA2A:
+      return "EwalletAndA2A";
+  }
+}
+
 }  // namespace
 
 void LogPixCodeCopied(ukm::SourceId ukm_source_id) {
@@ -97,7 +109,7 @@ void LogPixCodeCopied(ukm::SourceId ukm_source_id) {
 }
 
 void LogPaymentLinkDetected(ukm::SourceId ukm_source_id) {
-  base::UmaHistogramBoolean("FacilitatedPayments.Ewallet.PaymentLinkDetected",
+  base::UmaHistogramBoolean("FacilitatedPayments.PaymentLinkDetected",
                             /*sample=*/true);
   ukm::builders::FacilitatedPayments_PaymentLinkDetected(ukm_source_id)
       .SetPaymentLinkDetected(true)
@@ -190,6 +202,28 @@ void LogApiAvailabilityCheckResultAndLatency(
   }
 }
 
+void LogNonCardPaymentMethodsFopSelected(
+    PaymentLinkFopSelectorTypes payment_link_fop_selector_fop_type,
+    PaymentLinkFopSelectorAction payment_link_fop_selector_action,
+    std::optional<PaymentLinkValidator::Scheme> scheme) {
+  std::string payment_link_fop_selector_fop_type_string =
+      PaymentLinkFopSelectorTypesToString(payment_link_fop_selector_fop_type);
+
+  base::UmaHistogramEnumeration(
+      base::StrCat({"FacilitatedPayments.",
+                    payment_link_fop_selector_fop_type_string,
+                    ".FopSelector.UserAction"}),
+      payment_link_fop_selector_action);
+
+  if (scheme.has_value() && *scheme != PaymentLinkValidator::Scheme::kInvalid) {
+    base::UmaHistogramEnumeration(
+        base::StrCat({"FacilitatedPayments.",
+                      payment_link_fop_selector_fop_type_string,
+                      ".FopSelector.UserAction.", SchemeToString(*scheme)}),
+        payment_link_fop_selector_action);
+  }
+}
+
 void LogLoadRiskDataResultAndLatency(
     FacilitatedPaymentsType payment_type,
     bool was_successful,
@@ -241,6 +275,20 @@ void LogEwalletFlowExitedReason(
   if (scheme.has_value() && *scheme != PaymentLinkValidator::Scheme::kInvalid) {
     base::UmaHistogramEnumeration(
         base::StrCat({"FacilitatedPayments.Ewallet.PayflowExitedReason.",
+                      SchemeToString(*scheme)}),
+        reason);
+  }
+}
+
+void LogA2APayflowExitedReason(
+    A2AFlowExitedReason reason,
+    std::optional<PaymentLinkValidator::Scheme> scheme) {
+  base::UmaHistogramEnumeration("FacilitatedPayments.A2A.PayflowExitedReason",
+                                reason);
+
+  if (scheme.has_value() && *scheme != PaymentLinkValidator::Scheme::kInvalid) {
+    base::UmaHistogramEnumeration(
+        base::StrCat({"FacilitatedPayments.A2A.PayflowExitedReason.",
                       SchemeToString(*scheme)}),
         reason);
   }
@@ -383,6 +431,47 @@ void LogFopSelectorShownLatency(
     base::UmaHistogramLongTimes(
         base::StrCat({"FacilitatedPayments.Ewallet.FopSelectorShown."
                       "LatencyAfterDetectingPaymentLink.",
+                      SchemeToString(*scheme)}),
+        latency);
+  }
+}
+
+void LogPaymentLinkFopSelectorShownLatency(
+    PaymentLinkFopSelectorTypes payment_link_fop_selector_type,
+    base::TimeDelta latency,
+    std::optional<PaymentLinkValidator::Scheme> scheme) {
+  base::UmaHistogramLongTimes(
+      base::StrCat(
+          {"FacilitatedPayments.",
+           PaymentLinkFopSelectorTypesToString(payment_link_fop_selector_type),
+           ".FopSelectorShown.LatencyAfterDetectingPaymentLink"}),
+      latency);
+
+  if (scheme.has_value() && *scheme != PaymentLinkValidator::Scheme::kInvalid) {
+    base::UmaHistogramLongTimes(
+        base::StrCat({"FacilitatedPayments.",
+                      PaymentLinkFopSelectorTypesToString(
+                          payment_link_fop_selector_type),
+                      ".FopSelectorShown.LatencyAfterDetectingPaymentLink.",
+                      SchemeToString(*scheme)}),
+        latency);
+  }
+}
+
+void LogInvokePaymentAppResultAndLatency(
+    bool result,
+    base::TimeDelta latency,
+    std::optional<PaymentLinkValidator::Scheme> scheme) {
+  std::string result_string = ResultToString(result);
+  base::UmaHistogramLongTimes(
+      base::StrCat({"FacilitatedPayments.A2A.InvokePaymentApp.", result_string,
+                    ".LatencyAfterDetectingPaymentLink"}),
+      latency);
+
+  if (scheme.has_value() && *scheme != PaymentLinkValidator::Scheme::kInvalid) {
+    base::UmaHistogramLongTimes(
+        base::StrCat({"FacilitatedPayments.A2A.InvokePaymentApp.",
+                      result_string, ".LatencyAfterDetectingPaymentLink.",
                       SchemeToString(*scheme)}),
         latency);
   }

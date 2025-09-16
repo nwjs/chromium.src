@@ -41,7 +41,6 @@ import org.chromium.base.TimeUtils;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -58,6 +57,7 @@ import org.chromium.chrome.browser.commerce.ShoppingServiceFactoryJni;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabController;
+import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabProvider;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.CustomTabMinimizeDelegate;
 import org.chromium.chrome.browser.customtabs.features.toolbar.BrowserServicesThemeColorProvider;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbarCoordinator;
@@ -81,7 +81,6 @@ import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarCoordinat
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController.StatusBarColorProvider;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
-import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeManager;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.commerce.core.CommerceFeatureUtilsJni;
@@ -91,10 +90,12 @@ import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.IntentRequestTracker;
 import org.chromium.ui.base.TestActivity;
+import org.chromium.ui.edge_to_edge.EdgeToEdgeManager;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.lang.ref.WeakReference;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 /** JUnit tests for BaseCustomTabRootUiCoordinator. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -112,7 +113,7 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
 
     @Mock private ObservableSupplier<ShareDelegate> mShareDelegateSupplier;
     @Mock private ActivityTabProvider mTabProvider;
-    @Mock private ObservableSupplier<Profile> mProfileSupplier;
+    @Mock private CustomTabActivityTabProvider mCustomTabProvider;
     @Mock private ObservableSupplier<BookmarkModel> mBookmarkModelSupplier;
     @Mock private ObservableSupplier<TabBookmarker> mTabBookmarkerSupplier;
     @Mock private ObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
@@ -160,6 +161,7 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
     @Mock private IdentityManager mIdentityManager;
     @Mock private Supplier<BrowserServicesThemeColorProvider> mBrowserServicesColorProviderSupplier;
 
+    private ObservableSupplierImpl<Profile> mProfileSupplier;
     private AppCompatActivity mActivity;
     private BaseCustomTabRootUiCoordinator mBaseCustomTabRootUiCoordinator;
 
@@ -183,11 +185,14 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
         IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
         when(mIdentityServicesProvider.getIdentityManager(any())).thenReturn(mIdentityManager);
 
+        mProfileSupplier = new ObservableSupplierImpl();
+
         mBaseCustomTabRootUiCoordinator =
                 new BaseCustomTabRootUiCoordinator(
                         mActivity,
                         mShareDelegateSupplier,
                         mTabProvider,
+                        mCustomTabProvider,
                         mProfileSupplier,
                         mBookmarkModelSupplier,
                         mTabBookmarkerSupplier,
@@ -335,8 +340,7 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
         CustomTabsConnection connection = Mockito.mock(CustomTabsConnection.class);
         CustomTabsConnection.setInstanceForTesting(connection);
         when(connection.isAppForAccountMismatchNotification(any())).thenReturn(true);
-        when(mProfileSupplier.hasValue()).thenReturn(true);
-        when(mProfileSupplier.get()).thenReturn(mProfile);
+        mProfileSupplier.set(mProfile);
         when(mProfile.isOffTheRecord()).thenReturn(false);
 
         assertNotNull(
@@ -382,7 +386,7 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
         mismatchNoticeSuppressedWatcher.assertExpected();
 
         // No profile
-        when(mProfileSupplier.hasValue()).thenReturn(false);
+        mProfileSupplier.set(null);
         assertNull(
                 "Should NOT create checker for no profile",
                 mBaseCustomTabRootUiCoordinator.createMismatchNotificationChecker("app-id"));

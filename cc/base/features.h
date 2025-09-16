@@ -18,10 +18,6 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kAlignSurfaceLayerImplToPixelGrid);
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kComputeRasterTranslateForExternalScale);
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSynchronizedScrolling);
 
-// Sets raster tree priority to NEW_CONTENT_TAKES_PRIORITY when performing a
-// unified scroll with main-thread repaint reasons.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kMainRepaintScrollPrefersNewContent);
-
 // When enabled, the scheduler will allow deferring impl invalidation frames
 // for N frames (default 1) to reduce contention with main frames, allowing
 // main a chance to commit.
@@ -47,11 +43,6 @@ CC_BASE_EXPORT extern const base::FeatureParam<int> kInterestAreaSizeInPixels;
 // after some time.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kReclaimOldPrepaintTiles);
 CC_BASE_EXPORT extern const base::FeatureParam<int> kReclaimDelayInSeconds;
-
-// When enabled, we will not schedule drawing for viz::Surfaces that have been
-// evicted. Instead waiting for an ActiveTree that is defining a newer
-// viz::Surface.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kEvictionThrottlesDraw);
 
 // When a LayerTreeHostImpl is not visible, clear its transferable resources
 // that haven't been imported into viz.
@@ -152,11 +143,6 @@ CC_BASE_EXPORT extern const base::FeatureParam<std::string>
 // Killswitch M135.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kAllowLCDTextWithFilter);
 
-// When enabled, for a render surface with fractional translation, we'll try to
-// align the texels in the render surface to screen pixels to avoid blurriness
-// during compositing.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kRenderSurfacePixelAlignment);
-
 // When enabled, and an image decode is requested by both a tile task and
 // explicitly via img.decode(), it will be decoded only once.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kPreventDuplicateImageDecodes);
@@ -200,11 +186,6 @@ CC_BASE_EXPORT extern const base::FeatureParam<int>
 // tasks.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kFastPathNoRaster);
 
-// When enabled, moves the layer tree client's metric export call
-// for from beginning of the subsequent frame to the end of the subsequent
-// frame.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kExportFrameTimingAfterFrameDone);
-
 // When enabled, internal begin frame source will be used in cc to reduce IPC
 // between cc and viz when there were many "did not produce frame" recently,
 // and SetAutoNeedsBeginFrame will be called on CompositorFrameSink.
@@ -240,6 +221,20 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(
 
 // A kill switch in case skipping finish causes unexpected issues.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSkipFinishDuringReleaseLayerTreeFrameSink);
+
+// When enabled, the V4 scroll jank metric will be emitted.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kScrollJankV4Metric);
+CC_BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    double,
+    kScrollJankV4MetricStabilityCorrection);
+CC_BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(double,
+                                          kScrollJankV4MetricDiscountFactor);
+CC_BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    double,
+    kScrollJankV4MetricFastScrollContinuityThreshold);
+CC_BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    double,
+    kScrollJankV4MetricFlingContinuityThreshold);
 
 }  // namespace features
 

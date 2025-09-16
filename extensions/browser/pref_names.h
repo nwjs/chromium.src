@@ -89,6 +89,12 @@ inline constexpr char kInstallDenyList[] = "extensions.install.denylist";
 // accessed through extensions::ExternalPolicyProvider.
 inline constexpr char kInstallForceList[] = "extensions.install.forcelist";
 
+// A list containing the ids of extensions that Chrome will install disabled for
+// acceptance by the user. This preference is typically populated from the
+// contents of the "initial_extensions" list in the installation's
+// inital_preferences file only for the initial profile during first run.
+inline constexpr char kInitialInstallList[] = "extensions.install.initiallist";
+
 // A dictionary containing, for each extension id, additional
 // OAuth redirect URLs that will be allowed in chrome.identity API.
 inline constexpr char kOAuthRedirectUrls[] = "extensions.oauth_redirect_urls";
@@ -143,6 +149,10 @@ inline constexpr char kPrefIncognitoContentSettings[] =
 // org.freedesktop.portal.GlobalShortcuts.
 inline constexpr char kGlobalShortcutsUuid[] =
     "extensions.global_shortcuts.uuid";
+
+// Boolean that specifies whether ExtensionInstallCloudPolicyChecks is enabled.
+inline constexpr char kExtensionInstallCloudPolicyChecksEnabled[] =
+    "extensions.install.cloud_policy_checks_enabled";
 
 }  // namespace pref_names
 }  // namespace extensions

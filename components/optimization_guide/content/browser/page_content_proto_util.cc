@@ -10,6 +10,7 @@
 
 #include "base/notreached.h"
 #include "base/supports_user_data.h"
+#include "base/types/expected.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/core/page_content_proto_serializer.h"
@@ -416,6 +417,24 @@ optimization_guide::proto::FormControlType ConvertFormControlType(
   NOTREACHED();
 }
 
+optimization_guide::proto::RedactionDecision ConvertRedactionDecision(
+    blink::mojom::AIPageContentRedactionDecision redaction_decision) {
+  switch (redaction_decision) {
+    case blink::mojom::AIPageContentRedactionDecision::kNoRedactionNecessary:
+      return optimization_guide::proto::
+          REDACTION_DECISION_NO_REDACTION_NECESSARY;
+    case blink::mojom::AIPageContentRedactionDecision::
+        kUnredacted_EmptyPassword:
+      return optimization_guide::proto::
+          REDACTION_DECISION_UNREDACTED_EMPTY_PASSWORD;
+    case blink::mojom::AIPageContentRedactionDecision::
+        kRedacted_HasBeenPassword:
+      return optimization_guide::proto::
+          REDACTION_DECISION_REDACTED_HAS_BEEN_PASSWORD;
+  }
+  NOTREACHED();
+}
+
 void ConvertFormControlData(
     const blink::mojom::AIPageContentFormControlData& mojom_form_control_data,
     optimization_guide::proto::FormControlData* proto_form_control_data) {
@@ -445,6 +464,8 @@ void ConvertFormControlData(
     }
     proto_select_option->set_is_selected(select_option->is_selected);
   }
+  proto_form_control_data->set_redaction_decision(
+      ConvertRedactionDecision(mojom_form_control_data.redaction_decision));
 }
 
 void ConvertTableData(
@@ -474,7 +495,7 @@ void ConvertTableRowData(
   }
 }
 
-bool ConvertAttributes(
+base::expected<void, std::string> ConvertAttributes(
     const blink::mojom::AIPageContentAttributes& mojom_attributes,
     optimization_guide::proto::ContentAttributes* proto_attributes) {
   if (mojom_attributes.dom_node_id.has_value()) {
@@ -498,70 +519,72 @@ bool ConvertAttributes(
   if (mojom_attributes.text_info) {
     if (mojom_attributes.attribute_type !=
         blink::mojom::AIPageContentAttributeType::kText) {
-      return false;
+      return base::unexpected("text_info present, but node isn't kText");
     }
     ConvertTextInfo(*mojom_attributes.text_info,
                     proto_attributes->mutable_text_data());
   } else if (mojom_attributes.image_info) {
     if (mojom_attributes.attribute_type !=
         blink::mojom::AIPageContentAttributeType::kImage) {
-      return false;
+      return base::unexpected("image_info present, but node isn't kImage");
     }
     ConvertImageInfo(*mojom_attributes.image_info,
                      proto_attributes->mutable_image_data());
   } else if (mojom_attributes.svg_data) {
     if (mojom_attributes.attribute_type !=
         blink::mojom::AIPageContentAttributeType::kSVG) {
-      return false;
+      return base::unexpected("svg_data present, but node isn't kSvg");
     }
     ConvertSVGData(*mojom_attributes.svg_data,
                    proto_attributes->mutable_svg_data());
   } else if (mojom_attributes.canvas_data) {
     if (mojom_attributes.attribute_type !=
         blink::mojom::AIPageContentAttributeType::kCanvas) {
-      return false;
+      return base::unexpected("canvas_data present, but node isn't kCanvas");
     }
     ConvertCanvasData(*mojom_attributes.canvas_data,
                       proto_attributes->mutable_canvas_data());
   } else if (mojom_attributes.video_data) {
     if (mojom_attributes.attribute_type !=
         blink::mojom::AIPageContentAttributeType::kVideo) {
-      return false;
+      return base::unexpected("video_data present, but node isn't kVideo");
     }
     ConvertVideoData(*mojom_attributes.video_data,
                      proto_attributes->mutable_video_data());
   } else if (mojom_attributes.anchor_data) {
     if (mojom_attributes.attribute_type !=
         blink::mojom::AIPageContentAttributeType::kAnchor) {
-      return false;
+      return base::unexpected("anchor_data present, but node isn't kAnchor");
     }
     ConvertAnchorData(*mojom_attributes.anchor_data,
                       proto_attributes->mutable_anchor_data());
   } else if (mojom_attributes.form_data) {
     if (mojom_attributes.attribute_type !=
         blink::mojom::AIPageContentAttributeType::kForm) {
-      return false;
+      return base::unexpected("form_data present, but node isn't kForm");
     }
     ConvertFormData(*mojom_attributes.form_data,
                     proto_attributes->mutable_form_data());
   } else if (mojom_attributes.form_control_data) {
     if (mojom_attributes.attribute_type !=
         blink::mojom::AIPageContentAttributeType::kFormControl) {
-      return false;
+      return base::unexpected(
+          "form_control_data present, but node isn't kFormControl");
     }
     ConvertFormControlData(*mojom_attributes.form_control_data,
                            proto_attributes->mutable_form_control_data());
   } else if (mojom_attributes.table_data) {
     if (mojom_attributes.attribute_type !=
         blink::mojom::AIPageContentAttributeType::kTable) {
-      return false;
+      return base::unexpected("table_data present, but node isn't kTable");
     }
     ConvertTableData(*mojom_attributes.table_data,
                      proto_attributes->mutable_table_data());
   } else if (mojom_attributes.table_row_data) {
     if (mojom_attributes.attribute_type !=
         blink::mojom::AIPageContentAttributeType::kTableRow) {
-      return false;
+      return base::unexpected(
+          "table_row_data present, but node isn't kTableRow");
     }
     ConvertTableRowData(*mojom_attributes.table_row_data,
                         proto_attributes->mutable_table_row_data());
@@ -583,7 +606,7 @@ bool ConvertAttributes(
         *mojom_attributes.label_for_dom_node_id);
   }
 
-  return true;
+  return base::ok();
 }
 
 void ConvertFrameMetadata(
@@ -607,7 +630,10 @@ void ConvertScriptTool(
     optimization_guide::proto::ScriptTool* proto_script_tool) {
   proto_script_tool->set_name(tool.name);
   proto_script_tool->set_description(tool.description);
-  proto_script_tool->set_input_schema(tool.input_schema);
+
+  if (tool.input_schema) {
+    proto_script_tool->set_input_schema(*tool.input_schema);
+  }
 
   if (tool.annotations) {
     proto_script_tool->mutable_annotations()->set_read_only(
@@ -677,24 +703,26 @@ void ConvertIframeData(
                    frame_token_set);
 }
 
-bool ConvertNode(content::GlobalRenderFrameHostToken source_frame_token,
-                 const blink::mojom::AIPageContentNode& mojom_node,
-                 const AIPageContentMap& page_content_map,
-                 FrameTokenSet& frame_token_set,
-                 GetRenderFrameInfo get_render_frame_info,
-                 blink::mojom::PageMetadata& metadata,
-                 optimization_guide::proto::ContentNode* proto_node) {
+base::expected<void, std::string> ConvertNode(
+    content::GlobalRenderFrameHostToken source_frame_token,
+    const blink::mojom::AIPageContentNode& mojom_node,
+    const AIPageContentMap& page_content_map,
+    FrameTokenSet& frame_token_set,
+    GetRenderFrameInfo get_render_frame_info,
+    blink::mojom::PageMetadata& metadata,
+    optimization_guide::proto::ContentNode* proto_node) {
   const auto& mojom_attributes = *mojom_node.content_attributes;
-  if (!ConvertAttributes(mojom_attributes,
-                         proto_node->mutable_content_attributes())) {
-    return false;
+  if (auto result = ConvertAttributes(mojom_attributes,
+                                      proto_node->mutable_content_attributes());
+      !result.has_value()) {
+    return result;
   }
 
   std::optional<RenderFrameInfo> render_frame_info;
   if (mojom_attributes.attribute_type ==
       blink::mojom::AIPageContentAttributeType::kIframe) {
     if (!mojom_attributes.iframe_data) {
-      return false;
+      return base::unexpected("iframe missing iframe_data");
     }
 
     const auto& iframe_data = *mojom_attributes.iframe_data;
@@ -704,7 +732,7 @@ bool ConvertNode(content::GlobalRenderFrameHostToken source_frame_token,
     render_frame_info =
         get_render_frame_info.Run(source_frame_token.child_id, frame_token);
     if (!render_frame_info) {
-      return false;
+      return base::unexpected("could not find render_frame_info for iframe");
     }
 
     const blink::mojom::AIPageContentFrameData* frame_data = nullptr;
@@ -712,31 +740,34 @@ bool ConvertNode(content::GlobalRenderFrameHostToken source_frame_token,
       // RemoteFrame should have no child nodes since the content is out of
       // process.
       if (!mojom_node.children_nodes.empty()) {
-        return false;
+        return base::unexpected("remote frame contains child nodes");
       }
 
       // The embedder shouldn't be providing LocalFrameData for remote frames.
       if (iframe_data.local_frame_data) {
-        return false;
+        return base::unexpected(
+            "embedder incorrectly provided local_frame_data for iframe");
       }
 
       auto it = page_content_map.find(render_frame_info->global_frame_token);
       if (it == page_content_map.end()) {
-        return true;
+        return base::ok();
       }
 
       const auto& frame_page_content = *it->second;
       frame_data = frame_page_content.frame_data.get();
       auto* proto_child_frame_node = proto_node->add_children_nodes();
-      if (!ConvertNode(render_frame_info->global_frame_token,
-                       *frame_page_content.root_node, page_content_map,
-                       frame_token_set, get_render_frame_info, metadata,
-                       proto_child_frame_node)) {
-        return false;
+
+      if (auto result = ConvertNode(
+              render_frame_info->global_frame_token,
+              *frame_page_content.root_node, page_content_map, frame_token_set,
+              get_render_frame_info, metadata, proto_child_frame_node);
+          !result.has_value()) {
+        return result;
       }
     } else {
       if (!iframe_data.local_frame_data) {
-        return false;
+        return base::unexpected("local frame missing local_frame_data");
       }
 
       frame_data = iframe_data.local_frame_data.get();
@@ -753,19 +784,20 @@ bool ConvertNode(content::GlobalRenderFrameHostToken source_frame_token,
                         : source_frame_token;
   for (const auto& mojom_child : mojom_node.children_nodes) {
     auto* proto_child = proto_node->add_children_nodes();
-    if (!ConvertNode(source_frame_for_children, *mojom_child, page_content_map,
-                     frame_token_set, get_render_frame_info, metadata,
-                     proto_child)) {
-      return false;
+    if (auto result = ConvertNode(source_frame_for_children, *mojom_child,
+                                  page_content_map, frame_token_set,
+                                  get_render_frame_info, metadata, proto_child);
+        !result.has_value()) {
+      return result;
     }
   }
 
-  return true;
+  return base::ok();
 }
 
 }  // namespace
 
-bool ConvertAIPageContentToProto(
+base::expected<void, std::string> ConvertAIPageContentToProto(
     blink::mojom::AIPageContentOptionsPtr main_frame_options,
     content::GlobalRenderFrameHostToken main_frame_token,
     const AIPageContentMap& page_content_map,
@@ -774,7 +806,7 @@ bool ConvertAIPageContentToProto(
     optimization_guide::AIPageContentResult& page_content_result) {
   auto it = page_content_map.find(main_frame_token);
   if (it == page_content_map.end()) {
-    return false;
+    return base::unexpected("could not find AIPageContent for main frame");
   }
 
   const auto& main_frame_page_content = *it->second;
@@ -783,17 +815,19 @@ bool ConvertAIPageContentToProto(
       main_frame_token.child_id, main_frame_token.frame_token);
   // The frame may have been torn down or crashed before we got a response.
   if (!render_frame_info) {
-    return false;
+    return base::unexpected("could not find RenderFrameInfo for main frame");
   }
 
   ConvertFrameData(*render_frame_info, *main_frame_page_content.frame_data,
                    page_content_result.proto.mutable_main_frame_data(),
                    *page_content_result.metadata, frame_token_set);
-  if (!ConvertNode(main_frame_token, *main_frame_page_content.root_node,
-                   page_content_map, frame_token_set, get_render_frame_info,
-                   *page_content_result.metadata,
-                   page_content_result.proto.mutable_root_node())) {
-    return false;
+  if (auto result =
+          ConvertNode(main_frame_token, *main_frame_page_content.root_node,
+                      page_content_map, frame_token_set, get_render_frame_info,
+                      *page_content_result.metadata,
+                      page_content_result.proto.mutable_root_node());
+      !result.has_value()) {
+    return result;
   }
 
   if (main_frame_page_content.page_interaction_info) {
@@ -814,7 +848,7 @@ bool ConvertAIPageContentToProto(
   page_content_result.proto.set_version(version);
   page_content_result.proto.set_mode(mode);
 
-  return true;
+  return base::ok();
 }
 
 bool IsCoordinateInNode(

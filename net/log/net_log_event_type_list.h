@@ -1030,8 +1030,9 @@ EVENT_TYPE(TCP_STREAM_ATTEMPT_CONNECT)
 //   }
 EVENT_TYPE(TLS_STREAM_ATTEMPT_ALIVE)
 
-// Measures the time TlsStreamAttempt was waiting SSLConfig to be ready.
-EVENT_TYPE(TLS_STREAM_ATTEMPT_WAIT_FOR_SSL_CONFIG)
+// Measures the time TlsStreamAttempt was waiting for the ServiceEndpoint to be
+// ready.
+EVENT_TYPE(TLS_STREAM_ATTEMPT_WAIT_FOR_SERVICE_ENDPOINT)
 
 // Measures the time TlsStreamAttempt took to connect (TLS handshake).
 // For the END phase, if there was an error, the following parameters are
@@ -1360,7 +1361,16 @@ EVENT_TYPE(HTTP_STREAM_JOB_INIT_CONNECTION)
 //   }
 EVENT_TYPE(HTTP_STREAM_REQUEST_BOUND_TO_JOB)
 
+// This event indicates that while an HttpStreamFactory::Job was trying to
+// establish a connection, a matching H2 became available, likely created
+// by another HttpStreamFactory::Job(). The event parameters are:
+//   {
+//     "source_dependency": <The session id>,
+//   }
+EVENT_TYPE(HTTP_STREAM_JOB_HTTP2_SESSION_AVAILABLE)
+
 // Identifies the NetLogSource() for the Request that the Job was attached to.
+// Event is logged to both the Request and the JobController.
 // The event parameters are:
 //   {
 //      "source_dependency": <Source identifier for the Request to which we were
@@ -1394,8 +1404,6 @@ EVENT_TYPE(HTTP_STREAM_JOB_RESUMED)
 // The following parameters are attached:
 //   {
 //      "url": <String of request URL>,
-//      "url_after_host_mapping": <URL after applying hostmapping.
-//                                 Only present if different from URL>,
 //      "is_preconnect": <True if controller is created for a preconnect>,
 //      "private_mode": <Privacy mode of the request>,
 //   }

@@ -17,7 +17,6 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.blink.mojom.DisplayMode;
 import org.chromium.blink.mojom.DisplayMode.EnumType;
 import org.chromium.cc.input.BrowserControlsState;
@@ -62,11 +61,14 @@ import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.external_intents.ExternalNavigationHandler;
+import org.chromium.components.external_intents.ExternalNavigationParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.url.GURL;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * A {@link TabDelegateFactory} class to be used in all {@link Tab} owned by a {@link
@@ -119,11 +121,33 @@ public class CustomTabDelegateFactory implements TabDelegateFactory {
         }
 
         @Override
-        public boolean shouldDisableExternalIntentRequestsForUrl(GURL url) {
+        public boolean shouldDisableExternalIntentRequestsForUrl(
+                ExternalNavigationParams params, Intent intent) {
+            // TODO(crbug.com/40549331): Migrate verifier hierarchy to GURL.
+            boolean shouldIgnore =
+                    mVerifier != null
+                            && mVerifier.shouldIgnoreExternalIntentHandlers(
+                                    params.getUrl().getSpec());
+
+            // Launch Handler Web API requires for an app to be opened in multiple instances. The
+            // logic to achieve this is defined in the Android app layer and an intent must be
+            // generated even if the same activity could handle the navigation.
+            WebContents webContents = getWebContents();
+            if (ChromeFeatureList.sAndroidWebAppLaunchHandler.isEnabled()
+                    && webContents != null
+                    && params.getOriginalWindowOpenDisposition()
+                            == WindowOpenDisposition.NEW_FOREGROUND_TAB
+                    && !webContents.hasOpener()
+                    && params.isTabInPWA()
+                    && params.isInitialNavigationInFrame()
+                    && shouldIgnore) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+                return false;
+            }
+
             // http://crbug.com/647569 : Do not forward URL requests to external intents for URLs
             // within the Webapp/TWA's scope.
-            // TODO(crbug.com/40549331): Migrate verifier hierarchy to GURL.
-            return mVerifier != null && mVerifier.shouldIgnoreExternalIntentHandlers(url.getSpec());
+            return shouldIgnore;
         }
 
         @Override

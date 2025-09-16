@@ -26,7 +26,7 @@ targets.legacy_basic_suite(
 targets.legacy_basic_suite(
     name = "blink_unittests_suite",
     tests = {
-        "blink_unit_tests": targets.legacy_test_config(),
+        "blink_unittests": targets.legacy_test_config(),
     },
 )
 
@@ -111,6 +111,7 @@ targets.legacy_basic_suite(
                 # tast-specific logic relying on tast_expr to be non-empty.
                 tast_expr = "STUB_STRING_TO_RUN_TAST_TESTS",
                 timeout_sec = 14400,
+                cros_ctp_suite_name = "chrome-uprev-hw",
                 cros_test_names_exclude_from_file = ["chromeos/tast_control_disabled_tests.txt"],
                 cros_test_tags = ["group:mainline", "dep:chrome"],
                 cros_test_tags_exclude = ["informational", "dep:no_chrome_dcheck"],
@@ -120,25 +121,6 @@ targets.legacy_basic_suite(
 )
 
 # Test suite for running critical Tast tests.
-targets.legacy_basic_suite(
-    name = "chromeos_chrome_criticalstaging_tast_tests",
-    tests = {
-        "chrome_criticalstaging_tast_tests": targets.legacy_test_config(
-            ci_only = True,
-            skylab = targets.skylab(
-                # `tast_expr` must be a non-empty string to run the tast tests. But the value of
-                # would be overridden by `tast_arrt_expr` defined in chromeos/BUILD.gn, so that we
-                # put the stub string here.
-                tast_expr = "STUB_STRING_TO_RUN_TAST_TESTS",
-                test_level_retries = 2,
-                shards = 3,
-                timeout_sec = 14400,
-            ),
-            experiment_percentage = 100,
-        ),
-    },
-)
-
 targets.legacy_basic_suite(
     name = "chromeos_chrome_criticalstaging_tast_tests_tfc",
     tests = {
@@ -161,25 +143,6 @@ targets.legacy_basic_suite(
 
 # Test suite for running disabled Tast tests to collect data to re-enable
 # them. The test suite should not be critical to builders.
-targets.legacy_basic_suite(
-    name = "chromeos_chrome_disabled_tast_tests",
-    tests = {
-        "chrome_disabled_tast_tests": targets.legacy_test_config(
-            ci_only = True,
-            skylab = targets.skylab(
-                # `tast_expr` must be a non-empty string to run the tast tests. But the value of
-                # would be overridden by `tast_arrt_expr` defined in chromeos/BUILD.gn, so that we
-                # put the stub string here.
-                tast_expr = "STUB_STRING_TO_RUN_TAST_TESTS",
-                test_level_retries = 1,
-                shards = 2,
-                timeout_sec = 14400,
-            ),
-            experiment_percentage = 100,
-        ),
-    },
-)
-
 targets.legacy_basic_suite(
     name = "chromeos_chrome_disabled_tast_tests_tfc",
     tests = {
@@ -428,6 +391,11 @@ targets.legacy_basic_suite(
         "blink_common_unittests": targets.legacy_test_config(),
         "blink_heap_unittests": targets.legacy_test_config(),
         "blink_platform_unittests": targets.legacy_test_config(),
+        "blink_unittests": targets.legacy_test_config(
+            android_swarming = targets.swarming(
+                shards = 6,
+            ),
+        ),
         "boringssl_crypto_tests": targets.legacy_test_config(),
         "boringssl_ssl_tests": targets.legacy_test_config(),
         "capture_unittests": targets.legacy_test_config(
@@ -496,11 +464,6 @@ targets.legacy_basic_suite(
         "ui_base_unittests": targets.legacy_test_config(),
         "ui_touch_selection_unittests": targets.legacy_test_config(),
         "url_unittests": targets.legacy_test_config(),
-        "webkit_unit_tests": targets.legacy_test_config(
-            android_swarming = targets.swarming(
-                shards = 6,
-            ),
-        ),
         "wtf_unittests": targets.legacy_test_config(),
         "zlib_unittests": targets.legacy_test_config(),
     },

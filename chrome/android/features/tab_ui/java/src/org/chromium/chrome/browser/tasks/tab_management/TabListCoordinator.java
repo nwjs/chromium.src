@@ -39,7 +39,6 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.Token;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -81,6 +80,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /** Coordinator for showing UI for a list of tabs. Can be used in GRID or STRIP modes. */
 @NullMarked
@@ -137,7 +137,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
     private final Activity mActivity;
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
     private final TabListModel mModelList;
-    private final boolean mHasEmptyView;
+    private final ViewGroup mParentView;
     private final @DrawableRes int mEmptyStateImageResId;
     private final @StringRes int mEmptyStateHeadingResId;
     private final @StringRes int mEmptyStateSubheadingResId;
@@ -231,6 +231,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
         mActivity = activity;
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mModelList = new TabListModel();
+        mParentView = parentView;
         mAdapter =
                 new SimpleRecyclerViewAdapter(mModelList) {
                     @Override
@@ -447,8 +448,6 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
             mTabStripSnapshotter =
                     new TabStripSnapshotter(onModelTokenChange, mModelList, mRecyclerView);
         }
-
-        mHasEmptyView = hasEmptyView;
         mEmptyStateHeadingResId = emptyHeadingStringResId;
         mEmptyStateSubheadingResId = emptySubheadingStringResId;
         mEmptyStateImageResId = emptyImageResId;
@@ -501,7 +500,9 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
     /** Adds an observer of the tab list item size. Also triggers an observer method. */
     public void addTabListItemSizeChangedObserver(TabListItemSizeChangedObserver observer) {
         mTabListItemSizeChangedObserverList.addObserver(observer);
-        observer.onSizeChanged(mMediator.getCurrentSpanCount(), mMediator.getDefaultGridCardSize());
+        Size size = mMediator.getDefaultGridCardSize();
+        assert size != null;
+        observer.onSizeChanged(mMediator.getCurrentSpanCount(), size);
     }
 
     /** Remove an observer of the tab list item size. */
@@ -526,7 +527,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
      *     found).
      */
     Rect getTabThumbnailRect(int tabId) {
-        int index = getIndexForTabId(tabId);
+        int index = getIndexForTabIdWithRelatedTabs(tabId);
         if (index == TabModel.INVALID_TAB_INDEX) return new Rect();
 
         return mRecyclerView.getRectOfTabThumbnail(
@@ -535,6 +536,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
 
     Size getThumbnailSize() {
         Size size = mMediator.getDefaultGridCardSize();
+        assert size != null;
         return TabUtils.deriveThumbnailSize(size, mActivity);
     }
 
@@ -548,7 +550,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
             mAwaitingLayoutRunnable = null;
             mAwaitingTabId = Tab.INVALID_TAB_ID;
         }
-        int index = getIndexForTabId(tabId);
+        int index = getIndexForTabIdWithRelatedTabs(tabId);
         if (index == TabModel.INVALID_TAB_INDEX) {
             r.run();
             return;
@@ -796,11 +798,12 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
         if (mIsEmptyViewInitialized) {
             return;
         }
-        if (mHasEmptyView && mTabListEmptyCoordinator != null) {
+        if (mTabListEmptyCoordinator != null) {
             mTabListEmptyCoordinator.initializeEmptyStateView(
                     mEmptyStateImageResId, mEmptyStateHeadingResId, mEmptyStateSubheadingResId);
             mTabListEmptyCoordinator.attachEmptyView();
             mIsEmptyViewInitialized = true;
+            TabUiUtils.applyXrEmptyStateBackplate(mParentView);
         }
     }
 
@@ -814,7 +817,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
     }
 
     public void destroyEmptyView() {
-        if (mHasEmptyView && mTabListEmptyCoordinator != null) {
+        if (mTabListEmptyCoordinator != null) {
             mTabListEmptyCoordinator.destroyEmptyView();
             mIsEmptyViewInitialized = false;
         }
@@ -824,7 +827,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
         if (!mIsEmptyViewInitialized) {
             initializeEmptyStateView();
         }
-        if (mHasEmptyView && mTabListEmptyCoordinator != null) {
+        if (mTabListEmptyCoordinator != null) {
             mTabListEmptyCoordinator.setIsTabSwitcherShowing(true);
         }
     }
@@ -837,7 +840,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
     void postHiding() {
         unregisterLayoutChangeListener();
         mMediator.postHiding();
-        if (mHasEmptyView && mTabListEmptyCoordinator != null) {
+        if (mTabListEmptyCoordinator != null) {
             mTabListEmptyCoordinator.setIsTabSwitcherShowing(false);
         }
     }
@@ -974,7 +977,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
     /**
      * @see TabListMediator#specialItemExistsInModel(int)
      */
-    boolean specialItemExists(@MessageService.MessageType int itemIdentifier) {
+    boolean specialItemExists(@TabSwitcherMessageManager.MessageType int itemIdentifier) {
         return mMediator.specialItemExistsInModel(itemIdentifier);
     }
 
@@ -998,7 +1001,8 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
         }
     }
 
-    private int getIndexForTabId(int tabId) {
+    /** Returns the index for the tab with related tabs. */
+    public int getIndexForTabIdWithRelatedTabs(int tabId) {
         return mMediator.getIndexForTabIdWithRelatedTabs(tabId);
     }
 
@@ -1087,7 +1091,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
     }
 
     /** Returns the coordinator that manages the overflow menu for tab group cards in the GTS. */
-    public TabListGroupMenuCoordinator getTabListGroupMenuCoordinator() {
+    public @Nullable TabListGroupMenuCoordinator getTabListGroupMenuCoordinator() {
         return mMediator.getTabListGroupMenuCoordinator();
     }
 

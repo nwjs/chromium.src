@@ -64,19 +64,22 @@ SymphoniaDecoderConfig ToSymphoniaConfig(const AudioDecoderConfig& config) {
 }
 
 // Helper to create a SymphoniaPacket from a DecoderBuffer.
-SymphoniaPacket ToSymphoniaPacket(const DecoderBuffer& buffer,
-                                  base::TimeDelta first_frame_timestamp) {
+SymphoniaPacket ToSymphoniaPacket(
+    const DecoderBuffer& buffer,
+    std::optional<base::TimeDelta> first_frame_timestamp) {
   SymphoniaPacket packet;
   if (buffer.end_of_stream()) {
     // Represent EOS as an empty data vector.
     packet.data = rust::Vec<uint8_t>();
-    packet.timestamp_us = 0;  // Timestamp doesn't matter for EOS.
+
+    // EOS buffers do not have a valid timestamp or duration.
+    packet.timestamp_us = 0;
     packet.duration_us = 0;
   } else {
     CHECK_GT(buffer.size(), 0u);
     packet.data = ToRustVec(buffer);
     packet.timestamp_us =
-        (buffer.timestamp() - first_frame_timestamp).InMicroseconds();
+        (buffer.timestamp() - first_frame_timestamp.value()).InMicroseconds();
     packet.duration_us = buffer.duration().InMicroseconds();
   }
   return packet;
@@ -177,24 +180,39 @@ void SymphoniaAudioDecoder::Initialize(const AudioDecoderConfig& config,
 void SymphoniaAudioDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
                                    DecodeCB decode_cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(decode_cb);
   CHECK_NE(state_, DecoderState::kUninitialized);
-
+  CHECK(decode_cb);
   DecodeCB decode_cb_bound =
       base::BindPostTaskToCurrentDefault(std::move(decode_cb));
 
-  if (state_ == DecoderState::kError) {
+  switch (state_) {
+    // If the decoder is uninitialized at this point, that's a developer error.
+    case DecoderState::kUninitialized:
+      NOTREACHED();
+
+    case DecoderState::kError:
+      std::move(decode_cb_bound).Run(DecoderStatus::Codes::kFailed);
+      return;
+
+    case DecoderState::kDecodeFinished:
+      std::move(decode_cb_bound).Run(DecoderStatus::Codes::kOk);
+      return;
+
+    case DecoderState::kNormal:
+      DecodeBuffer(std::move(buffer), std::move(decode_cb_bound));
+      break;
+  }
+}
+
+void SymphoniaAudioDecoder::DecodeBuffer(scoped_refptr<DecoderBuffer> buffer,
+                                         DecodeCB decode_cb_bound) {
+  const bool is_eos = buffer->end_of_stream();
+  if (!is_eos && buffer->timestamp() == kNoTimestamp) {
+    DVLOG(1) << "Received a buffer without a timestamp.";
     std::move(decode_cb_bound).Run(DecoderStatus::Codes::kFailed);
     return;
   }
 
-  // Do nothing if decoding has finished.
-  if (state_ == DecoderState::kDecodeFinished) {
-    std::move(decode_cb_bound).Run(DecoderStatus::Codes::kOk);
-    return;
-  }
-
-  const bool is_eos = buffer->end_of_stream();
   if (!is_eos && buffer->is_encrypted()) {
     state_ = DecoderState::kError;
     std::move(decode_cb_bound)
@@ -231,17 +249,28 @@ void SymphoniaAudioDecoder::Reset(base::OnceClosure closure) {
 
 bool SymphoniaAudioDecoder::SymphoniaDecode(const DecoderBuffer& buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!first_frame_timestamp_.has_value()) {
+
+  // The first frame only has a valid timestamp if it is not EOS.
+  if (!first_frame_timestamp_.has_value() && !buffer.end_of_stream()) {
     first_frame_timestamp_ = buffer.timestamp();
   }
 
   SymphoniaDecodeResult result = symphonia_decoder_.value()->decode(
-      ToSymphoniaPacket(buffer, first_frame_timestamp_.value()));
+      ToSymphoniaPacket(buffer, first_frame_timestamp_));
 
-  if (result.status == SymphoniaDecodeStatus::EndOfStream) {
-    // No buffer to process.
+  // The Symphonia glue will return an empty buffer if end of stream is reached.
+  if (result.buffer->data.empty()) {
+    // The stream end was unexpected, which is not as severe of an error as the
+    // other potential cases logged below.
+    if (result.status == SymphoniaDecodeStatus::UnexpectedEndOfStream) {
+      MEDIA_LOG(WARNING, media_log_) << "Reached an unexpected end of stream.";
+    }
     return true;
   }
+  // Sanity check: if Symphonia thinks things are OK and returned a valid
+  // buffer, then the input buffer should definitely not have been end of
+  // stream.
+  CHECK(!buffer.end_of_stream());
 
   if (result.status != SymphoniaDecodeStatus::Ok) {
     MEDIA_LOG(ERROR, media_log_)

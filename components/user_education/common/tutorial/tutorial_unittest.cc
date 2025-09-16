@@ -46,7 +46,8 @@ DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kCustomEventType1);
 
 const char kTestElementName1[] = "ELEMENT_NAME_1";
 
-const ui::ElementContext kTestContext1(1);
+constexpr ui::ElementContext kTestContext1 =
+    ui::ElementContext::CreateFakeContextForTesting(1);
 
 const TutorialIdentifier kTestTutorial1{"kTestTutorial1"};
 const TutorialIdentifier kTestTutorial2{"kTestTutorial2"};
@@ -348,11 +349,10 @@ TEST_F(TutorialTest, MultipleInteractionTutorialRuns) {
   element_3.Show();
 
   // Configure `next` callback to trigger `kCustomEventType1` on current anchor.
-  ON_CALL(next, Run).WillByDefault(
-      testing::Invoke([](ui::TrackedElement* current_anchor) {
-        ui::ElementTracker::GetFrameworkDelegate()->NotifyCustomEvent(
-            current_anchor, kCustomEventType1);
-      }));
+  ON_CALL(next, Run).WillByDefault([](ui::TrackedElement* current_anchor) {
+    ui::ElementTracker::GetFrameworkDelegate()->NotifyCustomEvent(
+        current_anchor, kCustomEventType1);
+  });
 
   // Build the tutorial `description`.
   TutorialDescription description;

@@ -124,15 +124,13 @@ class SaveUpdatePasswordMessageDelegate
 
   void ClearState();
 
-  void RecordMessageShownMetrics();
+  void RecordMessageShownMetrics(bool update_password);
   void RecordDismissalReasonMetrics(
       password_manager::metrics_util::UIDismissalReason ui_dismissal_reason);
 
   static password_manager::metrics_util::UIDismissalReason
   MessageDismissReasonToPasswordManagerUIDismissalReason(
       messages::DismissReason dismiss_reason);
-
-  void MaybeNudgeToUpdateGmsCore();
 
   PasswordEditDialogFactory password_edit_dialog_factory_;
 

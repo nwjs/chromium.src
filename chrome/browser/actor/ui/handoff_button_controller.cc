@@ -13,18 +13,18 @@
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
+#include "ui/color/color_id.h"
 #include "ui/events/types/event_type.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/webview/webview.h"
+#include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget_delegate.h"
 
 namespace {
 
-// A fixed vertical offset from the top of the window, used when the tab
-// strip is not visible (e.g., in immersive fullscreen).
-constexpr int kHandoffButtonTopOffset = 8;
+constexpr int kHandoffbuttonPreferredHeight = 70;
 
 std::unique_ptr<views::NonClientFrameView> CreateHandoffButtonFrameView(
     views::Widget* widget) {
@@ -72,6 +72,9 @@ void HandoffButtonWidget::OnMouseEvent(::ui::MouseEvent* event) {
   views::Widget::OnMouseEvent(event);
 }
 
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(HandoffButtonController,
+                                      kHandoffButtonElementId);
+
 HandoffButtonController::HandoffButtonController(
     tabs::TabInterface& tab_interface)
     : tab_interface_(tab_interface) {}
@@ -90,16 +93,18 @@ void HandoffButtonController::UpdateState(const HandoffButtonState& state,
 
   std::u16string text;
   ImageModel icon;
-  // TODO(crbug.com/422541242): Update icon color to match spec.
   switch (state.controller) {
     case kActor:
       text = TAKE_OVER_TASK_TEXT;
+      // TODO(crbug.com/422541242): Update icon to select_window_2.
       icon = ImageModel::FromVectorIcon(
-          vector_icons::kSelectWindowChromeRefreshIcon, SK_ColorDKGRAY);
+          vector_icons::kSelectWindowChromeRefreshIcon,
+          ::ui::kColorLabelForeground);
       break;
     case kClient:
       text = GIVE_TASK_BACK_TEXT;
-      icon = ImageModel::FromVectorIcon(kScreensaverAutoIcon, SK_ColorDKGRAY);
+      icon = ImageModel::FromVectorIcon(kScreensaverAutoIcon,
+                                        ::ui::kColorLabelForeground);
       break;
   }
 
@@ -112,8 +117,6 @@ void HandoffButtonController::UpdateState(const HandoffButtonState& state,
     button_view_->SetImageModel(views::Button::STATE_NORMAL, icon);
     UpdateBounds();
   }
-
-  // TODO(crbug.com/422541242): Add Z-order logic.
 
   UpdateVisibility();
 }
@@ -130,9 +133,10 @@ void HandoffButtonController::CreateAndShowButton(const std::u16string& text,
                           weak_ptr_factory_.GetWeakPtr()),
       text);
   button_view_ = button_view.get();
-  // TODO(crbug.com/422541242): Update color to match spec.
-  button_view_->SetEnabledTextColors(SK_ColorDKGRAY);
+  button_view_->SetEnabledTextColors(::ui::kColorLabelForeground);
   button_view_->SetImageModel(views::Button::STATE_NORMAL, icon);
+  button_view_->SetProperty(views::kElementIdentifierKey,
+                            kHandoffButtonElementId);
 
   auto widget_delegate = std::make_unique<views::WidgetDelegate>();
   widget_delegate->SetContentsView(std::move(button_view));
@@ -158,9 +162,10 @@ void HandoffButtonController::CreateAndShowButton(const std::u16string& text,
 
   auto tab_dialog_params = std::make_unique<tabs::TabDialogManager::Params>();
   tab_dialog_params->close_on_navigate = false;
-  tab_dialog_params->close_on_detach = false;
+  tab_dialog_params->close_on_detach = true;
   tab_dialog_params->disable_input = false;
   tab_dialog_params->animated = false;
+  tab_dialog_params->should_show_inactive = true;
   tab_dialog_params->should_show_callback = base::BindRepeating(
       &HandoffButtonController::ShouldShowButton, base::Unretained(this));
   tab_dialog_params->get_dialog_bounds =
@@ -183,8 +188,8 @@ void HandoffButtonController::ShouldShowButton(bool& show) {
 
 gfx::Rect HandoffButtonController::GetHandoffButtonBounds(
     views::Widget* widget) {
-  const gfx::Size preferred_size =
-      widget->GetContentsView()->GetPreferredSize();
+  gfx::Size preferred_size = widget->GetContentsView()->GetPreferredSize();
+  preferred_size.set_height(kHandoffbuttonPreferredHeight);
 
   auto* anchor_view = tab_interface_->GetBrowserWindowInterface()->GetWebView();
   if (!anchor_view) {
@@ -195,16 +200,7 @@ gfx::Rect HandoffButtonController::GetHandoffButtonBounds(
   const int x =
       anchor_bounds.x() + (anchor_bounds.width() - preferred_size.width()) / 2;
 
-  // Calculate the Y coordinate based on tab strip visibility.
-  const bool is_tab_strip_visible =
-      tab_interface_->GetBrowserWindowInterface()->IsTabStripVisible();
-
-  const int y =
-      is_tab_strip_visible
-          // Vertically center the button on the top edge of the anchor.
-          ? anchor_bounds.y() - preferred_size.height() / 2
-          // Position with a fixed offset from the top of the anchor.
-          : anchor_bounds.y() - kHandoffButtonTopOffset;
+  const int y = anchor_bounds.y() - preferred_size.height() / 2;
 
   return gfx::Rect({x, y}, preferred_size);
 }
@@ -247,7 +243,7 @@ tabs::TabDialogManager* HandoffButtonController::GetTabDialogManager() {
 }
 
 ActorUiTabControllerInterface* HandoffButtonController::GetTabController() {
-  return tab_interface_->GetTabFeatures()->actor_ui_tab_controller();
+  return ActorUiTabControllerInterface::From(&tab_interface_.get());
 }
 
 }  // namespace actor::ui

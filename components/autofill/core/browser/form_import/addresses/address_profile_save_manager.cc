@@ -85,6 +85,8 @@ void AddressProfileSaveManager::MaybeOfferSavePrompt(
     case AutofillProfileImportType::kProfileMigration:
     case AutofillProfileImportType::kProfileMigrationAndSilentUpdate:
     case AutofillProfileImportType::kHomeAndWorkSuperset:
+    case AutofillProfileImportType::kNameEmailSuperset:
+    case AutofillProfileImportType::kHomeWorkNameEmailMerge:
       if (address_data_manager().auto_accept_address_imports_for_testing()) {
         import_process->AcceptWithoutEdits();
         FinalizeProfileImport(std::move(import_process));
@@ -172,7 +174,7 @@ void AddressProfileSaveManager::AdjustUpdateProfileStrikes(
     return;
   }
   CHECK(import_process.merge_candidate().has_value());
-  const std::string& candidate_guid = import_process.import_candidate()->guid();
+  const std::string& candidate_guid = import_process.merge_candidate()->guid();
   if (import_process.UserDeclined()) {
     address_data_manager().AddStrikeToBlockProfileUpdate(candidate_guid);
   } else if (import_process.UserAccepted()) {

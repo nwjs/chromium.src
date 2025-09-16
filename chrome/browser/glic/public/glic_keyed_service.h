@@ -15,11 +15,10 @@
 #include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/actor/task_id.h"
-#include "chrome/browser/glic/glic_enabling.h"
 #include "chrome/browser/glic/glic_zero_state_suggestions_manager.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "content/public/browser/web_contents.h"
@@ -27,6 +26,10 @@
 class BrowserWindowInterface;
 class Profile;
 class ProfileManager;
+
+namespace actor {
+struct ActionResultWithLatencyInfo;
+}  // namespace actor
 
 namespace contextual_cueing {
 class ContextualCueingService;
@@ -39,16 +42,16 @@ class IdentityManager;
 namespace glic {
 
 class AuthController;
-class GlicActorController;
 class GlicEnabling;
+class GlicFreController;
 class GlicMetrics;
 class GlicOcclusionNotifier;
 class GlicProfileManager;
 class GlicScreenshotCapturer;
 class GlicSharingManagerImpl;
 class GlicWindowController;
-class GlicWindowControllerImpl;
 class Host;
+class HostManager;
 
 enum class GlicPrewarmingChecksResult;
 
@@ -117,7 +120,8 @@ class GlicKeyedService : public KeyedService {
   GlicEnabling& enabling() { return *enabling_.get(); }
 
   GlicMetrics* metrics() { return metrics_.get(); }
-  GlicWindowController& window_controller();
+  GlicFreController& fre_controller();
+  GlicWindowController& window_controller() const;
   GlicSharingManager& sharing_manager();
 
   // Called when a webview guest is created within a chrome://glic WebUI.
@@ -140,12 +144,6 @@ class GlicKeyedService : public KeyedService {
                  const std::optional<int32_t>& window_id,
                  glic::mojom::WebClientHandler::CreateTabCallback callback);
   virtual void ClosePanel();
-  void AttachPanel();
-  void DetachPanel();
-  void ResizePanel(const gfx::Size& size,
-                   base::TimeDelta duration,
-                   base::OnceClosure callback);
-  void SetPanelDraggableAreas(const std::vector<gfx::Rect>& draggable_areas);
   void SetContextAccessIndicator(bool show);
 
   // Callback for changes to the context access indicator status.
@@ -171,9 +169,10 @@ class GlicKeyedService : public KeyedService {
   void CreateTask(mojom::WebClientHandler::CreateTaskCallback callback);
   void PerformActions(const std::vector<uint8_t>& actions_proto,
                       mojom::WebClientHandler::PerformActionsCallback callback);
-
-  void StopActorTask(actor::TaskId task_id);
-  void PauseActorTask(actor::TaskId task_id);
+  void StopActorTask(actor::TaskId task_id,
+                     mojom::ActorTaskStopReason stop_reason);
+  void PauseActorTask(actor::TaskId task_id,
+                      mojom::ActorTaskPauseReason pause_reason);
   void ResumeActorTask(
       actor::TaskId task_id,
       const mojom::GetTabContextOptions& context_options,
@@ -211,7 +210,8 @@ class GlicKeyedService : public KeyedService {
   void OnMemoryPressure(
       base::MemoryPressureListener::MemoryPressureLevel level);
 
-  Host& host() { return *host_; }
+  Host& host();
+  HostManager& host_manager();
   GlicZeroStateSuggestionsManager& zero_state_suggestions_manager() {
     return *zero_state_suggestions_manager_;
   }
@@ -237,8 +237,10 @@ class GlicKeyedService : public KeyedService {
   void PerformActionsFinished(
       mojom::WebClientHandler::PerformActionsCallback callback,
       actor::TaskId task_id,
+      base::TimeTicks start_time,
       actor::mojom::ActionResultCode result_code,
-      std::optional<size_t> index_of_failed_action);
+      std::optional<size_t> index_of_failed_action,
+      std::vector<actor::ActionResultWithLatencyInfo> action_results);
 
   // List of callbacks to be notified when the client requests a change to the
   // context access indicator status.
@@ -254,12 +256,12 @@ class GlicKeyedService : public KeyedService {
 
   std::unique_ptr<GlicEnabling> enabling_;
   std::unique_ptr<GlicMetrics> metrics_;
-  std::unique_ptr<Host> host_;
-  std::unique_ptr<GlicWindowControllerImpl> window_controller_;
+  std::unique_ptr<GlicFreController> fre_controller_;
+  // Is either a GlicWindowControllerImpl or GlicPanelCoordinatorImpl.
+  std::unique_ptr<GlicWindowController> window_controller_;
   std::unique_ptr<GlicSharingManagerImpl> sharing_manager_;
   std::unique_ptr<GlicScreenshotCapturer> screenshot_capturer_;
   std::unique_ptr<AuthController> auth_controller_;
-  std::unique_ptr<GlicActorController> actor_controller_;
   std::unique_ptr<base::MemoryPressureListener> memory_pressure_listener_;
   std::unique_ptr<GlicOcclusionNotifier> occlusion_notifier_;
   std::unique_ptr<GlicZeroStateSuggestionsManager>

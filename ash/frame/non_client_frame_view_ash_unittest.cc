@@ -15,7 +15,6 @@
 #include "ash/style/ash_color_provider.h"
 #include "ash/style/dark_light_mode_controller_impl.h"
 #include "ash/test/ash_test_base.h"
-#include "ash/test/test_widget_builder.h"
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
@@ -48,6 +47,7 @@
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/gfx/vector_icon_types.h"
+#include "ui/views/test/test_widget_builder.h"
 #include "ui/views/test/views_test_utils.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -747,7 +747,7 @@ TEST_F(NonClientFrameViewAshTest, WideFrame) {
   wide_frame_view->GetWidget()->Show();
 
   chromeos::HeaderView* wide_header_view = wide_frame_view->header_view();
-  display::Screen* screen = display::Screen::GetScreen();
+  display::Screen* screen = display::Screen::Get();
 
   const gfx::Rect work_area = screen->GetPrimaryDisplay().work_area();
   gfx::Rect frame_bounds =
@@ -849,7 +849,7 @@ TEST_F(NonClientFrameViewAshTest, WideFrameButton) {
 TEST_F(NonClientFrameViewAshTest, MoveFullscreenWideFrameBetweenDisplay) {
   UpdateDisplay("800x600, 1000x600");
 
-  auto* screen = display::Screen::GetScreen();
+  auto* screen = display::Screen::Get();
   auto display_list = screen->GetAllDisplays();
 
   auto* delegate = new NonClientFrameViewAshTestWidgetDelegate();
@@ -971,7 +971,7 @@ TEST_P(NonClientFrameViewAshFrameColorTest, KFrameColorCtor) {
   // Build the window, this implicit constructs the NonClientFrameView.
   constexpr SkColor non_default_color = SK_ColorWHITE;
   std::unique_ptr<views::Widget> widget =
-      TestWidgetBuilder()
+      views::test::TestWidgetBuilder()
           .SetDelegate(delegate)
           .SetBounds(gfx::Rect())
           .SetParent(Shell::GetPrimaryRootWindow()->GetChildById(

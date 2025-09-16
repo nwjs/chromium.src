@@ -14,6 +14,8 @@
 namespace features {
 
 COMPONENT_EXPORT(UI_BASE_FEATURES)
+BASE_DECLARE_FEATURE(kSendEmptyGestureScrollUpdate);
+COMPONENT_EXPORT(UI_BASE_FEATURES)
 BASE_DECLARE_FEATURE(kExperimentalFlingAnimation);
 COMPONENT_EXPORT(UI_BASE_FEATURES) BASE_DECLARE_FEATURE(kFocusFollowsCursor);
 COMPONENT_EXPORT(UI_BASE_FEATURES)
@@ -120,9 +122,6 @@ BASE_DECLARE_FEATURE(kWaylandPerSurfaceScale);
 
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 BASE_DECLARE_FEATURE(kWaylandTextInputV3);
-
-COMPONENT_EXPORT(UI_BASE_FEATURES)
-BASE_DECLARE_FEATURE(kWaylandUiScale);
 
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 BASE_DECLARE_FEATURE(kWaylandSessionManagement);
@@ -241,6 +240,10 @@ BASE_DECLARE_FEATURE(kHandleIMESpanChangesOnUpdateComposition);
 
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 bool IsHandleIMESpanChangesOnUpdateCompositionEnabled();
+
+// Controls whether the default system accent colors should be used.
+COMPONENT_EXPORT(UI_BASE_FEATURES)
+BASE_DECLARE_FEATURE(kUseSystemDefaultAccentColors);
 
 }  // namespace features
 

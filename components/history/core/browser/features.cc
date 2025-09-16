@@ -4,8 +4,8 @@
 
 #include "components/history/core/browser/features.h"
 
-#include "components/history/core/browser/top_sites_impl.h"
-#include "components/sync/base/features.h"
+#include "build/build_config.h"
+#include "components/history/core/browser/top_sites_constants.h"
 
 namespace history {
 namespace {
@@ -16,8 +16,7 @@ constexpr auto kOrganicRepeatableQueriesDefaultValue =
 // Specifies the scaling behavior, i.e. whether the relevance scales of the
 // top sites and repeatable queries should be first aligned.
 // The default behavior is to mix the two lists as is.
-constexpr bool kScaleRepeatableQueriesScoresDefaultValue =
-    BUILDFLAG(IS_ANDROID) ? true : false;
+constexpr bool kScaleRepeatableQueriesScoresDefaultValue = is_android;
 
 // Defines the maximum number of repeatable queries that can be shown.
 // The default behavior is having no limit, i.e., the number of the tiles.
@@ -78,6 +77,12 @@ BASE_FEATURE(kPopulateVisitedLinkDatabase,
              "PopulateVisitedLinkDatabase",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, makes links `:visited` even when the visit results in an HTTP
+// response code of 404.
+BASE_FEATURE(kVisitedLinksOn404,
+             "VisitedLinksOn404",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, uses new scoring function for Most Visited Tiles computation.
 BASE_FEATURE(kMostVisitedTilesNewScoring,
              "MostVisitedTilesNewScoring",
@@ -87,6 +92,34 @@ BASE_FEATURE(kMostVisitedTilesNewScoring,
 // If enabled, heuristically remove possible visual duplicates from top sites.
 BASE_FEATURE(kMostVisitedTilesVisualDeduplication,
              "MostVisitedTilesVisualDeduplication",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+constexpr char kMvtScoringParamRecencyFactor_Classic[] = "default";
+constexpr char kMvtScoringParamRecencyFactor_Decay[] = "decay";
+constexpr char kMvtScoringParamRecencyFactor_DecayStaircase[] =
+    "decay_staircase";
+
+// The name of the recency factor strategy to use for MVT computation.
+constexpr base::FeatureParam<std::string> kMvtScoringParamRecencyFactor{
+    &kMostVisitedTilesNewScoring, "recency_factor",
+#if BUILDFLAG(IS_ANDROID)
+    kMvtScoringParamRecencyFactor_DecayStaircase};
+#else
+    kMvtScoringParamRecencyFactor_Classic};
+#endif  // BUILDFLAG(IS_ANDROID)
+
+// The per-day decay factor for each visit, used by "decay" only.
+constexpr base::FeatureParam<double> kMvtScoringParamDecayPerDay{
+    &kMostVisitedTilesNewScoring, "decay_per_day", 1.0};
+
+// The cap to daily visit count for each segment, used by {"decay",
+// "decay_staircase"}.
+constexpr base::FeatureParam<int> kMvtScoringParamDailyVisitCountCap{
+    &kMostVisitedTilesNewScoring, "daily_visit_count_cap",
+#if BUILDFLAG(IS_ANDROID)
+    10};
+#else
+    INT_MAX};
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace history

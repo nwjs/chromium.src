@@ -12,20 +12,28 @@
 #import "components/image_fetcher/core/image_fetcher.h"
 #import "components/image_fetcher/core/image_fetcher_service.h"
 #import "components/prefs/pref_service.h"
+#import "components/themes/ntp_background_data.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/utils.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
 #import "ios/chrome/browser/discover_feed/model/feed_constants.h"
+#import "ios/chrome/browser/home_customization/coordinator/background_customization_configuration_item.h"
+#import "ios/chrome/browser/home_customization/coordinator/home_customization_data_conversion.h"
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_navigation_delegate.h"
-#import "ios/chrome/browser/home_customization/model/background_customization_configuration_item.h"
+#import "ios/chrome/browser/home_customization/model/home_background_customization_service.h"
+#import "ios/chrome/browser/home_customization/model/user_uploaded_image_manager.h"
+#import "ios/chrome/browser/home_customization/ui/background_collection_configuration.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_discover_consumer.h"
+#import "ios/chrome/browser/home_customization/ui/home_customization_framing_coordinates.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_magic_stack_consumer.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_main_consumer.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_helper.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_metrics_recorder.h"
-#import "ios/chrome/browser/parcel_tracking/features.h"
+#import "ios/chrome/browser/ntp/ui_bundled/theme_utils.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "skia/ext/skia_utils_ios.h"
 #import "ui/gfx/image/image.h"
 #import "url/gurl.h"
 
@@ -37,19 +45,33 @@
       _discoverFeedVisibilityBrowserAgent;
   // The image fetcher used to download individual background images.
   raw_ptr<image_fetcher::ImageFetcher> _imageFetcher;
+  // The Background customization service for getting current and recently used
+  // backgrounds.
+  raw_ptr<HomeBackgroundCustomizationService> _backgroundService;
+  // The image manager used to load uesr uploaded images.
+  raw_ptr<UserUploadedImageManager> _userUploadedImageManager;
+
+  // Whether the theme has been changed.
+  BOOL _themeHasChanged;
 }
 
 - (instancetype)initWithPrefService:(PrefService*)prefService
     discoverFeedVisibilityBrowserAgent:
         (DiscoverFeedVisibilityBrowserAgent*)discoverFeedVisibilityBrowserAgent
-                   imageFetcherService:(image_fetcher::ImageFetcherService*)
-                                           imageFetcherService {
+                     backgroundService:
+                         (HomeBackgroundCustomizationService*)backgroundService
+                   imageFetcherService:
+                       (image_fetcher::ImageFetcherService*)imageFetcherService
+              userUploadedImageManager:
+                  (UserUploadedImageManager*)userUploadedImageManager {
   self = [super init];
   if (self) {
     _prefService = prefService;
     _discoverFeedVisibilityBrowserAgent = discoverFeedVisibilityBrowserAgent;
+    _backgroundService = backgroundService;
     _imageFetcher = imageFetcherService->GetImageFetcher(
         image_fetcher::ImageFetcherConfig::kDiskCacheOnly);
+    _userUploadedImageManager = userUploadedImageManager;
   }
   return self;
 }
@@ -71,25 +93,37 @@
   }
   [self.mainPageConsumer populateToggles:toggleMap];
 
-  if (IsNTPBackgroundCustomizationEnabled()) {
-    NSMutableDictionary<NSString*, id<BackgroundCustomizationConfiguration>>*
-        backgroundCustomizationConfigurationMap =
-            [NSMutableDictionary dictionary];
+  if (IsNTPBackgroundCustomizationEnabled() &&
+      _prefService->GetBoolean(prefs::kNTPCustomBackgroundEnabledByPolicy)) {
+    BackgroundCollectionConfiguration* collectionConfiguration =
+        [[BackgroundCollectionConfiguration alloc] init];
 
     // Create and add a background configuration with no background applied.
     BackgroundCustomizationConfigurationItem* defaultConfig =
         [[BackgroundCustomizationConfigurationItem alloc] initWithNoBackground];
-    backgroundCustomizationConfigurationMap[defaultConfig.configurationID] =
+    collectionConfiguration.configurations[defaultConfig.configurationID] =
         defaultConfig;
+    [collectionConfiguration.configurationOrder
+        addObject:defaultConfig.configurationID];
+
+    for (RecentlyUsedBackground background :
+         _backgroundService->GetRecentlyUsedBackgrounds()) {
+      BackgroundCustomizationConfigurationItem* config =
+          [self generateConfigurationItemForRecentBackground:background];
+      if (config) {
+        collectionConfiguration.configurations[config.configurationID] = config;
+        [collectionConfiguration.configurationOrder
+            addObject:config.configurationID];
+      }
+    }
 
     // TODO(crbug.com/408243803): fetch background customization
     // configurations and fill the `backgroundCustomizationConfigurationMap` and
     // `selectedBackgroundId`.
     [self.mainPageConsumer
-        populateBackgroundCustomizationConfigurations:
-            backgroundCustomizationConfigurationMap
-                                 selectedBackgroundId:defaultConfig
-                                                          .configurationID];
+        populateBackgroundCollectionConfiguration:collectionConfiguration
+                             selectedBackgroundId:defaultConfig
+                                                      .configurationID];
   }
 }
 
@@ -115,11 +149,6 @@
        [self isMagicStackCardEnabledForType:CustomizationToggleType::
                                                 kTapResumption]},
   };
-  if (IsIOSParcelTrackingEnabled()) {
-    toggleMap.insert({CustomizationToggleType::kParcelTracking,
-                      [self isMagicStackCardEnabledForType:
-                                CustomizationToggleType::kParcelTracking]});
-  }
   if (IsTipsMagicStackEnabled()) {
     toggleMap.insert(
         {CustomizationToggleType::kTips,
@@ -132,6 +161,13 @@
                                 CustomizationToggleType::kShopCard]});
   }
   [self.magicStackPageConsumer populateToggles:toggleMap];
+}
+
+- (void)saveCurrentTheme {
+  if (_themeHasChanged) {
+    _backgroundService->StoreCurrentTheme();
+    _themeHasChanged = NO;
+  }
 }
 
 #pragma mark - Private
@@ -165,9 +201,6 @@
     case CustomizationToggleType::kTapResumption:
       return _prefService->GetBoolean(
           prefs::kHomeCustomizationMagicStackTabResumptionEnabled);
-    case CustomizationToggleType::kParcelTracking:
-      return _prefService->GetBoolean(
-          prefs::kHomeCustomizationMagicStackParcelTrackingEnabled);
     case CustomizationToggleType::kTips: {
       CHECK(IsTipsMagicStackEnabled());
       return _prefService->GetBoolean(
@@ -186,6 +219,147 @@
       }
     default:
       NOTREACHED();
+  }
+}
+
+// Applies the user-uploaded photo background to the NTP.
+- (void)applyUserUploadedBackground:
+    (BackgroundCustomizationConfigurationItem*)configurationItem {
+  FramingCoordinates coordinates =
+      FramingCoordinatesFromHomeCustomizationFramingCoordinates(
+          configurationItem.userUploadedFramingCoordinates);
+  _backgroundService->SetCurrentUserUploadedBackground(
+      base::SysNSStringToUTF8(configurationItem.userUploadedImagePath),
+      coordinates);
+}
+
+// Applies the preset gallery background for the given collection image.
+- (void)applyPresetGalleryBackgroundForCollectionImage:
+    (const CollectionImage&)collectionImage {
+  std::string attribution_line_1;
+  std::string attribution_line_2;
+  // Set attribution lines if available.
+  if (!collectionImage.attribution.empty()) {
+    attribution_line_1 = collectionImage.attribution[0];
+    if (collectionImage.attribution.size() > 1) {
+      attribution_line_2 = collectionImage.attribution[1];
+    }
+  }
+
+  _backgroundService->SetCurrentBackground(
+      collectionImage.image_url, collectionImage.thumbnail_image_url,
+      attribution_line_1, attribution_line_2,
+      collectionImage.attribution_action_url, collectionImage.collection_id);
+}
+
+- (void)applyPresetGalleryBackgroundForCustomBackground:
+            (const sync_pb::NtpCustomBackground)customBackground
+                                           thumbnailURL:
+                                               (const GURL&)thumbnailURL {
+  _backgroundService->SetCurrentBackground(
+      GURL(customBackground.url()), thumbnailURL,
+      customBackground.attribution_line_1(),
+      customBackground.attribution_line_2(),
+      GURL(customBackground.attribution_action_url()),
+      customBackground.collection_id());
+}
+
+// Applies a background color to the NTP.
+- (void)applyBackgroundColor:
+    (id<BackgroundCustomizationConfiguration>)backgroundConfiguration {
+  if (![backgroundConfiguration
+          isKindOfClass:[BackgroundCustomizationConfigurationItem class]]) {
+    // Only `BackgroundCustomizationConfigurationItem` exposes required
+    // fields. Other implementations may not support expected properties.
+    return;
+  }
+
+  BackgroundCustomizationConfigurationItem* configurationItem =
+      static_cast<BackgroundCustomizationConfigurationItem*>(
+          backgroundConfiguration);
+
+  if (!configurationItem.backgroundColor) {
+    [self applyDefaultBackground];
+    return;
+  }
+
+  _backgroundService->SetBackgroundColor(
+      skia::UIColorToSkColor(configurationItem.backgroundColor),
+      SchemeVariantToProtoEnum(configurationItem.colorVariant));
+}
+
+// Sets the NTP to the default background (no color, no image, etc.).
+- (void)applyDefaultBackground {
+  _backgroundService->ClearCurrentBackground();
+}
+
+// Generates a `BackgroundCustomizationConfigurationItem` for the provided
+// recently used background to display in the UI.
+- (BackgroundCustomizationConfigurationItem*)
+    generateConfigurationItemForRecentBackground:
+        (RecentlyUsedBackground)recentBackground {
+  if (std::holds_alternative<HomeCustomBackground>(recentBackground)) {
+    HomeCustomBackground customBackground =
+        std::get<HomeCustomBackground>(recentBackground);
+    if (std::holds_alternative<sync_pb::NtpCustomBackground>(
+            customBackground)) {
+      sync_pb::NtpCustomBackground ntpCustomBackground =
+          std::get<sync_pb::NtpCustomBackground>(customBackground);
+      return [[BackgroundCustomizationConfigurationItem alloc]
+          initWithNtpCustomBackground:ntpCustomBackground];
+    } else {
+      HomeUserUploadedBackground currentUserUploadedBackground =
+          std::get<HomeUserUploadedBackground>(customBackground);
+      NSString* imagePath =
+          base::SysUTF8ToNSString(currentUserUploadedBackground.image_path);
+
+      return [[BackgroundCustomizationConfigurationItem alloc]
+          initWithUserUploadedImagePath:imagePath
+                     framingCoordinates:currentUserUploadedBackground
+                                            .framing_coordinates];
+    }
+  } else {
+    sync_pb::UserColorTheme colorTheme =
+        std::get<sync_pb::UserColorTheme>(recentBackground);
+
+    UIColor* backgroundColor = UIColorFromRGB(colorTheme.color());
+    ui::ColorProviderKey::SchemeVariant colorVariant =
+        ProtoEnumToSchemeVariant(colorTheme.browser_color_variant());
+    return [[BackgroundCustomizationConfigurationItem alloc]
+        initWithBackgroundColor:backgroundColor
+                   colorVariant:colorVariant];
+  }
+}
+
+// Generates a `RecentlyUsedBackground` for the provided
+// `BackgroundCustomizationConfigurationItem`.
+- (RecentlyUsedBackground)generateRecentBackgroundForConfiguration:
+    (BackgroundCustomizationConfigurationItem*)configuration {
+  switch (configuration.backgroundStyle) {
+    case HomeCustomizationBackgroundStyle::kDefault: {
+      return RecentlyUsedBackground();
+    }
+    case HomeCustomizationBackgroundStyle::kColor: {
+      sync_pb::UserColorTheme colorTheme;
+      colorTheme.set_color(
+          skia::UIColorToSkColor(configuration.backgroundColor));
+      colorTheme.set_browser_color_variant(
+          SchemeVariantToProtoEnum(configuration.colorVariant));
+      return colorTheme;
+    }
+    case HomeCustomizationBackgroundStyle::kPreset: {
+      return configuration.customBackground;
+    }
+    case HomeCustomizationBackgroundStyle::kUserUploaded: {
+      HomeUserUploadedBackground userUploadedBackground;
+      userUploadedBackground.image_path =
+          base::SysNSStringToUTF8(configuration.userUploadedImagePath);
+      userUploadedBackground.framing_coordinates =
+          FramingCoordinatesFromHomeCustomizationFramingCoordinates(
+              configuration.userUploadedFramingCoordinates);
+
+      return userUploadedBackground;
+    }
   }
 }
 
@@ -220,10 +394,6 @@
     case CustomizationToggleType::kTapResumption:
       _prefService->SetBoolean(
           prefs::kHomeCustomizationMagicStackTabResumptionEnabled, enabled);
-      break;
-    case CustomizationToggleType::kParcelTracking:
-      _prefService->SetBoolean(
-          prefs::kHomeCustomizationMagicStackParcelTrackingEnabled, enabled);
       break;
     case CustomizationToggleType::kTips: {
       CHECK(IsTipsMagicStackEnabled());
@@ -275,13 +445,59 @@
 
 - (void)applyBackgroundForConfiguration:
     (id<BackgroundCustomizationConfiguration>)backgroundConfiguration {
-  // TODO(crbug.com/408243803): apply NTP background configuration to NTP.
+  if (![backgroundConfiguration
+          isKindOfClass:[BackgroundCustomizationConfigurationItem class]]) {
+    return;
+  }
+
+  _themeHasChanged = YES;
+
+  BackgroundCustomizationConfigurationItem* configurationItem =
+      static_cast<BackgroundCustomizationConfigurationItem*>(
+          backgroundConfiguration);
+  switch (configurationItem.backgroundStyle) {
+    case HomeCustomizationBackgroundStyle::kUserUploaded:
+      [self applyUserUploadedBackground:configurationItem];
+      break;
+    case HomeCustomizationBackgroundStyle::kPreset:
+      // Use whichever data item has a URL.
+      if (!configurationItem.collectionImage.image_url.is_empty()) {
+        [self applyPresetGalleryBackgroundForCollectionImage:
+                  configurationItem.collectionImage];
+      } else {
+        [self
+            applyPresetGalleryBackgroundForCustomBackground:
+                configurationItem.customBackground
+                                               thumbnailURL:configurationItem
+                                                                .thumbnailURL];
+      }
+      break;
+    case HomeCustomizationBackgroundStyle::kColor:
+      [self applyBackgroundColor:backgroundConfiguration];
+      break;
+    case HomeCustomizationBackgroundStyle::kDefault:
+      [self applyDefaultBackground];
+      break;
+    default:
+      NOTREACHED();
+  }
 }
 
-- (void)deleteBackgroundFromRecentlyUsedAtIndex:(NSInteger)index {
-  // TODO(crbug.com/408243803): Remove the background at the given index from
-  // the "Recently Used" list. If the background being removed is also set as
-  // the current NTP background, clear the current background as well.
+- (void)deleteBackgroundFromRecentlyUsed:
+    (id<BackgroundCustomizationConfiguration>)backgroundConfiguration {
+  if (![backgroundConfiguration
+          isKindOfClass:[BackgroundCustomizationConfigurationItem class]]) {
+    // Only `BackgroundCustomizationConfigurationItem` exposes required
+    // fields. Other implementations may not support expected properties.
+    return;
+  }
+
+  BackgroundCustomizationConfigurationItem* configurationItem =
+      static_cast<BackgroundCustomizationConfigurationItem*>(
+          backgroundConfiguration);
+
+  _backgroundService->DeleteRecentlyUsedBackground(
+      [self generateRecentBackgroundForConfiguration:configurationItem]);
 }
 
 - (void)fetchBackgroundCustomizationThumbnailURLImage:(GURL)thumbnailURL
@@ -303,6 +519,17 @@
       }),
       // TODO (crbug.com/417234848): Add annotation.
       image_fetcher::ImageFetcherParams(NO_TRAFFIC_ANNOTATION_YET, "Test"));
+}
+
+- (void)fetchBackgroundCustomizationUserUploadedImage:(NSString*)imagePath
+                                           completion:
+                                               (void (^)(UIImage*))completion {
+  DCHECK(imagePath.length > 0);
+
+  base::FilePath path = base::FilePath(base::SysNSStringToUTF8(imagePath));
+
+  _userUploadedImageManager->LoadUserUploadedImage(path,
+                                                   base::BindOnce(completion));
 }
 
 @end

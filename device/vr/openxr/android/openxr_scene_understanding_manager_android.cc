@@ -24,11 +24,22 @@ OpenXRSceneUnderstandingManagerAndroid::OpenXRSceneUnderstandingManagerAndroid(
     const OpenXrExtensionHelper& extension_helper,
     XrSession session,
     XrSpace mojo_space)
-    : extension_helper_(extension_helper), mojo_space_(mojo_space) {
-  plane_manager_ =
-      std::make_unique<OpenXrPlaneManagerAndroid>(extension_helper, session);
-  hit_test_manager_ = std::make_unique<OpenXrHitTestManagerAndroid>(
-      plane_manager_.get(), extension_helper, session, mojo_space_);
+    : mojo_space_(mojo_space) {
+  const auto* extension_enum = extension_helper.ExtensionEnumeration();
+  if (extension_enum->ExtensionSupported(
+          XR_ANDROID_TRACKABLES_EXTENSION_NAME)) {
+    anchor_manager_ = std::make_unique<OpenXrAnchorManagerAndroid>(
+        extension_helper, session, mojo_space_);
+
+    // For the time being, we only need the plane manager if we can perform
+    // hit-tests.
+    if (extension_enum->ExtensionSupported(XR_ANDROID_RAYCAST_EXTENSION_NAME)) {
+      plane_manager_ = std::make_unique<OpenXrPlaneManagerAndroid>(
+          extension_helper, session);
+      hit_test_manager_ = std::make_unique<OpenXrHitTestManagerAndroid>(
+          plane_manager_.get(), extension_helper, session, mojo_space_);
+    }
+  }
 }
 
 OpenXRSceneUnderstandingManagerAndroid::
@@ -36,6 +47,11 @@ OpenXRSceneUnderstandingManagerAndroid::
 
 OpenXrPlaneManager* OpenXRSceneUnderstandingManagerAndroid::GetPlaneManager() {
   return plane_manager_.get();
+}
+
+OpenXrAnchorManager*
+OpenXRSceneUnderstandingManagerAndroid::GetAnchorManager() {
+  return anchor_manager_.get();
 }
 
 OpenXrHitTestManager*
@@ -59,21 +75,35 @@ OpenXrSceneUnderstandingManagerAndroidFactory::GetRequestedExtensions() const {
 }
 
 std::set<device::mojom::XRSessionFeature>
-OpenXrSceneUnderstandingManagerAndroidFactory::GetSupportedFeatures(
-    const OpenXrExtensionEnumeration* extension_enum) const {
-  if (!IsEnabled(extension_enum)) {
-    return {};
+OpenXrSceneUnderstandingManagerAndroidFactory::GetSupportedFeatures() const {
+  return supported_features_;
+}
+
+void OpenXrSceneUnderstandingManagerAndroidFactory::CheckAndUpdateEnabledState(
+    const OpenXrExtensionEnumeration* extension_enum,
+    XrInstance instance,
+    XrSystemId system) {
+  supported_features_.clear();
+  if (extension_enum->ExtensionSupported(
+          XR_ANDROID_TRACKABLES_EXTENSION_NAME)) {
+    supported_features_.insert(device::mojom::XRSessionFeature::ANCHORS);
+
+    // Hit Test needs Trackables and Raycast extensions.
+    if (extension_enum->ExtensionSupported(XR_ANDROID_RAYCAST_EXTENSION_NAME)) {
+      supported_features_.insert(device::mojom::XRSessionFeature::HIT_TEST);
+    }
   }
 
-  return {device::mojom::XRSessionFeature::HIT_TEST};
+  SetEnabled(!supported_features_.empty());
 }
 
 std::unique_ptr<OpenXRSceneUnderstandingManager>
 OpenXrSceneUnderstandingManagerAndroidFactory::CreateSceneUnderstandingManager(
     const OpenXrExtensionHelper& extension_helper,
+    OpenXrApiWrapper* openxr,
     XrSession session,
     XrSpace mojo_space) const {
-  bool is_supported = IsEnabled(extension_helper.ExtensionEnumeration());
+  bool is_supported = IsEnabled();
   DVLOG(2) << __func__ << " is_supported=" << is_supported;
   if (is_supported) {
     return std::make_unique<OpenXRSceneUnderstandingManagerAndroid>(

@@ -133,7 +133,8 @@ class CORE_EXPORT WebViewImpl final : public WebView,
       const ColorProviderColorMaps* color_provider_colors,
       blink::mojom::PartitionedPopinParamsPtr partitioned_popin_params,
       int32_t history_index,
-      int32_t history_length);
+      int32_t history_length,
+      const std::optional<uint64_t>& canvas_noise_token);
 
   // All calls to Create() should be balanced with a call to Close(). This
   // synchronously destroys the WebViewImpl.
@@ -322,6 +323,10 @@ class CORE_EXPORT WebViewImpl final : public WebView,
       network::mojom::AttributionSupport support) override;
   void UpdateColorProviders(
       const ColorProviderColorMaps& color_provider_colors) override;
+  void UpdateCanvasNoiseToken(
+      std::optional<uint64_t> canvas_noise_token) override;
+
+  std::optional<uint64_t> CanvasNoiseTokenForTesting() override;
 
   void DispatchPersistedPageshow(base::TimeTicks navigation_start);
   void DispatchPagehide(mojom::blink::PagehideDispatch pagehide_dispatch);
@@ -513,6 +518,8 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   // Called anytime browser controls layout height or content offset have
   // changed.
   void DidUpdateBrowserControls();
+
+  void DidUpdateLoadProgress(float);
 
   void DidUpdateMaxSafeAreaInsets(const gfx::InsetsF& max_safe_area_insets);
 
@@ -722,7 +729,8 @@ class CORE_EXPORT WebViewImpl final : public WebView,
       const ColorProviderColorMaps* color_provider_colors,
       blink::mojom::PartitionedPopinParamsPtr partitioned_popin_params,
       int32_t history_index,
-      int32_t history_length);
+      int32_t history_length,
+      const std::optional<uint64_t>& canvas_noise_token);
   ~WebViewImpl() override;
 
   void ConfigureAutoResizeMode();
@@ -965,14 +973,14 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   Persistent<ResizeViewportAnchor> resize_viewport_anchor_;
 
   // Handle to the local main frame host. Only valid when the MainFrame is
-  // local. It is ok to use WTF::Unretained(this) for callbacks made on this
+  // local. It is ok to use blink::Unretained(this) for callbacks made on this
   // interface because the callbacks will be associated with the lifecycle
   // of this AssociatedRemote and the lifetime of the main LocalFrame.
   mojo::AssociatedRemote<mojom::blink::LocalMainFrameHost>
       local_main_frame_host_remote_;
 
   // Handle to the remote main frame host. Only valid when the MainFrame is
-  // remote.  It is ok to use WTF::Unretained(this) for callbacks made on this
+  // remote.  It is ok to use blink::Unretained(this) for callbacks made on this
   // interface because the callbacks will be associated with the lifecycle
   // of this AssociatedRemote and the lifetime of the main RemoteFrame.
   mojo::AssociatedRemote<mojom::blink::RemoteMainFrameHost>

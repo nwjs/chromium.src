@@ -109,7 +109,8 @@ std::unique_ptr<FormStructure> ConstructFormStructureFromFormData(
     const FormData& form) {
   auto cached_form_structure =
       std::make_unique<FormStructure>(test::WithoutValues(form));
-  cached_form_structure->DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr);
+  cached_form_structure->DetermineHeuristicTypes(GeoIpCountryCode(""),
+                                                 LanguageCode(""), nullptr);
 
   auto form_structure = std::make_unique<FormStructure>(form);
   form_structure->RetrieveFromCache(
@@ -238,7 +239,7 @@ const ProfileMatchingTypesTestCase kProfileMatchingTypesTestCases[] = {
     {"38116", {ADDRESS_HOME_ZIP, ADDRESS_HOME_ZIP_PREFIX}},
     {"ZA", {ADDRESS_HOME_COUNTRY}},
     {"South Africa", {ADDRESS_HOME_COUNTRY}},
-    {"12345678901", {PHONE_HOME_WHOLE_NUMBER}},
+    {"+12345678901", {PHONE_HOME_WHOLE_NUMBER}},
     {"+1 (234) 567-8901", {PHONE_HOME_WHOLE_NUMBER}},
     {"(234)567-8901",
      {PHONE_HOME_CITY_AND_NUMBER,
@@ -404,10 +405,8 @@ class DeterminePossibleFieldTypesForUploadTest : public ::testing::Test {
  public:
   DeterminePossibleFieldTypesForUploadTest() {
     scoped_feature_list_.InitWithFeatures(
-        {features::kAutofillAiWithDataSchema, features::kAutofillAiNoTagTypes,
+        {features::kAutofillAiWithDataSchema,
          features::kAutofillAiVoteForFormatStringsForAffixes,
-         features::kAutofillAiVoteForFormatStringsFromSingleFields,
-         features::kAutofillAiVoteForFormatStringsFromMultipleFields,
          features::kAutofillEnableLoyaltyCardsFilling},
         {});
   }
@@ -945,13 +944,6 @@ class FindDatesAndSetFormatStringsTest : public testing::Test {
     std::set<std::pair<FormatString_Type, std::u16string>> formats;
   };
 
-  FindDatesAndSetFormatStringsTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kAutofillAiVoteForFormatStringsFromSingleFields,
-         features::kAutofillAiVoteForFormatStringsFromMultipleFields},
-        {});
-  }
-
   // FindDatesAndSetFormatStrings() does two things:
   // - It stores the format strings in `PossibleTypes::formats`.
   // - It returns the found dates and pointers to the `PossibleTypes` of the
@@ -1015,7 +1007,6 @@ class FindDatesAndSetFormatStringsTest : public testing::Test {
 
  private:
   test::AutofillUnitTestEnvironment autofill_test_environment_;
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Tests that non-text <input> do not match any format string.
@@ -1222,7 +1213,6 @@ class DetermineAvailableFieldTypesTest : public ::testing::Test {
   DetermineAvailableFieldTypesTest() {
     features_.InitWithFeatures(
         /*enabled_features=*/{features::kAutofillAiWithDataSchema,
-                              features::kAutofillAiNoTagTypes,
                               features::kAutofillEnableLoyaltyCardsFilling,
                               features::
                                   kAutofillEnableEmailOrLoyaltyCardsFilling},

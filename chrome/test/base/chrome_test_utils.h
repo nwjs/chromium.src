@@ -7,6 +7,8 @@
 
 #include "build/build_config.h"
 #include "chrome/test/base/platform_browser_test.h"
+#include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/web_contents.h"
 
 namespace content {
 class WebContents;
@@ -22,14 +24,37 @@ namespace chrome_test_utils {
 // Takes a const PlatformBrowserTest so it can be called from other const
 // methods:
 // void MyConstMemberFunction() const {
-//   auto* tab = chrome_test_utils::GetActiveWebContents(this);
+//   auto* web_contents = chrome_test_utils::GetActiveWebContents(this);
 //   ...
 content::WebContents* GetActiveWebContents(
     const PlatformBrowserTest* browser_test);
 
+// Returns the active Tab. On desktop this is in the first browser
+// window created by tests, more specific behaviour requires other means.
+// Takes a const PlatformBrowserTest so it can be called from other const
+// methods:
+// void MyConstMemberFunction() const {
+//   auto* tab = chrome_test_utils::GetActiveTab(this);
+//   ...
+tabs::TabInterface* GetActiveTab(const PlatformBrowserTest* browser_test);
+
+// Returns the WebContents at the specific index. On Android, this is the
+// specific content from active model.
+content::WebContents* GetWebContentsAt(const PlatformBrowserTest* browser_test,
+                                       int index);
+
 // Returns the active Profile. On desktop this is in the first browser
 // window created by tests, more specific behaviour requires other means.
 Profile* GetProfile(const PlatformBrowserTest* browser_test);
+
+// Navigates `web_contents` to a `url` in and waits until the load stops.
+// If the URL redirects it waits until the last destination is reached.
+// It returns true if the last navigation was successful and false otherwise.
+//
+// Unlike content::NavigateToURL, the caller of this function doesn't have
+// to specify the expected commit URL for URLs causing redirects.
+[[nodiscard]] bool NavigateToURL(content::WebContents* web_contents,
+                                 const GURL& url);
 
 // Returns the test data path used by the embedded test server.
 base::FilePath GetChromeTestDataDir();

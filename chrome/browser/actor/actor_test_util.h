@@ -18,6 +18,7 @@
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
 #include "chrome/common/actor.mojom-forward.h"
+#include "chrome/common/actor/action_result.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
@@ -45,6 +46,15 @@ auto UiEventDispatcherCallback(
     std::move(callback).Run(result_fn.Run());
   };
 }
+
+using ActResultFuture =
+    base::test::TestFuture<mojom::ActionResultPtr,
+                           std::optional<size_t>,
+                           std::vector<ActionResultWithLatencyInfo>>;
+using PerformActionsFuture =
+    base::test::TestFuture<mojom::ActionResultCode,
+                           std::optional<size_t>,
+                           std::vector<ActionResultWithLatencyInfo>>;
 
 /////////////////////////
 // Proto action makers
@@ -78,6 +88,8 @@ optimization_guide::proto::Actions MakeScroll(
     std::optional<int> content_node_id,
     float scroll_offset_x,
     float scroll_offset_y);
+optimization_guide::proto::Actions MakeScrollTo(content::RenderFrameHost& rfh,
+                                                int content_node_id);
 optimization_guide::proto::Actions MakeDragAndRelease(
     const gfx::Point& from_point,
     const gfx::Point& to_point);
@@ -119,6 +131,8 @@ std::unique_ptr<ToolRequest> MakeScrollRequest(
     std::optional<int> content_node_id,
     float scroll_offset_x,
     float scroll_offset_y);
+std::unique_ptr<ToolRequest> MakeScrollToRequest(content::RenderFrameHost& rfh,
+                                                 int content_node_id);
 std::unique_ptr<ToolRequest> MakeDragAndReleaseRequest(
     tabs::TabInterface& tab,
     const gfx::Point& from_point,
@@ -160,11 +174,10 @@ std::vector<std::unique_ptr<ToolRequest>> ToRequestList(T&& first,
 
 void ExpectOkResult(const mojom::ActionResult& result);
 void ExpectOkResult(base::test::TestFuture<mojom::ActionResultPtr>& future);
-void ExpectOkResult(base::test::TestFuture<mojom::ActionResultPtr,
-                                           std::optional<size_t>>& future);
-void ExpectErrorResult(base::test::TestFuture<mojom::ActionResultPtr,
-                                              std::optional<size_t>>& future,
+void ExpectOkResult(ActResultFuture& future);
+void ExpectErrorResult(ActResultFuture& future,
                        mojom::ActionResultCode expected_code);
+void ExpectOkResult(PerformActionsFuture& future);
 
 // Sets up GLIC_ACTION_PAGE_BLOCK to block the given host.
 void SetUpBlocklist(base::CommandLine* command_line,

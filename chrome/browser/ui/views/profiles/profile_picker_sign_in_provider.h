@@ -99,8 +99,8 @@ class ProfilePickerSignInProvider : public content::WebContentsDelegate,
                               content::InvalidateTypes changed_flags) override;
 
   // ChromeWebModalDialogManagerDelegate:
-  web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost()
-      override;
+  web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost(
+      content::WebContents* web_contents) override;
 
   // Initializes the flow with the newly created or loaded profile.
   void OnProfileInitialized(StepSwitchFinishedCallback switch_finished_callback,
@@ -110,12 +110,17 @@ class ProfilePickerSignInProvider : public content::WebContentsDelegate,
   // in a browser (e.g. for SAML).
   void FinishFlow(const CoreAccountInfo& account_info);
 
-  // Callback for the `DiceTabHelper`. Calls `FinishFlow()`.
-  void FinishFlowInPicker(Profile* profile,
-                          signin_metrics::AccessPoint access_point,
-                          signin_metrics::PromoAction promo_action,
-                          content::WebContents* contents,
-                          const CoreAccountInfo& account_info);
+  // Callbacks for the `DiceTabHelper`. Calls `FinishFlow()`.
+  void FinishFlowInPickerWithSyncConfirmation(
+      Profile* profile,
+      signin_metrics::AccessPoint access_point,
+      signin_metrics::PromoAction promo_action,
+      content::WebContents* contents,
+      const CoreAccountInfo& account_info);
+  void FinishFlowInPickerWithHistorySyncOptin(
+      Profile* profile,
+      content::WebContents* contents,
+      const CoreAccountInfo& account_info);
 
   void OnSignInContentsFreedUp();
 

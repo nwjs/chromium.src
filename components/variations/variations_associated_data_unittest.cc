@@ -116,17 +116,63 @@ TEST_F(VariationsAssociatedDataTest, NoAssociation) {
   }
 }
 
-// Ensure that the AssociateGoogleVariationIDForce works as expected.
+// Ensure that the overwrite behavior of AssociateGoogleVariationID works as
+// expected.
 TEST_F(VariationsAssociatedDataTest, ForceAssociation) {
   EXPECT_EQ(EMPTY_ID, GetGoogleVariationID(APP, TRIAL, GROUP));
 
   AssociateGoogleVariationID(APP, TRIAL, GROUP, TEST_VALUE_A);
   EXPECT_EQ(TEST_VALUE_A, GetGoogleVariationID(APP, TRIAL, GROUP));
   AssociateGoogleVariationID(APP, TRIAL, GROUP, TEST_VALUE_B);
-  EXPECT_EQ(TEST_VALUE_A, GetGoogleVariationID(APP, TRIAL, GROUP));
-
-  AssociateGoogleVariationIDForce(APP, TRIAL, GROUP, TEST_VALUE_B);
   EXPECT_EQ(TEST_VALUE_B, GetGoogleVariationID(APP, TRIAL, GROUP));
+}
+
+TEST_F(VariationsAssociatedDataTest, TimeWindow) {
+  const base::Time start = base::Time::Now();
+  const base::Time end = start + base::Hours(1);
+  const TimeWindow time_window(start, end);
+
+  EXPECT_TRUE(time_window.IsValid());
+  EXPECT_EQ(start, time_window.start());
+  EXPECT_EQ(end, time_window.end());
+  EXPECT_FALSE(time_window.Contains(start - base::Seconds(1)));
+  EXPECT_TRUE(time_window.Contains(start));
+  EXPECT_TRUE(time_window.Contains(start + base::Seconds(1)));
+  EXPECT_TRUE(time_window.Contains(end - base::Seconds(1)));
+  EXPECT_TRUE(time_window.Contains(end));
+  EXPECT_FALSE(time_window.Contains(end + base::Seconds(1)));
+}
+
+TEST_F(VariationsAssociatedDataTest, InvalidTimeWindow_StartEqualsEnd) {
+  const base::Time start = base::Time::Now();
+  const base::Time end = start;
+  const TimeWindow time_window(start, end);
+
+  EXPECT_FALSE(time_window.IsValid());
+  EXPECT_EQ(start, time_window.start());
+  EXPECT_EQ(end, time_window.end());
+  EXPECT_FALSE(time_window.Contains(start - base::Seconds(1)));
+  EXPECT_FALSE(time_window.Contains(start));
+  EXPECT_FALSE(time_window.Contains(start + base::Seconds(1)));
+  EXPECT_FALSE(time_window.Contains(end - base::Seconds(1)));
+  EXPECT_FALSE(time_window.Contains(end));
+  EXPECT_FALSE(time_window.Contains(end + base::Seconds(1)));
+}
+
+TEST_F(VariationsAssociatedDataTest, InvalidTimeWindow_StartGreaterThanEnd) {
+  const base::Time start = base::Time::Now();
+  const base::Time end = start - base::Minutes(1);
+  const TimeWindow time_window(start, end);
+
+  EXPECT_FALSE(time_window.IsValid());
+  EXPECT_EQ(start, time_window.start());
+  EXPECT_EQ(end, time_window.end());
+  EXPECT_FALSE(time_window.Contains(start - base::Seconds(1)));
+  EXPECT_FALSE(time_window.Contains(start));
+  EXPECT_FALSE(time_window.Contains(start + base::Seconds(1)));
+  EXPECT_FALSE(time_window.Contains(end - base::Seconds(1)));
+  EXPECT_FALSE(time_window.Contains(end));
+  EXPECT_FALSE(time_window.Contains(end + base::Seconds(1)));
 }
 
 // Ensure that timeboxing works as expected.

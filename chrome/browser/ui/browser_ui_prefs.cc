@@ -76,13 +76,11 @@ void RegisterBrowserPrefs(PrefRegistrySimple* registry) {
   registry->RegisterIntegerPref(prefs::kDefaultBrowserDeclinedCount, 0);
   registry->RegisterTimePref(prefs::kDefaultBrowserFirstShownTime,
                              base::Time());
-#if BUILDFLAG(IS_WIN)
-  registry->RegisterTimePref(prefs::kPinInfoBarLastShown, base::Time());
-  registry->RegisterIntegerPref(prefs::kPinInfoBarTimesShown, 0);
-#endif  // BUILDFLAG(IS_WIN)
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   registry->RegisterTimePref(prefs::kPdfInfoBarLastShown, base::Time());
   registry->RegisterIntegerPref(prefs::kPdfInfoBarTimesShown, 0);
+  registry->RegisterTimePref(prefs::kPinInfoBarLastShown, base::Time());
+  registry->RegisterIntegerPref(prefs::kPinInfoBarTimesShown, 0);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   registry->RegisterStringPref(prefs::kEnterpriseCustomLabelForBrowser,
@@ -104,6 +102,8 @@ void RegisterBrowserUserPrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kHomePageIsNewTabPage, true,
                                 pref_registration_flags);
   registry->RegisterBooleanPref(prefs::kShowHomeButton, false,
+                                pref_registration_flags);
+  registry->RegisterBooleanPref(prefs::kSplitViewDragAndDropEnabled, true,
                                 pref_registration_flags);
 
   registry->RegisterBooleanPref(prefs::kShowForwardButton, true,

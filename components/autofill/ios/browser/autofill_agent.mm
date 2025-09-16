@@ -72,7 +72,7 @@
 #import "components/autofill/ios/form_util/form_util_java_script_feature.h"
 #import "components/feature_engagement/public/feature_constants.h"
 #import "components/grit/components_resources.h"
-#import "components/plus_addresses/features.h"
+#import "components/plus_addresses/core/common/features.h"
 #import "components/plus_addresses/grit/plus_addresses_strings.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_change_registrar.h"
@@ -874,7 +874,8 @@ bool ContainsFocusableField(const FormData& form, FieldRendererId field_id) {
 - (void)webState:(web::WebState*)webState
     didSubmitDocumentWithFormData:(const FormData&)formData
                    hasUserGesture:(BOOL)hasUserGesture
-                          inFrame:(web::WebFrame*)frame {
+                          inFrame:(web::WebFrame*)frame
+                   perfectFilling:(BOOL)perfectFilling {
   if (![self isAutofillEnabled] || !frame) {
     return;
   }

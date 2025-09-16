@@ -188,6 +188,7 @@ public class CustomTabActivityContentTestEnvironment extends TestWatcher {
         ShadowExternalNavigationDelegateImpl.setWillChromeHandleIntent(false);
     }
 
+    @SuppressWarnings("DirectInvocationOnMock")
     public CustomTabActivityTabController createTabController() {
         OneshotSupplierImpl<ProfileProvider> profileProviderSupplier = new OneshotSupplierImpl<>();
         profileProviderSupplier.set(profileProvider);
@@ -269,16 +270,6 @@ public class CustomTabActivityContentTestEnvironment extends TestWatcher {
         return webContents;
     }
 
-    public WebContents prepareSpareWebcontents() {
-        WebContents webContents = mock(WebContents.class);
-        when(warmupManager.takeSpareWebContents(
-                        /* incognito= */ anyBoolean(),
-                        /* initiallyHidden= */ anyBoolean(),
-                        /* targetsNetwork= */ anyBoolean()))
-                .thenReturn(webContents);
-        return webContents;
-    }
-
     public Tab prepareHiddenTab() {
         warmUp();
         Tab hiddenTab = prepareTab();
@@ -296,6 +287,7 @@ public class CustomTabActivityContentTestEnvironment extends TestWatcher {
         return tab;
     }
 
+    @SuppressWarnings("DirectInvocationOnMock")
     public Tab prepareTab() {
         Tab tab = mock(Tab.class);
         when(tab.getView()).thenReturn(mock(View.class));

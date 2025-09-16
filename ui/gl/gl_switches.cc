@@ -4,6 +4,8 @@
 
 #include "ui/gl/gl_switches.h"
 
+#include <array>
+
 #include "base/trace_event/trace_event.h"
 #include "build/android_buildflags.h"
 #include "build/build_config.h"
@@ -11,7 +13,7 @@
 #include "ui/gl/gl_display_manager.h"
 
 #if BUILDFLAG(IS_ANDROID)
-#include "base/android/build_info.h"
+#include "base/android/android_info.h"
 #endif
 
 #if BUILDFLAG(ENABLE_VULKAN) && \
@@ -173,7 +175,7 @@ const char kTintDcLayer[] = "tint-dc-layer";
 // This is the list of switches passed from this file that are passed from the
 // GpuProcessHost to the GPU Process. Add your switch to this list if you need
 // to read it in the GPU process, else don't add it.
-const char* const kGLSwitchesCopiedFromGpuProcessHost[] = {
+const auto kGLSwitchesCopiedFromGpuProcessHostArray = std::to_array({
     kDisableGpuDriverBugWorkarounds,
     kDisableGpuVsync,
     kEnableGPUServiceLogging,
@@ -189,9 +191,11 @@ const char* const kGLSwitchesCopiedFromGpuProcessHost[] = {
     kDirectCompositionVideoSwapChainFormat,
     kTintDcLayer,
     kEnableUnsafeSwiftShader,
-};
-const size_t kGLSwitchesCopiedFromGpuProcessHostNumSwitches =
-    std::size(kGLSwitchesCopiedFromGpuProcessHost);
+});
+// An external span to the array above, so that it can be exposed from the
+// header file without specifying the size of the array manually.
+const base::span<const char* const> kGLSwitchesCopiedFromGpuProcessHost =
+    kGLSwitchesCopiedFromGpuProcessHostArray;
 
 #if BUILDFLAG(IS_ANDROID)
 // On some Android emulators with software GL, ANGLE
@@ -231,7 +235,7 @@ BASE_FEATURE(kDirectCompositionSoftwareOverlays,
 // Detect and mark a single full screen video during overlay processing.
 BASE_FEATURE(kEarlyFullScreenVideoOptimization,
              "EarlyFullScreenVideoOptimization",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Adjust the letterbox video size and position to the center of the screen so
 // that DWM power optimization can be turned on.
@@ -316,14 +320,15 @@ bool IsDefaultANGLEVulkan() {
 #if BUILDFLAG(IS_ANDROID)
   // No support for devices before Q -- exit before checking feature flags
   // so that devices are not counted in finch trials.
-  if (base::android::BuildInfo::GetInstance()->sdk_int() <
-      base::android::SDK_VERSION_Q)
+  if (base::android::android_info::sdk_int() <
+      base::android::android_info::SDK_VERSION_Q) {
     return false;
+  }
 
   // For the sake of finch trials, limit to newer devices (Android T+); this
   // condition can be relaxed over time.
-  if (base::android::BuildInfo::GetInstance()->sdk_int() <
-      base::android::SDK_VERSION_T) {
+  if (base::android::android_info::sdk_int() <
+      base::android::android_info::SDK_VERSION_T) {
     return false;
   }
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -406,6 +411,16 @@ bool IsDefaultANGLEVulkan() {
   // http://crbug.com/382725542
   if (active_gpu.driverId == VK_DRIVER_ID_QUALCOMM_PROPRIETARY &&
       active_gpu.detailedDriverVersion.minor == 615) {
+    return false;
+  }
+
+  // Exclude Qualcomm 512.676 driver on Adreno 720 that is the cause of
+  // undiagnosed rendering issues.
+  // http://crbug.com/440110161
+  if (active_gpu.driverId == VK_DRIVER_ID_QUALCOMM_PROPRIETARY &&
+      active_gpu.deviceName.find("Adreno") != std::string::npos &&
+      active_gpu.deviceName.find("720") != std::string::npos &&
+      active_gpu.detailedDriverVersion.minor == 676) {
     return false;
   }
 #endif  // BUILDFLAG(IS_ANDROID)

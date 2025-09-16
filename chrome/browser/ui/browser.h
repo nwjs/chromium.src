@@ -55,7 +55,6 @@
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
-#include "ui/shell_dialogs/select_file_dialog.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #error This file should only be included on desktop.
@@ -103,10 +102,6 @@ namespace gfx {
 class Image;
 }
 
-namespace ui {
-struct SelectedFileInfo;
-}
-
 namespace nw {
   class Menu;
 }
@@ -144,7 +139,6 @@ class Browser : public TabStripModelObserver,
                 public BookmarkTabHelperObserver,
                 public zoom::ZoomObserver,
                 public ThemeServiceObserver,
-                public ui::SelectFileDialog::Listener,
                 public BrowserWindowInterface,
                 public DesktopBrowserWindowCapabilitiesDelegate {
  public:
@@ -296,9 +290,6 @@ class Browser : public TabStripModelObserver,
     // platform supports it.
     bool initial_visible_on_all_workspaces_state = false;
 
-    // Whether to enable the tab group feature in the tab strip.
-    bool are_tab_groups_enabled = true;
-
     ui::mojom::WindowShowState initial_show_state =
         ui::mojom::WindowShowState::kDefault;
 
@@ -339,7 +330,11 @@ class Browser : public TabStripModelObserver,
     bool in_tab_dragging = false;
 
     // Supply a custom BrowserWindow implementation, to be used instead of the
-    // default. Intended for testing.
+    // default. Intended for testing. The resulting Browser takes ownership
+    // of `window`.
+    // TODO(crbug.com/413168662): CreateParams should be updated to be move-only
+    // and this should become a unique_ptr (or removed completely once
+    // deprecated Browser unit tests are eliminated).
     raw_ptr<BrowserWindow, DanglingUntriaged> window = nullptr;
 
     // User-set title of this browser window, if there is one.
@@ -531,10 +526,10 @@ class Browser : public TabStripModelObserver,
     return should_trigger_session_restore_;
   }
   const web_app::AppBrowserController* app_controller() const {
-    return app_controller_.get();
+    return GetAppBrowserController();
   }
   web_app::AppBrowserController* app_controller() {
-    return app_controller_.get();
+    return GetAppBrowserController();
   }
   BrowserWindowFeatures* browser_window_features() const {
     return features_.get();
@@ -759,8 +754,6 @@ class Browser : public TabStripModelObserver,
   bool CanOverscrollContent() override;
   bool ShouldPreserveAbortedURLs(content::WebContents* source) override;
   void SetFocusToLocationBar() override;
-  bool PreHandleMouseEvent(content::WebContents* source,
-                           const blink::WebMouseEvent& event) override;
   void PreHandleDragUpdate(const content::DropData& drop_data,
                            const gfx::PointF& client_pt) override;
   void PreHandleDragExit() override;
@@ -848,6 +841,7 @@ class Browser : public TabStripModelObserver,
   // BrowserWindowInterface overrides:
   views::WebView* GetWebView() override;
   Profile* GetProfile() override;
+  const Profile* GetProfile() const override;
   void OpenGURL(const GURL& gurl, WindowOpenDisposition disposition) override;
   content::WebContents* OpenURL(
       const content::OpenURLParams& params,
@@ -855,6 +849,7 @@ class Browser : public TabStripModelObserver,
           navigation_handle_callback) override;
   const SessionID& GetSessionID() const override;
   TabStripModel* GetTabStripModel() override;
+  const TabStripModel* GetTabStripModel() const override;
   bool IsTabStripVisible() override;
   bool ShouldHideUIForFullscreen() const override;
   base::CallbackListSubscription RegisterBrowserDidClose(
@@ -871,6 +866,8 @@ class Browser : public TabStripModelObserver,
   const ui::UnownedUserDataHost& GetUnownedUserDataHost() const override;
   web_modal::WebContentsModalDialogHost*
   GetWebContentsModalDialogHostForWindow() override;
+  web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHostForTab(
+      tabs::TabInterface* tab_interface) override;
   bool IsActive() const override;
   base::CallbackListSubscription RegisterDidBecomeActive(
       DidBecomeActiveCallback callback) override;
@@ -992,6 +989,11 @@ class Browser : public TabStripModelObserver,
                           const ui::Event& event) override;
   void ContentsZoomChange(bool zoom_in) override;
   bool TakeFocus(content::WebContents* source, bool reverse) override;
+  bool DidAddMessageToConsole(content::WebContents* source,
+                              blink::mojom::ConsoleMessageLevel log_level,
+                              const std::u16string& message,
+                              int32_t line_no,
+                              const std::u16string& source_id) override;
   void BeforeUnloadFired(content::WebContents* source,
                          bool proceed,
                          bool* proceed_to_fire_unload) override;
@@ -1120,8 +1122,8 @@ class Browser : public TabStripModelObserver,
   // Overridden from WebContentsModalDialogManagerDelegate:
   void SetWebContentsBlocked(content::WebContents* web_contents,
                              bool blocked) override;
-  web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost()
-      override;
+  web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost(
+      content::WebContents* web_contents) override;
 
   // Overridden from BookmarkTabHelperObserver:
   void URLStarredChanged(content::WebContents* web_contents,
@@ -1132,10 +1134,6 @@ class Browser : public TabStripModelObserver,
       zoom::ZoomController* zoom_controller) override;
   void OnZoomChanged(
       const zoom::ZoomController::ZoomChangedEventData& data) override;
-
-  // Overridden from SelectFileDialog::Listener:
-  void FileSelected(const ui::SelectedFileInfo& file_info, int index) override;
-  void FileSelectionCanceled() override;
 
   // Overridden from ThemeServiceObserver:
   void OnThemeChanged() override;
@@ -1186,6 +1184,8 @@ class Browser : public TabStripModelObserver,
 
   // Removes all entries from scheduled_updates_ whose source is contents.
   void RemoveScheduledUpdatesFor(content::WebContents* contents);
+
+  void OnFileSelectedFromDialog(const GURL& url);
 
   // Getters for UI ///////////////////////////////////////////////////////////
 
@@ -1344,6 +1344,11 @@ class Browser : public TabStripModelObserver,
   // Prevent Profile deletion until this browser window is closed.
   std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive_;
 
+  // The Browser's BrowserWindow, only set by tests.
+  // TODO(crbug.com/413168662): This can be consolidated with `window_` once
+  // Browser always owns BrowserWindow.
+  std::unique_ptr<BrowserWindow> window_for_testing_;
+
   // This Browser's window.
   raw_ptr<BrowserWindow, DanglingUntriaged> window_;
 
@@ -1425,14 +1430,6 @@ class Browser : public TabStripModelObserver,
   gfx::Image icon_override_;
 
   UnloadController unload_controller_;
-
-  // Dialog box used for opening and saving files.
-  scoped_refptr<ui::SelectFileDialog> select_file_dialog_;
-
-  // Helper which handles bookmark app specific browser configuration.
-  // This must be initialized before |command_controller_| to ensure the correct
-  // set of commands are enabled.
-  const std::unique_ptr<web_app::AppBrowserController> app_controller_;
 
   // True if the browser window has been shown at least once.
   bool window_has_shown_;

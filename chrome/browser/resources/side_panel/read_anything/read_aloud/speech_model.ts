@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import type {ReadAloudNode} from './read_aloud_types.js';
 import type {WordBoundaryState} from './word_boundaries.js';
 
 export enum PauseActionSource {
@@ -44,7 +45,7 @@ export enum SpeechEngineState {
 }
 
 interface ReadingPosition {
-  nodeId: number;
+  node: ReadAloudNode;
   offset: number;
 }
 
@@ -69,6 +70,9 @@ export class SpeechModel {
 
   // Used for logging play time.
   private playSessionStartTime_: number|null = null;
+  // Used to log the number of words heard by a user via read aloud on a given
+  // page.
+  private wordsHeard_: number = 0;
 
   // If the node id of the first text node that should be used by Read Aloud
   // has been set. This is null if the id has not been set.
@@ -195,5 +199,17 @@ export class SpeechModel {
 
   setIsSpeechBeingRepositioned(value: boolean): void {
     this.speechPlayingState_.isSpeechBeingRepositioned = value;
+  }
+
+  getWordsHeard(): number {
+    return this.wordsHeard_;
+  }
+
+  setWordsHeard(words: number): void {
+    this.wordsHeard_ = words;
+  }
+
+  incrementWordsHeard(): void {
+    this.wordsHeard_++;
   }
 }

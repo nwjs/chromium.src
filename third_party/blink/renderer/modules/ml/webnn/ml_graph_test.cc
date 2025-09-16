@@ -109,7 +109,7 @@ struct BuildResult {
 
 // Helper struct to create faked mojom result of inference.
 struct ComputeResult {
-  WTF::HashMap<WTF::String, WTF::Vector<uint8_t>> output;
+  HashMap<String, Vector<uint8_t>> output;
 };
 
 template <typename T>
@@ -386,9 +386,8 @@ class FakeWebNNGraph : public blink_mojom::WebNNGraph {
  private:
   // Just return for testing the validation of inputs and outputs.
   void Dispatch(
-      const HashMap<WTF::String, blink::WebNNTensorToken>& named_inputs,
-      const HashMap<WTF::String, blink::WebNNTensorToken>& named_outputs)
-      override {}
+      const HashMap<String, blink::WebNNTensorToken>& named_inputs,
+      const HashMap<String, blink::WebNNTensorToken>& named_outputs) override {}
 
   // TODO(crbug.com/354741414): Fix this dangling pointer.
   const raw_ref<MLGraphTest, DanglingUntriaged> helper_;
@@ -405,8 +404,8 @@ class FakeWebNNTensor : public blink_mojom::WebNNTensor {
         receiver_(this, std::move(receiver)),
         handle_(tensor_handle) {
     buffer_ = mojo_base::BigBuffer(tensor_info->descriptor.PackedByteLength());
-    receiver_.set_disconnect_handler(WTF::BindOnce(
-        &FakeWebNNTensor::OnConnectionError, WTF::Unretained(this)));
+    receiver_.set_disconnect_handler(
+        BindOnce(&FakeWebNNTensor::OnConnectionError, Unretained(this)));
   }
 
   ~FakeWebNNTensor() override = default;
@@ -427,6 +426,14 @@ class FakeWebNNTensor : public blink_mojom::WebNNTensor {
   void WriteTensor(mojo_base::BigBuffer src_buffer) override {
     ASSERT_LE(src_buffer.size(), buffer_.size());
     base::span(buffer_).copy_prefix_from(src_buffer);
+  }
+
+  void ExportTensor(ExportTensorCallback callback) override {
+    NOTIMPLEMENTED();
+  }
+
+  void ImportTensor(const gpu::SyncToken& sync_token_fence) override {
+    NOTIMPLEMENTED();
   }
 
   void OnConnectionError() {
@@ -463,7 +470,7 @@ class FakeWebNNGraphBuilder : public blink_mojom::WebNNGraphBuilder {
         blink_remote.InitWithNewEndpointAndPassReceiver());
 
     auto success = blink_mojom::CreateGraphSuccess::New(
-        std::move(blink_remote), WTF::Vector<blink_mojom::Device>());
+        std::move(blink_remote), Vector<blink_mojom::Device>());
     std::move(callback).Run(std::move(success));
   }
 
@@ -517,13 +524,6 @@ class FakeWebNNContext : public blink_mojom::WebNNContext {
         blink_mojom::CreateTensorResult::NewSuccess(std::move(success)));
   }
 
-  void GenVerifiedSyncToken(GenVerifiedSyncTokenCallback callback) override {
-    NOTIMPLEMENTED();
-  }
-
-  void WaitSyncToken(const gpu::SyncToken& sync_token_fence) override {
-    NOTIMPLEMENTED();
-  }
   void CreateTensorFromMailbox(blink_mojom::TensorInfoPtr tensor_info,
                                const ::gpu::Mailbox& mailbox,
                                const gpu::SyncToken& fence,
@@ -549,8 +549,8 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
     DCHECK(!receiver_.is_bound());
     receiver_.Bind(mojo::PendingReceiver<blink_mojom::WebNNContextProvider>(
         std::move(handle)));
-    receiver_.set_disconnect_handler(WTF::BindOnce(
-        &FakeWebNNContextProvider::OnConnectionError, WTF::Unretained(this)));
+    receiver_.set_disconnect_handler(BindOnce(
+        &FakeWebNNContextProvider::OnConnectionError, Unretained(this)));
   }
 
   bool IsBound() const { return receiver_.is_bound(); }
@@ -561,11 +561,11 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
   // Override methods from webnn::mojom::WebNNContextProvider.
   void CreateWebNNContext(blink_mojom::CreateContextOptionsPtr options,
                           CreateWebNNContextCallback callback) override {
-    mojo::PendingRemote<blink_mojom::WebNNContext> blink_remote;
+    mojo::PendingAssociatedRemote<blink_mojom::WebNNContext> blink_remote;
     // The receiver bind to FakeWebNNContext.
-    mojo::MakeSelfOwnedReceiver<blink_mojom::WebNNContext>(
+    mojo::MakeSelfOwnedAssociatedReceiver<blink_mojom::WebNNContext>(
         std::make_unique<FakeWebNNContext>(*helper_),
-        blink_remote.InitWithNewPipeAndPassReceiver());
+        blink_remote.InitWithNewEndpointAndPassReceiver());
 
     webnn::ContextProperties context_properties(
         webnn::InputOperandLayout::kNchw, webnn::Resample2DAxes::kAny,
@@ -618,6 +618,8 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
          /*logical_or_input=*/{webnn::SupportedDataTypes::All(), kMaxRank},
          /*logical_xor_input=*/{webnn::SupportedDataTypes::All(), kMaxRank},
          /*logical_not_input=*/{webnn::SupportedDataTypes::All(), kMaxRank},
+         /*is_nan_input*/ {webnn::SupportedDataTypes::All(), kMaxRank},
+         /*is_infinite_input*/ {webnn::SupportedDataTypes::All(), kMaxRank},
          /*logical_output=*/webnn::SupportedDataTypes::All(),
          /*abs_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
@@ -638,6 +640,8 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
          /*neg_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
          /*reciprocal_input=*/
+         {webnn::SupportedDataTypes::All(), kMaxRank},
+         /*round_even_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
          /*sign_input=*/
          {webnn::SupportedDataTypes::All(), kMaxRank},
@@ -773,9 +777,8 @@ class ScopedWebNNServiceBinder {
             scope.GetExecutionContext()->GetBrowserInterfaceBroker()) {
     interface_broker_->SetBinderForTesting(
         blink_mojom::WebNNContextProvider::Name_,
-        WTF::BindRepeating(
-            &FakeWebNNContextProvider::BindRequest,
-            WTF::Unretained(fake_webnn_context_provider_.get())));
+        BindRepeating(&FakeWebNNContextProvider::BindRequest,
+                      Unretained(fake_webnn_context_provider_.get())));
   }
 
   ~ScopedWebNNServiceBinder() {

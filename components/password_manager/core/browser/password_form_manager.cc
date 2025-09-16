@@ -94,6 +94,11 @@ bool PasswordFormManager::wait_for_server_predictions_for_filling_ = true;
 
 namespace {
 
+// Number of fields that recently had user input to be considered as potential
+// single username fields for forgot password voting purposes (to allow for one
+// possible username and one OTP/captcha field).
+constexpr size_t kNumFieldsForForgotPasswordVoting = 2;
+
 bool FormContainsFieldWithName(const FormData* form,
                                const std::u16string& element) {
   if (element.empty() || !form) {
@@ -1205,10 +1210,16 @@ void PasswordFormManager::FillNow() {
   if (!parsed_observed_form_) {
     return;
   }
+#if !BUILDFLAG(IS_IOS)
   for (PasswordFormManagerObserver& form_parsed_observer :
        form_parsed_observers_) {
     form_parsed_observer.OnPasswordFormParsed(this);
   }
+#else
+  if (form_parsed_observer_) {
+    form_parsed_observer_->OnPasswordFormParsed(this);
+  }
+#endif
   metrics_recorder_->CacheParsingResultInFillingMode(
       *parsed_observed_form_.get());
 
@@ -1755,8 +1766,9 @@ void PasswordFormManager::HandleForgotPasswordFormData() {
     return;
   }
 
-  std::vector<FieldInfo> field_info =
-      field_info_manager->GetFieldInfo(parsed_submitted_form_->signon_realm);
+  std::vector<FieldInfo> field_info = field_info_manager->GetFieldInfo(
+      parsed_submitted_form_->signon_realm,
+      /*num_fields_to_consider=*/kNumFieldsForForgotPasswordVoting);
   // No info available for the current eTLD => no voting on potential username
   // forms.
   if (field_info.empty() &&
@@ -1884,6 +1896,7 @@ base::flat_set<std::u16string> PasswordFormManager::GetStoredUsernames() const {
   return stored_usernames;
 }
 
+#if !BUILDFLAG(IS_IOS)
 void PasswordFormManager::AddObserver(PasswordFormManagerObserver* observer) {
   if (!form_parsed_observers_.HasObserver(observer)) {
     form_parsed_observers_.AddObserver(observer);
@@ -1894,5 +1907,15 @@ void PasswordFormManager::RemoveObserver(
     PasswordFormManagerObserver* observer) {
   form_parsed_observers_.RemoveObserver(observer);
 }
+#else
+void PasswordFormManager::SetObserver(
+    base::WeakPtr<PasswordFormManagerObserver> observer) {
+  form_parsed_observer_ = observer;
+}
+
+void PasswordFormManager::ResetObserver() {
+  form_parsed_observer_.reset();
+}
+#endif
 
 }  // namespace password_manager

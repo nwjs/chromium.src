@@ -11,13 +11,14 @@
 #include "chrome/browser/actor/ui/actor_overlay_view_controller.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller_interface.h"
 #include "chrome/browser/actor/ui/handoff_button_controller.h"
+#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "components/tabs/public/tab_interface.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
 namespace actor {
 class ActorKeyedService;
 }
-
 namespace actor::ui {
 
 class ActorUiTabControllerFactory
@@ -29,46 +30,51 @@ class ActorUiTabControllerFactory
       tabs::TabInterface& tab) override;
 };
 
-class ActorUiTabController : public ActorUiTabControllerInterface {
+class ActorUiTabController : public ActorUiTabControllerInterface,
+                             public ImmersiveModeController::Observer {
  public:
   ActorUiTabController(
       tabs::TabInterface& tab,
       ActorKeyedService* actor_service,
       std::unique_ptr<ActorUiTabControllerFactoryInterface> controller_factory);
   ~ActorUiTabController() override;
+  DECLARE_USER_DATA(ActorUiTabController);
 
   // ActorUiTabControllerInterface:
   void OnUiTabStateChange(const UiTabState& ui_tab_state,
                           UiResultCallback callback) override;
   void OnTabActiveStatusChanged(bool tab_active_status,
                                 tabs::TabInterface* tab) override;
-  void SetActiveTaskId(TaskId task_id) override;
-  void ClearActiveTaskId() override;
-  base::WeakPtr<ActorUiTabControllerInterface> GetWeakPtr() override;
   void SetActorTaskPaused() override;
   void SetActorTaskResume() override;
   void SetOverlayHoverStatus(bool is_hovering) override;
   void SetHandoffButtonHoverStatus(bool is_hovering) override;
   void SetCallbackForTesting(base::OnceClosure callback) override;
+  UiTabState GetCurrentUiTabState() const override;
   bool ShouldShowActorTabIndicator() override;
+
+  // ImmersiveModeController::Observer
+  void OnImmersiveFullscreenEntered() override;
+  void OnImmersiveFullscreenExited() override;
+  void OnImmersiveModeControllerDestroyed() override;
+
+  base::WeakPtr<ActorUiTabControllerInterface> GetWeakPtr() override;
 
   // Binds the Mojo receiver to the tab's ActorOverlayViewController.
   // Called by ActorOverlayUI when the chrome://actor-overlay page loads.
   void BindActorOverlay(
+      mojo::PendingRemote<mojom::ActorOverlayPage> page,
       mojo::PendingReceiver<mojom::ActorOverlayPageHandler> receiver) override;
+
+  base::CallbackListSubscription RegisterActorTabIndicatorStateChangedCallback(
+      ActorTabIndicatorStateChangedCallback callback) override;
 
  private:
   // Called only once on startup to initialize tab subscriptions.
   void RegisterTabSubscriptions();
 
-  // Called to propagate a UiTabState and tab status change to UI controllers.
-  // This is passed through a debounce timer to stabilize updates.
-  void MaybeUpdateState(const UiTabState& ui_tab_state,
-                        bool tab_active_status,
-                        UiResultCallback callback);
-  void UpdateState(const UiTabState& ui_tab_state,
-                   bool tab_active_status,
-                   UiResultCallback callback);
+  // Called to propagate state and visibility changes to UI controllers.
+  void UpdateUi();
 
   // Computes whether the Actor Overlay is visible based on the current state.
   bool ComputeActorOverlayVisibility();
@@ -76,10 +82,6 @@ class ActorUiTabController : public ActorUiTabControllerInterface {
   // Computes whether the Handoff Button is visible based on the current state.
   bool ComputeHandoffButtonVisibility();
 
-  // Tab subscriptions:
-  // Called when the tab is detached.
-  void OnTabWillDetach(tabs::TabInterface* tab,
-                       tabs::TabInterface::DetachReason reason);
   // Called when the tab is inserted.
   void OnTabDidInsert(tabs::TabInterface* tab);
 
@@ -89,6 +91,16 @@ class ActorUiTabController : public ActorUiTabControllerInterface {
   // Sets the Tab Indicator visibility.
   void SetActorTabIndicatorVisibility(bool should_show_tab_indicator);
 
+  // Sets the Border Glow visibility.
+  void SetBorderGlowVisibility();
+
+  // Updates the visibility of the scrim background. This is determined by the
+  // hover status of the overlay and the handoff button.
+  void UpdateScrimBackground();
+
+  // Initialize and start observing ImmersiveModeController.
+  void InitializeImmersiveModeObserver();
+
   // The current UiTabState.
   UiTabState current_ui_tab_state_ = {
       .actor_overlay = ActorOverlayState(),
@@ -97,22 +109,25 @@ class ActorUiTabController : public ActorUiTabControllerInterface {
 
   // The current active status of the tab.
   bool current_tab_active_status_ = false;
-  // The last active task id actuating on this tab.
-  TaskId active_task_id_;
 
   bool is_hovering_overlay_ = false;
   bool is_hovering_button_ = false;
 
-  // How many outstanding callbacks are pending for the debounce timer.
+  // How many outstanding UpdateUi calls are pending for the debounce timer.
   int in_progress_updates_int_ = 0;
-
-  base::OneShotTimer update_state_debounce_timer_;
-  base::OnceClosure on_idle_for_testing_;
+  // How many outstanding callbacks are pending, used for metrics/tracking.
+  int pending_update_ui_callbacks_size_ = 0;
 
   // Owns this class via TabModel.
   const raw_ref<tabs::TabInterface> tab_;
   // Holds subscriptions for TabInterface callbacks.
   std::vector<base::CallbackListSubscription> tab_subscriptions_;
+
+  using ActorTabIndicatorStateChangedCallbackList =
+      base::RepeatingCallbackList<void(bool)>;
+  ActorTabIndicatorStateChangedCallbackList
+      on_actor_tab_indicator_changed_callbacks_;
+
   // The Actor Keyed Service for the associated profile.
   raw_ptr<ActorKeyedService> actor_keyed_service_ = nullptr;
 
@@ -124,6 +139,19 @@ class ActorUiTabController : public ActorUiTabControllerInterface {
   std::unique_ptr<ActorUiTabControllerFactoryInterface> controller_factory_;
 
   bool should_show_actor_tab_indicator_ = false;
+  base::RetainingOneShotTimer update_ui_debounce_timer_;
+  base::OnceClosure on_idle_for_testing_;
+
+  base::OnceCallbackList<void(bool)> pending_update_ui_callbacks_;
+  // Holds subscriptions for pending update ui callbacks.
+  std::vector<base::CallbackListSubscription> update_ui_callback_subscription_;
+
+  ::ui::ScopedUnownedUserData<ActorUiTabController> scoped_unowned_user_data_;
+
+  // Observer to get notifications when the immersive mode reveal state changes.
+  base::ScopedObservation<ImmersiveModeController,
+                          ImmersiveModeController::Observer>
+      immersive_mode_observer_{this};
 
   base::WeakPtrFactory<ActorUiTabController> weak_factory_{this};
 };

@@ -21,11 +21,12 @@ void TabStripEventRecorder::StopNotificationAndStartRecording() {
 }
 
 void TabStripEventRecorder::PlayRecordingsAndStartNotification() {
+  std::vector<Event> events;
   while (HasRecordedEvents()) {
-    auto event = std::move(recorded_.front());
+    events.push_back(std::move(recorded_.front()));
     recorded_.pop();
-    Notify(event);
   }
+  Notify(events);
   mode_ = Mode::kPassthrough;
 }
 
@@ -33,15 +34,23 @@ bool TabStripEventRecorder::HasRecordedEvents() const {
   return !recorded_.empty();
 }
 
-void TabStripEventRecorder::Notify(Event& event) {
+void TabStripEventRecorder::Notify(const std::vector<Event>& event) {
   event_notification_callback_.Run(event);
 }
 
 void TabStripEventRecorder::Handle(Event event) {
   if (mode_ == Mode::kPassthrough) {
-    Notify(event);
+    std::vector<Event> bundled;
+    bundled.push_back(std::move(event));
+    Notify(bundled);
   } else {
     recorded_.push(std::move(event));
+  }
+}
+
+void TabStripEventRecorder::Handle(std::vector<Event> events) {
+  for (auto& event : events) {
+    Handle(std::move(event));
   }
 }
 
@@ -51,10 +60,9 @@ void TabStripEventRecorder::OnTabStripModelChanged(
     const TabStripSelectionChange& selection) {
   switch (change.type()) {
     case TabStripModelChange::Type::kSelectionOnly:
-      NOTIMPLEMENTED();
       break;
     case TabStripModelChange::Type::kInserted:
-      Handle(ToEvent(*change.GetInsert(), tab_strip_model));
+      Handle(ToEvent(*change.GetInsert(), tab_strip_model_adapter_));
       break;
     case TabStripModelChange::Type::kRemoved:
       Handle(ToEvent(*change.GetRemove()));
@@ -65,6 +73,10 @@ void TabStripEventRecorder::OnTabStripModelChanged(
     case TabStripModelChange::Type::kReplaced:
       NOTIMPLEMENTED();
       break;
+  }
+
+  if (selection.active_tab_changed() || selection.selection_changed()) {
+    Handle(ToEvent(selection, tab_strip_model_adapter_));
   }
 }
 
@@ -83,10 +95,10 @@ void TabStripEventRecorder::OnTabGroupChanged(const TabGroupChange& change) {
       NOTIMPLEMENTED();
       break;
     case TabGroupChange::Type::kVisualsChanged:
-      Handle(ToTabGroupVisualsChangedEvent(change));
+      Handle(ToEvent(change));
       break;
     case TabGroupChange::Type::kMoved:
-      NOTIMPLEMENTED();
+      Handle(ToTabGroupMovedEvent(change));
       break;
     case TabGroupChange::Type::kClosed:
       NOTIMPLEMENTED();

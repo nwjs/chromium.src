@@ -52,7 +52,7 @@ $ PATH_TO_INSTALLER.EXE ^
 Required
 
 * [Windows 11 SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/)
-version 10.0.26100.3323. This can be installed separately or by checking the
+version 10.0.26100.4654. This can be installed separately or by checking the
 appropriate box in the Visual Studio Installer.
 * (Windows 11) SDK Debugging Tools 10.0.26100.3323 or higher. This version of the
 Debugging tools is needed in order to support reading the large-page PDBs that
@@ -155,6 +155,11 @@ with the code, including msysgit and python.
   may not get installed correctly.
 * If you see strange errors with the file system on the first run of gclient,
   you may want to [disable Windows Indexing](https://tortoisesvn.net/faq.html#cantmove2).
+* If you use WSL to build for Linux on the same machine, do **not** use the same
+  depot_tools directory for both. depot_tools caches platform-specific state, so
+  running `gclient sync` from inside one system will break the other. Use a
+  WSL-specific depot_tools dir inside WSL (and put it first in your PATH when you
+  log in there, e.g. via your WSL .bashrc) instead.
 
 ## Check python install
 
@@ -235,7 +240,7 @@ development and testing purposes.
 
 ## Setting up the build
 
-Chromium uses [Siso](https://pkg.go.dev/go.chromium.org/infra/build/siso#section-readme)
+Chromium uses [Siso](https://pkg.go.dev/go.chromium.org/build/siso#section-readme)
  as its main build tool along with a tool called [GN](https://gn.googlesource.com/gn/+/main/docs/quick_start.md)
 to generate `.ninja` files. You can create any number of *build directories*
 with different configurations. To create a build directory:

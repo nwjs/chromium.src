@@ -17,7 +17,6 @@
 #include "base/containers/flat_set.h"
 #include "base/types/expected.h"
 #include "base/values.h"
-#include "base/version.h"
 #include "build/build_config.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
@@ -27,6 +26,7 @@
 #include "components/services/app_service/public/cpp/protocol_handler_info.h"
 #include "components/services/app_service/public/cpp/share_target.h"
 #include "components/webapps/common/web_app_id.h"
+#include "components/webapps/isolated_web_apps/types/iwa_version.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
 #include "third_party/blink/public/mojom/manifest/capture_links.mojom-shared.h"
@@ -54,7 +54,6 @@ constexpr std::array<IconPurpose,
                          static_cast<int>(IconPurpose::kMinValue) + 1>
     kIconPurposes{IconPurpose::ANY, IconPurpose::MONOCHROME,
                   IconPurpose::MASKABLE};
-
 struct SizeComparator {
   constexpr bool operator()(const gfx::Size& left,
                             const gfx::Size& right) const {
@@ -218,6 +217,19 @@ struct IconsWithSizeAny {
   SizeSet home_tab_icon_provided_sizes;
 };
 
+// Data structure to store information about whether the icons obtained from the
+// manifest need to be masked to be shown in dialogs or other UX surfaces while
+// the app has not been installed yet.
+struct DialogImageInfo {
+  DialogImageInfo();
+  ~DialogImageInfo();
+  DialogImageInfo(DialogImageInfo&& dialog_image_info);
+  DialogImageInfo& operator=(DialogImageInfo&& dialog_image_info);
+
+  std::map<SquareSizePx, SkBitmap> bitmaps;
+  bool is_maskable = false;
+};
+
 // Structure used when installing a web page as an app.
 struct WebAppInstallInfo {
   enum MobileCapable {
@@ -269,6 +281,19 @@ struct WebAppInstallInfo {
   // Creates a deep copy of this struct.
   WebAppInstallInfo Clone() const;
 
+  // Returns the version of the Isolated Web App.
+  // PRECONDITION: Must only be called if an IWA version is actually set.
+  const IwaVersion& isolated_web_app_version() const {
+    CHECK(isolated_web_app_version_.has_value())
+        << "Attempted to access Isolated Web App version when not set.";
+    return *isolated_web_app_version_;
+  }
+
+  // Sets the version for an Isolated Web App.
+  void set_isolated_web_app_version(IwaVersion version) {
+    isolated_web_app_version_ = std::move(version);
+  }
+
   // ID specified in the manifest.
   // Guaranteed to be valid & non-empty & same-origin with `start_url()` & have
   // no "#ref" part in the URL.
@@ -285,6 +310,12 @@ struct WebAppInstallInfo {
   // same requirements as in the WebAppInstallInfo constructor.
   void SetManifestIdAndStartUrl(const webapps::ManifestId& manifest_id,
                                 const GURL& start_url);
+
+  // Returns the icons to be shown on security sensitive surfaces that are
+  // visible to the user as part of Chrome (like install/update dialogs).
+  // Returns trusted icons if available, falling back to `any` icons if not
+  // found.
+  DialogImageInfo GetIconBitmapsForSecureSurfaces() const;
 
   // Title of the application.
   std::u16string title;
@@ -454,9 +485,6 @@ struct WebAppInstallInfo {
   // policy_ids but rather just a supplement for tricky cases.
   std::vector<std::string> additional_policy_ids;
 
-  // Used to specify the version of an Isolated Web App that is being installed.
-  base::Version isolated_web_app_version;
-
   // Bookkeeping details about attempts to fix broken icons from sync installed
   // web apps.
   std::optional<proto::GeneratedIconFix> generated_icon_fix;
@@ -482,6 +510,9 @@ struct WebAppInstallInfo {
 
   // See `manifest_id()`.
   webapps::ManifestId manifest_id_;
+
+  // Used to specify the version of an Isolated Web App that is being installed.
+  std::optional<IwaVersion> isolated_web_app_version_;
 
   // See `start_url()`.
   GURL start_url_;

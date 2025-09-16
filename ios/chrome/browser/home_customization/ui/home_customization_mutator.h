@@ -32,15 +32,23 @@ class GURL;
 - (void)applyBackgroundForConfiguration:
     (id<BackgroundCustomizationConfiguration>)backgroundConfiguration;
 
-// Removes a background item from the "Recently Used" list at the specified
-// index.
-- (void)deleteBackgroundFromRecentlyUsedAtIndex:(NSInteger)index;
+// Removes the given background configuration from the recently used list.
+- (void)deleteBackgroundFromRecentlyUsed:
+    (id<BackgroundCustomizationConfiguration>)backgroundConfiguration;
 
 // Downloads and returns a thumbnail image from the given GURL. The image is
 // returned asynchronously through the `completion` block. The method is
 // intended to be used for background customization thumbnails, such as loading
 // preview images for a collection view cell when it becomes visible.
 - (void)fetchBackgroundCustomizationThumbnailURLImage:(GURL)thumbnailURL
+                                           completion:
+                                               (void (^)(UIImage*))completion;
+
+// Loads and returns (asynchronously via `completion`) the user-uploaded
+// image at the given `imagePath`. The method is intended to be used for
+// background customization thumbnails, such as loading preview images for a
+// collection view cell when it becomes visible.
+- (void)fetchBackgroundCustomizationUserUploadedImage:(NSString*)imagePath
                                            completion:
                                                (void (^)(UIImage*))completion;
 @end

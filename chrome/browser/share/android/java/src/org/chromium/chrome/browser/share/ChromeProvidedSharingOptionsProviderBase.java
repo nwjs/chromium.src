@@ -4,17 +4,18 @@
 
 package org.chromium.chrome.browser.share;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.app.Activity;
 import android.net.Uri;
 import android.text.TextUtils;
 import android.view.View;
 
-import androidx.annotation.Nullable;
-
-import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
 import org.chromium.base.DeviceInfo;
-import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -41,8 +42,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /** Provides a list of Chrome-provided sharing options. */
+@NullMarked
 public abstract class ChromeProvidedSharingOptionsProviderBase {
     private static final String USER_ACTION_COPY_URL_SELECTED = "SharingHubAndroid.CopyURLSelected";
     private static final String USER_ACTION_COPY_IMAGE_SELECTED =
@@ -58,8 +61,8 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
             "SharingHubAndroid.LongScreenshotSelected";
 
     protected final Activity mActivity;
-    protected final WindowAndroid mWindowAndroid;
-    protected final Supplier<Tab> mTabProvider;
+    protected final @Nullable WindowAndroid mWindowAndroid;
+    protected final Supplier<@Nullable Tab> mTabProvider;
     protected final BottomSheetController mBottomSheetController;
     protected final ShareParams mShareParams;
     protected final Callback<Tab> mPrintTabCallback;
@@ -90,8 +93,8 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
      */
     protected ChromeProvidedSharingOptionsProviderBase(
             Activity activity,
-            WindowAndroid windowAndroid,
-            Supplier<Tab> tabProvider,
+            @Nullable WindowAndroid windowAndroid,
+            Supplier<@Nullable Tab> tabProvider,
             BottomSheetController bottomSheetController,
             ShareParams shareParams,
             Callback<Tab> printTab,
@@ -122,9 +125,9 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
         public final @ShareCustomAction int shareActionType;
         public final int icon;
         public final int iconLabel;
-        public final String iconContentDescription;
+        public final @Nullable String iconContentDescription;
         public final String featureNameForMetrics;
-        public final Callback<View> onClickCallback;
+        public final Callback<@Nullable View> onClickCallback;
         public final Collection<Integer> contentTypes;
         public final Collection<Integer> contentTypesToDisableFor;
         public final Collection<Integer> detailedContentTypesToDisableFor;
@@ -134,9 +137,9 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
                 @ShareCustomAction int shareActionType,
                 int icon,
                 int iconLabel,
-                String iconContentDescription,
+                @Nullable String iconContentDescription,
                 String featureNameForMetrics,
-                Callback<View> onClickCallback,
+                Callback<@Nullable View> onClickCallback,
                 Collection<Integer> contentTypes,
                 Collection<Integer> contentTypesToDisableFor,
                 Collection<Integer> detailedContentTypesToDisableFor,
@@ -157,11 +160,11 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
     protected static class FirstPartyOptionBuilder {
         private int mIcon;
         private int mIconLabel;
-        private String mIconContentDescription;
+        private @Nullable String mIconContentDescription;
         // Use a default invalid enum, forcing client to set it.
         private @ShareCustomAction int mShareActionType = ShareCustomAction.NUM_ENTRIES;
-        private String mFeatureNameForMetrics;
-        private Callback<View> mOnClickCallback;
+        private @Nullable String mFeatureNameForMetrics;
+        private @Nullable Callback<@Nullable View> mOnClickCallback;
         private boolean mDisableForMultiWindow;
         private Integer[] mContentTypesToDisableFor;
         private Integer[] mDetailedContentTypesToDisableFor;
@@ -194,7 +197,8 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
             return this;
         }
 
-        public FirstPartyOptionBuilder setOnClickCallback(Callback<View> onClickCallback) {
+        public FirstPartyOptionBuilder setOnClickCallback(
+                Callback<@Nullable View> onClickCallback) {
             mOnClickCallback = onClickCallback;
             return this;
         }
@@ -224,7 +228,7 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
                     mIcon,
                     mIconLabel,
                     mIconContentDescription,
-                    mFeatureNameForMetrics,
+                    assumeNonNull(mFeatureNameForMetrics),
                     mOnClickCallback,
                     Arrays.asList(mContentTypesInBuilder),
                     Arrays.asList(mContentTypesToDisableFor),
@@ -306,7 +310,7 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
     }
 
     private void maybeAddLongScreenshotFirstPartyOption() {
-        if (!mTabProvider.hasValue()) {
+        if (mTabProvider.get() == null) {
             return;
         }
         FirstPartyOption option = createLongScreenshotsFirstPartyOption();
@@ -318,7 +322,7 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
     private void maybeAddPrintFirstPartyOption() {
         // For the desktop case, the Print action will be showed in the main menu.
         if (!DeviceInfo.isDesktop()
-                && mTabProvider.hasValue()
+                && mTabProvider.get() != null
                 && UserPrefs.get(mProfile).getBoolean(Pref.PRINTING_ENABLED)) {
             mOrderedFirstPartyOptions.add(createPrintingFirstPartyOption());
         }
@@ -332,13 +336,12 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
     }
 
     private boolean isPdfTab() {
-        return mTabProvider.hasValue()
-                && mTabProvider.get().isNativePage()
-                && mTabProvider.get().getNativePage().isPdf();
+        Tab tab = mTabProvider.get();
+        return tab != null && tab.isNativePage() && assumeNonNull(tab.getNativePage()).isPdf();
     }
 
     private static boolean isAutomotive() {
-        return BuildInfo.getInstance().isAutomotive;
+        return DeviceInfo.isAutomotive();
     }
 
     private FirstPartyOption createCopyLinkFirstPartyOption() {
@@ -353,7 +356,7 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
                             Clipboard.getInstance()
                                     .setText(
                                             mShareParams.getTitle(),
-                                            mShareParams.getUrl(),
+                                            assertNonNull(mShareParams.getUrl()),
                                             /* notifyOnSuccess= */ true);
                         })
                 .build();
@@ -388,7 +391,7 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
                             Clipboard.getInstance()
                                     .setText(
                                             mShareParams.getTitle(),
-                                            mShareParams.getTextAndUrl(),
+                                            assertNonNull(mShareParams.getTextAndUrl()),
                                             /* notifyOnSuccess= */ true);
                         })
                 .build();
@@ -405,7 +408,7 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
                             Clipboard.getInstance()
                                     .setText(
                                             mShareParams.getTitle(),
-                                            mShareParams.getText(),
+                                            assertNonNull(mShareParams.getText()),
                                             /* notifyOnSuccess= */ true);
                         })
                 .build();
@@ -462,7 +465,7 @@ public abstract class ChromeProvidedSharingOptionsProviderBase {
                 .setFeatureNameForMetrics(USER_ACTION_PRINT_SELECTED)
                 .setOnClickCallback(
                         (view) -> {
-                            mPrintTabCallback.onResult(mTabProvider.get());
+                            mPrintTabCallback.onResult(assertNonNull(mTabProvider.get()));
                         })
                 .build();
     }

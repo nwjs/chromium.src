@@ -1358,13 +1358,11 @@ WebInputEventResult EventHandler::UpdateDragAndDrop(
 
   // The drag target could be something inside a UA shadow root, in which case
   // it should be retargeted to the shadow host.
-  if (RuntimeEnabledFeatures::RetargetDragEventsEnabled()) {
-    ShadowRoot* containing_root =
-        new_target ? new_target->ContainingShadowRoot() : nullptr;
-    while (containing_root && containing_root->IsUserAgent()) {
-      new_target = &containing_root->host();
-      containing_root = new_target->ContainingShadowRoot();
-    }
+  ShadowRoot* containing_root =
+      new_target ? new_target->ContainingShadowRoot() : nullptr;
+  while (containing_root && containing_root->IsUserAgent()) {
+    new_target = &containing_root->host();
+    containing_root = new_target->ContainingShadowRoot();
   }
 
   if (AutoscrollController* controller =
@@ -1476,6 +1474,10 @@ void EventHandler::ClearDragState() {
   capturing_mouse_events_element_ = nullptr;
   ReleaseMouseCaptureFromLocalRoot();
   should_only_fire_drag_over_event_ = false;
+}
+
+void EventHandler::ReportDragEnd() {
+  mouse_event_manager_->ReportDragEnd();
 }
 
 void EventHandler::RecomputeMouseHoverStateIfNeeded() {
@@ -2442,7 +2444,7 @@ bool EventHandler::HandleTextInputEvent(const String& text,
 
   EventTarget* target;
   if (underlying_event)
-    target = underlying_event->target();
+    target = underlying_event->RawTarget();
   else
     target = EventTargetNodeForDocument(frame_->GetDocument());
   if (!target)

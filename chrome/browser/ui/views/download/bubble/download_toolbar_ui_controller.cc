@@ -60,6 +60,7 @@
 #include "ui/gfx/render_text.h"
 #include "ui/gfx/text_constants.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/progress_ring_utils.h"
@@ -434,10 +435,9 @@ DownloadToolbarUIController::DownloadToolbarUIController(
               &DownloadToolbarUIController::AutoClosePartialView,
               base::Unretained(this))) {
   Browser* const browser = browser_view_->browser();
-  action_item_ = actions::ActionManager::Get()
-                     .FindAction(kActionShowDownloads,
-                                 browser->browser_actions()->root_action_item())
-                     ->GetAsWeakPtr();
+  action_item_ = actions::ActionManager::Get().FindAction(
+      kActionShowDownloads, browser->browser_actions()->root_action_item());
+  CHECK(action_item_);
   tooltip_texts_[0] = l10n_util::GetStringUTF16(IDS_TOOLTIP_DOWNLOAD_ICON);
   action_item_->SetTooltipText(tooltip_texts_.at(0));
 
@@ -488,15 +488,11 @@ bool DownloadToolbarUIController::IsShowing() const {
 }
 
 void DownloadToolbarUIController::Enable() {
-  if (action_item_.get()) {
-    action_item_->SetEnabled(true);
-  }
+  action_item_->SetEnabled(true);
 }
 
 void DownloadToolbarUIController::Disable() {
-  if (action_item_.get()) {
-    action_item_->SetEnabled(false);
-  }
+  action_item_->SetEnabled(false);
 }
 
 void DownloadToolbarUIController::UpdateDownloadIcon(
@@ -631,10 +627,6 @@ bool DownloadToolbarUIController::IsShowingDetails() const {
 }
 
 void DownloadToolbarUIController::UpdateIcon() {
-  if (!action_item_.get()) {
-    return;
-  }
-
   auto* button = GetDownloadsButton(browser_view_);
   if (!button) {
     return;
@@ -981,9 +973,8 @@ void DownloadToolbarUIController::CreateBubbleDialogDelegate() {
   } else {
     bubble_delegate_->GetWidget()->Show();
   }
-  if (action_item_.get()) {
-    action_item_->SetIsShowingBubble(true);
-  }
+
+  action_item_->SetIsShowingBubble(true);
 
   // For IPH bubble. The IPH should show when the partial view is closed, either
   // manually or automatically.
@@ -1002,10 +993,7 @@ void DownloadToolbarUIController::OnBubbleClosing() {
   bubble_contents_ = nullptr;
   bubble_closer_.reset();
   UpdateIconDormant();
-
-  if (action_item_.get()) {
-    action_item_->SetIsShowingBubble(false);
-  }
+  action_item_->SetIsShowingBubble(false);
 }
 
 void DownloadToolbarUIController::OnPartialViewClosed() {
@@ -1109,8 +1097,10 @@ bool DownloadToolbarUIController::ShouldShowScanningAnimation() const {
 }
 
 void DownloadToolbarUIController::UpdateIconDormant() {
-  // Ensure no updates are attempted once BrowserView destruction has started.
-  if (!browser_view_) {
+  // Ensure no updates are attempted once BrowserView destruction has started or
+  // if the host Widget has already been closed.
+  if (!browser_view_ || !browser_view_->GetWidget() ||
+      browser_view_->GetWidget()->IsClosed()) {
     return;
   }
 

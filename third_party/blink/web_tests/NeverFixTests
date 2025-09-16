@@ -445,9 +445,6 @@ external/wpt/css/css-text/white-space/trailing-ogham-001.html [ Skip ]
 external/wpt/css/css-text/white-space/trailing-ogham-002.html [ Skip ]
 external/wpt/css/css-text/white-space/trailing-ogham-003.html [ Skip ]
 
-# This test conflicts with UAX#24.
-crbug.com/378692756 external/wpt/css/css-text/shaping/shaping-arabic-diacritics-002.html [ Skip ]
-
 # 1px pixel differences that are not relevant to the tests.
 external/wpt/css/CSS2/text/text-transform-bicameral-007.xht [ Skip ]
 [ Mac ] external/wpt/css/CSS2/text/text-transform-bicameral-014.xht [ Skip ]
@@ -1909,10 +1906,8 @@ crbug.com/41442253 [ Mac ] external/wpt/clipboard-apis/async-navigator-clipboard
 crbug.com/41442253 [ iOS26-simulator ] external/wpt/clipboard-apis/async-navigator-clipboard-change-event.tentative.https.html [ Skip ]
 
 # These tests are run exclusively in the prefetch-proxy VirtualTestSuite.
-virtual/prefetch/external/wpt/speculation-rules/prefetch/anonymous-client.https.html [ Skip ]
-virtual/prefetch/external/wpt/speculation-rules/prefetch/cross-origin-cookies-anonymous-client-ip-duplicate.https.html [ Skip ]
-virtual/prefetch-sw/external/wpt/speculation-rules/prefetch/anonymous-client.https.html [ Skip ]
-virtual/prefetch-sw/external/wpt/speculation-rules/prefetch/cross-origin-cookies-anonymous-client-ip-duplicate.https.html [ Skip ]
+external/wpt/speculation-rules/prefetch/anonymous-client.https.html [ Skip ]
+external/wpt/speculation-rules/prefetch/cross-origin-cookies-anonymous-client-ip-duplicate.https.html [ Skip ]
 
 # These tests test origin trial behavior that is only enabled on windows.
 [ Mac ] http/tests/origin_trials/webexposed/incoming-call-notifications-origin-trial-interfaces.html [ Skip ]
@@ -1928,3 +1923,8 @@ virtual/prefetch-sw/external/wpt/speculation-rules/prefetch/cross-origin-cookies
 
 # EchoCancellation mode "all" is not supported on Linux
 [ Linux ] external/wpt/mediacapture-streams/GUM-echoCancellation-all.https.html [ Skip ]
+
+# Soft navigation heuristics tests that only work with pre-paint-based attribution.
+virtual/soft-navs-pre-paint-attribution-disabled/external/wpt/soft-navigation-heuristics/smoke/tentative/late-url-change.html [ Skip ]
+virtual/soft-navs-pre-paint-attribution-disabled/external/wpt/soft-navigation-heuristics/detection/tentative/overwriting-text.html [ Skip ]
+virtual/soft-navs-pre-paint-attribution-disabled/external/wpt/soft-navigation-heuristics/detection/tentative/overwriting-text-once-per-interaction.html [ Skip ]

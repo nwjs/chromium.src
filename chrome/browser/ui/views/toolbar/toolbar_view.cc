@@ -200,6 +200,12 @@ class TabstripLikeBackground : public views::Background {
   const raw_ptr<BrowserView> browser_view_;
 };
 
+bool IsMigratedClickToCallBubble(
+    IntentPickerBubbleView::BubbleType bubble_type) {
+  return bubble_type == IntentPickerBubbleView::BubbleType::kClickToCall &&
+         IsPageActionMigrated(PageActionIconType::kClickToCall);
+}
+
 }  // namespace
 
 class ToolbarView::ContainerView : public views::View {
@@ -656,14 +662,15 @@ void ToolbarView::ShowIntentPickerBubble(
     highlighted_button = GetPageActionView(kActionShowIntentPicker);
   }
 
-  if (!highlighted_button) {
-    return;
+  // Post migration, highlighted_button is a nullptr for ClickToCall
+  // BubbleType but the bubble still gets shown without a page action being
+  // shown/highlighted.
+  if (highlighted_button || IsMigratedClickToCallBubble(bubble_type)) {
+    IntentPickerBubbleView::ShowBubble(
+        location_bar(), highlighted_button, bubble_type, GetWebContents(),
+        std::move(app_info), show_stay_in_chrome, show_remember_selection,
+        initiating_origin, std::move(callback));
   }
-
-  IntentPickerBubbleView::ShowBubble(
-      location_bar(), highlighted_button, bubble_type, GetWebContents(),
-      std::move(app_info), show_stay_in_chrome, show_remember_selection,
-      initiating_origin, std::move(callback));
 }
 
 void ToolbarView::ShowBookmarkBubble(const GURL& url, bool already_bookmarked) {
@@ -1266,7 +1273,7 @@ void ToolbarView::UpdateRecedingCornerRadius() {
   bool tab_strip_has_leading_action_buttons =
       (!tabs::GetTabSearchTrailingTabstrip(browser()->profile()) &&
        !features::HasTabSearchToolbarButton());
-  bool first_tab_selected = browser_->tab_strip_model()->active_index() == 0;
+  bool first_tab_selected = browser_->tab_strip_model()->IsTabInForeground(0);
 
   int new_corner_radius;
 

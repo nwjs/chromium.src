@@ -32,6 +32,7 @@
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/base/signin_pref_names.h"
+#import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/supervised_user/core/browser/kids_management_api_fetcher.h"
 #import "components/supervised_user/core/browser/proto/kidsmanagement_messages.pb.h"
@@ -128,6 +129,7 @@
 #import "ios/chrome/browser/promos_manager/ui_bundled/utils.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/safari_data_import/coordinator/safari_data_import_main_coordinator.h"
+#import "ios/chrome/browser/safari_data_import/public/safari_data_import_entry_point.h"
 #import "ios/chrome/browser/scoped_ui_blocker/ui_bundled/scoped_ui_blocker.h"
 #import "ios/chrome/browser/screenshot/model/screenshot_delegate.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service.h"
@@ -239,16 +241,13 @@ namespace {
 // removed around February 2024. If enabled, createInitialUI will call
 // makeKeyAndVisible before mainCoordinator start. When disabled, this fix
 // resolves a flicker when starting the app in light mode
-BASE_FEATURE(kMakeKeyAndVisibleBeforeMainCoordinatorStart,
-             "MakeKeyAndVisibleBeforeMainCoordinatorStart",
+BASE_FEATURE(MakeKeyAndVisibleBeforeMainCoordinatorStart,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Feature to control whether Search Intents (Widgets, Application
 // Shortcuts menu) forcibly open a new tab, rather than reusing an
 // existing NTP. See http://crbug.com/1363375 for details.
-BASE_FEATURE(kForceNewTabForIntentSearch,
-             "ForceNewTabForIntentSearch",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(ForceNewTabForIntentSearch, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // A rough estimate of the expected duration of a view controller transition
 // animation. It's used to temporarily disable mutally exclusive chrome
@@ -681,10 +680,23 @@ void OnListFamilyMembersResponse(
   }
   UserActivityBrowserAgent* userActivityBrowserAgent =
       UserActivityBrowserAgent::FromBrowser(self.currentInterface.browser);
+
+  NSSet<UIOpenURLContext*>* contexts =
+      self.sceneState.connectionOptions.URLContexts;
+
+  BOOL widgetsForMIMEnabled = BUILDFLAG(ENABLE_WIDGETS_FOR_MIM);
+  if (widgetsForMIMEnabled || IsShareExtensionForMultiprofileEnabled()) {
+    // Find the first context that requires an account change.
+    WidgetContext* context = [self findContextRequiringAccountChange:contexts];
+    // Perform profile switching if needed.
+    if ([self changeProfileForContext:context contexts:contexts]) {
+      return;
+    }
+  }
+
   // Handle URL opening from
   // `UIWindowSceneDelegate scene:willConnectToSession:options:`.
-  for (UIOpenURLContext* context in self.sceneState.connectionOptions
-           .URLContexts) {
+  for (UIOpenURLContext* context in contexts) {
     URLOpenerParams* params =
         [[URLOpenerParams alloc] initWithUIOpenURLContext:context];
     [self openTabFromLaunchWithParams:params
@@ -798,7 +810,10 @@ void OnListFamilyMembersResponse(
 
 - (void)sceneState:(SceneState*)sceneState
     hasPendingURLs:(NSSet<UIOpenURLContext*>*)URLContexts {
-  [self handleURLContextsToOpen];
+  // Only process the event if the profile is ready.
+  if (sceneState.profileState.initStage >= ProfileInitStage::kFinal) {
+    [self handleURLContextsToOpen];
+  }
 }
 
 - (void)performActionForShortcutItem:(UIApplicationShortcutItem*)shortcutItem
@@ -945,39 +960,53 @@ void OnListFamilyMembersResponse(
   if (widgetsForMIMEnabled || IsShareExtensionForMultiprofileEnabled()) {
     // Find the first context that requires an account change.
     WidgetContext* context = [self findContextRequiringAccountChange:contexts];
-    if (context) {
-      // Perform profile switching if needed.
-      id<ChangeProfileCommands> changeProfileHandler = HandlerForProtocol(
-          self.sceneState.profileState.appState.appCommandDispatcher,
-          ChangeProfileCommands);
-
-      std::optional<std::string> profileName;
-
-      if ([context.gaiaID isEqualToString:app_group::kNoAccount]) {
-        // Use the personal profile name if there is no GaiaID (this happens in
-        // the sign-out scenario).
-        profileName = GetApplicationContext()
-                          ->GetProfileManager()
-                          ->GetProfileAttributesStorage()
-                          ->GetPersonalProfileName();
-      } else {
-        profileName = GetApplicationContext()
-                          ->GetAccountProfileMapper()
-                          ->FindProfileNameForGaiaID(GaiaId(context.gaiaID));
-      }
-      if (profileName.has_value()) {
-        [changeProfileHandler
-            changeProfile:*profileName
-                 forScene:self.sceneState
-                   reason:ChangeProfileReason::kSwitchAccountsFromWidget
-             continuation:CreateChangeProfileAuthenticationContinuation(
-                              context, contexts)];
-        return;
-      }
+    // Perform profile switching if needed.
+    if ([self changeProfileForContext:context contexts:contexts]) {
+      // Don't open the URLs if the profile was changed.
+      return;
     }
   }
 
   [self openURLContexts:contexts];
+}
+
+// Returns YES if a profile change was triggered.
+- (BOOL)changeProfileForContext:(WidgetContext*)context
+                       contexts:(NSSet<UIOpenURLContext*>*)contexts {
+  if (!context) {
+    return NO;
+  }
+
+  // Perform profile switching if needed.
+  id<ChangeProfileCommands> changeProfileHandler = HandlerForProtocol(
+      self.sceneState.profileState.appState.appCommandDispatcher,
+      ChangeProfileCommands);
+
+  std::optional<std::string> profileName;
+
+  if ([context.gaiaID isEqualToString:app_group::kNoAccount]) {
+    // Use the personal profile name if there is no GaiaID (this happens in
+    // the sign-out scenario).
+    profileName = GetApplicationContext()
+                      ->GetProfileManager()
+                      ->GetProfileAttributesStorage()
+                      ->GetPersonalProfileName();
+  } else {
+    profileName = GetApplicationContext()
+                      ->GetAccountProfileMapper()
+                      ->FindProfileNameForGaiaID(GaiaId(context.gaiaID));
+  }
+
+  if (!profileName.has_value()) {
+    return NO;
+  }
+  [changeProfileHandler
+      changeProfile:*profileName
+           forScene:self.sceneState
+             reason:ChangeProfileReason::kSwitchAccountsFromWidget
+       continuation:CreateChangeProfileAuthenticationContinuation(context,
+                                                                  contexts)];
+  return YES;
 }
 
 - (BOOL)multipleAccountSwitchesRequired:(NSSet<UIOpenURLContext*>*)URLContexts {
@@ -1016,8 +1045,11 @@ void OnListFamilyMembersResponse(
 
 - (WidgetContext*)findContextRequiringAccountChange:
     (NSSet<UIOpenURLContext*>*)URLContexts {
-  NSString* gaiaInApp = nil;
-
+  signin::IdentityManager* identityManager =
+      IdentityManagerFactory::GetForProfile(self.profile->GetOriginalProfile());
+  CoreAccountInfo primaryAccount =
+      identityManager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
+  NSString* gaiaInApp = primaryAccount.gaia.ToNSString();
   for (UIOpenURLContext* context : URLContexts) {
     // Check that this URL is coming from a widget.
     if (!([self widgetURLEligibleForAccountChange:context.URL] ||
@@ -1033,20 +1065,13 @@ void OnListFamilyMembersResponse(
     }
     NSString* newGaiaID = base::SysUTF8ToNSString(newGaia);
 
-    ProfileIOS* profile = self.profile->GetOriginalProfile();
-    AuthenticationService* authService =
-        AuthenticationServiceFactory::GetForProfile(profile);
-    id<SystemIdentity> identityOnDevice =
-        authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
-    gaiaInApp = identityOnDevice.gaiaID;
-
     // Only switch account if the gaia in the widget is different from the gaia
     // in the app.
     if ([gaiaInApp isEqualToString:newGaiaID]) {
       continue;
     }
 
-    if ([newGaiaID isEqualToString:app_group::kNoAccount] && gaiaInApp) {
+    if ([newGaiaID isEqualToString:app_group::kNoAccount] && gaiaInApp.length) {
       return
           [[WidgetContext alloc] initWithContext:context
                                           gaiaID:newGaiaID
@@ -1199,7 +1224,11 @@ void OnListFamilyMembersResponse(
     if (!IsFullscreenSigninPromoManagerMigrationEnabled()) {
       [self tryPresentSigninUpgradePromo];
     }
+
     [self handleExternalIntents];
+    if (self.sceneState.URLContextsToOpen.count != 0) {
+      [self handleURLContextsToOpen];
+    }
 
     if (!initializingUIInColdStart &&
         transitionedToForegroundActiveFromBackground &&
@@ -1751,13 +1780,11 @@ void OnListFamilyMembersResponse(
 }
 
 - (BOOL)isSignedIn {
-  AuthenticationService* authenticationService =
-      AuthenticationServiceFactory::GetForProfile(self.profile);
-  DCHECK(authenticationService);
-  DCHECK(authenticationService->initialized());
+  signin::IdentityManager* identityManager =
+      IdentityManagerFactory::GetForProfile(self.profile);
+  CHECK(identityManager);
 
-  return authenticationService->HasPrimaryIdentity(
-      signin::ConsentLevel::kSignin);
+  return identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin);
 }
 
 - (void)showYoutubeIncognitoWithUrlLoadParams:
@@ -2494,17 +2521,26 @@ using UserFeedbackDataCallback =
   }
   CHECK(ShouldShowSafariImportWorkflow(
       self.currentInterface.browser->GetProfile()));
+  BOOL presentOverSettings = self.settingsNavigationController &&
+                             entryPoint == SafariDataImportEntryPoint::kSetting;
+  UIViewController* baseViewController = presentOverSettings
+                                             ? self.settingsNavigationController
+                                             : self.activeViewController;
   SafariDataImportMainCoordinator* safariDataImportCoordinator =
       [[SafariDataImportMainCoordinator alloc]
               initFromEntryPoint:entryPoint
-          withBaseViewController:self.activeViewController
+          withBaseViewController:baseViewController
                          browser:self.currentInterface.browser];
   safariDataImportCoordinator.delegate = self;
   safariDataImportCoordinator.UIHandler = UIHandler;
-  [self closePresentedViews:YES
-                 completion:^{
-                   [safariDataImportCoordinator start];
-                 }];
+  if (presentOverSettings) {
+    [safariDataImportCoordinator start];
+  } else {
+    [self closePresentedViews:YES
+                   completion:^{
+                     [safariDataImportCoordinator start];
+                   }];
+  }
   _safariImportCoordinator = safariDataImportCoordinator;
 }
 

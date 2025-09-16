@@ -11,10 +11,14 @@
 #include "base/containers/to_vector.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/icu_test_util.h"
+#include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/autofill_field.h"
+#include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
+#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -135,8 +139,7 @@ class AutofillAiImportUtilsTest : public testing::Test {
  public:
   AutofillAiImportUtilsTest() {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kAutofillAiWithDataSchema,
-                              features::kAutofillAiNoTagTypes},
+        /*enabled_features=*/{features::kAutofillAiWithDataSchema},
         /*disabled_features=*/{});
   }
 
@@ -165,7 +168,8 @@ TEST_F(AutofillAiImportUtilsTest, ImportFromInput) {
   fields.push_back(CreateInput(FormControlType::kInputText,
                                FieldType::PASSPORT_ISSUE_DATE, "2025", "YYYY"));
 
-  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, "en-US"),
+  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, "en-US",
+                                                   GeoIpCountryCode("US")),
               ElementsAre(Property(
                   &EntityInstance::attributes,
                   UnorderedElementsAre(
@@ -181,7 +185,9 @@ TEST_F(AutofillAiImportUtilsTest, NoEmailAddressImport) {
   fields.push_back(CreateInput(FormControlType::kInputText,
                                FieldType::PASSPORT_NUMBER, "foo@bar.com"));
 
-  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, "en-US"), IsEmpty());
+  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, "en-US",
+                                                   GeoIpCountryCode("US")),
+              IsEmpty());
 }
 
 // Tests import that includes a date distributed over three <select> elements.
@@ -196,7 +202,8 @@ TEST_F(AutofillAiImportUtilsTest, ImportFromDateSelect) {
   fields.push_back(
       CreateSelect(Range(0, 30), {}, FieldType::PASSPORT_ISSUE_DATE, "23"));
 
-  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, "en-US"),
+  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, "en-US",
+                                                   GeoIpCountryCode("US")),
               ElementsAre(Property(
                   &EntityInstance::attributes,
                   UnorderedElementsAre(
@@ -215,7 +222,8 @@ TEST_F(AutofillAiImportUtilsTest, ImportFromNonDateSelect) {
 
   // `CreateAttribute` requires that we use the country code.
   EXPECT_THAT(
-      GetPossibleEntitiesFromSubmittedForm(fields, "en-US"),
+      GetPossibleEntitiesFromSubmittedForm(fields, "en-US",
+                                           GeoIpCountryCode("US")),
       ElementsAre(Property(
           &EntityInstance::attributes,
           UnorderedElementsAre(CreateAttribute(kPassportNumber, "123"),
@@ -232,7 +240,8 @@ TEST_F(AutofillAiImportUtilsTest, DoNotImportAffixes) {
   fields.push_back(CreateInput(FormControlType::kInputText,
                                FieldType::DRIVERS_LICENSE_NUMBER, "12345678"));
   ASSERT_THAT(
-      GetPossibleEntitiesFromSubmittedForm(fields, "en-US"),
+      GetPossibleEntitiesFromSubmittedForm(fields, "en-US",
+                                           GeoIpCountryCode("US")),
       UnorderedElementsAre(
           Property(&EntityInstance::attributes,
                    UnorderedElementsAre(
@@ -249,7 +258,8 @@ TEST_F(AutofillAiImportUtilsTest, DoNotImportAffixes) {
   fields[2]->set_format_string_unless_overruled(
       u"0", AutofillField::FormatStringSource::kServer);
   EXPECT_THAT(
-      GetPossibleEntitiesFromSubmittedForm(fields, "en-US"),
+      GetPossibleEntitiesFromSubmittedForm(fields, "en-US",
+                                           GeoIpCountryCode("US")),
       UnorderedElementsAre(Property(
           &EntityInstance::attributes,
           UnorderedElementsAre(
@@ -266,12 +276,15 @@ TEST_F(AutofillAiImportUtilsTest, DoNotImportOverloadedFields) {
                                "123"));
   fields.push_back(CreateInput(FormControlType::kInputText, NAME_FULL,
                                "Karlsson on the Roof"));
-  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, "en-US"), IsEmpty());
+  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, "en-US",
+                                                   GeoIpCountryCode("US")),
+              IsEmpty());
 
   fields.push_back(
       CreateInput(FormControlType::kInputText, VEHICLE_VIN, "456"));
   EXPECT_THAT(
-      GetPossibleEntitiesFromSubmittedForm(fields, "en-US"),
+      GetPossibleEntitiesFromSubmittedForm(fields, "en-US",
+                                           GeoIpCountryCode("US")),
       ElementsAre(Property(
           &EntityInstance::attributes,
           UnorderedElementsAre(
@@ -279,8 +292,30 @@ TEST_F(AutofillAiImportUtilsTest, DoNotImportOverloadedFields) {
               CreateAttribute(kVehicleOwner, "Karlsson on the Roof")))));
 }
 
+// Tests that national id cards are imported unless there the country code
+// belongs to India.
+TEST_F(AutofillAiImportUtilsTest, DoNotImportNationalIdCardInIndia) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAiNationalIdCard};
+
+  std::vector<std::unique_ptr<AutofillField>> fields;
+  fields.push_back(
+      CreateInput(FormControlType::kInputText, NATIONAL_ID_CARD_NUMBER, "123"));
+  EXPECT_THAT(
+      GetPossibleEntitiesFromSubmittedForm(fields, "en-US",
+                                           GeoIpCountryCode("US")),
+      ElementsAre(Property(&EntityInstance::type,
+                           EntityType(EntityTypeName::kNationalIdCard))));
+
+  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, "en-IN",
+                                                   GeoIpCountryCode("IN")),
+              IsEmpty());
+}
+
 TEST_F(AutofillAiImportUtilsTest, MaybeGetLocalizedDate) {
   using enum AttributeTypeName;
+  base::test::ScopedRestoreICUDefaultLocale restore_default_locale;
+
   EntityInstance entity =
       test::GetPassportEntityInstance({.expiry_date = u"2025-12-30"});
   {

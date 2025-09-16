@@ -665,7 +665,7 @@ void ExtractUnderlines(NSAttributedString* string,
   _availableTextChangeCounter++;
   _textSelectionRange = range;
   _substitutionWasApplied = NO;
-  [NSSpellChecker.sharedSpellChecker dismissCorrectionIndicatorForView:self];
+  [self.spellChecker dismissCorrectionIndicatorForView:self];
   if (_shouldRequestTextSubstitutions && !_substitutionWasApplied &&
       _textSelectionRange.is_empty()) {
     _shouldRequestTextSubstitutions = NO;
@@ -1706,7 +1706,7 @@ void ExtractUnderlines(NSAttributedString* string,
   // properties change to propagate when it does not ensures that screen infos
   // are properly updated when running headless.
   // See // https://crbug.com/375425824.
-  auto* screen = display::Screen::GetScreen();
+  auto* screen = display::Screen::Get();
   const display::ScreenInfos newScreenInfos =
       screen->GetScreenInfosNearestDisplay(
           screen->GetDisplayNearestView(gfx::NativeView(self)).id());
@@ -2118,7 +2118,7 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
 
   uint32_t index = UINT32_MAX;
   _host->SyncGetCharacterIndexAtPoint(rootPoint, &index);
-  // |index| could be WTF::notFound (-1) and its value is different from
+  // |index| could be blink::kNotFound (-1) and its value is different from
   // NSNotFound so we need to convert it.
   if (index == UINT32_MAX)
     return NSNotFound;

@@ -53,12 +53,13 @@ public class AddressEditorCoordinator {
 
         /**
          * The user has requested to edit an address which cannot be modified in Chrome, such as a
-         * Home or Work profile address.
+         * Home, Work, or account name/email profile address.
          */
         default void onExternalEdit(AutofillProfile profile) {}
     }
 
     /** Different types of user flows this editor supports. */
+    // TODO(cbug.com/441265846): Replace it with SaveUpdateAddressProfilePromptMode enum.
     @IntDef({
         UserFlow.CREATE_NEW_ADDRESS_PROFILE,
         UserFlow.SAVE_NEW_ADDRESS_PROFILE,

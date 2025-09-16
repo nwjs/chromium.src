@@ -5,6 +5,7 @@
 #include "components/autofill/core/browser/payments/amount_extraction_manager.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/check_deref.h"
@@ -100,13 +101,6 @@ AmountExtractionManager::GetEligibleFeatures(const SuggestionsContext& context,
     return {};
   }
 
-  // None of the projects that use amount extraction are intended to be enabled
-  // in off-the-record mode, so do not run amount extraction in off-the-record
-  // mode.
-  if (autofill_manager_->client().IsOffTheRecord()) {
-    return {};
-  }
-
   const DenseSet<EligibleFeature> eligible_features =
       CheckEligibilityForFeaturesRequiringAmountExtraction();
 
@@ -114,7 +108,7 @@ AmountExtractionManager::GetEligibleFeatures(const SuggestionsContext& context,
   // flag for eligible users.
   if (!eligible_features.empty() &&
       base::FeatureList::IsEnabled(
-          ::autofill::features::kAutofillEnableAmountExtractionDesktop)) {
+          ::autofill::features::kAutofillEnableAmountExtraction)) {
     return eligible_features;
   }
 
@@ -204,7 +198,10 @@ void AmountExtractionManager::OnTimeoutReached() {
         GetMainFrameDriver()->GetPageUkmSourceId());
     has_logged_amount_extraction_result_ = true;
   }
-  // TODO(crbug.com/378517983): Add BNPL flow action logic here.
+  if (BnplManager* bnpl_manager = autofill_manager_->GetPaymentsBnplManager()) {
+    bnpl_manager->OnAmountExtractionReturned(/*extracted_amount=*/std::nullopt,
+                                             /*timeout_reached=*/true);
+  }
   if constexpr (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
                 BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)) {
     if (base::FeatureList::IsEnabled(
@@ -223,9 +220,8 @@ AmountExtractionManager::CheckEligibilityForFeaturesRequiringAmountExtraction()
   DenseSet<EligibleFeature> eligible_features;
 
   // Check eligibility of BNPL feature.
-  // Currently, BNPL is only offered for desktop platforms.
   if constexpr (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-                BUILDFLAG(IS_CHROMEOS)) {
+                BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)) {
     if (BnplManager* bnpl_manager = autofill_manager_->GetPaymentsBnplManager();
         bnpl_manager && bnpl_manager->IsEligibleForBnpl()) {
       eligible_features.insert(EligibleFeature::kBnpl);

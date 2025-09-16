@@ -167,7 +167,7 @@ VideoOverlayWindowViews::WindowQuadrant GetCurrentWindowQuadrant(
     const gfx::Rect window_bounds,
     content::PictureInPictureWindowController* controller) {
   const gfx::Rect work_area =
-      display::Screen::GetScreen()
+      display::Screen::Get()
           ->GetDisplayNearestWindow(
               controller->GetWebContents()->GetTopLevelNativeWindow())
           .work_area();
@@ -501,14 +501,14 @@ VideoOverlayWindowViews::VideoOverlayWindowViews(
           base::BindRepeating(
               &VideoOverlayWindowViews::ReEnableControlsAfterMove,
               base::Unretained(this))) {
-  display::Screen::GetScreen()->AddObserver(this);
+  display::Screen::Get()->AddObserver(this);
 }
 
 VideoOverlayWindowViews::~VideoOverlayWindowViews() {
   if (overlay_view_) {
     overlay_view_->RemoveObserver(this);
   }
-  display::Screen::GetScreen()->RemoveObserver(this);
+  display::Screen::Get()->RemoveObserver(this);
   PictureInPictureWindowManager::GetInstance()->OnPictureInPictureWindowHidden(
       this);
 }
@@ -699,6 +699,8 @@ void VideoOverlayWindowViews::OnKeyEvent(ui::KeyEvent* event) {
     event->SetHandled();
   }
 
+  MaybeUpdateMeetsUserInteraction(*event);
+
   views::Widget::OnKeyEvent(event);
 }
 
@@ -746,6 +748,8 @@ void VideoOverlayWindowViews::OnMouseEvent(ui::MouseEvent* event) {
   // If the user interacts with the window using a mouse, stop the timer to
   // automatically hide the controls.
   hide_controls_timer_.Reset();
+
+  MaybeUpdateMeetsUserInteraction(*event);
 
   views::Widget::OnMouseEvent(event);
 }
@@ -795,6 +799,14 @@ void VideoOverlayWindowViews::StopForcingControlsVisibleForTesting() {
   force_title_and_scrim_visible_.reset();
 }
 
+void VideoOverlayWindowViews::FireEnableControlsAfterMoveTimerForTesting() {
+  if (!enable_controls_after_move_timer_.IsRunning()) {
+    return;
+  }
+  enable_controls_after_move_timer_.Stop();
+  ReEnableControlsAfterMove();
+}
+
 bool VideoOverlayWindowViews::AreControlsVisible() const {
   // If we're animating to a visibility state, then we'll act as if we're in
   // that state.
@@ -833,17 +845,28 @@ void VideoOverlayWindowViews::UpdateControlsVisibility(bool is_visible,
   const bool wanted_visibility =
       !IsOverlayViewShown() && force_controls_visible_.value_or(is_visible);
 
-  // If the controls are becoming visible, stop the initial hide timer.
-  if (wanted_visibility) {
+  // The title and scrim can be hidden if the overlay window is trusted or meets
+  // the user interaction criteria.
+  const bool can_hide_title_and_scrim =
+      IsTrustedForMediaPlayback() || meets_user_interaction_;
+
+  // If the controls are becoming visible, and the title and scrim can be
+  // hidden, stop the initial hide timer.
+  if (wanted_visibility && can_hide_title_and_scrim) {
     initial_title_hide_timer_.Stop();
   }
 
-  // The title and controls top scrim are visible if the controls are, or if we
-  // are in the initial "show" period.
-  const bool title_is_visible = force_title_and_scrim_visible_.has_value()
-                                    ? force_title_and_scrim_visible_.value()
-                                    : (wanted_visibility && Use2024UI()) ||
-                                          initial_title_hide_timer_.IsRunning();
+  // The title and controls top scrim are visible if:
+  //   * The controls are, or
+  //   * We are in the initial "show" period, or
+  //   * The overlay window does not meet the user interaction criteria and is
+  //   not trusted for media playback
+  const bool title_is_visible =
+      force_title_and_scrim_visible_.has_value()
+          ? force_title_and_scrim_visible_.value()
+          : (wanted_visibility && Use2024UI()) ||
+                initial_title_hide_timer_.IsRunning() ||
+                (Use2024UI() && !can_hide_title_and_scrim);
 
   if (should_animate) {
     // Animate the title and top scrim.
@@ -883,6 +906,7 @@ void VideoOverlayWindowViews::UpdateControlsVisibility(bool is_visible,
     }
     GetControlsContainerView()->layer()->SetOpacity(wanted_visibility ? 1.0
                                                                       : 0.0);
+    GetControlsContainerView()->SetVisible(wanted_visibility);
   }
 }
 
@@ -923,7 +947,7 @@ void VideoOverlayWindowViews::OnDisplayMetricsChanged(
   // Some display metric changes, such as display scaling, can affect the work
   // area, so max size needs to be updated.
   if (changed_metrics & display::DisplayObserver::DISPLAY_METRIC_WORK_AREA &&
-      display.id() == display::Screen::GetScreen()
+      display.id() == display::Screen::Get()
                           ->GetDisplayNearestWindow(GetNativeWindow())
                           .id()) {
     UpdateMaxSize(GetWorkAreaForWindow());
@@ -962,7 +986,7 @@ void VideoOverlayWindowViews::OnAutoPipSettingOverlayViewHidden() {
 }
 
 gfx::Rect VideoOverlayWindowViews::GetWorkAreaForWindow() const {
-  return display::Screen::GetScreen()
+  return display::Screen::Get()
       ->GetDisplayNearestWindow(
           native_widget() && IsVisible()
               ? GetNativeWindow()
@@ -1208,9 +1232,9 @@ void VideoOverlayWindowViews::SetUpViews() {
     progress_view = std::make_unique<global_media_controls::MediaProgressView>(
         /*use_squiggly_line=*/false,
         /*playing_foreground_color_id=*/ui::kColorSysPrimary,
-        /*playing_background_color_id=*/ui::kColorSysStateDisabledContainer,
-        /*paused_foreground_color_id=*/ui::kColorSysStateDisabledContainer,
-        /*paused_background_color_id=*/ui::kColorSysStateDisabledContainer,
+        /*playing_background_color_id=*/ui::kColorSysStateDisabled,
+        /*paused_foreground_color_id=*/ui::kColorSysStateDisabled,
+        /*paused_background_color_id=*/ui::kColorSysStateDisabled,
         /*focus_ring_color_id=*/ui::kColorSysStateFocusRing,
         /*drag_state_change_callback=*/
         base::BindRepeating(
@@ -1736,8 +1760,7 @@ void VideoOverlayWindowViews::OnUpdateControlsBounds() {
     constexpr int kOriginRightMargin = 80;
     constexpr int kProgressBarHeight = 26;
     constexpr int kCenterControlMargin = 16;
-    constexpr int kControlHorizontalMargin = 8;
-    constexpr int kBottomControlsHorizontalMargin = 8;
+    constexpr int kBottomControlsHorizontalMargin = 12;
     constexpr int kBottomControlsVerticalMargin = 4;
     constexpr int kTimestampHorizontalMargin = 16;
     constexpr int kTimestampVerticalMargin = 10;
@@ -1784,8 +1807,8 @@ void VideoOverlayWindowViews::OnUpdateControlsBounds() {
         {top_controls_bounds.width() - origin_position.x() - kOriginRightMargin,
          kOriginHeight});
 
-    minimize_button_->SetPosition(GetBounds().size(), quadrant);
-    back_to_tab_button_->SetPosition(GetBounds().size(), quadrant);
+    minimize_button_->SetPosition(GetBounds().size());
+    back_to_tab_button_->SetPosition(GetBounds().size());
 
     // Positioning of the middle row of controls.
     const gfx::Point center_control_position(
@@ -1825,13 +1848,11 @@ void VideoOverlayWindowViews::OnUpdateControlsBounds() {
     // The previous and next track buttons are placed on the top left/right
     // edges of the bottom controls area.
     previous_track_controls_view_->SetPosition(
-        {bottom_controls_bounds.x() + kBottomControlsHorizontalMargin +
-             kControlHorizontalMargin,
+        {bottom_controls_bounds.x() + kBottomControlsHorizontalMargin,
          bottom_controls_bounds.y() + kBottomControlsVerticalMargin});
     next_track_controls_view_->SetPosition(
         {bottom_controls_bounds.x() + bottom_controls_bounds.width() -
-             (kBottomControlsHorizontalMargin + kControlHorizontalMargin +
-              kActionButtonSize.width()),
+             (kBottomControlsHorizontalMargin + kActionButtonSize.width()),
          bottom_controls_bounds.y() + kBottomControlsVerticalMargin});
 
     // The previous and next track buttons are always both visible if at least
@@ -1851,12 +1872,10 @@ void VideoOverlayWindowViews::OnUpdateControlsBounds() {
     // one of those buttons takes up and use that to calculate the width and x
     // position of the progress view.
     constexpr int kPreviousNextTrackWidthPlusHorizontalMargins =
-        kBottomControlsHorizontalMargin + (2 * kControlHorizontalMargin) +
-        kActionButtonSize.width();
+        kBottomControlsHorizontalMargin + kActionButtonSize.width();
     const int used_horizontal_space_left_of_progress_bar =
-        should_show_prev_next
-            ? kPreviousNextTrackWidthPlusHorizontalMargins
-            : kBottomControlsHorizontalMargin + kControlHorizontalMargin;
+        should_show_prev_next ? kPreviousNextTrackWidthPlusHorizontalMargins
+                              : kBottomControlsHorizontalMargin;
     progress_view_->SetPosition(
         {bottom_controls_bounds.x() +
              used_horizontal_space_left_of_progress_bar,
@@ -2379,16 +2398,23 @@ void VideoOverlayWindowViews::OnNativeWidgetRemovingFromCompositor() {
 }
 
 void VideoOverlayWindowViews::OnGestureEvent(ui::GestureEvent* event) {
+  MaybeUpdateMeetsUserInteraction(*event);
+
   if (OnGestureEventHandledOrIgnored(event)) {
     return;
   }
 
-  // Hide the live caption dialog if it's visible and the user taps outside of
-  // it.
-  if (live_caption_dialog_ && live_caption_dialog_->GetVisible() &&
-      !GetLiveCaptionDialogBounds().Contains(event->location()) &&
-      !GetLiveCaptionButtonBounds().Contains(event->location())) {
-    SetLiveCaptionDialogVisibility(false);
+  if (live_caption_dialog_ && live_caption_dialog_->GetVisible()) {
+    if (!GetLiveCaptionDialogBounds().Contains(event->location())) {
+      // Hide the live caption dialog if it's visible and the user taps outside
+      // of it.
+      SetLiveCaptionDialogVisibility(false);
+      event->SetHandled();
+      return;
+    }
+
+    // Otherwise, let the live caption dialog handle the gesture.
+    live_caption_dialog_->OnGestureTapEvent(event);
     return;
   }
 
@@ -2861,6 +2887,9 @@ void VideoOverlayWindowViews::UpdateFavicon(const gfx::ImageSkia& favicon) {
 }
 
 void VideoOverlayWindowViews::OnInitialTitleTimerFired() {
+  if (user_interacted_before_timer_fired_) {
+    meets_user_interaction_ = true;
+  }
   UpdateControlsVisibility(false);
 }
 
@@ -2885,4 +2914,23 @@ bool VideoOverlayWindowViews::AreTitleAndScrimVisible() const {
   DCHECK_EQ(GetTitleView()->layer()->opacity(),
             GetControlsTopScrimView()->layer()->opacity());
   return GetTitleView()->layer()->opacity() > 0;
+}
+
+void VideoOverlayWindowViews::MaybeUpdateMeetsUserInteraction(
+    const ui::Event& event) {
+  if (meets_user_interaction_) {
+    return;
+  }
+
+  if (event.type() != ui::EventType::kKeyPressed &&
+      event.type() != ui::EventType::kGestureTap &&
+      event.type() != ui::EventType::kMousePressed) {
+    return;
+  }
+
+  if (initial_title_hide_timer_.IsRunning()) {
+    user_interacted_before_timer_fired_ = true;
+  } else {
+    meets_user_interaction_ = true;
+  }
 }

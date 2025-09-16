@@ -62,7 +62,15 @@ enum class AutofillProfileImportType {
   // prompt, but accepting this prompt creates a new H/W superset profile
   // under the hood since H/W is read-only.
   kHomeAndWorkSuperset = 13,
-  kMaxValue = kHomeAndWorkSuperset
+  // A profile that is a superset of an existing `kAccountNameEmail` profile was
+  // submitted. This triggers a prompt to save the submitted profile as a new,
+  // more complete profile.
+  kNameEmailSuperset = 14,
+  // Import of a profile that is a superset of both a H/W profile and the
+  // `kAccountNameEmail` profile, when form fields were not edited after
+  // filling.
+  kHomeWorkNameEmailMerge = 15,
+  kMaxValue = kHomeWorkNameEmailMerge
 };
 
 // Specifies the status of the imported phone number.
@@ -99,6 +107,9 @@ struct ProfileImportMetadata {
   bool did_import_from_unrecognized_autocomplete_field = false;
   // The origin that the form was submitted on.
   url::Origin origin;
+  // GUIDs of `AutofillProfile`s that were used to fill the form. Empty if the
+  // user edited any of the filled fields in the form.
+  base::flat_set<std::string> unedited_autofilled_profile_guids;
 };
 
 // This class holds the state associated with the import of an AutofillProfile

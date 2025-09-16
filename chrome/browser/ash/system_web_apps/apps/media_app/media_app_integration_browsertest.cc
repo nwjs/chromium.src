@@ -34,7 +34,6 @@
 #include "chrome/browser/ash/hats/hats_config.h"
 #include "chrome/browser/ash/hats/hats_notification_controller.h"
 #include "chrome/browser/ash/login/test/network_portal_detector_mixin.h"
-#include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/settings/scoped_testing_cros_settings.h"
 #include "chrome/browser/ash/settings/stub_cros_settings_provider.h"
@@ -43,8 +42,6 @@
 #include "chrome/browser/ash/system_web_apps/test_support/system_web_app_integration_test.h"
 #include "chrome/browser/error_reporting/mock_chrome_js_error_report_processor.h"
 #include "chrome/browser/extensions/component_loader.h"
-#include "chrome/browser/notifications/notification_display_service.h"
-#include "chrome/browser/notifications/notification_display_service_factory.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser.h"
@@ -61,7 +58,6 @@
 #include "chromeos/constants/chromeos_features.h"
 #include "components/crash/content/browser/error_reporting/mock_crash_endpoint.h"
 #include "components/services/app_service/public/cpp/intent.h"
-#include "components/user_manager/scoped_user_manager.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/media_session_service.h"
@@ -78,7 +74,9 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
 #include "ui/gfx/color_palette.h"
+#include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/notification.h"
+#include "ui/message_center/test/message_center_waiter.h"
 
 using ash::SystemWebAppType;
 using platform_util::OpenOperationResult;
@@ -158,14 +156,6 @@ class MediaAppIntegrationTest : public ash::SystemWebAppIntegrationTest {
         {});
   }
 
-  void SetUp() override {
-    ash::SystemWebAppIntegrationTest::SetUp();
-
-    auto user_manager = std::make_unique<ash::FakeChromeUserManager>();
-    scoped_user_manager_ = std::make_unique<user_manager::ScopedUserManager>(
-        std::move(user_manager));
-  }
-
   void SetUpCommandLine(base::CommandLine* command_line) override {
     SystemWebAppIntegrationTest::SetUpCommandLine(command_line);
 
@@ -193,10 +183,6 @@ class MediaAppIntegrationTest : public ash::SystemWebAppIntegrationTest {
   // for the application to finish loading.
   content::WebContents* DirectlyLaunchWithFile(const base::FilePath& file_path);
 
-  ash::FakeChromeUserManager& GetFakeUserManager() {
-    return CHECK_DEREF(static_cast<ash::FakeChromeUserManager*>(
-        user_manager::UserManager::Get()));
-  }
   struct DataArgsHelper {
     const char* const open_image = "0";
     const char* const open_video = "0";
@@ -226,7 +212,6 @@ class MediaAppIntegrationTest : public ash::SystemWebAppIntegrationTest {
  private:
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<file_manager::test::FolderInMyFiles> launch_folder_;
-  std::unique_ptr<user_manager::ScopedUserManager> scoped_user_manager_;
 };
 
 class MediaAppIntegrationWithFilesAppTest : public MediaAppIntegrationTest {
@@ -294,50 +279,6 @@ class MediaAppIntegrationPhotosIntegrationTest
 using MediaAppIntegrationAllProfilesTest = MediaAppIntegrationTest;
 using MediaAppIntegrationWithFilesAppAllProfilesTest =
     MediaAppIntegrationWithFilesAppTest;
-
-// Scoped observer of notifications that will spin a run loop until a
-// notification is displayed.
-class NotificationWatcher : public NotificationDisplayService::Observer {
- public:
-  NotificationWatcher(Profile* profile,
-                      ash::NetworkPortalDetectorMixin& network_portal_detector)
-      : profile_(profile) {
-    // Notifications only fire if the device is "online". Simulate that.
-    network_portal_detector.SimulateDefaultNetworkState(
-        ash::NetworkPortalDetectorMixin::NetworkStatus::kOnline);
-
-    NotificationDisplayServiceFactory::GetForProfile(profile_)->AddObserver(
-        this);
-  }
-  ~NotificationWatcher() override {
-    NotificationDisplayServiceFactory::GetForProfile(profile_)->RemoveObserver(
-        this);
-  }
-  std::string NextSeenNotificationId() {
-    if (seen_notification_id_.empty()) {
-      run_loop_.Run();
-    }
-    return seen_notification_id_;
-  }
-
- private:
-  raw_ptr<Profile> profile_;
-  base::RunLoop run_loop_;
-  std::string seen_notification_id_;
-
-  void OnNotificationDisplayed(
-      const message_center::Notification& notification,
-      const NotificationCommon::Metadata* const metadata) override {
-    seen_notification_id_ = notification.id();
-    if (run_loop_.IsRunningOnCurrentThread()) {
-      run_loop_.Quit();
-    }
-  }
-
-  void OnNotificationClosed(const std::string& notification_id) override {}
-  void OnNotificationDisplayServiceDestroyed(
-      NotificationDisplayService* service) override {}
-};
 
 class BrowserWindowWaiter : public BrowserListObserver {
  public:
@@ -1603,11 +1544,16 @@ IN_PROC_BROWSER_TEST_P(MediaAppIntegrationTest, MaybeTriggerPdfHats) {
       })();
   )";
 
-  NotificationWatcher notification_watcher(profile(), network_portal_detector_);
+  // Notifications only fire if the device is "online". Simulate that.
+  network_portal_detector_.SimulateDefaultNetworkState(
+      ash::NetworkPortalDetectorMixin::NetworkStatus::kOnline);
+  message_center::MessageCenterWaiter waiter("hats_notification");
 
   EXPECT_EQ("success",
             ExtractStringInGlobalScope(web_ui, kMaybeTriggerPdfHats));
-  EXPECT_EQ(notification_watcher.NextSeenNotificationId(), "hats_notification");
+  waiter.Wait();
+  EXPECT_TRUE(message_center::MessageCenter::Get()->FindVisibleNotificationById(
+      "hats_notification"));
 }
 
 // Tests that the Photos happiness tracking survey triggers when the monitored
@@ -1623,12 +1569,17 @@ IN_PROC_BROWSER_TEST_P(MediaAppIntegrationTest, MaybeTriggerPhotosHats) {
   std::string media_app_app_id = MediaAppAppId();
   SetPhotosExperienceSurveyTriggerAppIdForTesting(media_app_app_id.c_str());
 
-  NotificationWatcher notification_watcher(profile(), network_portal_detector_);
+  // Notifications only fire if the device is "online". Simulate that.
+  network_portal_detector_.SimulateDefaultNetworkState(
+      ash::NetworkPortalDetectorMixin::NetworkStatus::kOnline);
+  message_center::MessageCenterWaiter waiter("hats_notification");
 
   LaunchWithNoFiles();
   chrome::FindBrowserWithActiveWindow()->window()->Close();
 
-  EXPECT_EQ(notification_watcher.NextSeenNotificationId(), "hats_notification");
+  waiter.Wait();
+  EXPECT_TRUE(message_center::MessageCenter::Get()->FindVisibleNotificationById(
+      "hats_notification"));
 
   // Avoid leaving a ref to the std::string about to be destroyed.
   SetPhotosExperienceSurveyTriggerAppIdForTesting("");
@@ -1640,7 +1591,7 @@ IN_PROC_BROWSER_TEST_P(MediaAppIntegrationTest, SurveyTriggers) {
   // Surveys only trigger for the device owner. Fake it.
   auto owner_id =
       ash::ProfileHelper::Get()->GetUserByProfile(profile())->GetAccountId();
-  GetFakeUserManager().SetOwnerId(owner_id);
+  user_manager::UserManager::Get()->SetOwnerId(owner_id);
 
   // Do some consistency checks. If these fail then the method we want to test
   // will bail out early.

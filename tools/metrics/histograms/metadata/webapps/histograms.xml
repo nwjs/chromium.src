@@ -168,7 +168,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Launch.BrowserTab.WebAppLaunchHandlerClientMode"
-    enum="WebAppLaunchHandlerClientMode" expires_after="2025-11-30">
+    enum="WebAppLaunchHandlerClientMode" expires_after="2026-02-01">
   <owner>alancutter@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -178,7 +178,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Launch.HomeScreen" enum="LaunchFromHomeScreen"
-    expires_after="2025-12-15">
+    expires_after="2026-02-22">
   <owner>dominickn@chromium.org</owner>
   <owner>hartmanng@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
@@ -188,7 +188,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Launch.HomeScreenSource" enum="LaunchFromHomeScreenSource"
-    expires_after="2025-12-08">
+    expires_after="2026-02-09">
   <owner>dominickn@chromium.org</owner>
   <owner>hartmanng@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
@@ -235,7 +235,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Launch.WebAppLaunchHandlerClientMode"
-    enum="WebAppLaunchHandlerClientMode" expires_after="2025-12-08">
+    enum="WebAppLaunchHandlerClientMode" expires_after="2026-02-09">
   <owner>alancutter@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1059,7 +1059,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Install.Result" enum="BooleanSuccess"
-    expires_after="2025-12-01">
+    expires_after="2026-02-01">
   <owner>phillis@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1159,7 +1159,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.InstalledCount.ByUser" units="count"
-    expires_after="2025-11-30">
+    expires_after="2026-02-01">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1207,6 +1207,32 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="WebApp.InstalledCount.HasNoTrustedIcons" units="count"
+    expires_after="2026-08-07">
+  <owner>dibyapal@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records the number of web apps that are installed that have no trusted icon
+    metadata populated, but contains manifest icons that are untrusted. This is
+    recorded on the initialization of the Profile object, which can happen
+    either at chrome startup or when the user switches profiles. Note: This is
+    supposed to go down once existing apps start getting their manifests
+    updated, or new installs come in.
+  </summary>
+</histogram>
+
+<histogram name="WebApp.InstalledCount.HasTrustedIcons" units="count"
+    expires_after="2026-08-07">
+  <owner>dibyapal@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records the number of web apps that are installed that have trusted icon
+    metadata populated for it. This is recorded on the initialization of the
+    Profile object, which can happen either at chrome startup or when the user
+    switches profiles.
+  </summary>
+</histogram>
+
 <histogram name="WebApp.InstalledCount.NotSyncing.SyncEnabled" units="count"
     expires_after="2026-01-18">
   <owner>mek@chromium.org</owner>
@@ -1221,7 +1247,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Webapp.InstallResult.{Type}" enum="WebAppInstallResultCode"
-    expires_after="2025-11-30">
+    expires_after="2026-02-01">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>Records the result code of Web App installs. {Type}</summary>
@@ -1396,7 +1422,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Isolated.InstallError"
-    enum="IsolatedWebAppInstallError" expires_after="2025-12-07">
+    enum="IsolatedWebAppInstallError" expires_after="2026-02-09">
   <owner>giovax@chromium.org</owner>
   <owner>pwa-commercial@google.com</owner>
   <owner>src/chrome/browser/web_applications/isolated_web_apps/OWNERS</owner>
@@ -1419,7 +1445,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Isolated.InstallSuccess" enum="BooleanSuccess"
-    expires_after="2025-12-07">
+    expires_after="2026-02-09">
   <owner>giovax@chromium.org</owner>
   <owner>pwa-commercial@google.com</owner>
   <owner>src/chrome/browser/web_applications/isolated_web_apps/OWNERS</owner>
@@ -1431,7 +1457,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="WebApp.Isolated.KeyDistributionComponent.KeyRotationInfoSource"
-    enum="KeyRotationInfoSource" expires_after="2026-01-01">
+    enum="KeyDistributionComponentSource" expires_after="2026-01-01">
   <owner>greengrape@google.com</owner>
   <owner>iwa-team@google.com</owner>
   <summary>
@@ -1446,6 +1472,73 @@ chromium-metrics-reviews@google.com.
 
     This is normally called during installation/updates as well as before
     launching the app.
+  </summary>
+</histogram>
+
+<histogram
+    name="WebApp.Isolated.KeyDistributionComponent.ManagedInstallAllowed"
+    enum="BooleanAllowed" expires_after="2026-07-01">
+  <owner>rferens@google.com</owner>
+  <owner>iwa-team@google.com</owner>
+  <summary>
+    This metric records if the checked app is present in the managed allowlist.
+    The metric is recorded on
+    IwaKeyDistributionInfoProvider::IsManagedInstallPermitted() call, and gives
+    the same result if IsolatedWebAppAllowlistFlag is enabled.
+
+    This is normally called when the policy is processed.
+  </summary>
+</histogram>
+
+<histogram
+    name="WebApp.Isolated.KeyDistributionComponent.ManagedInstallCheckInfoSource"
+    enum="KeyDistributionComponentSource" expires_after="2026-07-01">
+  <owner>rferens@google.com</owner>
+  <owner>iwa-team@google.com</owner>
+  <summary>
+    Allowlist data for Isolated Web Apps (i.e. which app can be
+    installed/updated) comes from the Iwa Key Distribution component which is
+    managed by the Chrome component updater.
+
+    This metric records the currently loaded data source for calls to
+    IwaKeyDistributionInfoProvider::IsManagedInstallPermitted() -- whether
+    there's no component loaded at all, whether the component is preloaded with
+    Chrome distribution or whether it's properly downloaded from Omaha servers.
+
+    This is normally called when the policy is processed.
+  </summary>
+</histogram>
+
+<histogram name="WebApp.Isolated.KeyDistributionComponent.ManagedUpdateAllowed"
+    enum="BooleanAllowed" expires_after="2026-07-01">
+  <owner>rferens@google.com</owner>
+  <owner>iwa-team@google.com</owner>
+  <summary>
+    This metric records if the checked app is present in the managed allowlist.
+    The metric is recorded on
+    IwaKeyDistributionInfoProvider::IsManagedUpdatePermitted() call, and gives
+    the same result if IsolatedWebAppAllowlistFlag is enabled.
+
+    This is called when the update manager check if apps require updates.
+  </summary>
+</histogram>
+
+<histogram
+    name="WebApp.Isolated.KeyDistributionComponent.ManagedUpdateCheckInfoSource"
+    enum="KeyDistributionComponentSource" expires_after="2026-07-01">
+  <owner>rferens@google.com</owner>
+  <owner>iwa-team@google.com</owner>
+  <summary>
+    Allowlist data for Isolated Web Apps (i.e. which app can be
+    installed/updated) comes from the Iwa Key Distribution component which is
+    managed by the Chrome component updater.
+
+    This metric records the currently loaded data source for calls to
+    IwaKeyDistributionInfoProvider::IsManagedUpdatePermitted() -- whether
+    there's no component loaded at all, whether the component is preloaded with
+    Chrome distribution or whether it's properly downloaded from Omaha servers.
+
+    This is called when the update manager check if apps require updates.
   </summary>
 </histogram>
 
@@ -1483,6 +1576,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="WebApp.Isolated.NonAllowlistedAppInstallationRejected"
+    enum="ManagedSessionType" expires_after="2026-07-01">
+  <owner>rferens@google.com</owner>
+  <owner>iwa-team@google.com</owner>
+  <summary>
+    Records the session type (i.e., Managed User Session, MGS, or Kiosk) for
+    each rejected Isolated Web App (IWA) installation attempt. An installation
+    is rejected if the IWA's bundle ID is not found in the allowlist, which is
+    maintained by the KeyDistribution component and delivered by the component
+    updater.
+  </summary>
+</histogram>
+
 <histogram name="WebApp.Isolated.OrphanedBundlesCleanupJobError"
     enum="IsolatedWebAppCleanupOrphanedIWAsError" expires_after="2025-10-05">
   <owner>giovax@chromium.org</owner>
@@ -1498,7 +1604,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Isolated.OrphanedBundlesCleanupJobSuccess"
-    enum="BooleanValid" expires_after="2025-12-07">
+    enum="BooleanValid" expires_after="2026-02-09">
   <owner>giovax@chromium.org</owner>
   <owner>pwa-commercial@google.com</owner>
   <owner>src/chrome/browser/web_applications/isolated_web_apps/OWNERS</owner>
@@ -1544,7 +1650,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Isolated.ReadResponseHeadSuccess" enum="BooleanSuccess"
-    expires_after="2025-12-07">
+    expires_after="2026-02-09">
   <owner>giovax@chromium.org</owner>
   <owner>pwa-commercial@google.com</owner>
   <owner>src/chrome/browser/web_applications/isolated_web_apps/OWNERS</owner>
@@ -1586,7 +1692,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Isolated.ResponseReaderCacheState"
-    enum="IsolatedWebAppResponseReaderCacheState" expires_after="2025-12-07">
+    enum="IsolatedWebAppResponseReaderCacheState" expires_after="2026-02-09">
   <owner>giovax@chromium.org</owner>
   <owner>pwa-commercial@google.com</owner>
   <owner>src/chrome/browser/web_applications/isolated_web_apps/OWNERS</owner>
@@ -1604,7 +1710,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Isolated.SignatureVerificationDuration" units="ms"
-    expires_after="2025-12-07">
+    expires_after="2026-02-09">
   <owner>giovax@chromium.org</owner>
   <owner>pwa-commercial@google.com</owner>
   <owner>src/chrome/browser/web_applications/isolated_web_apps/OWNERS</owner>
@@ -1617,7 +1723,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Isolated.SignatureVerificationFileLength" units="MiB"
-    expires_after="2025-12-07">
+    expires_after="2026-02-22">
   <owner>giovax@chromium.org</owner>
   <owner>pwa-commercial@google.com</owner>
   <owner>src/chrome/browser/web_applications/isolated_web_apps/OWNERS</owner>
@@ -1644,7 +1750,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Isolated.SwbnFileUsabilitySuccess" enum="BooleanValid"
-    expires_after="2025-12-07">
+    expires_after="2026-02-09">
   <owner>giovax@chromium.org</owner>
   <owner>pwa-commercial@google.com</owner>
   <owner>src/chrome/browser/web_applications/isolated_web_apps/OWNERS</owner>
@@ -1713,7 +1819,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.LaunchSource" enum="LaunchSource"
-    expires_after="2025-12-08">
+    expires_after="2026-02-09">
   <owner>phillis@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -2625,6 +2731,29 @@ chromium-metrics-reviews@google.com.
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>Records the result of WebAppUrlLoader::PrepareForLoad().</summary>
+</histogram>
+
+<histogram name="WebApp.WebInstallApi.InstallType" enum="WebInstallApiType"
+    expires_after="2026-01-01">
+  <owner>dmurph@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <owner>liahiscock@microsoft.com</owner>
+  <owner>kristinlee@microsoft.com</owner>
+  <summary>
+    Records the type of install that the web install API is being invoked for.
+  </summary>
+</histogram>
+
+<histogram name="WebApp.WebInstallApi.Result" enum="WebInstallApiResult"
+    expires_after="2026-01-01">
+  <owner>dmurph@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <owner>liahiscock@microsoft.com</owner>
+  <owner>kristinlee@microsoft.com</owner>
+  <summary>
+    Records the result of WebInstallServiceImpl::Install(), which is the
+    browser's implementation of the navigator.install API.
+  </summary>
 </histogram>
 
 </histograms>

@@ -342,6 +342,8 @@ inline constexpr char kChromeUINativeBookmarksURL[] =
     "chrome-native://bookmarks/";
 inline constexpr char kChromeUINativeExploreURL[] = "chrome-native://explore";
 inline constexpr char kChromeUINativeNewTabURL[] = "chrome-native://newtab/";
+inline constexpr char kChromeUINotificationsInternalsHost[] =
+    "notifications-internals";
 inline constexpr char kChromeUISnippetsInternalsHost[] = "snippets-internals";
 inline constexpr char kChromeUIWebApksHost[] = "webapks";
 #else
@@ -428,9 +430,6 @@ inline constexpr char kChromeUIAppInstallDialogURL[] =
 inline constexpr char kChromeUIArcOverviewTracingHost[] =
     "arc-overview-tracing";
 inline constexpr char kChromeUIArcPowerControlHost[] = "arc-power-control";
-inline constexpr char kChromeUIAssistantOptInHost[] = "assistant-optin";
-inline constexpr char kChromeUIAssistantOptInURL[] =
-    "chrome://assistant-optin/";
 inline constexpr char kChromeUIAudioHost[] = "audio";
 inline constexpr char kChromeUIAudioURL[] = "chrome://audio/";
 inline constexpr char kChromeUIBluetoothPairingHost[] = "bluetooth-pairing";
@@ -440,8 +439,6 @@ inline constexpr char kChromeUIBorealisCreditsHost[] = "borealis-credits";
 inline constexpr char kChromeUIBorealisInstallerHost[] = "borealis-installer";
 inline constexpr char kChromeUIBorealisInstallerUrl[] =
     "chrome://borealis-installer";
-inline constexpr char kChromeUIBorealisMOTDHost[] = "borealis-motd";
-inline constexpr char kChromeUIBorealisMOTDURL[] = "chrome://borealis-motd";
 inline constexpr char kChromeUICloudUploadHost[] = "cloud-upload";
 inline constexpr char kChromeUICloudUploadURL[] = "chrome://cloud-upload/";
 inline constexpr char kChromeUIConfirmPasswordChangeHost[] =

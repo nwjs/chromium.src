@@ -7,13 +7,30 @@
 #include <memory>
 
 #include "base/check_deref.h"
+#include "base/check_is_test.h"
 #include "base/no_destructor.h"
 #include "chrome/browser/autocomplete/chrome_aim_eligibility_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_selections.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/storage_partition.h"
+
+namespace {
+
+std::unique_ptr<KeyedService> BuildServiceInstance(
+    content::BrowserContext* context) {
+  Profile* profile = Profile::FromBrowserContext(context);
+  return std::make_unique<ChromeAimEligibilityService>(
+      CHECK_DEREF(profile->GetPrefs()),
+      TemplateURLServiceFactory::GetForProfile(profile),
+      profile->GetDefaultStoragePartition()
+          ->GetURLLoaderFactoryForBrowserProcess(),
+      IdentityManagerFactory::GetForProfile(profile));
+}
+
+}  // namespace
 
 // static
 AimEligibilityService* AimEligibilityServiceFactory::GetForProfile(
@@ -28,6 +45,13 @@ AimEligibilityServiceFactory* AimEligibilityServiceFactory::GetInstance() {
   return instance.get();
 }
 
+// static
+BrowserContextKeyedServiceFactory::TestingFactory
+AimEligibilityServiceFactory::GetDefaultFactory() {
+  CHECK_IS_TEST();
+  return base::BindRepeating(&BuildServiceInstance);
+}
+
 AimEligibilityServiceFactory::AimEligibilityServiceFactory()
     : ProfileKeyedServiceFactory(
           "AimEligibilityService",
@@ -39,6 +63,7 @@ AimEligibilityServiceFactory::AimEligibilityServiceFactory()
               .WithAshInternals(ProfileSelection::kRedirectedToOriginal)
               .Build()) {
   DependsOn(TemplateURLServiceFactory::GetInstance());
+  DependsOn(IdentityManagerFactory::GetInstance());
 }
 
 AimEligibilityServiceFactory::~AimEligibilityServiceFactory() = default;
@@ -46,10 +71,13 @@ AimEligibilityServiceFactory::~AimEligibilityServiceFactory() = default;
 std::unique_ptr<KeyedService>
 AimEligibilityServiceFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
-  Profile* profile = Profile::FromBrowserContext(context);
-  return std::make_unique<ChromeAimEligibilityService>(
-      CHECK_DEREF(profile->GetPrefs()),
-      CHECK_DEREF(TemplateURLServiceFactory::GetForProfile(profile)),
-      profile->GetDefaultStoragePartition()
-          ->GetURLLoaderFactoryForBrowserProcess());
+  return BuildServiceInstance(context);
+}
+
+bool AimEligibilityServiceFactory::ServiceIsCreatedWithBrowserContext() const {
+  return true;
+}
+
+bool AimEligibilityServiceFactory::ServiceIsNULLWhileTesting() const {
+  return true;
 }

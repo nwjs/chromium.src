@@ -1247,7 +1247,7 @@ CSSValue* ComputedStyleUtils::ValueForFontVariantAlternates(
 
   if (!variant_alternates->Styleset().empty()) {
     CSSValueList* aliases_list = CSSValueList::CreateCommaSeparated();
-    for (auto alias : variant_alternates->Styleset()) {
+    for (const auto& alias : variant_alternates->Styleset()) {
       aliases_list->Append(*MakeGarbageCollected<CSSCustomIdentValue>(alias));
     }
     value_list->Append(*MakeGarbageCollected<cssvalue::CSSAlternateValue>(
@@ -1256,7 +1256,7 @@ CSSValue* ComputedStyleUtils::ValueForFontVariantAlternates(
   }
   if (!variant_alternates->CharacterVariant().empty()) {
     CSSValueList* aliases_list = CSSValueList::CreateCommaSeparated();
-    for (auto alias : variant_alternates->CharacterVariant()) {
+    for (const auto& alias : variant_alternates->CharacterVariant()) {
       aliases_list->Append(*MakeGarbageCollected<CSSCustomIdentValue>(alias));
     }
     value_list->Append(*MakeGarbageCollected<cssvalue::CSSAlternateValue>(
@@ -1703,7 +1703,7 @@ void OrderedNamedLinesCollector::AppendLines(
     return;
   }
 
-  for (auto named_grid_line : iter->value) {
+  for (const auto& named_grid_line : iter->value) {
     // For layout grids, insert all values. For non-layout grids, in order to
     // round-trip repeaters, we need to prevent inserting certain line names.
     // In particular, don't insert lines from repeaters if we're not in a
@@ -2086,10 +2086,10 @@ CSSValue* ComputedStyleUtils::ValueForGridTrackList(
       computed_grid_track_list.GetAutoRepeatInsertionPoint();
   const GridTrackList& track_list = computed_grid_track_list.GetTrackList();
 
-  // Treat repeat(auto-fill, auto) as none in Grid.
+  // Treat repeat(auto-fill, <intrinsic-track-size>) as none in Grid.
   //
   // TODO(almaher): Change this depending on if we allow this syntax in Grid.
-  if (!is_masonry && track_list.HasAutoSizedRepeater()) {
+  if (!is_masonry && track_list.HasIntrinsicSizedRepeater()) {
     return CSSIdentifierValue::Create(CSSValueID::kNone);
   }
 
@@ -2104,8 +2104,8 @@ CSSValue* ComputedStyleUtils::ValueForGridTrackList(
   // `force_computed_value` is set (which is used for `grid-template`). Non
   // layout-grids will always report the computed value.
   //
-  // TODO(almaher): Consider if we should force repeat(auto-fill, auto) to the
-  // computed value instead of used value.
+  // TODO(almaher): Consider if we should force repeat(auto-fill,
+  // <intrinsic-track-size>) to the computed value instead of used value.
   if (grid && !force_computed_value) {
     // The number of auto repeat tracks. For 'repeat(auto-fill, [x][y])' this
     // will be 2, regardless of what auto-fill computes to. For subgrids, use
@@ -2319,21 +2319,11 @@ CSSValue* ComputedStyleUtils::ValueForTextOverflow(
 CSSValue* ComputedStyleUtils::TouchActionFlagsToCSSValue(
     TouchAction touch_action) {
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-  // Until handwriting is a web exposed feature, the combination of
-  // non-handwriting bits should result in values of auto / manipulation in the
-  // exposed CSS value.
-  // TODO(crbug.com/382525574): Launch or clean up kHandwriting.
-  const static auto kHandwritingTouchAction =
-      TouchAction::kInternalHandwriting |
-      TouchAction::kInternalHandwritingPanningRules;
-  touch_action &= ~kHandwritingTouchAction;
-
-  if (touch_action == (TouchAction::kAuto & ~kHandwritingTouchAction)) {
+  if (touch_action == TouchAction::kAuto) {
     list->Append(*CSSIdentifierValue::Create(CSSValueID::kAuto));
   } else if (touch_action == TouchAction::kNone) {
     list->Append(*CSSIdentifierValue::Create(CSSValueID::kNone));
-  } else if (touch_action ==
-             (TouchAction::kManipulation & ~kHandwritingTouchAction)) {
+  } else if (touch_action == TouchAction::kManipulation) {
     list->Append(*CSSIdentifierValue::Create(CSSValueID::kManipulation));
   } else {
     if ((touch_action & TouchAction::kPanX) == TouchAction::kPanX) {
@@ -4643,97 +4633,147 @@ CSSValue* ComputedStyleUtils::ValueForScrollStart(const ComputedStyle& style,
 
 namespace {
 
-CSSIdentifierValue* PositionAreaSpanToCSSIdentifierValue(
-    PositionAreaRegion span_start,
-    PositionAreaRegion span_end) {
+CSSValueID PositionAreaSpanToCSSValueID(PositionAreaRegion span_start,
+                                        PositionAreaRegion span_end) {
   if (span_start == span_end) {
-    return CSSIdentifierValue::Create(span_start);
+    return PlatformEnumToCSSValueID(span_start);
   }
   CHECK(span_start == PositionAreaRegion::kCenter ||
         span_end == PositionAreaRegion::kCenter);
   PositionAreaRegion span_towards =
       span_start == PositionAreaRegion::kCenter ? span_end : span_start;
-  CSSValueID value_id = CSSValueID::kSpanAll;
   switch (span_towards) {
     case PositionAreaRegion::kLeft:
-      value_id = CSSValueID::kSpanLeft;
-      break;
+      return CSSValueID::kSpanLeft;
     case PositionAreaRegion::kRight:
-      value_id = CSSValueID::kSpanRight;
-      break;
+      return CSSValueID::kSpanRight;
     case PositionAreaRegion::kXStart:
-      value_id = CSSValueID::kSpanXStart;
-      break;
+      return CSSValueID::kSpanXStart;
     case PositionAreaRegion::kXEnd:
-      value_id = CSSValueID::kSpanXEnd;
-      break;
+      return CSSValueID::kSpanXEnd;
     case PositionAreaRegion::kXSelfStart:
-      value_id = CSSValueID::kSpanXSelfStart;
-      break;
+      return CSSValueID::kSpanXSelfStart;
     case PositionAreaRegion::kXSelfEnd:
-      value_id = CSSValueID::kSpanXSelfEnd;
-      break;
+      return CSSValueID::kSpanXSelfEnd;
     case PositionAreaRegion::kTop:
-      value_id = CSSValueID::kSpanTop;
-      break;
+      return CSSValueID::kSpanTop;
     case PositionAreaRegion::kBottom:
-      value_id = CSSValueID::kSpanBottom;
-      break;
+      return CSSValueID::kSpanBottom;
     case PositionAreaRegion::kYStart:
-      value_id = CSSValueID::kSpanYStart;
-      break;
+      return CSSValueID::kSpanYStart;
     case PositionAreaRegion::kYEnd:
-      value_id = CSSValueID::kSpanYEnd;
-      break;
+      return CSSValueID::kSpanYEnd;
     case PositionAreaRegion::kYSelfStart:
-      value_id = CSSValueID::kSpanYSelfStart;
-      break;
+      return CSSValueID::kSpanYSelfStart;
     case PositionAreaRegion::kYSelfEnd:
-      value_id = CSSValueID::kSpanYSelfEnd;
-      break;
+      return CSSValueID::kSpanYSelfEnd;
     case PositionAreaRegion::kBlockStart:
-      value_id = CSSValueID::kSpanBlockStart;
-      break;
+      return CSSValueID::kSpanBlockStart;
     case PositionAreaRegion::kBlockEnd:
-      value_id = CSSValueID::kSpanBlockEnd;
-      break;
+      return CSSValueID::kSpanBlockEnd;
     case PositionAreaRegion::kSelfBlockStart:
-      value_id = CSSValueID::kSpanSelfBlockStart;
-      break;
+      return CSSValueID::kSpanSelfBlockStart;
     case PositionAreaRegion::kSelfBlockEnd:
-      value_id = CSSValueID::kSpanSelfBlockEnd;
-      break;
+      return CSSValueID::kSpanSelfBlockEnd;
     case PositionAreaRegion::kInlineStart:
-      value_id = CSSValueID::kSpanInlineStart;
-      break;
+      return CSSValueID::kSpanInlineStart;
     case PositionAreaRegion::kInlineEnd:
-      value_id = CSSValueID::kSpanInlineEnd;
-      break;
+      return CSSValueID::kSpanInlineEnd;
     case PositionAreaRegion::kSelfInlineStart:
-      value_id = CSSValueID::kSpanSelfInlineStart;
-      break;
+      return CSSValueID::kSpanSelfInlineStart;
     case PositionAreaRegion::kSelfInlineEnd:
-      value_id = CSSValueID::kSpanSelfInlineEnd;
-      break;
+      return CSSValueID::kSpanSelfInlineEnd;
     case PositionAreaRegion::kStart:
-      value_id = CSSValueID::kSpanStart;
-      break;
+      return CSSValueID::kSpanStart;
     case PositionAreaRegion::kEnd:
-      value_id = CSSValueID::kSpanEnd;
-      break;
+      return CSSValueID::kSpanEnd;
     case PositionAreaRegion::kSelfStart:
-      value_id = CSSValueID::kSpanSelfStart;
-      break;
+      return CSSValueID::kSpanSelfStart;
     case PositionAreaRegion::kSelfEnd:
-      value_id = CSSValueID::kSpanSelfEnd;
-      break;
+      return CSSValueID::kSpanSelfEnd;
     case PositionAreaRegion::kNone:
     case PositionAreaRegion::kAll:
     case PositionAreaRegion::kCenter:
       // Should have been handled above
       NOTREACHED();
   }
-  return CSSIdentifierValue::Create(value_id);
+}
+
+CSSValueID SimplifyPositionAreaValueID(CSSValueID value) {
+  switch (value) {
+    case CSSValueID::kBlockStart:
+    case CSSValueID::kInlineStart:
+      return CSSValueID::kStart;
+    case CSSValueID::kBlockEnd:
+    case CSSValueID::kInlineEnd:
+      return CSSValueID::kEnd;
+    case CSSValueID::kSpanBlockStart:
+    case CSSValueID::kSpanInlineStart:
+      return CSSValueID::kSpanStart;
+    case CSSValueID::kSpanBlockEnd:
+    case CSSValueID::kSpanInlineEnd:
+      return CSSValueID::kSpanEnd;
+    case CSSValueID::kSelfBlockStart:
+    case CSSValueID::kSelfInlineStart:
+      return CSSValueID::kSelfStart;
+    case CSSValueID::kSelfBlockEnd:
+    case CSSValueID::kSelfInlineEnd:
+      return CSSValueID::kSelfEnd;
+    case CSSValueID::kSpanSelfBlockStart:
+    case CSSValueID::kSpanSelfInlineStart:
+      return CSSValueID::kSpanSelfStart;
+    case CSSValueID::kSpanSelfBlockEnd:
+    case CSSValueID::kSpanSelfInlineEnd:
+      return CSSValueID::kSpanSelfEnd;
+    default:
+      return value;
+  }
+}
+
+CSSValueID ToUnambiguousBlock(CSSValueID value) {
+  switch (value) {
+    case CSSValueID::kStart:
+      return CSSValueID::kBlockStart;
+    case CSSValueID::kEnd:
+      return CSSValueID::kBlockEnd;
+    case CSSValueID::kSpanStart:
+      return CSSValueID::kSpanBlockStart;
+    case CSSValueID::kSpanEnd:
+      return CSSValueID::kSpanBlockEnd;
+    case CSSValueID::kSelfStart:
+      return CSSValueID::kSelfBlockStart;
+    case CSSValueID::kSelfEnd:
+      return CSSValueID::kSelfBlockEnd;
+    case CSSValueID::kSpanSelfStart:
+      return CSSValueID::kSpanSelfBlockStart;
+    case CSSValueID::kSpanSelfEnd:
+      return CSSValueID::kSpanSelfBlockEnd;
+    default:
+      return value;
+  }
+}
+
+CSSValueID ToUnambiguousInline(CSSValueID value) {
+  switch (value) {
+    case CSSValueID::kStart:
+      return CSSValueID::kInlineStart;
+    case CSSValueID::kEnd:
+      return CSSValueID::kInlineEnd;
+    case CSSValueID::kSpanStart:
+      return CSSValueID::kSpanInlineStart;
+    case CSSValueID::kSpanEnd:
+      return CSSValueID::kSpanInlineEnd;
+    case CSSValueID::kSelfStart:
+      return CSSValueID::kSelfInlineStart;
+    case CSSValueID::kSelfEnd:
+      return CSSValueID::kSelfInlineEnd;
+    case CSSValueID::kSpanSelfStart:
+      return CSSValueID::kSpanSelfInlineStart;
+    case CSSValueID::kSpanSelfEnd:
+      return CSSValueID::kSpanSelfInlineEnd;
+    default:
+      return value;
+  }
 }
 
 }  // namespace
@@ -4743,22 +4783,47 @@ CSSValue* ComputedStyleUtils::ValueForPositionArea(
   if (area.FirstStart() == PositionAreaRegion::kNone) {
     return CSSIdentifierValue::Create(CSSValueID::kNone);
   }
-  CSSIdentifierValue* first_value =
-      PositionAreaSpanToCSSIdentifierValue(area.FirstStart(), area.FirstEnd());
-  CSSIdentifierValue* second_value = PositionAreaSpanToCSSIdentifierValue(
-      area.SecondStart(), area.SecondEnd());
+  CSSValueID first_keyword =
+      PositionAreaSpanToCSSValueID(area.FirstStart(), area.FirstEnd());
+  CSSValueID second_keyword =
+      PositionAreaSpanToCSSValueID(area.SecondStart(), area.SecondEnd());
 
-  CSSValueID second_default = CSSValueID::kSpanAll;
-  CSSValueID first_value_id = first_value->GetValueID();
-
-  if (css_parsing_utils::IsRepeatedPositionAreaValue(first_value_id)) {
-    second_default = first_value_id;
+  if (css_parsing_utils::IsRepeatedPositionAreaValue(first_keyword) ||
+      css_parsing_utils::IsRepeatedPositionAreaValue(second_keyword)) {
+    if (first_keyword == second_keyword) {
+      return CSSIdentifierValue::Create(first_keyword);
+    }
+    if (first_keyword == CSSValueID::kSpanAll ||
+        second_keyword == CSSValueID::kSpanAll) {
+      // An ambiguous keyword in combination with span-all may be serialized as
+      // a single keyword by making it an unambiguous one.
+      // E.g. "end span-all" -> "block-end".
+      first_keyword = ToUnambiguousBlock(first_keyword);
+      second_keyword = ToUnambiguousInline(second_keyword);
+    }
   }
-  if (second_value->GetValueID() == second_default) {
-    return first_value;
+  // An unambiguous keyword can be serialized to a single keyword if the other
+  // keyword is span-all.
+  if (second_keyword == CSSValueID::kSpanAll &&
+      !css_parsing_utils::IsRepeatedPositionAreaValue(first_keyword)) {
+    return CSSIdentifierValue::Create(first_keyword);
   }
-  return MakeGarbageCollected<CSSValuePair>(first_value, second_value,
-                                            CSSValuePair::kDropIdenticalValues);
+  if (first_keyword == CSSValueID::kSpanAll &&
+      !css_parsing_utils::IsRepeatedPositionAreaValue(second_keyword)) {
+    return CSSIdentifierValue::Create(second_keyword);
+  }
+  if (first_keyword != CSSValueID::kSpanAll &&
+      second_keyword != CSSValueID::kSpanAll) {
+    // Both keywords need to be serialized. Simplify to shorter ambiguous
+    // variants if possible.
+    // E.g. "self-block-start center" -> "self-start center".
+    first_keyword = SimplifyPositionAreaValueID(first_keyword);
+    second_keyword = SimplifyPositionAreaValueID(second_keyword);
+  }
+  return MakeGarbageCollected<CSSValuePair>(
+      CSSIdentifierValue::Create(first_keyword),
+      CSSIdentifierValue::Create(second_keyword),
+      CSSValuePair::kDropIdenticalValues);
 }
 
 std::unique_ptr<CrossThreadStyleValue>

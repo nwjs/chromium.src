@@ -31,9 +31,10 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.UserDataHost;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.layouts.LayoutStateProvider;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifier;
 import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifierJni;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
@@ -77,7 +78,6 @@ public class LocationBarModelUnitTest {
     @Mock private ChromeAutocompleteSchemeClassifier.Natives mChromeAutocompleteSchemeClassifierJni;
     @Mock private DomDistillerUrlUtilsJni mDomDistillerUrlUtilsJni;
     @Mock private OmniboxUrlEmphasizerJni mOmniboxUrlEmphasizerJni;
-    @Mock private LayoutStateProvider mLayoutStateProvider;
     @Mock private TabbedPaintPreview mTabbedPaintPreview;
 
     private final UserDataHost mUserDataHost = new UserDataHost();
@@ -89,7 +89,8 @@ public class LocationBarModelUnitTest {
                             ContextUtils.getApplicationContext(), R.style.Theme_BrowserUI_DayNight),
                     NewTabPageDelegate.EMPTY,
                     url -> url.getSpec(),
-                    OFFLINE_STATUS);
+                    OFFLINE_STATUS,
+                    new ObservableSupplierImpl(ControlsPosition.TOP));
 
     private final GURL mExampleGurl = new GURL("http://www.example.com/");
 

@@ -16,11 +16,15 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.view.View;
 
+import androidx.annotation.ColorInt;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -33,6 +37,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
@@ -55,6 +60,7 @@ public class TopInsetCoordinatorUnitTest {
     @Mock private NativePage mNativePage;
     @Mock private TopInsetCoordinator.Observer mObserver;
 
+    private NtpCustomizationConfigManager mNtpCustomizationConfigManager;
     private TopInsetCoordinator mTopInsetCoordinator;
 
     @Before
@@ -72,13 +78,20 @@ public class TopInsetCoordinatorUnitTest {
         when(mNonNtpTab2.isNativePage()).thenReturn(false);
         when(mNonNtpTab2.getNativePage()).thenReturn(null);
 
+        mNtpCustomizationConfigManager = NtpCustomizationConfigManager.getInstance();
         mTopInsetCoordinator = new TopInsetCoordinator(mTabObservableSupplier, mInsetObserver);
         mTopInsetCoordinator.addObserver(mObserver);
 
         mWindowInsetsCompat = createWindowInsetsCompat(TOP_PADDING);
     }
 
+    @After
+    public void tearDown() {
+        mNtpCustomizationConfigManager.resetForTesting();
+    }
+
     @Test
+    @SuppressWarnings("DirectInvocationOnMock")
     public void testOnApplyWindowInsets_ConsumeTopInset() {
         Mockito.clearInvocations(mObserver);
         mTopInsetCoordinator.onTabSwitched(mNtpTab);
@@ -149,9 +162,49 @@ public class TopInsetCoordinatorUnitTest {
         mTopInsetCoordinator.onTabSwitched(mNonNtpTab1);
         mTopInsetCoordinator.destroy();
 
-        mInsetObserver.removeInsetsConsumer(eq(mTopInsetCoordinator));
+        verify(mInsetObserver).removeInsetsConsumer(any(InsetObserver.WindowInsetsConsumer.class));
         verify(mNonNtpTab1).removeObserver(any(TabObserver.class));
         assertEquals(0, mTopInsetCoordinator.getObserverCountForTesting());
+    }
+
+    @Test
+    public void testOnBackgroundChanged() {
+        Mockito.clearInvocations(mInsetObserver);
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+
+        mNtpCustomizationConfigManager.notifyBackgroundImageChanged(
+                bitmap, /* fromInitialization= */ true);
+        verify(mInsetObserver, never()).retriggerOnApplyWindowInsets();
+
+        mNtpCustomizationConfigManager.notifyBackgroundImageChanged(
+                bitmap, /* fromInitialization= */ false);
+        verify(mInsetObserver).retriggerOnApplyWindowInsets();
+    }
+
+    @Test
+    public void testOnBackgroundColorChanged() {
+        Mockito.clearInvocations(mInsetObserver);
+        @ColorInt int color = Color.RED;
+
+        mNtpCustomizationConfigManager.notifyBackgroundColorChanged(
+                color, /* fromInitialization= */ true);
+        assertEquals(color, mNtpCustomizationConfigManager.getBackgroundColorForTesting());
+        verify(mInsetObserver, never()).retriggerOnApplyWindowInsets();
+
+        mNtpCustomizationConfigManager.notifyBackgroundColorChanged(
+                color, /* fromInitialization= */ false);
+        assertEquals(color, mNtpCustomizationConfigManager.getBackgroundColorForTesting());
+        verify(mInsetObserver).retriggerOnApplyWindowInsets();
+    }
+
+    @Test
+    public void testObserveNotifyRefreshWindowInsets() {
+        Mockito.clearInvocations(mInsetObserver);
+        mNtpCustomizationConfigManager.notifyRefreshWindowInsets(/* consumeTopInset= */ true);
+        verify(mInsetObserver).retriggerOnApplyWindowInsets();
+
+        mNtpCustomizationConfigManager.notifyRefreshWindowInsets(/* consumeTopInset= */ false);
+        verify(mInsetObserver, times(2)).retriggerOnApplyWindowInsets();
     }
 
     private WindowInsetsCompat createWindowInsetsCompat(int top) {

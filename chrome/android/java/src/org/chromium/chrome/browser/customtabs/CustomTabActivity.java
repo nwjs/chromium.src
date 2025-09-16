@@ -34,6 +34,7 @@ import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
@@ -43,6 +44,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.LaunchIntentDispatcher;
 import org.chromium.chrome.browser.app.metrics.LaunchCauseMetrics;
+import org.chromium.chrome.browser.app.tab_activity_glue.PopupCreator;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchController;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchControllerFactory;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchMetrics;
@@ -92,6 +94,7 @@ public class CustomTabActivity extends BaseCustomTabActivity {
     private boolean mIsEnterAnimationCompleted;
     private @Nullable AuxiliarySearchController mAuxiliarySearchController;
     private CustomTabActivityTimeoutHandler mTimeoutHandler;
+    private static Runnable sOnFinishCallbackForTesting;
     private final CustomTabActivityTabProvider.Observer mTabChangeObserver =
             new CustomTabActivityTabProvider.Observer() {
                 @Override
@@ -235,6 +238,15 @@ public class CustomTabActivity extends BaseCustomTabActivity {
                                     mConnection.getClientPackageNameForSession(mSession));
                 });
         super.finishNativeInitialization();
+
+        // Window bounds adjustments are called here because we probe WebContents' width and height
+        // from the native object.
+        if (getIntentDataProvider().getUiType() == CustomTabsUiType.POPUP
+                && ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.ANDROID_WINDOW_POPUP_RESIZE_AFTER_SPAWN)) {
+            PopupCreator.adjustWindowBoundsToRequested(
+                    this, getIntentDataProvider().getRequestedWindowFeatures());
+        }
     }
 
     @Override
@@ -407,6 +419,8 @@ public class CustomTabActivity extends BaseCustomTabActivity {
 
     @Override
     public void finish() {
+        if (sOnFinishCallbackForTesting != null) sOnFinishCallbackForTesting.run();
+
         RecordHistogram.recordLinearCountHistogram(
                 "CustomTabs.Omnibox.NumNavigationsPerSession",
                 mNumOmniboxNavigationEventsPerSession,
@@ -523,5 +537,11 @@ public class CustomTabActivity extends BaseCustomTabActivity {
         super.onEnterAnimationComplete();
 
         mIsEnterAnimationCompleted = true;
+    }
+
+    @VisibleForTesting
+    public static void setOnFinishCallbackForTesting(Runnable callback) {
+        sOnFinishCallbackForTesting = callback;
+        ResettersForTesting.register(() -> sOnFinishCallbackForTesting = null);
     }
 }

@@ -44,6 +44,7 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/global_routing_id.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -226,28 +227,6 @@ void LogLlamaForcedTriggerInfoFields(
             .at(i)
             .llama_trigger_rule_id());
   }
-}
-
-bool ShouldShowScamWarning(std::optional<IntelligentScanVerdict> verdict) {
-  if (!verdict.has_value() ||
-      *verdict ==
-          IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_UNSPECIFIED ||
-      *verdict == IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE) {
-    return false;
-  }
-
-  return (base::FeatureList::IsEnabled(
-              kClientSideDetectionShowScamVerdictWarning) &&
-          *verdict == IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_1) ||
-         (base::FeatureList::IsEnabled(
-              kClientSideDetectionShowLlamaScamVerdictWarning) &&
-          *verdict == IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_2) ||
-         ((base::FeatureList::IsEnabled(
-               kClientSideDetectionShowScamVerdictWarning) ||
-           base::FeatureList::IsEnabled(
-               kClientSideDetectionShowLlamaScamVerdictWarning)) &&
-          *verdict ==
-              IntelligentScanVerdict::SCAM_EXPERIMENT_CATCH_ALL_ENFORCEMENT);
 }
 
 safe_browsing::ThreatSubtype GetThreatSubtype(
@@ -566,15 +545,15 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
       return;  // No point in doing anything else.
     }
 
+    // The purpose of triggering preclassification for these APIs is to have
+    // an initial assessment on how often we'll be hitting the allowlist and
+    // triggering the classification. We will not go further than checking
+    // for this metric, unless otherwise specified by feature flags.
     if (phishing_detection_request_type_ ==
             ClientSideDetectionType::FULLSCREEN_API ||
         (phishing_detection_request_type_ ==
              ClientSideDetectionType::CLIPBOARD_COPY_API &&
-         !base::FeatureList::IsEnabled(kClientSideDetectionClipboardCopyApi))) {
-      // The purpose of triggering preclassification for these APIs is to have
-      // an initial assessment on how often we'll be hitting the allowlist and
-      // triggering the classification. We will not go further than checking
-      // for this metric, unless otherwise specified by feature flags.
+         base::RandDouble() >= kCsdClipboardCopyApiSampleRate.Get())) {
       DontClassifyForPhishing(
           PreClassificationCheckResult::NO_CLASSIFY_ALLOWLIST_METRIC);
     }
@@ -653,10 +632,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
         return base::RandDouble() <=
                probability_for_accepting_hc_allowlist_trigger_;
       case ClientSideDetectionType::CLIPBOARD_COPY_API:
-        return base::FeatureList::IsEnabled(
-                   kClientSideDetectionClipboardCopyApi) &&
-               (base::RandDouble() <
-                kCSDClipboardCopyApiHCAcceptanceRate.Get());
+        return base::RandDouble() < kCsdClipboardCopyApiHCAcceptanceRate.Get();
       default:
         return false;
     }
@@ -693,6 +669,16 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
 
   base::WeakPtrFactory<ShouldClassifyUrlRequest> weak_factory_{this};
 };
+
+// static
+ClientSideDetectionHost::IntelligentScanDelegate::IntelligentScanResult
+ClientSideDetectionHost::IntelligentScanDelegate::IntelligentScanResult::
+    Failure(int model_version) {
+  return {.brand = "",
+          .intent = "",
+          .model_version = model_version,
+          .execution_success = false};
+}
 
 // static
 std::unique_ptr<ClientSideDetectionHost> ClientSideDetectionHost::Create(
@@ -930,11 +916,24 @@ void ClientSideDetectionHost::OnTextCopiedToClipboard(
   if (!IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
     return;
   }
-
-  if (!HasDonePreclassificationCheckOnSameURL(
+  if (HasDonePreclassificationCheckOnSameURL(
           ClientSideDetectionType::CLIPBOARD_COPY_API)) {
-    MaybeStartPreClassification(ClientSideDetectionType::CLIPBOARD_COPY_API);
+    return;
   }
+
+  base::UmaHistogramCounts10000(
+      "SBClientPhishing.ClipboardCopyApi.PayloadLength", copied_text.length());
+
+  if (copied_text.length() <
+      static_cast<size_t>(kCsdClipboardCopyApiMinLength.Get())) {
+    return;
+  }
+  if (copied_text.length() >
+      static_cast<size_t>(kCsdClipboardCopyApiMaxLength.Get())) {
+    return;
+  }
+
+  MaybeStartPreClassification(ClientSideDetectionType::CLIPBOARD_COPY_API);
 }
 
 bool ClientSideDetectionHost::HasDonePreclassificationCheckOnSameURL(
@@ -1432,7 +1431,8 @@ void ClientSideDetectionHost::OnInquireOnDeviceModelDone(
     intelligent_scan_info.set_no_info_reason(
         IntelligentScanInfo::ON_DEVICE_MODEL_OUTPUT_MISSING);
   }
-  if (response.model_version > 0) {
+  if (response.model_version != IntelligentScanDelegate::IntelligentScanResult::
+                                    kModelVersionUnavailable) {
     intelligent_scan_info.set_model_version(response.model_version);
   }
   *verdict->mutable_intelligent_scan_info() = std::move(intelligent_scan_info);
@@ -1497,7 +1497,8 @@ void ClientSideDetectionHost::MaybeShowPhishingWarning(
   }
 
   bool should_show_scam_warning =
-      ShouldShowScamWarning(intelligent_scan_verdict);
+      intelligent_scan_delegate_->ShouldShowScamWarning(
+          intelligent_scan_verdict);
 
   // We will only show the warning if |is_phishing| is true, or while the
   // feature is enabled, the intelligent scan verdict matches the corresponding

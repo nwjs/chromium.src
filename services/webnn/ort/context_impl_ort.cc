@@ -12,6 +12,7 @@
 #include "services/webnn/public/mojom/webnn_graph.mojom.h"
 #include "services/webnn/public/mojom/webnn_tensor.mojom.h"
 #include "services/webnn/queueable_resource_state.h"
+#include "services/webnn/scoped_sequence.h"
 #include "services/webnn/webnn_constant_operand.h"
 #include "services/webnn/webnn_context_impl.h"
 #include "services/webnn/webnn_graph_impl.h"
@@ -19,23 +20,31 @@
 namespace webnn::ort {
 
 ContextImplOrt::ContextImplOrt(
-    mojo::PendingReceiver<mojom::WebNNContext> receiver,
+    mojo::PendingAssociatedReceiver<mojom::WebNNContext> receiver,
     WebNNContextProviderImpl* context_provider,
+    const EpWorkarounds& ep_workarounds,
     mojom::CreateContextOptionsPtr options,
-    scoped_refptr<Environment> env)
-    : WebNNContextImpl(std::move(receiver),
-                       context_provider,
-                       GetContextProperties(),
-                       std::move(options)),
+    scoped_refptr<Environment> env,
+    gpu::CommandBufferId command_buffer_id,
+    std::unique_ptr<ScopedSequence> sequence,
+    scoped_refptr<gpu::SchedulerTaskRunner> task_runner)
+    : WebNNContextImpl(
+          std::move(receiver),
+          context_provider,
+          GetContextProperties(ep_workarounds.resample2d_limit_to_nchw),
+          std::move(options),
+          command_buffer_id,
+          std::move(sequence),
+          std::move(task_runner)),
       env_(std::move(env)),
-      session_options_(SessionOptions::Create(this->options().device)),
-      is_external_data_supported_(
-          env_->IsExternalDataSupported(this->options().device)) {}
+      session_options_(SessionOptions::Create(this->options().device, env_)),
+      is_external_data_supported_(!ep_workarounds.disable_external_data) {}
 
 ContextImplOrt::~ContextImplOrt() = default;
 
 // static
-ContextProperties ContextImplOrt::GetContextProperties() {
+ContextProperties ContextImplOrt::GetContextProperties(
+    bool resample2d_limit_to_nchw) {
   // TODO(crbug.com/412844034): Investigate how to set the tensor byte length
   // limit and supported tensor ranks.
   static constexpr uint64_t kTensorByteLengthLimit =
@@ -75,7 +84,9 @@ ContextProperties ContextImplOrt::GetContextProperties() {
       OperandDataType::kInt32};
 
   return ContextProperties(
-      InputOperandLayout::kNchw, Resample2DAxes::kAny,
+      InputOperandLayout::kNchw,
+      resample2d_limit_to_nchw ? Resample2DAxes::kChannelsFirst
+                               : Resample2DAxes::kAny,
       BatchNormalizationAxis::kChannelsFirst,
       /*tensor_byte_length_limit=*/kTensorByteLengthLimit,
       {/*input=*/SupportedDataTypes::All(),
@@ -136,6 +147,8 @@ ContextProperties ContextImplOrt::GetContextProperties() {
        /*logical_xor_input=*/
        {DataTypeConstraint::kUint8, kMaxRank},
        /*logical_not_input=*/{DataTypeConstraint::kUint8, kMaxRank},
+       /*is_nan_input=*/{DataTypeConstraint::kFloat16To32, kMaxRank},
+       /*is_infinite_input*/ {DataTypeConstraint::kFloat16To32, kMaxRank},
        /*logical_output=*/DataTypeConstraint::kUint8,
        /*abs_input=*/{DataTypeConstraint::kAllDataTypesAtLeast8bits, kMaxRank},
        /*ceil_input=*/{DataTypeConstraint::kFloat16To32, kMaxRank},
@@ -147,6 +160,7 @@ ContextProperties ContextImplOrt::GetContextProperties() {
        /*log_input=*/{DataTypeConstraint::kFloat16To32, kMaxRank},
        /*neg_input=*/{DataTypeConstraint::kFloat16To32Int8To64, kMaxRank},
        /*reciprocal_input=*/{DataTypeConstraint::kFloat16To32, kMaxRank},
+       /*round_even_input*/ {DataTypeConstraint::kFloat16To32, kMaxRank},
        /*sign_input=*/{DataTypeConstraint::kAllDataTypesAtLeast8bits, kMaxRank},
        /*sin_input=*/{DataTypeConstraint::kFloat16To32, kMaxRank},
        /*sqrt_input=*/{DataTypeConstraint::kFloat16To32, kMaxRank},
@@ -285,16 +299,15 @@ void ContextImplOrt::CreateGraphImpl(
       std::move(constant_tensor_operands), this, std::move(callback));
 }
 
-void ContextImplOrt::CreateTensorImpl(
+base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
+ContextImplOrt::CreateTensorImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
-    mojom::TensorInfoPtr tensor_info,
-    CreateTensorImplCallback callback) {
+    mojom::TensorInfoPtr tensor_info) {
   // TODO(crbug.com/332350952): Implement constant tensors for ORT backend.
   if (tensor_info->usage.Has(MLTensorUsageFlags::kGraphConstant)) {
-    std::move(callback).Run(base::unexpected(
+    return base::unexpected(
         mojom::Error::New(mojom::Error::Code::kNotSupportedError,
-                          "Creation of constant tensors is not supported.")));
-    return;
+                          "Creation of constant tensors is not supported."));
   }
 
   auto buffer_content =
@@ -302,19 +315,19 @@ void ContextImplOrt::CreateTensorImpl(
   auto buffer_state =
       base::MakeRefCounted<QueueableResourceState<BufferContentOrt>>(
           std::move(buffer_content));
-  std::move(callback).Run(base::MakeRefCounted<TensorImplOrt>(
-      std::move(receiver), AsWeakPtr(), std::move(tensor_info),
-      std::move(buffer_state)));
+  return base::MakeRefCounted<TensorImplOrt>(std::move(receiver), AsWeakPtr(),
+                                             std::move(tensor_info),
+                                             std::move(buffer_state));
 }
 
-void ContextImplOrt::CreateTensorFromMailboxImpl(
+base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
+ContextImplOrt::CreateTensorFromMailboxImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
     mojom::TensorInfoPtr tensor_info,
-    gpu::Mailbox mailbox,
-    CreateTensorImplCallback callback) {
-  std::move(callback).Run(
-      base::unexpected(mojom::Error::New(mojom::Error::Code::kNotSupportedError,
-                                         "WebGPU Interop is not supported.")));
+    gpu::Mailbox mailbox) {
+  return base::unexpected(
+      mojom::Error::New(mojom::Error::Code::kNotSupportedError,
+                        "WebGPU Interop is not supported."));
 }
 
 }  // namespace webnn::ort

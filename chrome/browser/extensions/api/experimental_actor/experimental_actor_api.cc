@@ -208,7 +208,8 @@ void ExperimentalActorStartTaskFunction::OnTabCreated(
     base::WeakPtr<Browser> browser,
     actor::TaskId task_id,
     actor::mojom::ActionResultCode result_code,
-    std::optional<size_t> index_of_failed_action) {
+    std::optional<size_t> index_of_failed_action,
+    std::vector<actor::ActionResultWithLatencyInfo> action_results) {
   int32_t tab_id = 0;
   // CreateTask assumes it always succeeds but we won't have a tab if the
   // browser is closed during creation.
@@ -231,7 +232,7 @@ ExtensionFunction::ResponseAction ExperimentalActorStopTaskFunction::Run() {
 
   auto* actor_service = actor::ActorKeyedService::Get(browser_context());
 
-  actor_service->StopTask(actor::TaskId(params->task_id));
+  actor_service->StopTask(actor::TaskId(params->task_id), /*success=*/true);
   return RespondNow(
       ArgumentList(api::experimental_actor::StopTask::Results::Create()));
 }
@@ -330,6 +331,7 @@ ExperimentalActorPerformActionsFunction::
 
 ExtensionFunction::ResponseAction
 ExperimentalActorPerformActionsFunction::Run() {
+  base::TimeTicks start_time = base::TimeTicks::Now();
   auto params = api::experimental_actor::PerformActions::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
 
@@ -401,7 +403,7 @@ ExperimentalActorPerformActionsFunction::Run() {
   auto* actor_service = actor::ActorKeyedService::Get(browser_context());
   actor_service->GetJournal().Log(
       GURL(), actor::TaskId(actions.task_id()),
-      actor::mojom::JournalTrack::kActor, "ExperimentalActorExecutAction",
+      actor::mojom::JournalTrack::kActor, "ExperimentalActorExecuteAction",
       absl::StrFormat("Proto: %s", actor::ToBase64(actions)));
 
   actor::TaskId task_id(actions.task_id());
@@ -417,12 +419,14 @@ ExperimentalActorPerformActionsFunction::Run() {
   actor::BuildToolRequestResult requests = actor::BuildToolRequest(actions);
 
   if (!requests.has_value()) {
+    std::vector<actor::ActionResultWithLatencyInfo> empty_results;
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(
             &ExperimentalActorPerformActionsFunction::OnActionsFinished, this,
-            task_id, actor::mojom::ActionResultCode::kArgumentsInvalid,
-            requests.error()));
+            task_id, start_time,
+            actor::mojom::ActionResultCode::kArgumentsInvalid, requests.error(),
+            std::move(empty_results)));
     return RespondLater();
   }
 
@@ -430,15 +434,17 @@ ExperimentalActorPerformActionsFunction::Run() {
       task_id, std::move(requests.value()),
       base::BindOnce(
           &ExperimentalActorPerformActionsFunction::OnActionsFinished, this,
-          task_id));
+          task_id, start_time));
 
   return RespondLater();
 }
 
 void ExperimentalActorPerformActionsFunction::OnActionsFinished(
     actor::TaskId task_id,
+    base::TimeTicks start_time,
     actor::mojom::ActionResultCode result_code,
-    std::optional<size_t> index_of_failed_action) {
+    std::optional<size_t> index_of_failed_action,
+    std::vector<actor::ActionResultWithLatencyInfo> action_results) {
   auto* actor_service = actor::ActorKeyedService::Get(browser_context());
   actor::ActorTask* task = actor_service->GetTask(task_id);
 
@@ -448,22 +454,42 @@ void ExperimentalActorPerformActionsFunction::OnActionsFinished(
   CHECK(task);
 
   actor::BuildActionsResultWithObservations(
-      *browser_context(), result_code, index_of_failed_action, *task,
+      *browser_context(), start_time, result_code, index_of_failed_action,
+      std::move(action_results), *task,
       base::BindOnce(
           &ExperimentalActorPerformActionsFunction::OnObservationResult, this));
 }
 
 void ExperimentalActorPerformActionsFunction::OnObservationResult(
-    std::unique_ptr<optimization_guide::proto::ActionsResult> response) {
+    std::unique_ptr<optimization_guide::proto::ActionsResult> response,
+    std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry>
+        journal_entry) {
+  using optimization_guide::proto::TabObservation;
+  using optimization_guide::proto::WindowObservation;
+
   CHECK(response);
 
   // Convert back from tab handle to session tab id.
-  for (optimization_guide::proto::TabObservation& observation :
-       *response->mutable_tabs()) {
+  for (TabObservation& observation : *response->mutable_tabs()) {
     // Note: session_tab_id will be -1 if the tab if couldn't be mapped.
     int32_t session_tab_id =
         ConvertTabHandleToSessionTabId(observation.id(), browser_context());
     observation.set_id(session_tab_id);
+  }
+
+  // Convert the tab_ids in the WindowObservation to session tab ids as well.
+  for (WindowObservation& observation : *response->mutable_windows()) {
+    for (int i = 0; i < observation.tab_ids().size(); ++i) {
+      // Note: session_tab_id will be -1 if the tab if couldn't be mapped.
+      int32_t session_tab_id = ConvertTabHandleToSessionTabId(
+          observation.tab_ids().at(i), browser_context());
+      observation.set_tab_ids(i, session_tab_id);
+    }
+
+    int32_t activated_tab_id =
+        ConvertTabHandleToSessionTabId(observation.activated_tab_id(),
+                                       browser_context());
+    observation.set_activated_tab_id(activated_tab_id);
   }
 
   std::vector<uint8_t> data_buffer(response->ByteSizeLong());
@@ -505,10 +531,14 @@ ExperimentalActorRequestTabObservationFunction::Run() {
   }
 
   auto* actor_service = actor::ActorKeyedService::Get(browser_context());
+
+  // TODO(dtapuska): We may want to add an optional task_id to the API so
+  // we can attribute this tab observation to an appropriate task.
   actor_service->RequestTabObservation(
-      *tab, base::BindOnce(&ExperimentalActorRequestTabObservationFunction::
-                               OnObservationFinished,
-                           this));
+      *tab, actor::TaskId(),
+      base::BindOnce(&ExperimentalActorRequestTabObservationFunction::
+                         OnObservationFinished,
+                     this));
 
   return RespondLater();
 }
@@ -522,8 +552,8 @@ void ExperimentalActorRequestTabObservationFunction::OnObservationFinished(
 
   // TODO(bokan): This doesn't set the (tab) `id` field, maybe unneeded in this
   // case but would be good for consistency.
-  optimization_guide::proto::TabObservation tab_observation =
-      actor::ConvertToTabObservation(**observation_result);
+  optimization_guide::proto::TabObservation tab_observation;
+  actor::FillInTabObservation(**observation_result, tab_observation);
   std::vector<uint8_t> data_buffer(tab_observation.ByteSizeLong());
   if (!data_buffer.empty()) {
     tab_observation.SerializeToArray(&data_buffer[0], data_buffer.size());

@@ -9,6 +9,7 @@
 
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -19,6 +20,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/content_settings/core/browser/content_settings_uma_util.h"
+#include "components/content_settings/core/browser/permission_settings_registry.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/features.h"
@@ -623,7 +625,17 @@ std::string GetPermissionStringForUma(
     ContentSettingsType content_setting_type) {
   switch (content_setting_type) {
     case ContentSettingsType::GEOLOCATION:
-      return "Geolocation";
+      if (!base::FeatureList::IsEnabled(
+              content_settings::features::kApproximateGeolocationPermission)) {
+        return "Geolocation";
+      }
+      break;
+    case ContentSettingsType::GEOLOCATION_WITH_OPTIONS:
+      if (base::FeatureList::IsEnabled(
+              content_settings::features::kApproximateGeolocationPermission)) {
+        return "Geolocation";
+      }
+      break;
     case ContentSettingsType::NOTIFICATIONS:
       return "Notifications";
     case ContentSettingsType::MIDI_SYSEX:
@@ -672,13 +684,14 @@ std::string GetPermissionStringForUma(
       return "WebAppInstallation";
     case ContentSettingsType::LOCAL_NETWORK_ACCESS:
       return "LocalNetworkAccess";
-    // The user is not prompted for these permissions thus there is no
-    // permission action recorded for them.
     default:
-      NOTREACHED() << "PERMISSION "
-                   << PermissionUtil::GetPermissionString(content_setting_type)
-                   << " not accounted for";
+      break;
   }
+  // The user is not prompted for these permissions thus there is no
+  // permission action recorded for them.
+  NOTREACHED() << "PERMISSION "
+               << PermissionUtil::GetPermissionString(content_setting_type)
+               << " not accounted for";
 }
 
 }  // anonymous namespace
@@ -868,6 +881,7 @@ void PermissionUmaUtil::RecordEmbargoPromptSuppressionFromSource(
       break;
     case content::PermissionStatusSource::UNSPECIFIED:
     case content::PermissionStatusSource::KILL_SWITCH:
+    case content::PermissionStatusSource::ACTOR_OVERRIDE:
     case content::PermissionStatusSource::INSECURE_ORIGIN:
     case content::PermissionStatusSource::FEATURE_POLICY:
     case content::PermissionStatusSource::VIRTUAL_URL_DIFFERENT_ORIGIN:
@@ -1156,14 +1170,16 @@ PermissionUmaUtil::ScopedRevocationReporter::ScopedRevocationReporter(
     is_initially_allowed_ = false;
     return;
   }
-  HostContentSettingsMap* settings_map =
+  auto* info = content_settings::PermissionSettingsRegistry::GetInstance()->Get(
+      content_type);
+  CHECK(info);
+  auto* settings_map =
       PermissionsClient::Get()->GetSettingsMap(browser_context_);
-  ContentSetting initial_content_setting = settings_map->GetContentSetting(
-      primary_url_, secondary_url_, content_type_);
-  is_initially_allowed_ = initial_content_setting == CONTENT_SETTING_ALLOW;
   content_settings::SettingInfo setting_info;
-  settings_map->GetWebsiteSetting(primary_url, secondary_url, content_type_,
-                                  &setting_info);
+  PermissionSetting initial_setting = settings_map->GetPermissionSetting(
+      primary_url_, secondary_url_, content_type_, &setting_info);
+  is_initially_allowed_ =
+      info->delegate().IsAnyPermissionAllowed(initial_setting);
   last_modified_date_ = setting_info.metadata.last_modified();
   scoped_revocation_reporter_in_scope = true;
 }
@@ -1192,16 +1208,19 @@ PermissionUmaUtil::ScopedRevocationReporter::~ScopedRevocationReporter() {
       !PermissionUtil::IsPermission(content_type_)) {
     return;
   }
+  auto* info = content_settings::PermissionSettingsRegistry::GetInstance()->Get(
+      content_type_);
   HostContentSettingsMap* settings_map =
       PermissionsClient::Get()->GetSettingsMap(browser_context_);
-  ContentSetting final_content_setting = settings_map->GetContentSetting(
+  PermissionSetting final_setting = settings_map->GetPermissionSetting(
       primary_url_, secondary_url_, content_type_);
-  if (final_content_setting != CONTENT_SETTING_ALLOW) {
+  if (!info->delegate().IsAnyPermissionAllowed(final_setting)) {
     // PermissionUmaUtil takes origins, even though they're typed as GURL.
     GURL requesting_origin = primary_url_.DeprecatedGetOriginAsURL();
     PermissionRevoked(content_type_, source_ui_, requesting_origin,
                       browser_context_);
     if ((content_type_ == ContentSettingsType::GEOLOCATION ||
+         content_type_ == ContentSettingsType::GEOLOCATION_WITH_OPTIONS ||
          content_type_ == ContentSettingsType::MEDIASTREAM_CAMERA ||
          content_type_ == ContentSettingsType::MEDIASTREAM_MIC) &&
         !last_modified_date_.is_null()) {
@@ -1603,7 +1622,7 @@ void PermissionUmaUtil::RecordPageInfoPermissionChange(
       base::UmaHistogramEnumeration(histogram_name,
                                     PermissionChangeAction::RESET_FROM_DENIED);
     } else {
-      DUMP_WILL_BE_NOTREACHED();
+      DUMP_WILL_BE_NOTREACHED() << setting_before << " " << setting_after;
     }
   } else if (setting_before == ContentSetting::CONTENT_SETTING_ALLOW) {
     if (setting_after == ContentSetting::CONTENT_SETTING_BLOCK) {
@@ -1620,6 +1639,12 @@ void PermissionUmaUtil::RecordPageInfoPermissionChange(
       NOTREACHED();
     }
   }
+}
+
+// static
+void PermissionUmaUtil::RecordPageReloadInfoBarShown(bool shown) {
+  base::UmaHistogramBoolean(
+      "Permissions.QuietPrompt.Preignore.PageReloadInfoBar", shown);
 }
 
 // static
@@ -1890,8 +1915,12 @@ void PermissionUmaUtil::RecordCrossOriginFrameActionAndPolicyConfiguration(
 void PermissionUmaUtil::RecordTopLevelPermissionsHeaderPolicyOnNavigation(
     content::RenderFrameHost* render_frame_host) {
   DCHECK(render_frame_host);
-  static constexpr ContentSettingsType kContentSettingsTypesForMetrics[] = {
-      ContentSettingsType::GEOLOCATION, ContentSettingsType::MEDIASTREAM_CAMERA,
+  const ContentSettingsType kContentSettingsTypesForMetrics[] = {
+      base::FeatureList::IsEnabled(
+          content_settings::features::kApproximateGeolocationPermission)
+          ? ContentSettingsType::GEOLOCATION_WITH_OPTIONS
+          : ContentSettingsType::GEOLOCATION,
+      ContentSettingsType::MEDIASTREAM_CAMERA,
       ContentSettingsType::MEDIASTREAM_MIC};
 
   for (const auto content_settings_type : kContentSettingsTypesForMetrics) {
@@ -2086,6 +2115,16 @@ void PermissionUmaUtil::RecordActionBrowserAlwaysActive(
 }
 
 // static
+void PermissionUmaUtil::RecordRenderedTextSize(PredictionModelType model_type,
+                                               RequestType request_type,
+                                               size_t text_size) {
+  base::UmaHistogramCounts10000(
+      base::StrCat({"Permissions.", GetPredictionModelString(model_type), ".",
+                    GetRequestTypeString(request_type), ".RenderedTextSize"}),
+      text_size);
+}
+
+// static
 void PermissionUmaUtil::RecordPredictionModelInquireTime(
     PredictionModelType model_type,
     base::TimeTicks model_inquire_start_time) {
@@ -2189,4 +2228,10 @@ void PermissionUmaUtil::RecordPassageEmbeddingsCalculationTimeout(
   base::UmaHistogramBoolean(
       "Permissions.AIv4.PassageEmbeddingsComputationTimeout", timeout);
 }
+
+// static
+void PermissionUmaUtil::RecordPassageEmbedderMetadataValid(bool valid) {
+  base::UmaHistogramBoolean("Permissions.AIv4.EmbedderMetadataValid", valid);
+}
+
 }  // namespace permissions

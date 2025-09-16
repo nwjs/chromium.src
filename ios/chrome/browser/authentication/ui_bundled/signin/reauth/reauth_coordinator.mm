@@ -60,6 +60,19 @@
   CHECK(!_identityInteractionManager, base::NotFatalUntil::M144);
 }
 
+#pragma mark - BuggyAuthenticationViewOwner
+
+- (BOOL)viewWillPersist {
+  if (@available(iOS 26, *)) {
+    // The authentication view don’t disappear silently on iOS 26.
+    return YES;
+  }
+  // Once the authentication is done, the manager is set to nil and the view
+  // can’t have disappeared.
+  CHECK(_identityInteractionManager, base::NotFatalUntil::M144);
+  return _identityInteractionManager == nil;
+}
+
 #pragma mark - ChromeCoordinator
 
 - (void)start {

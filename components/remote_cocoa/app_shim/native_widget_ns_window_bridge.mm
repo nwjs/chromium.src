@@ -62,7 +62,7 @@
 #include "ui/gfx/geometry/size_conversions.h"
 #import "ui/gfx/mac/coordinate_conversion.h"
 #import "ui/gfx/mac/nswindow_frame_controls.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_window_types.h"
 
 using remote_cocoa::mojom::VisibilityTransition;
 using remote_cocoa::mojom::WindowVisibilityState;
@@ -87,7 +87,7 @@ constexpr auto kUIPaintTimeout = base::Milliseconds(500);
 
 // Returns the display that the specified window is on.
 display::Display GetDisplayForWindow(NSWindow* window) {
-  return display::Screen::GetScreen()->GetDisplayNearestWindow(
+  return display::Screen::Get()->GetDisplayNearestWindow(
       gfx::NativeWindow(window));
 }
 
@@ -779,10 +779,6 @@ void NativeWidgetNSWindowBridge::CloseWindow() {
     [ViewsNSWindowCloseAnimator closeWindowWithAnimation:window];
     return;
   }
-
-  // Destroy the content view so that it won't call back into |host_| while
-  // being torn down.
-  DestroyContentView();
 
   // If the window wants to be visible and has a parent, then the parent may
   // order it back in (in the period between orderOut: and close).
@@ -1572,8 +1568,7 @@ int64_t NativeWidgetNSWindowBridge::FullscreenControllerGetDisplayId() const {
 gfx::Rect NativeWidgetNSWindowBridge::FullscreenControllerGetFrameForDisplay(
     int64_t display_id) const {
   display::Display display;
-  if (display::Screen::GetScreen()->GetDisplayWithDisplayId(display_id,
-                                                            &display)) {
+  if (display::Screen::Get()->GetDisplayWithDisplayId(display_id, &display)) {
     // Use the current window size to avoid unexpected window resizes on
     // subsequent cross-screen window drag and drops; see crbug.com/1338664
     return gfx::Rect(display.work_area().origin(),

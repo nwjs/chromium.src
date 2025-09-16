@@ -58,6 +58,8 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
+#include "chrome/browser/ui/browser_navigator.h"
+#include "chrome/browser/ui/browser_navigator_params.h"
 #else
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
@@ -69,6 +71,7 @@
 #include "chrome/browser/platform_util.h"  // nogncheck
 #include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
+#include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"                   // nogncheck
 #include "chrome/browser/ui/browser_finder.h"            // nogncheck
 #include "chrome/browser/ui/browser_navigator.h"         // nogncheck
@@ -89,6 +92,7 @@
 #include "chrome/common/url_constants.h"
 #include "components/data_sharing/public/features.h"
 #include "components/saved_tab_groups/public/features.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/tab_groups/tab_group_id.h"  // nogncheck
 #include "content/public/browser/back_forward_cache.h"
@@ -139,6 +143,30 @@ WindowController* WindowControllerFromBrowser(BrowserWindowInterface* browser) {
   return BrowserExtensionWindowController::From(browser);
 }
 
+// Returns the BrowserWindowInterface that contains the given `web_contents`,
+// if any.
+BrowserWindowInterface* GetBrowserForWebContents(
+    content::WebContents* web_contents) {
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents);
+  if (!tab) {
+    return nullptr;
+  }
+  std::vector<BrowserWindowInterface*> all_browsers =
+      GetAllBrowserWindowInterfaces();
+  for (auto* browser : all_browsers) {
+    TabListInterface* tab_list = TabListInterface::From(browser);
+    if (!tab_list) {
+      continue;
+    }
+    std::vector<tabs::TabInterface*> all_tabs = tab_list->GetAllTabs();
+    if (base::Contains(all_tabs, tab)) {
+      return browser;  // Found it!
+    }
+  }
+  return nullptr;
+}
+
 #if !BUILDFLAG(IS_ANDROID)
 
 Browser* CreateBrowser(Profile* profile, bool user_gesture) {
@@ -162,17 +190,21 @@ Browser* CreateAndShowBrowser(Profile* profile,
   browser->window()->Show();
   return browser;
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Use this function for reporting a tab id to an extension. It will
 // take care of setting the id to TAB_ID_NONE if necessary (for
 // example with devtools).
 int GetTabIdForExtensions(const WebContents* web_contents) {
+#if !BUILDFLAG(IS_ANDROID)
+  // TODO(https://crbug.com/430344931): Port this logic.
   Browser* browser = chrome::FindBrowserWithTab(web_contents);
-  if (browser && !ExtensionTabUtil::BrowserSupportsTabs(browser))
+  if (browser && !ExtensionTabUtil::BrowserSupportsTabs(browser)) {
     return -1;
+  }
+#endif
   return sessions::SessionTabHelper::IdForTab(web_contents).id();
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 bool IsFileUrl(const GURL& url) {
   return url.SchemeIsFile() || (url.SchemeIs(content::kViewSourceScheme) &&
@@ -528,12 +560,7 @@ api::tabs::Tab ExtensionTabUtil::CreateTabObject(
     GetTabListInterface(*contents, &tab_list, &tab_index);
   }
   api::tabs::Tab tab_object;
-  tab_object.id =
-#if BUILDFLAG(IS_ANDROID)
-      GetTabId(contents);
-#else
-      GetTabIdForExtensions(contents);
-#endif
+  tab_object.id = GetTabIdForExtensions(contents);
   tab_object.index = tab_index;
   tab_object.window_id = GetWindowIdOfTab(contents);
   tab_object.status = GetLoadingStatus(contents);
@@ -754,18 +781,18 @@ void ExtensionTabUtil::ScrubTabForExtension(
 bool ExtensionTabUtil::GetTabListInterface(content::WebContents& web_contents,
                                            TabListInterface** tab_list_out,
                                            int* index_out) {
-  // In practice, none of the current mechanisms for looking up a browser window
-  // (and thus tab list) from a tab work fully on Android today.
-#if BUILDFLAG(IS_ANDROID)
-  return false;
-#else
   tabs::TabInterface* tab_interface =
       tabs::TabInterface::MaybeGetFromContents(&web_contents);
   if (!tab_interface) {
     return false;
   }
 
-  BrowserWindowInterface* browser = tab_interface->GetBrowserWindowInterface();
+  BrowserWindowInterface* browser =
+#if BUILDFLAG(IS_ANDROID)
+      GetBrowserForWebContents(&web_contents);
+#else
+      tab_interface->GetBrowserWindowInterface();
+#endif
 
   if (!browser) {
     return false;
@@ -798,7 +825,6 @@ bool ExtensionTabUtil::GetTabListInterface(content::WebContents& web_contents,
   *index_out = index;
   *tab_list_out = tab_list;
   return true;
-#endif
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1106,7 +1132,7 @@ bool ExtensionTabUtil::GetSharedStateOfGroup(const tab_groups::TabGroupId& id) {
   }
 
   tab_groups::TabGroupSyncService* tab_group_service =
-      tab_groups::SavedTabGroupUtils::GetServiceForProfile(browser->profile());
+      tab_groups::TabGroupSyncServiceFactory::GetForProfile(browser->profile());
   if (!tab_group_service) {
     return false;
   }
@@ -1261,6 +1287,33 @@ GURL ExtensionTabUtil::ResolvePossiblyRelativeURL(const std::string& url_string,
 
   return url;
 }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+void ExtensionTabUtil::NavigateToURL(WindowOpenDisposition disposition,
+                                     Browser* browser,
+                                     const GURL& url) {
+  NavigateParams navigate_params(browser, url, ui::PAGE_TRANSITION_FROM_API);
+  navigate_params.window_action = NavigateParams::SHOW_WINDOW;
+  navigate_params.disposition = disposition;
+  Navigate(&navigate_params);
+}
+#else
+void ExtensionTabUtil::NavigateToURL(content::WebContents* web_contents,
+                                     content::BrowserContext* browser_context,
+                                     const GURL& url) {
+  TabModel* const tab_model =
+      TabModelList::GetTabModelForWebContents(web_contents);
+  std::unique_ptr<content::WebContents> new_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser_context));
+  content::WebContents* const new_web_contents = new_contents.release();
+  tab_model->CreateTab(/*parent=*/nullptr, new_web_contents,
+                       /*select=*/true);
+  content::NavigationController::LoadURLParams load_params(url);
+  load_params.transition_type = ui::PAGE_TRANSITION_FROM_API;
+  new_web_contents->GetController().LoadURLWithParams(load_params);
+}
+#endif
 
 bool ExtensionTabUtil::IsKillURL(const GURL& url) {
 #if DCHECK_IS_ON()
@@ -1440,7 +1493,7 @@ bool ExtensionTabUtil::OpenOptionsPageFromWebContents(
   const bool open_in_tab = ShouldOpenInTab(extension);
 // Opens the url as instructed by `open_in_tab`. On android we take a different
 // path because the `Browser` object is not available.
-// TODO(crbug.com/392777363): Unify the path on android after browser
+// TODO(crbug.com/441209530): Unify the path on android after browser
 // abstraction is introduced.
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   return WindowControllerFromBrowser(chrome::FindBrowserWithTab(web_contents))
@@ -1456,17 +1509,17 @@ bool ExtensionTabUtil::OpenOptionsPageFromWebContents(
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 // static
 WindowController* ExtensionTabUtil::GetWindowControllerOfTab(
-    const WebContents* web_contents) {
-  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+    WebContents* web_contents) {
+  BrowserWindowInterface* browser = GetBrowserForWebContents(web_contents);
   if (browser) {
     return BrowserExtensionWindowController::From(browser);
   }
   return nullptr;
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 // static
 bool ExtensionTabUtil::OpenOptionsPageFromAPI(
     const Extension* extension,
@@ -1500,8 +1553,8 @@ bool ExtensionTabUtil::OpenOptionsPage(const Extension* extension,
 }
 
 // static
-bool ExtensionTabUtil::BrowserSupportsTabs(Browser* browser) {
-  return browser && !browser->is_type_devtools();
+bool ExtensionTabUtil::BrowserSupportsTabs(BrowserWindowInterface* browser) {
+  return browser && browser->GetType() != BrowserWindowInterface::TYPE_DEVTOOLS;
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -1571,7 +1624,7 @@ bool ExtensionTabUtil::TabIsInSavedTabGroup(content::WebContents* contents,
   }
 
   tab_groups::TabGroupSyncService* tab_group_service =
-      tab_groups::SavedTabGroupUtils::GetServiceForProfile(
+      tab_groups::TabGroupSyncServiceFactory::GetForProfile(
           tab_strip_model->profile());
 
   // If the service failed to start, then there are no saved tab groups.

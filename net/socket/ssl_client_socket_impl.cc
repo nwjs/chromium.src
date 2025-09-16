@@ -685,6 +685,9 @@ int SSLClientSocketImpl::Init() {
   }
 
   if (IsCachingEnabled()) {
+    initial_session_cache_generation_number_ =
+        context_->ssl_client_session_cache()->generation_number();
+
     bssl::UniquePtr<SSL_SESSION> session =
         context_->ssl_client_session_cache()->Lookup(
             GetSessionCacheKey(/*dest_ip_addr=*/std::nullopt));
@@ -729,27 +732,12 @@ int SSLClientSocketImpl::Init() {
 
   SSL_set_early_data_enabled(ssl_.get(), ssl_config_.early_data_enabled);
 
-  // OpenSSL defaults some options to on, others to off. To avoid ambiguity,
-  // set everything we care about to an absolute value.
-  SslSetClearMask options;
-  options.ConfigureFlag(SSL_OP_NO_COMPRESSION, true);
+  // TODO(crbug.com/41393419): Make this option not a no-op in BoringSSL and
+  // then disable it.
+  SSL_set_options(ssl_.get(), SSL_OP_LEGACY_SERVER_CONNECT);
 
-  // TODO(joth): Set this conditionally, see http://crbug.com/55410
-  options.ConfigureFlag(SSL_OP_LEGACY_SERVER_CONNECT, true);
-
-  SSL_set_options(ssl_.get(), options.set_mask);
-  SSL_clear_options(ssl_.get(), options.clear_mask);
-
-  // Same as above, this time for the SSL mode.
-  SslSetClearMask mode;
-
-  mode.ConfigureFlag(SSL_MODE_RELEASE_BUFFERS, true);
-  mode.ConfigureFlag(SSL_MODE_CBC_RECORD_SPLITTING, true);
-
-  mode.ConfigureFlag(SSL_MODE_ENABLE_FALSE_START, true);
-
-  SSL_set_mode(ssl_.get(), mode.set_mask);
-  SSL_clear_mode(ssl_.get(), mode.clear_mask);
+  SSL_set_mode(ssl_.get(),
+               SSL_MODE_CBC_RECORD_SPLITTING | SSL_MODE_ENABLE_FALSE_START);
 
   // Use BoringSSL defaults, but disable 3DES and HMAC-SHA1 ciphers in ECDSA.
   // These are the remaining CBC-mode ECDSA ciphers.
@@ -851,12 +839,11 @@ int SSLClientSocketImpl::Init() {
   SSL_set_permute_extensions(ssl_.get(), 1);
 
   // Configure BoringSSL to send Trust Anchor IDs, if provided.
-  if (!ssl_config_.trust_anchor_ids.empty()) {
-    if (!SSL_set1_requested_trust_anchors(
-            ssl_.get(), ssl_config_.trust_anchor_ids.data(),
-            ssl_config_.trust_anchor_ids.size())) {
-      return ERR_UNEXPECTED;
-    }
+  if (ssl_config_.trust_anchor_ids.has_value() &&
+      !SSL_set1_requested_trust_anchors(ssl_.get(),
+                                        ssl_config_.trust_anchor_ids->data(),
+                                        ssl_config_.trust_anchor_ids->size())) {
+    return ERR_UNEXPECTED;
   }
 
   return OK;
@@ -1560,8 +1547,7 @@ int SSLClientSocketImpl::ClientCertRequestCallback(SSL* ssl) {
 
     net_log_.AddEventWithIntParams(
         NetLogEventType::SSL_CLIENT_CERT_PROVIDED, "cert_count",
-        base::checked_cast<int>(1 +
-                                client_cert_->intermediate_buffers().size()));
+        base::checked_cast<int>(client_cert_->cert_buffers().size()));
     return 1;
   }
 #endif  // !BUILDFLAG(ENABLE_CLIENT_CERTIFICATES)
@@ -1592,7 +1578,8 @@ int SSLClientSocketImpl::NewSessionCallback(SSL_SESSION* session) {
   // OpenSSL optionally passes ownership of |session|. Returning one signals
   // that this function has claimed it.
   context_->ssl_client_session_cache()->Insert(
-      GetSessionCacheKey(ip_addr), bssl::UniquePtr<SSL_SESSION>(session));
+      initial_session_cache_generation_number_, GetSessionCacheKey(ip_addr),
+      bssl::UniquePtr<SSL_SESSION>(session));
   return 1;
 }
 

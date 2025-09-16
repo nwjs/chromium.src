@@ -29,7 +29,6 @@ import org.chromium.base.Log;
 import org.chromium.base.MathUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -75,6 +74,8 @@ import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.text.EmptyTextWatcher;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
+
+import java.util.function.Supplier;
 
 /**
  * Layout for the new tab page. This positions the page elements in the correct vertical positions.
@@ -159,6 +160,7 @@ public class NewTabPageLayout extends LinearLayout
     private @Nullable Supplier<GURL> mComposeplateUrlSupplier;
     private OnClickListener mVoiceSearchButtonClickListener;
     private OnClickListener mLensButtonClickListener;
+    private View.@Nullable OnClickListener mComposeplateButtonClickListener;
     private @Nullable ComposeplateCoordinator mComposeplateCoordinator;
     // Previous visibility states for metrics.
     private @Nullable Boolean mPreviousVoiceSearchButtonVisible;
@@ -172,6 +174,7 @@ public class NewTabPageLayout extends LinearLayout
     private final int mFakeSearchBoxStartPaddingWithDseLogo;
     private int mCurrentNtpFakeSearchBoxTransitionStartOffset;
     private int mTopInset;
+    private @Nullable OnLayoutChangeListener mOnLayoutChangeListener;
 
     /** Constructor for inflating from XML. */
     public NewTabPageLayout(Context context, AttributeSet attrs) {
@@ -264,8 +267,7 @@ public class NewTabPageLayout extends LinearLayout
             mComposeplateUrlSupplier = composeplateUrlSupplier;
         }
         mIsOmniboxMobileParityUpdateV2Enabled =
-                OmniboxFeatures.sOmniboxMobileParityUpdate.isEnabled()
-                        && OmniboxFeatures.sOmniboxMobileParityUpdateV2.isEnabled();
+                OmniboxFeatures.sOmniboxMobileParityUpdateV2.isEnabled();
 
         if (mIsTablet) {
             mDisplayStyleObserver = this::onDisplayStyleChanged;
@@ -320,6 +322,10 @@ public class NewTabPageLayout extends LinearLayout
         // TODO(crbug.com/41487877): Add handler in Magic Stack and dispatcher.
     }
 
+    public void enableSearchBoxEditText(boolean enable) {
+        mFakeSearchBoxEditText.setEnabled(enable);
+    }
+
     /**
      * @return The {@link FeedSurfaceScrollDelegate} for this class.
      */
@@ -338,16 +344,17 @@ public class NewTabPageLayout extends LinearLayout
                 new OnDragListener() {
                     @Override
                     public boolean onDrag(View view, DragEvent dragEvent) {
-                        // Disable search box EditText when browser content is dropped.
-                        if (!MimeTypeUtils.clipDescriptionHasBrowserContent(
-                                dragEvent.getClipDescription())) {
-                            return false;
-                        } else {
-                            if (dragEvent.getAction() == DragEvent.ACTION_DRAG_STARTED) {
-                                view.setEnabled(false);
-                            } else if (dragEvent.getAction() == DragEvent.ACTION_DRAG_ENDED) {
-                                view.setEnabled(true);
-                            }
+                        // Disable search box EditText when browser content is dropped, its
+                        // re-enabled in {@link ChromeTabbedOnDragListener}, since a disabled view
+                        // will stop receiving further drag events. Given the child-first drag event
+                        // dispatch, disabling the TextView at ACTION_DRAG_STARTED is necessary to
+                        // prevent it from registering as a drop target and consuming the
+                        // ACTION_DROP event, thereby ensuring {@link ChromeTabbedOnDragListener}
+                        // receives it.
+                        if (MimeTypeUtils.clipDescriptionHasBrowserContent(
+                                        dragEvent.getClipDescription())
+                                && dragEvent.getAction() == DragEvent.ACTION_DRAG_STARTED) {
+                            enableSearchBoxEditText(false);
                         }
                         return false;
                     }
@@ -366,8 +373,6 @@ public class NewTabPageLayout extends LinearLayout
     }
 
     private void initializeDseIconView(boolean shouldShowDesIconView) {
-        if (!OmniboxFeatures.sOmniboxMobileParityUpdate.isEnabled()) return;
-
         mDseIconView = mFakeSearchBoxLayout.findViewById(R.id.search_box_engine_icon);
         if (mIsOmniboxMobileParityUpdateV2Enabled) {
             // Configures icon rounding.
@@ -458,20 +463,16 @@ public class NewTabPageLayout extends LinearLayout
     private void initializeComposeplate() {
         if (!mIsComposeplateEnabled) return;
 
-        View.OnClickListener composeplateButtonClickListener =
-                v -> {
-                    if (mComposeplateUrlSupplier == null
-                            || !mComposeplateUrlSupplier.hasValue()
-                            || mComposeplateUrlSupplier.get() == null) {
-                        return;
-                    }
+        mComposeplateButtonClickListener =
+                view -> {
+                    if (mComposeplateUrlSupplier == null) return;
+                    GURL composeplateUrl = mComposeplateUrlSupplier.get();
+                    if (composeplateUrl == null) return;
                     mManager.getNativePageHost()
-                            .loadUrl(
-                                    new LoadUrlParams(mComposeplateUrlSupplier.get()),
-                                    /* incognito= */ false);
+                            .loadUrl(new LoadUrlParams(composeplateUrl), /* incognito= */ false);
+                    ComposeplateMetricsUtils.recordFakeSearchBoxComposeplateButtonClick();
                 };
-        mSearchBoxCoordinator.setComposeplateButtonClickListener(
-                createEnhancedClickListener(composeplateButtonClickListener));
+        mSearchBoxCoordinator.setComposeplateButtonClickListener(mComposeplateButtonClickListener);
         int iconRawResId =
                 ColorUtils.inNightMode(mContext)
                         ? R.raw.composeplate_loop_dark
@@ -494,25 +495,9 @@ public class NewTabPageLayout extends LinearLayout
         mManager.getNativePageHost().loadUrl(new LoadUrlParams(UrlConstants.NTP_URL), true);
     }
 
-    /**
-     * Wraps the given {@link View.OnClickListener} to record the click metric before invoking the
-     * original listener.
-     *
-     * @param originalListener The original click listener to be wrapped.
-     */
-    private View.OnClickListener createEnhancedClickListener(
-            View.OnClickListener originalListener) {
-        return v -> {
-            if (originalListener != null) {
-                originalListener.onClick(v);
-            }
-            ComposeplateMetricsUtils.recordFakeSearchBoxComposeplateButtonClick();
-        };
-    }
-
     private void initializeLayoutChangeListener() {
         TraceEvent.begin(TAG + ".initializeLayoutChangeListener()");
-        addOnLayoutChangeListener(
+        mOnLayoutChangeListener =
                 (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
                     int oldHeight = oldBottom - oldTop;
                     int newHeight = bottom - top;
@@ -528,7 +513,8 @@ public class NewTabPageLayout extends LinearLayout
                     // The positioning of elements may have been changed (since the elements expand
                     // to fill the available vertical space), so adjust the scroll.
                     if (mScrollDelegate.isScrollViewInitialized()) mScrollDelegate.snapScroll();
-                });
+                };
+        addOnLayoutChangeListener(mOnLayoutChangeListener);
         TraceEvent.end(TAG + ".initializeLayoutChangeListener()");
     }
 
@@ -1154,6 +1140,7 @@ public class NewTabPageLayout extends LinearLayout
         }
 
         mSearchBoxCoordinator.destroy();
+        mSearchBoxCoordinator = null;
 
         if (mMostVisitedTilesCoordinator != null) {
             mMostVisitedTilesCoordinator.destroyMvtiles();
@@ -1171,10 +1158,22 @@ public class NewTabPageLayout extends LinearLayout
             mSearchEngineUtils = null;
         }
 
+        removeOnLayoutChangeListener(mOnLayoutChangeListener);
+        mOnLayoutChangeListener = null;
+
         if (mComposeplateCoordinator != null) {
             mComposeplateCoordinator.destroy();
             mComposeplateCoordinator = null;
         }
+
+        mComposeplateButtonClickListener = null;
+        mLensButtonClickListener = null;
+        mVoiceSearchButtonClickListener = null;
+        mSearchBoxScrollListener = null;
+        mComposeplateUrlSupplier = null;
+
+        mFakeSearchBoxEditText = null;
+        mFakeSearchBoxLayout = null;
     }
 
     MostVisitedTilesCoordinator getMostVisitedTilesCoordinatorForTesting() {

@@ -117,6 +117,7 @@
 #include "third_party/blink/renderer/core/mathml_names.h"
 #include "third_party/blink/renderer/core/page/spatial_navigation.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
+#include "third_party/blink/renderer/core/paint/timing/container_timing.h"
 #include "third_party/blink/renderer/core/svg/svg_svg_element.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_script.h"
@@ -334,6 +335,14 @@ bool HTMLElement::IsValidDirAttribute(const AtomicString& value) {
          EqualIgnoringASCIICase(value, "rtl");
 }
 
+bool HTMLElement::IsValidContainerTimingNestingAttribute(
+    const AtomicString& value) {
+  return EqualIgnoringASCIICase(value, "auto") ||
+         EqualIgnoringASCIICase(value, "ignore") ||
+         EqualIgnoringASCIICase(value, "transparent") ||
+         EqualIgnoringASCIICase(value, "shadowed");
+}
+
 void HTMLElement::CollectStyleForPresentationAttribute(
     const QualifiedName& name,
     const AtomicString& value,
@@ -447,6 +456,8 @@ const AttributeTriggers* HTMLElement::TriggersForAttributeName(
        &HTMLElement::OnContainerTimingAttrChanged},
       {html_names::kContainertimingIgnoreAttr, kNoWebFeature, kNoEvent,
        &HTMLElement::OnContainerTimingIgnoreAttrChanged},
+      {html_names::kContainertimingNestingAttr, kNoWebFeature, kNoEvent,
+       &HTMLElement::OnContainerTimingNestingAttrChanged},
 
       {html_names::kOnabortAttr, kNoWebFeature, event_type_names::kAbort,
        nullptr},
@@ -1650,7 +1661,7 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
   after_event->SetTarget(this);
   GetPopoverData()->setPendingToggleEventTask(PostCancellableTask(
       *original_document.GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
-      WTF::BindOnce(
+      BindOnce(
           [](HTMLElement* element, ToggleEvent* event) {
             CHECK(element);
             CHECK(event);
@@ -1933,9 +1944,6 @@ PopoverHideResult HTMLElement::HidePopoverInternal(
   }
 
   MarkPopoverInvokersDirty(*this);
-  if (!RuntimeEnabledFeatures::ClearPopoverInvokerAfterBeforeToggleEnabled()) {
-    SetPopoverInvoker(nullptr);
-  }
   // Events are only fired in the case that the popover is not being removed
   // from the document.
   if (transition_behavior ==
@@ -1981,13 +1989,13 @@ PopoverHideResult HTMLElement::HidePopoverInternal(
 
     // If this is the target of an active interest invoker, closing the popover
     // constitutes an automatic loss of interest in the invoker.
-    if (Element* upstream_invoker = GetInterestInvoker()) {
+    if (Element* upstream_invoker = SourceInterestInvoker()) {
       DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
           GetDocument().GetExecutionContext()));
       DCHECK_EQ(upstream_invoker->InterestForElement(), this);
       DCHECK_NE(upstream_invoker->GetInvokerData()->GetInterestState(),
                 InterestState::kNoInterest);
-      upstream_invoker->LoseInterestNow(this);
+      upstream_invoker->LoseInterestNow();
     }
 
     // The 'loseinterest' event handler could have changed this popover, e.g. by
@@ -2020,7 +2028,7 @@ PopoverHideResult HTMLElement::HidePopoverInternal(
     after_event->SetTarget(this);
     GetPopoverData()->setPendingToggleEventTask(PostCancellableTask(
         *document.GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
-        WTF::BindOnce(
+        BindOnce(
             [](HTMLElement* element, ToggleEvent* event) {
               CHECK(element);
               CHECK(event);
@@ -2047,9 +2055,7 @@ PopoverHideResult HTMLElement::HidePopoverInternal(
     }
   }
 
-  if (RuntimeEnabledFeatures::ClearPopoverInvokerAfterBeforeToggleEnabled()) {
-    SetPopoverInvoker(nullptr);
-  }
+  SetPopoverInvoker(nullptr);
 
   // Re-apply display:none, and stop matching `:popover-open`.
   GetPopoverData()->setVisibilityState(PopoverVisibilityState::kHidden);
@@ -2185,37 +2191,66 @@ const HTMLElement* NearestTargetPopoverForInvoker(
         PopoverAncestorOptionsSet()) {
   return NearestMatchingAncestor(
       node, ancestor_options, [](const Node* test_node) -> const HTMLElement* {
-        // First, see if `test_node` is a menu item element pointing to a
-        // popover (likely a menu list, but it could be any HTMLElement).
-        auto* menu_item = DynamicTo<HTMLMenuItemElement>(test_node);
-        auto* menu_target =
-            menu_item ? DynamicTo<HTMLElement>(menu_item->commandForElement())
-                      : nullptr;
-        if (menu_target) {
-          return menu_target;
-        }
+        // This code should return the *target popover* for several kinds of
+        // potential invokers:
 
-        // Next, see if `test_node` is a form control or button element.
-        auto* form_element =
-            DynamicTo<HTMLFormControlElement>(const_cast<Node*>(test_node));
-        if (!form_element) {
-          if (auto* html_element = DynamicTo<HTMLElement>(test_node);
-              html_element &&
-              RuntimeEnabledFeatures::ElementInternalsDotTypeEnabled() &&
-              html_element->IsCustomButton()) {
-            return HTMLFormControlElement::popoverTargetElement(
-                       *const_cast<HTMLElement*>(html_element))
-                .popover.Get();
+        // Case 1. A <menuitem> element with the `commandfor` attribute.
+        if (auto* menu_item = DynamicTo<HTMLMenuItemElement>(test_node)) {
+          if (auto* target =
+                  DynamicTo<HTMLElement>(menu_item->commandForElement());
+              target && target->IsPopover()) {
+            return target;
           }
-          return nullptr;
         }
-        auto* button_element = DynamicTo<HTMLButtonElement>(form_element);
-        auto* target_element =
-            button_element ? button_element->commandForElement() : nullptr;
 
-        return target_element
-                   ? DynamicTo<HTMLElement>(target_element)
-                   : form_element->popoverTargetElement().popover.Get();
+        // Case 2. A <button> element with the `commandfor` attribute.
+        if (auto* button = DynamicTo<HTMLButtonElement>(test_node)) {
+          if (auto* target =
+                  DynamicTo<HTMLElement>(button->commandForElement());
+              target && target->IsPopover()) {
+            return target;
+          }
+        }
+
+        // Case 3. An HTMLFormControlElement with the `popovertarget` attribute.
+        if (auto* form_element = DynamicTo<HTMLFormControlElement>(
+                const_cast<Node*>(test_node))) {
+          if (auto* target =
+                  form_element->popoverTargetElement().popover.Get()) {
+            return target;
+          }
+        }
+
+        // Case 4. A custom element button with `ElementInternals.type=button`
+        // with the `popovertarget` attribute or the `commandfor` attribute.
+        if (auto* html_element = DynamicTo<HTMLElement>(test_node);
+            html_element &&
+            RuntimeEnabledFeatures::ElementInternalsDotTypeEnabled() &&
+            html_element->IsCustomButton()) {
+          if (auto* target = HTMLFormControlElement::popoverTargetElement(
+                                 *const_cast<HTMLElement*>(html_element))
+                                 .popover.Get()) {
+            return target;
+          }
+        }
+
+        // Case 5. A <button> with the `commandfor` attribute pointing to an
+        // element with the `interestfor` attribute pointing to a popover.
+        if (auto* button = DynamicTo<HTMLButtonElement>(test_node)) {
+          if (auto* first_target =
+                  DynamicTo<HTMLElement>(button->commandForElement())) {
+            if (auto* second_target =
+                    DynamicTo<HTMLElement>(first_target->InterestForElement());
+                second_target && second_target->IsPopover()) {
+              CHECK(RuntimeEnabledFeatures::
+                        HTMLCommandActionToggleInterestEnabled(
+                            test_node->GetDocument().GetExecutionContext()));
+              return second_target;
+            }
+          }
+        }
+
+        return nullptr;
       });
 }
 
@@ -2446,7 +2481,10 @@ bool HTMLElement::IsValidBuiltinPopoverCommand(HTMLElement& invoker,
                                                CommandEventType command) {
   return command == CommandEventType::kTogglePopover ||
          command == CommandEventType::kHidePopover ||
-         command == CommandEventType::kShowPopover;
+         command == CommandEventType::kShowPopover ||
+         command == CommandEventType::kToggleMenu ||
+         command == CommandEventType::kHideMenu ||
+         command == CommandEventType::kShowMenu;
 }
 
 bool HTMLElement::IsValidBuiltinCommand(HTMLElement& invoker,
@@ -2456,7 +2494,10 @@ bool HTMLElement::IsValidBuiltinCommand(HTMLElement& invoker,
          (RuntimeEnabledFeatures::HTMLCommandActionsV2Enabled() &&
           (command == CommandEventType::kToggleFullscreen ||
            command == CommandEventType::kRequestFullscreen ||
-           command == CommandEventType::kExitFullscreen));
+           command == CommandEventType::kExitFullscreen)) ||
+         (RuntimeEnabledFeatures::HTMLCommandActionToggleInterestEnabled(
+              invoker.GetDocument().GetExecutionContext()) &&
+          command == CommandEventType::kToggleInterest);
 }
 
 bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
@@ -2471,7 +2512,10 @@ bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
                               command == CommandEventType::kRequestFullscreen ||
                               command == CommandEventType::kExitFullscreen;
 
-  if (PopoverType() == PopoverValueType::kNone && !is_fullscreen_action) {
+  bool is_show_interest = command == CommandEventType::kToggleInterest;
+
+  if (PopoverType() == PopoverValueType::kNone && !is_fullscreen_action &&
+      (!is_show_interest || !InterestForElement())) {
     return false;
   }
 
@@ -2520,13 +2564,23 @@ bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
     return true;
   }
 
-  if (!RuntimeEnabledFeatures::HTMLCommandActionsV2Enabled()) {
+  if (!RuntimeEnabledFeatures::HTMLCommandActionsV2Enabled() &&
+      !RuntimeEnabledFeatures::HTMLCommandActionToggleInterestEnabled(
+          document.GetExecutionContext())) {
     return false;
   }
 
   LocalFrame* frame = document.GetFrame();
 
-  if (command == CommandEventType::kToggleFullscreen) {
+  if (is_show_interest && InterestForElement()) {
+    if (GetInterestState() == InterestState::kNoInterest) {
+      ShowInterestNow();
+    } else {
+      CHECK_EQ(GetInterestState(), InterestState::kFullInterest);
+      LoseInterestNow();
+    }
+    return true;
+  } else if (command == CommandEventType::kToggleFullscreen) {
     if (Fullscreen::IsFullscreenElement(*this)) {
       Fullscreen::ExitFullscreen(document);
       return true;
@@ -3034,13 +3088,18 @@ void HTMLElement::DefaultEventHandler(Event& event) {
 
   if (RuntimeEnabledFeatures::ElementInternalsDotTypeEnabled() &&
       IsCustomButton()) {
+    HTMLButtonElement::HandleCommandForActivation(event, *this);
+    if (event.DefaultHandled()) {
+      return;
+    }
     HTMLFormControlElement::HandlePopoverActivation(event, *this);
   }
 
   if (event.type() == event_type_names::kKeypress && keyboard_event) {
     HandleKeypressEvent(*keyboard_event);
-    if (event.DefaultHandled())
+    if (event.DefaultHandled()) {
       return;
+    }
   }
 
   Element::DefaultEventHandler(event);
@@ -3330,6 +3389,28 @@ void HTMLElement::OnContainerTimingIgnoreAttrChanged(
     // the tree if the node has ignore only
     ClearSelfOrAncestorHasContainerTiming();
     UpdateDescendantHasContainerTiming(false /* has_container_timing */);
+  }
+}
+
+void HTMLElement::OnContainerTimingNestingAttrChanged(
+    const AttributeModificationParams& params) {
+  if (!RuntimeEnabledFeatures::ContainerTimingEnabled()) {
+    return;
+  }
+
+  if (!FastHasAttribute(html_names::kContainertimingAttr)) {
+    return;
+  }
+
+  bool is_old_valid = IsValidContainerTimingNestingAttribute(params.old_value);
+  bool is_new_valid = IsValidContainerTimingNestingAttribute(params.new_value);
+  if (!is_old_valid && !is_new_valid) {
+    return;
+  }
+
+  if (auto* window = GetDocument().domWindow()) {
+    ContainerTiming::From(*window).MaybeUpdateContainerRootNestingPolicy(
+        this, params.new_value);
   }
 }
 

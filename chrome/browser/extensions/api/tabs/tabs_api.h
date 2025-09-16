@@ -27,6 +27,7 @@
 #include "extensions/browser/extension_function.h"
 #include "extensions/common/extension_resource.h"
 #include "extensions/common/user_script.h"
+#include "ui/base/mojom/window_show_state.mojom-forward.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
@@ -55,6 +56,10 @@ class PrefRegistrySyncable;
 }
 
 namespace extensions {
+
+namespace api::windows {
+enum class WindowState;
+}
 
 // This namespace includes a collection of conceptually-internal helper methods
 // and constants that are currently here because they are used by both
@@ -136,6 +141,14 @@ content::WebContents* GetTabsAPIDefaultWebContents(ExtensionFunction* function,
                                                    int tab_id,
                                                    std::string* error);
 
+// Converts the given `state` to the mojom::WindowShowState equivalent.
+ui::mojom::WindowShowState ConvertToWindowShowState(
+    api::windows::WindowState state);
+
+// Returns whether the given `bounds` intersect with at least 50% of all the
+// displays.
+bool WindowBoundsIntersectDisplays(const gfx::Rect& bounds);
+
 }  // namespace tabs_internal
 
 // Converts a ZoomMode to its ZoomSettings representation.
@@ -207,10 +220,6 @@ class TabsQueryFunction : public ExtensionFunction {
   ~TabsQueryFunction() override = default;
   ResponseAction Run() override;
   DECLARE_EXTENSION_FUNCTION("tabs.query", TABS_QUERY)
-#if BUILDFLAG(IS_ANDROID)
-  ResponseAction GetTabsMatchingUrl(const api::tabs::Query::Params& params);
-  ResponseAction GetActiveTab(const api::tabs::Query::Params& params);
-#endif  // BUILDFLAG(IS_ANDROID)
 };
 class TabsCreateFunction : public ExtensionFunction {
   ~TabsCreateFunction() override = default;

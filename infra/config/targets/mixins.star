@@ -417,6 +417,14 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "android_desktop_wpt_args",
+    generate_pyl_entry = False,
+    args = [
+        "--additional-driver-flag=--force-desktop-android",
+    ],
+)
+
+targets.mixin(
     name = "arm64",
     # All references have been moved to starlark
     generate_pyl_entry = False,
@@ -502,13 +510,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "skylab-shards-20",
-    skylab = targets.skylab(
-        shards = 20,
-    ),
-)
-
-targets.mixin(
     name = "skylab-shards-30",
     skylab = targets.skylab(
         shards = 30,
@@ -523,6 +524,13 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "skylab-50-tests-per-shard",
+    skylab = targets.skylab(
+        cros_test_max_in_shard = 50,
+    ),
+)
+
+targets.mixin(
     name = "skylab-40-tests-per-shard",
     skylab = targets.skylab(
         cros_test_max_in_shard = 40,
@@ -533,6 +541,22 @@ targets.mixin(
     name = "skylab-20-tests-per-shard",
     skylab = targets.skylab(
         cros_test_max_in_shard = 20,
+    ),
+)
+
+targets.mixin(
+    name = "tfc-exclude-public",
+    generate_pyl_entry = False,
+    skylab = targets.skylab(
+        cros_test_names_exclude_from_file = ["chromeos/tast_control_disabled_tests.txt", "chromeos/tast_control_disabled_tests_public_builders.txt"],
+    ),
+)
+
+targets.mixin(
+    name = "tfc-run-public",
+    generate_pyl_entry = False,
+    skylab = targets.skylab(
+        cros_test_names_from_file = ["chromeos/tast_control_disabled_tests.txt", "chromeos/tast_control_disabled_tests_public_builders.txt"],
     ),
 )
 
@@ -659,6 +683,16 @@ targets.mixin(
             "device_os_flavor": "google",
             "device_type": "walleye",
             "os": "Android",
+            "pool": "chromium.tests",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "chromium_tests_pool",
+    generate_pyl_entry = False,
+    swarming = targets.swarming(
+        dimensions = {
             "pool": "chromium.tests",
         },
     ),
@@ -794,10 +828,10 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "force-android-desktop",
+    name = "force-desktop-android",
     generate_pyl_entry = False,
     args = [
-        "--force-android-desktop",
+        "--force-desktop-android",
     ],
 )
 
@@ -1089,6 +1123,21 @@ targets.mixin(
             "display_attached": "1",
             "gpu": "8086:64a0",
             "os": "Windows-11",
+            "pool": "chromium.tests.gpu.experimental",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_intel_arc_140v_linux_experimental",
+    # We always need this entry to be generated since it is used by
+    # //content/test/gpu/find_bad_machines.py.
+    generate_pyl_entry = targets.IGNORE_UNUSED,
+    swarming = targets.swarming(
+        dimensions = {
+            "display_attached": "1",
+            "gpu": "8086:64a0",
+            "os": "Ubuntu",
             "pool": "chromium.tests.gpu.experimental",
         },
     ),
@@ -2501,6 +2550,21 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "win11_nvidia_rtx_4070_super_experimental",
+    # We always need this entry to be generated since it is used by
+    # //content/test/gpu/find_bad_machines.py.
+    generate_pyl_entry = targets.IGNORE_UNUSED,
+    swarming = targets.swarming(
+        dimensions = {
+            "display_attached": "1",
+            "gpu": "10de:2783-32.0.15.8088",
+            "os": "Windows-11",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
     name = "win11_nvidia_rtx_4070_super_stable",
     # We always need this entry to be generated since it is used by
     # //content/test/gpu/find_bad_machines.py.
@@ -2508,7 +2572,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
-            "gpu": "10de:2783-32.0.15.6070",
+            "gpu": "10de:2783-32.0.15.6070|10de:2783-32.0.15.8088",
             "os": "Windows-11",
             "pool": "chromium.tests.gpu",
         },
@@ -2601,6 +2665,7 @@ targets.mixin(
 
 targets.mixin(
     name = "xcode_16_main",
+    generate_pyl_entry = False,
     args = [
         "--xcode-build-version",
         "16c5032a",
@@ -2637,12 +2702,28 @@ targets.mixin(
     generate_pyl_entry = False,
     args = [
         "--xcode-build-version",
-        "17a5285i",
+        "17a5305f",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_17a5285i",
+                name = "xcode_ios_17a5305f",
+                path = "Xcode.app",
+            ),
+        ],
+    ),
+)
+
+targets.mixin(
+    name = "xcode_26_main",
+    args = [
+        "--xcode-build-version",
+        "17a5305f",
+    ],
+    swarming = targets.swarming(
+        named_caches = [
+            swarming.cache(
+                name = "xcode_ios_17a5305f",
                 path = "Xcode.app",
             ),
         ],

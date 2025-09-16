@@ -57,6 +57,7 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.KEYBOARD_ACCESSORY_ADDRESS_FILL_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_BAR_SWIPING_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_HOME_WORK_PROFILE_SUGGESTION_FEATURE,
+    FeatureConstants.KEYBOARD_ACCESSORY_ACCOUNT_NAME_EMAIL_SUGGESTION_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_ENABLE_LOYALTY_CARDS_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_PASSWORD_FILLING_FEATURE,
     FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_FILLING_FEATURE,
@@ -94,6 +95,7 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.PAGE_INFO_FEATURE,
     FeatureConstants.PAGE_INFO_STORE_INFO_FEATURE,
     FeatureConstants.PAGE_ZOOM_FEATURE,
+    FeatureConstants.READER_MODE_DISTILL_IN_APP_FEATURE,
     FeatureConstants.READ_ALOUD_APP_MENU_FEATURE,
     FeatureConstants.READ_ALOUD_EXPANDED_PLAYER_FEATURE,
     FeatureConstants.READ_ALOUD_PLAYBACK_MODE_FEATURE,
@@ -187,6 +189,8 @@ public @interface FeatureConstants {
     String KEYBOARD_ACCESSORY_ENABLE_LOYALTY_CARDS_FEATURE = "IPH_AutofillEnableLoyaltyCards";
     String KEYBOARD_ACCESSORY_HOME_WORK_PROFILE_SUGGESTION_FEATURE =
             "IPH_AutofillHomeWorkProfileSuggestion";
+    String KEYBOARD_ACCESSORY_ACCOUNT_NAME_EMAIL_SUGGESTION_FEATURE =
+            "IPH_AutofillAccountNameEmailSuggestion";
     String KEYBOARD_ACCESSORY_PASSWORD_FILLING_FEATURE = "IPH_KeyboardAccessoryPasswordFilling";
     String KEYBOARD_ACCESSORY_PAYMENT_CARD_INFO_RETRIEVAL_FEATURE =
             "IPH_AutofillCardInfoRetrievalSuggestion";
@@ -205,6 +209,7 @@ public @interface FeatureConstants {
     String PAGE_ZOOM_FEATURE = "IPH_PageZoom";
     String PREVIEWS_OMNIBOX_UI_FEATURE = "IPH_PreviewsOmniboxUI";
     String TRANSLATE_MENU_BUTTON_FEATURE = "IPH_TranslateMenuButton";
+    String READER_MODE_DISTILL_IN_APP_FEATURE = "IPH_ReaderModeDistillInApp";
     String READ_ALOUD_APP_MENU_FEATURE = "IPH_ReadAloudAppMenuFeature";
     String READ_ALOUD_EXPANDED_PLAYER_FEATURE = "IPH_ReadAloudExpandedPlayerFeature";
     String READ_ALOUD_PLAYBACK_MODE_FEATURE = "IPH_ReadAloudPlaybackModeFeature";

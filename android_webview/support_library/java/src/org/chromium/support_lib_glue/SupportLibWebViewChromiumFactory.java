@@ -120,6 +120,8 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.EXTRA_HEADER_FOR_ORIGINS,
                 Features.BACK_FORWARD_CACHE_SETTINGS,
                 Features.PRECONNECT,
+                Features.HYPERLINK_CONTEXT_MENU_ITEMS + Features.DEV_SUFFIX,
+                Features.ASYNC_WEBVIEW_STARTUP_ASYNC_STARTUP_LOCATIONS + Features.DEV_SUFFIX,
                 // Add new features above. New features must include `+ Features.DEV_SUFFIX`
                 // when they're initially added (this can be removed in a future CL). The final
                 // feature should have a trailing comma for cleaner diffs.
@@ -289,7 +291,7 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         ApiCall.BACK_FORWARD_CACHE_SETTINGS_GET_TIMEOUT_IN_SECONDS,
         ApiCall.BACK_FORWARD_CACHE_SETTINGS_GET_MAX_PAGES_IN_CACHE,
         ApiCall.PRECONNECT,
-
+        ApiCall.SET_HYPERLINK_CONTEXT_MENU_ITEMS,
         // Add new constants above. The final constant should have a trailing comma for cleaner
         // diffs.
         ApiCall.COUNT, // Added to suppress WrongConstant in #recordApiCall
@@ -458,9 +460,10 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int BACK_FORWARD_CACHE_SETTINGS_GET_TIMEOUT_IN_SECONDS = 157;
         int BACK_FORWARD_CACHE_SETTINGS_GET_MAX_PAGES_IN_CACHE = 158;
         int PRECONNECT = 159;
+        int SET_HYPERLINK_CONTEXT_MENU_ITEMS = 160;
 
         // Remember to update AndroidXWebkitApiCall in enums.xml when adding new values here
-        int COUNT = 160;
+        int COUNT = 161;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidXWebkitApiCall)
@@ -751,6 +754,11 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                         if (providerInitOnMainLooperLocation != null) {
                             supportLibResult.addBlockingStartUpLocation(
                                     providerInitOnMainLooperLocation);
+                        }
+                        Throwable asyncChromiumInitLocation =
+                                result.getAsynchronousChromiumInitLocationOrNull();
+                        if (asyncChromiumInitLocation != null) {
+                            supportLibResult.addAsyncStartUpLocation(asyncChromiumInitLocation);
                         }
                         webViewStartUpCallback.onSuccess(
                                 BoundaryInterfaceReflectionUtil.createInvocationHandlerFor(

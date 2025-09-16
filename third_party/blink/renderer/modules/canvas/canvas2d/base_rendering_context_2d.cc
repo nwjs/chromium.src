@@ -40,7 +40,6 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_canvas_font_variant_caps.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_canvas_text_rendering.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_texture_format.h"
-#include "third_party/blink/renderer/core/canvas_interventions/canvas_interventions_enums.h"
 #include "third_party/blink/renderer/core/canvas_interventions/canvas_interventions_helper.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
@@ -79,6 +78,7 @@
 #include "third_party/blink/renderer/platform/graphics/bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/blend_mode.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_deferred_paint_record.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_high_entropy_op_type.h"
 #include "third_party/blink/renderer/platform/graphics/flush_reason.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_cpp.h"
@@ -485,11 +485,9 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
       GetImage(FlushReason::kGetImageData);
 
   bool noised = false;
-  if (auto* host = GetCanvasRenderingContextHost()) {
-    if (snapshot) {
-      noised = CanvasInterventionsHelper::MaybeNoiseSnapshot(
-          host->RenderingContext(), GetTopExecutionContext(), snapshot);
-    }
+  if (snapshot) {
+    noised = CanvasInterventionsHelper::MaybeNoiseSnapshot(
+        GetTopExecutionContext(), snapshot);
   }
 
   TRACE_EVENT_INSTANT(
@@ -1171,17 +1169,11 @@ void BaseRenderingContext2D::DrawTextInternal(
     location.set_x(location.x() / ClampTo<float>(width / font_width));
   }
 
-  // Only fill and stroke are used for DrawTextInternal.
-  AddTriggersForCanvasIntervention(
-      paint_type == CanvasRenderingContext2DState::kFillPaintType
-          ? CanvasOperationType::kFillText
-          : CanvasOperationType::kStrokeText);
-
   Draw<OverdrawOp::kNone>(
       /*draw_func=*/
       [font, text = std::move(text), direction, bidi_override, location,
-       run_start, run_end, canvas,
-       text_painter](MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
+       run_start, run_end, canvas, text_painter,
+       paint_type](MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
         TextRun text_run(text, direction, bidi_override,
                          /* normalize_space */ true);
         // Font::DrawType::kGlyphsAndClusters is required for printing to PDF,
@@ -1196,6 +1188,11 @@ void BaseRenderingContext2D::DrawTextInternal(
         Font::DrawType draw_type = (canvas && canvas->IsPrinting())
                                        ? Font::DrawType::kGlyphsAndClusters
                                        : Font::DrawType::kGlyphsOnly;
+        // Only fill and stroke are used for DrawTextInternal.
+        c->AddHighEntropyCanvasOpTypes(
+            paint_type == CanvasRenderingContext2DState::kFillPaintType
+                ? HighEntropyCanvasOpType::kFillText
+                : HighEntropyCanvasOpType::kStrokeText);
         if (text_painter) {
           text_painter->DrawWithBidiReorder(text_run, run_start, run_end, *font,
                                             Font::kUseFallbackIfFontNotReady,
@@ -1514,10 +1511,9 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
   scoped_refptr<gpu::ClientSharedImage> client_si =
       GetResourceProviderForCanvas2D()
           ->GetBackingClientSharedImageForExternalWrite(
-              &canvas_access_sync_token,
               gpu::SHARED_IMAGE_USAGE_WEBGPU_READ |
                   gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE,
-              &performed_copy);
+              canvas_access_sync_token, &performed_copy);
   if (access_options->requireZeroCopy() && performed_copy) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,

@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="th">
 <translation id="1001534784610492198">การเก็บข้อมูลของโปรแกรมติดตั้งเสียหายหรือไม่ถูกต้อง โปรดดาวน์โหลด Google Chrome อีกครั้ง</translation>
+<translation id="1006034097353797313">ดำเนินการต่อจากที่ค้างไว้: Chrome จะคืนค่าแท็บทุกครั้งที่คุณรีสตาร์ท หากต้องการปิดตัวเลือกนี้ ให้ไปที่</translation>
 <translation id="1018937009655463387">หากต้องการแชร์หน้าต่าง ให้อนุญาตการบันทึกหน้าจอสำหรับ Chrome ใน "การตั้งค่าระบบ"</translation>
 <translation id="1026101648481255140">ดำเนินการติดตั้งต่อ</translation>
 <translation id="102763973188675173">ปรับแต่งและควบคุม Google Chrome มีการอัปเดต</translation>
@@ -18,6 +19,7 @@
 <translation id="1152920704813762236">เกี่ยวกับ ChromeOS</translation>
 <translation id="1154147086299354128">เ&amp;ปิดใน Chrome</translation>
 <translation id="1157985233335035034">ภาษาล่าสุด</translation>
+<translation id="1158134713295836892">Gemini ใน Chrome</translation>
 <translation id="1184145431117212167">ติดตั้งไม่สำเร็จเนื่องจากระบบไม่รองรับ Windows เวอร์ชันที่คุณใช้</translation>
 <translation id="1194807384646768652">Chrome บล็อกการดาวน์โหลดนี้เนื่องจากไฟล์ประเภทนี้ไม่ได้มีการดาวน์โหลดกันโดยทั่วไปและอาจเป็นอันตราย</translation>
 <translation id="1203500561924088507">ขอขอบคุณที่ติดตั้ง คุณต้องรีสตาร์ทเบราว์เซอร์ก่อนใช้ <ph name="BUNDLE_NAME" /></translation>
@@ -65,6 +67,7 @@
 <translation id="1821644463306970002">{NUM_TABS,plural, =1{Chrome แนะนำให้หยุดแท็บที่ทำให้เบราว์เซอร์ทำงานช้าลงชั่วคราว}other{Chrome แนะนำให้หยุดแท็บที่ทําให้เบราว์เซอร์ทำงานช้าลงชั่วคราว}}</translation>
 <translation id="1832046143430087831">เร่งความเร็วเว็บไซต์ด้วยเครื่องมือ V8 ของ Chrome แต่ทำให้ Chrome ต้านทานการโจมตีได้น้อยลงเล็กน้อย การตั้งค่านี้ปิดอยู่</translation>
 <translation id="1838374766361614909">ล้างการค้นหา</translation>
+<translation id="1849248141818021764">เฉพาะผู้ที่มีรหัสผ่านของคุณเท่านั้นที่จะอ่านข้อมูลที่เข้ารหัสได้ Google จะไม่ได้รับหรือจัดเก็บรหัสผ่านดังกล่าว หากลืมรหัสผ่านหรือต้องการเปลี่ยนการตั้งค่านี้ คุณจะต้อง<ph name="BEGIN_LINK" />ลบข้อมูล Chrome ในบัญชี<ph name="END_LINK" /></translation>
 <translation id="1860536484129686729">Chrome ต้องการสิทธิ์เข้าถึงกล้องถ่ายรูปของคุณสำหรับเว็บไซต์นี้</translation>
 <translation id="1873233029667955273">Google Chrome ไม่ใช่เบราว์เซอร์เริ่มต้น</translation>
 <translation id="1874309113135274312">Google Chrome เบต้า (mDNS-In)</translation>
@@ -78,6 +81,7 @@
 <translation id="2018879682492276940">การติดตั้งไม่สำเร็จ โปรดลองอีกครั้ง</translation>
 <translation id="2024959665595762054">โปรดยืนยันว่าเป็นคุณเพื่อใช้และบันทึกข้อมูล Chrome ในบัญชี Google</translation>
 <translation id="2034233344106846793">Chrome จะอัปเกรดการเชื่อมต่อที่ไม่ปลอดภัยเป็น HTTPS โดยอัตโนมัติเมื่อทำได้</translation>
+<translation id="2039417478970545937">การตั้งค่า</translation>
 <translation id="207902854391093810">เมื่อเริ่มการทดสอบ การวัดผลโฆษณาจะให้เว็บไซต์ที่คุณเข้าชมสามารถขอข้อมูลจาก Chrome เพื่อช่วยวัดประสิทธิภาพโฆษณาของเว็บไซต์ดังกล่าวได้ การวัดผลโฆษณาจะจำกัดการติดตามข้ามเว็บไซต์โดยโอนข้อมูลระหว่างเว็บไซต์ให้น้อยที่สุด</translation>
 <translation id="2091012649849228750">คุณจะต้องใช้ Windows 10 ขึ้นไปเพื่อรับการอัปเดต Google Chrome ในอนาคต คอมพิวเตอร์เครื่องนี้ใช้ Windows 8</translation>
 <translation id="2094648590148273905">ข้อกำหนดของ Chrome OS Flex</translation>
@@ -101,9 +105,11 @@
 <translation id="2199691482078155239">Chrome ให้คุณควบคุมโฆษณาที่เห็นได้มากขึ้น และจำกัดว่าเว็บไซต์จะรู้อะไรเกี่ยวกับคุณได้บ้างเมื่อแสดงโฆษณาที่ปรับตามโปรไฟล์ของผู้ใช้</translation>
 <translation id="2216543877350048334">หากต้องการนำบัญชี Google ออกจาก Chrome ให้ออกจากระบบ</translation>
 <translation id="2236949375853147973">กิจกรรมของฉัน</translation>
+<translation id="22791603784558743">ปิด Gemini ใน Chrome Dev</translation>
 <translation id="2290014774651636340">คีย์ API ของ Google หายไป การทำงานบางอย่างของ Google Chrome จะถูกปิดใช้งาน</translation>
 <translation id="2290095356545025170">คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการติดตั้ง Google Chrome</translation>
 <translation id="2301513536169703857">ลงชื่อเข้าใช้ Chrome เพื่อเข้าถึงรหัสผ่าน บุ๊กมาร์ก และข้อมูลอื่นๆ ในอุปกรณ์ทุกเครื่อง</translation>
+<translation id="2307973900865360088">ปักหมุดไว้ที่แถบแอป</translation>
 <translation id="2309047409763057870">นี่เป็นการติดตั้ง Google Chrome แบบสำรอง และไม่สามารถใช้เป็นเบราว์เซอร์เริ่มต้นของคุณ</translation>
 <translation id="2345992953227471816">Chrome พบว่าส่วนขยายเหล่านี้มีมัลแวร์</translation>
 <translation id="2348335408836342058">Chrome ต้องการสิทธิ์เข้าถึงไมโครโฟนและกล้องถ่ายรูปของคุณสำหรับเว็บไซต์นี้</translation>
@@ -123,7 +129,6 @@
 <translation id="2569974318947988067">Chrome จะพยายามอัปเกรดการนำทางให้เป็นแบบ HTTPS</translation>
 <translation id="2571392474191184472">องค์กรของคุณจัดการ Chrome</translation>
 <translation id="2574930892358684005"><ph name="EXISTING_USER" /> ลงชื่อเข้าใช้โปรไฟล์ Chrome นี้แล้ว หากต้องการแยกการท่องเว็บของคุณไว้ต่างหาก Chrome สร้างโปรไฟล์ให้คุณโดยเฉพาะได้</translation>
-<translation id="2579190314336775785">คุณลบรหัสผ่านได้ภายนอก Chrome เท่านั้น</translation>
 <translation id="2580411288591421699">ไม่สามารถติดตั้ง Google Chrome รุ่นเดียวกับที่กำลังเรียกใช้อยู่ได้ โปรดปิด Google Chrome แล้วลองใหม่อีกครั้ง</translation>
 <translation id="2586406160782125153">การดำเนินการนี้จะลบข้อมูลการท่องเว็บออกจากอุปกรณ์นี้ หากต้องการดึงข้อมูลภายหลัง ให้ลงชื่อเข้าใช้ Chrome ด้วย <ph name="USER_EMAIL" /></translation>
 <translation id="259935314519650377">การแคชโปรแกรมติดตั้งที่ดาวน์โหลดไว้ล้มเหลว ข้อผิดพลาด: <ph name="UNPACK_CACHING_ERROR_CODE" /></translation>
@@ -134,6 +139,7 @@
 <translation id="2665296953892887393">ช่วยทำให้ Google Chrome ดียิ่งขึ้นโดยการส่งรายงานข้อขัดข้องและ <ph name="UMA_LINK" /> ไปยัง Google</translation>
 <translation id="2668094785979141847">คลิกเพื่อออกจาก Google Lens</translation>
 <translation id="2681444469812712297">เปิด <ph name="URL" /> ในแท็บใหม่ใน Google Chrome</translation>
+<translation id="2699790011615497488">เปิด Gemini ใน Chrome Beta</translation>
 <translation id="2712141162840347885">เลือกอะไรก็ได้เพื่อค้นหาด้วย Google Lens หรือกด Escape เพื่อออกจาก Google Lens</translation>
 <translation id="2738871930057338499">เชื่อมต่อกับอินเทอร์เน็ตไม่ได้ HTTP 403 Forbidden โปรดตรวจสอบการกำหนดค่าพร็อกซีของคุณ</translation>
 <translation id="2742320827292110288">คำเตือน: Google Chrome ไม่สามารถป้องกันไม่ให้ส่วนขยายบันทึกประวัติการท่องเว็บ หากต้องการปิดใช้ส่วนขยายนี้ในโหมดไม่ระบุตัวตน ให้ยกเลิกการเลือกตัวเลือกนี้</translation>
@@ -168,6 +174,7 @@
 <translation id="3003694935412297923">งานทั้งหมด</translation>
 <translation id="3018957014024118866">ลบข้อมูลออกจาก Chrome (<ph name="URL" />) ด้วย</translation>
 <translation id="3019382870990049182">เปิดอีกครั้งเพื่ออัปเดต &amp;Chrome OS Flex</translation>
+<translation id="3037517125981011456">แสดงข้อความแจ้งให้ลงชื่อเข้าใช้ Chrome</translation>
 <translation id="3037838751736561277">Google Chrome กำลังอยู่ในโหมดทำงานในพื้นหลัง</translation>
 <translation id="3038232873781883849">กำลังรอติดตั้ง...</translation>
 <translation id="3045032126857188731">ภาษาที่แปล: <ph name="LANGUAGE" /></translation>
@@ -175,6 +182,7 @@
 <translation id="306179102415443347">ใช้ทางลัดเพื่อไปยังเครื่องมือจัดการรหัสผ่านบน Google อย่างรวดเร็ว คุณสามารถย้ายทางลัดไปยังหน้าจอหลักหรือตัวเปิดแอปของคอมพิวเตอร์ได้</translation>
 <translation id="3065168410429928842">แท็บ Chrome</translation>
 <translation id="3080151273017101988">เรียกใช้แอปพลิเคชันเบื้องหลังต่อไปเมื่อ Google Chrome ถูกปิดลง</translation>
+<translation id="308397506772922478">หากลืมรหัสผ่านหรือต้องการเปลี่ยนการตั้งค่านี้ ให้<ph name="BEGIN_LINK" />ลบข้อมูล Chrome ในบัญชี<ph name="END_LINK" /></translation>
 <translation id="3100998948628680988">ตั้งชื่อโปรไฟล์ Chrome ของคุณ</translation>
 <translation id="310459126943037700">ทำให้งานสิ้นสุดไม่สำเร็จ</translation>
 <translation id="3112458742631356345">Chrome บล็อกการดาวน์โหลดนี้เนื่องจากไฟล์ไม่ได้มีการดาวน์โหลดกันโดยทั่วไปและอาจเป็นอันตราย</translation>
@@ -335,12 +343,14 @@
 <translation id="5114340746415930644">ป้อนรหัสผ่านเพื่อใช้และบันทึกข้อมูล Chrome ในบัญชี <ph name="USER_EMAIL" /></translation>
 <translation id="5120334927898581447">ลงชื่อเข้าใช้ Chrome เมื่อคุณลงชื่อเข้าใช้บริการอื่นๆ ของ Google</translation>
 <translation id="5126049312684316860">Chrome จะโหลดหน้าเว็บที่คุณน่าจะเข้าชมเอาไว้ล่วงหน้าเพิ่มมากขึ้น เพื่อให้หน้าเหล่านั้นโหลดเร็วขึ้นเมื่อคุณเข้าชม</translation>
+<translation id="5127558335897923940">ปักหมุด Chrome ไว้ที่แถบแอปเพื่อให้เข้าถึงได้อย่างรวดเร็วทุกเมื่อ</translation>
 <translation id="5132929315877954718">พบกับแอป เกม ส่วนขยาย และธีมเด็ดๆ สำหรับ Google Chrome</translation>
 <translation id="5139423532931106058">ปรับแต่งโปรไฟล์ Chrome ของคุณ</translation>
 <translation id="5163087008893166964">ยินดีต้อนรับสู่ Chrome เปิดหน้าต่างเบราวเซอร์ใหม่แล้ว</translation>
 <translation id="5166439563123238795">Chrome ต้องการสิทธิ์ในการติดตามการเคลื่อนไหวของมือ</translation>
 <translation id="5170938038195470297">โปรไฟล์ของคุณไม่สามารถใช้ได้เพราะมาจากรุ่นที่ใหม่กว่าของ Google Chrome ฟีเจอร์บางอย่างอาจจะไม่พร้อมใช้งาน โปรดระบุไดเรกทอรีของโปรไฟล์อื่นหรือใช้ Chrome รุ่นที่ใหม่กว่า</translation>
 <translation id="5174969993834422967">คุณมักจะบล็อกการแจ้งเตือน หากต้องการให้เว็บไซต์ส่งการแจ้งเตือน ให้คลิกไอคอนการแจ้งเตือนที่มุมขวาของแถบตําแหน่ง</translation>
+<translation id="5174983315706567306">มีพื้นที่ในดิสก์ไม่เพียงพอ</translation>
 <translation id="5201744974236816379">การอัปเดต Chrome</translation>
 <translation id="521447420733633466">เพื่อนและครอบครัวสามารถท่องเว็บแยกกันและตั้งค่า Chrome ตามที่ตนต้องการในกรณีที่ใช้อุปกรณ์ร่วมกัน</translation>
 <translation id="5234764350956374838">ปิด</translation>
@@ -387,6 +397,7 @@
 <translation id="58431560289969279">เมื่อลงชื่อเข้าใช้อยู่ คุณจะใช้รหัสผ่านและข้อมูลอื่นๆ จากบัญชี Google ใน Chrome ได้ คุณเปลี่ยนการตั้งค่านี้ได้ทุกเมื่อในการตั้งค่า</translation>
 <translation id="5858486459377137936">คุณจะออกจากระบบของเว็บไซต์ส่วนใหญ่เมื่อปิดหน้าต่าง Chrome ทั้งหมด ยกเว้นบัญชี Google ที่ลงชื่อเข้าใช้ Chrome หากต้องการให้เว็บไซต์จดจำคุณ ให้<ph name="SETTINGS_LINK" /></translation>
 <translation id="586971344380992563"><ph name="BEGIN_LINK" />Chrome จะเตือนคุณ<ph name="END_LINK" />เกี่ยวกับเว็บไซต์และการดาวน์โหลดที่ไม่ปลอดภัย</translation>
+<translation id="5894164573378901688">หากต้องการใช้ Gemini ใน Chrome ให้ลงชื่อเข้าใช้ด้วยบัญชี Google อื่น</translation>
 <translation id="5895138241574237353">ปิดแล้วเปิดอีกครั้ง</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - หน้าลงชื่อเข้าใช้ของเครือข่าย</translation>
 <translation id="5924017743176219022">กำลังเชื่อมต่ออินเทอร์เน็ต...</translation>
@@ -421,6 +432,7 @@
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome เบต้า</translation>
 <translation id="6180522807229584611">แท็บนี้ใช้ทรัพยากรมากเป็นพิเศษ ให้ Chrome ช่วยปิดใช้งานแท็บเหล่านี้เพื่อปรับปรุงประสิทธิภาพ</translation>
 <translation id="6182736845697986886">การติดตั้งไม่สำเร็จเนื่องจากเกิดข้อผิดพลาดภายในเซิร์ฟเวอร์การอัปเดต</translation>
+<translation id="6192058120268468905">บัญชีของคุณใน Chrome</translation>
 <translation id="6235018212288296708">กฎขาเข้าสำหรับ Google Chrome เพื่ออนุญาตการเข้าชมแบบ mDNS</translation>
 <translation id="624230925347970731">Chrome จะปิดเร็วๆ นี้</translation>
 <translation id="6247557882553405851">เครื่องมือจัดการรหัสผ่านบน Google</translation>
@@ -434,6 +446,7 @@
 <translation id="6321592572353357376">ส่วนขยาย "<ph name="EXTENSION_NAME" />" ต้องการให้คุณลงชื่อเข้าใช้ Chrome</translation>
 <translation id="6326175484149238433">ลบจาก Chrome</translation>
 <translation id="6327105987658262776">ไม่มีอัปเดตพร้อมใช้งาน</translation>
+<translation id="6334815226785304306">ตั้ง Google Chrome เป็นเบราว์เซอร์เริ่มต้นและปักหมุดไว้ที่แถบงาน</translation>
 <translation id="6360449101159168105">ขณะที่แท็บนี้ไม่มีการใช้งาน ระบบจะเพิ่มพื้นที่ว่างในหน่วยความจำเพื่อให้ใช้ Chrome ได้อย่างรวดเร็วอยู่เสมอ ทั้งนี้คุณจะเลือกยกเว้นให้เว็บไซต์นี้ทำงานตลอดเวลาได้</translation>
 <translation id="6388799252195623474">ช่วยฉันเรื่องนี้</translation>
 <translation id="6412673304250309937">ตรวจสอบ URL กับรายการเว็บไซต์ที่ไม่ปลอดภัยซึ่งจัดเก็บไว้ใน Chrome หากเว็บไซต์พยายามขโมยรหัสผ่าน หรือคุณดาวน์โหลดไฟล์ที่เป็นอันตราย Chrome อาจส่ง URL รวมถึงเนื้อหาบางส่วนในหน้าไปยัง Google Safe Browsing ด้วย</translation>
@@ -448,7 +461,10 @@
 <translation id="6506909944137591434">Chrome ต้องการสิทธิ์เข้าถึงกล้องเพื่อสร้างแผนที่ 3 มิติของสิ่งที่อยู่รอบตัวคุณ</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> - Google Chrome Dev</translation>
 <translation id="6520670145826811516">หากต้องการใช้ตำแหน่ง โปรดให้สิทธิ์เข้าถึงแก่ Chrome ใน<ph name="BEGIN_LINK" />การตั้งค่าระบบ<ph name="END_LINK" /></translation>
+<translation id="6532945796722480006">เปิด Gemini ใน Chrome Canary</translation>
+<translation id="6585124893636629274">ปิด Gemini ใน Chrome</translation>
 <translation id="659498884637196217">ที่เครื่องมือจัดการรหัสผ่านบน Google ในอุปกรณ์นี้</translation>
+<translation id="6631524303639368205">ดำเนินการต่อจากที่ค้างไว้: Chrome ได้คืนค่าแท็บจากการเข้าชมล่าสุด คุณปิดตัวเลือกนี้ได้ใน</translation>
 <translation id="6632473616050862500">Chrome OS Flex เกิดขึ้นได้ด้วยการสนับสนุนจาก<ph name="BEGIN_LINK_CROS_OSS" />ซอฟต์แวร์โอเพนซอร์ส<ph name="END_LINK_CROS_OSS" />เพิ่มเติม</translation>
 <translation id="6634299872736643004">การเปลี่ยนแปลงการตั้งค่านี้จะมีผลเมื่อ Chrome รีสตาร์ท</translation>
 <translation id="6660596345553328257">ลงชื่อเข้าใช้ Chrome ไหม</translation>
@@ -542,6 +558,7 @@
 <translation id="7658239707568436148">ยกเลิก</translation>
 <translation id="7670287553302121848">บัญชี Chrome ต้องมีการตรวจสอบสิทธิ์อีกครั้ง</translation>
 <translation id="769538538642757151">Chrome จะแจ้งให้คุณทราบหากมีสิ่งใดที่คุณต้องตรวจสอบ</translation>
+<translation id="769906121737764913">ปิด Gemini ใน Chrome Beta</translation>
 <translation id="7716950018788545737">งานสิ้นสุดแล้ว</translation>
 <translation id="77283119132245232">ให้บริการ System Tracing สำหรับ <ph name="BROWSER_NAME" /> หากปิดใช้บริการนี้ การติดตามประสิทธิภาพที่เบราว์เซอร์สร้างขึ้นจะไม่รวมเหตุการณ์ทั้งระบบ เช่น เหตุการณ์การเปลี่ยนบริบทและเธรดพร้อมใช้งาน</translation>
 <translation id="7736869414036750079">องค์กรกำหนดให้คุณต้องลงชื่อเข้าใช้ Chrome</translation>
@@ -552,14 +569,17 @@
 <translation id="778331955594035129">Chrome ต้องการสิทธิ์เข้าถึงตำแหน่งสำหรับเว็บไซต์นี้</translation>
 <translation id="7787950393032327779">ดูเหมือนว่าโปรไฟล์กำลังถูกใช้งานโดยกระบวนการอื่นของ Google Chrome (<ph name="PROCESS_ID" />) บนคอมพิวเตอร์อีกเครื่อง (<ph name="HOST_NAME" />)  Chrome ล็อกโปรไฟล์ไว้เพื่อไม่ให้โปรไฟล์เกิดความเสียหาย  หากคุณมั่นใจว่าไม่มีกระบวนการอื่นใดกำลังใช้โปรไฟล์นี้อยู่ คุณสามารถปลดล็อกโปรไฟล์และเปิด Chrome ใหม่</translation>
 <translation id="7801699035218095297">Google Chrome กำลังพยายามคัดลอกรหัสผ่าน โปรดพิมพ์รหัสผ่าน Windows ของคุณเพื่ออนุญาต</translation>
+<translation id="7804364787702057554">บัญชีของคุณใน Chrome</translation>
 <translation id="7808348361785373670">นำออกจาก Chrome...</translation>
 <translation id="7825851276765848807">การติดตั้งล้มเหลวเนื่องจากเกิดข้อผิดพลาดที่ไม่ระบุ โปรดดาวน์โหลด Google Chrome อีกครั้ง</translation>
 <translation id="7827099906024714326">Chrome จำเป็นต้องยืนยันว่าเป็นคุณก่อนจึงจะบันทึกข้อมูลบางอย่างในบัญชี Google และใช้ในอุปกรณ์ทุกเครื่องได้ หากคุณออกจากระบบตอนนี้ ระบบจะลบข้อมูลนี้</translation>
 <translation id="7845233973568007926">ขอขอบคุณที่ติดตั้ง คุณต้องรีสตาร์ทคอมพิวเตอร์ก่อนใช้ <ph name="BUNDLE_NAME" /></translation>
+<translation id="7849037457735762883">ดำเนินการต่อจากที่ค้างไว้: Chrome สามารถคืนค่าแท็บทุกครั้งที่คุณรีสตาร์ท หากต้องการเปิดตัวเลือกนี้ ให้ไปที่</translation>
 <translation id="7872446069773932638">กำลังดาวน์โหลด... เหลืออีก <ph name="SECONDS" /> วินาที</translation>
 <translation id="7886087451482920026">เลือกข้อความด้วย Google Lens</translation>
 <translation id="7890208801193284374">ถ้าคุณให้ผู้อื่นใช้คอมพิวเตอร์ร่วมด้วย เพื่อนๆ และครอบครัวของคุณสามารถท่องเว็บแยกกันได้และตั้งค่า Chrome ได้ตามที่พวกเขาต้องการ</translation>
 <translation id="7896673875602241923">ก่อนหน้านี้มีผู้ลงชื่อเข้าใช้ Chrome ในคอมพิวเตอร์นี้ด้วยชื่อ <ph name="ACCOUNT_EMAIL_LAST" /> โปรดสร้างผู้ใช้ Chrome ใหม่เพื่อเก็บข้อมูลแยก</translation>
+<translation id="7904985524660297937">ลองใช้ Gemini ใน Google Chrome</translation>
 <translation id="7917876797003313048">คุณจัดการบัญชี Google ที่ลงชื่อเข้าใช้ได้ บัญชี Google ใช้สำหรับเบราว์เซอร์ Chrome, Play Store, Gmail และอื่นๆ หากต้องการเพิ่มบัญชีให้คนอื่น เช่น สมาชิกในครอบครัว ให้เพิ่มบุคคลใหม่ลงใน <ph name="DEVICE_TYPE" /> แทน <ph name="LINK_BEGIN" />ดูข้อมูลเพิ่มเติม<ph name="LINK_END" /></translation>
 <translation id="7936702483636872823">Chrome บล็อกการดาวน์โหลดนี้เนื่องจากไฟล์มีการหลอกลวงและอาจทำการเปลี่ยนแปลงที่ไม่คาดคิดกับอุปกรณ์</translation>
 <translation id="7951272445806340501">Chrome OS Flex ต้องรีสตาร์ทเพื่อใช้การอัปเดต</translation>
@@ -578,6 +598,7 @@
 <translation id="8077579734294125741">โปรไฟล์ Chrome อื่นๆ</translation>
 <translation id="8086881907087796310">การติดตั้งไม่สำเร็จเนื่องจากคอมพิวเตอร์ของคุณไม่เป็นไปตามข้อกำหนดขั้นต่ำสำหรับฮาร์ดแวร์</translation>
 <translation id="8113883687556086139">โปรดยืนยันว่าเป็นคุณเพื่อใช้และบันทึกข้อมูล Chrome ในบัญชี <ph name="ACCOUNT_EMAIL" /></translation>
+<translation id="8115695070094288807">กำลังปรับแต่ง Chrome ในแบบของคุณ...</translation>
 <translation id="8118331347066725040">ส่งความคิดเห็นเกี่ยวกับการค้นหาด้วย Lens</translation>
 <translation id="8129812357326543296">เกี่ยวกับ &amp;Google Chrome</translation>
 <translation id="813913629614996137">กำลังเริ่มดำเนินการ...</translation>
@@ -611,6 +632,7 @@
 <translation id="8533056045953418157">ตั้ง Google Chrome เป็นโปรแกรมอ่าน PDF เริ่มต้น</translation>
 <translation id="8555465886620020932">ข้อผิดพลาดในการบริการ: <ph name="SERVICE_ERROR" /></translation>
 <translation id="856656450041460113">ค้นหารายการภาษา</translation>
+<translation id="8575047640889685742">ใช้<ph name="BEGIN_LINK" />รหัสผ่านของคุณเอง<ph name="END_LINK" />ในการเข้ารหัสข้อมูล Chrome ทั้งหมดในบัญชี Google ที่อยู่และวิธีการชำระเงินจาก Google Pay จะไม่มีการเข้ารหัส ประวัติการท่องเว็บจาก Chrome จะไม่ซิงค์</translation>
 <translation id="8601359445272098721">ใหม่! คุณแปลได้ทั้งข้อความและรูปภาพบนหน้าจอโดยเลือกปุ่ม "แปลหน้าจอ"</translation>
 <translation id="8614913330719544658">Google Chrome ไม่ตอบสนอง เปิดใช้งานใหม่ตอนนี้หรือไม่</translation>
 <translation id="861702415419836452">Chrome ต้องการสิทธิ์เข้าถึงกล้องเพื่อสร้างแผนที่ 3 มิติของสิ่งที่อยู่รอบตัวคุณ</translation>
@@ -618,6 +640,7 @@
 <translation id="8637932705841171563">หากต้องการแชร์หน้าต่าง ให้อนุญาตการบันทึกหน้าจอสำหรับ Chrome ใน "การตั้งค่าระบบ"</translation>
 <translation id="8641606876632989680">Chrome จะแจ้งให้คุณทราบเมื่อคุณลงชื่อเข้าใช้ด้วยรหัสผ่านที่ไม่รัดกุม</translation>
 <translation id="8649026945479135076">โดยทั่วไป เว็บไซต์ที่คุณเข้าชมจะจดจำสิ่งที่คุณสนใจเพื่อปรับประสบการณ์การใช้งานให้เหมาะกับคุณ เว็บไซต์ยังสามารถจัดเก็บข้อมูลเกี่ยวกับความสนใจไว้กับ Chrome ได้ด้วย</translation>
+<translation id="8656634243791296665">เปิด Gemini ใน Chrome Dev</translation>
 <translation id="8669527147644353129">ตัวช่วยเหลือของ Google Chrome</translation>
 <translation id="8679801911857917785">อีกทั้งยังควบคุมหน้าที่จะแสดงเมื่อคุณเปิด Chrome ด้วย</translation>
 <translation id="8712637175834984815">รับทราบ</translation>
@@ -639,17 +662,20 @@
 <translation id="8843516219908676469">Chrome เข้าใจแบบฟอร์มได้ดีขึ้นและสามารถป้อนข้อมูลอัตโนมัติให้คุณได้เร็วขึ้น</translation>
 <translation id="8851180723659088381">{NUM_EXTENSIONS,plural, =1{Chrome แนะนำให้คุณนำออก}other{Chrome แนะนําให้คุณนําออก}}</translation>
 <translation id="8862326446509486874">คุณไม่มีสิทธิ์ในการติดตั้งระดับระบบ ทดลองใช้งานโปรแกรมติดตั้งอีกครั้งโดยกำหนดให้เป็นผู้ดูแลระบบ</translation>
+<translation id="8865415417596392024">ข้อมูล Chrome ในบัญชี</translation>
 <translation id="8883862939660515976">ถาม Google Lens เกี่ยวกับรูปภาพนี้</translation>
 <translation id="8914504000324227558">เปิด Chrome ขึ้นใหม่</translation>
 <translation id="8922193594870374009">หากต้องการส่งหมายเลขจาก <ph name="ORIGIN" /> ไปยังโทรศัพท์ Android ให้ลงชื่อเข้าใช้ Chrome ในอุปกรณ์ทั้งสองเครื่อง</translation>
 <translation id="8948460679427074738">ส่วนขยายนี้ไม่ได้เผยแพร่หลักปฏิบัติเกี่ยวกับนโยบายความเป็นส่วนตัว เช่น วิธีเก็บรวบรวมและใช้ข้อมูล Chrome ขอแนะนำให้คุณนำออก</translation>
 <translation id="8958307504142971576">ตอนนี้คุณมีฟีเจอร์เพิ่มเติมใน Chrome</translation>
 <translation id="8989968390305463310">ประวัติการท่องเว็บส่งผลต่อโฆษณาที่คุณเห็นและความสนใจที่ระบบคาดคะเนไว้ดังที่แสดงอยู่ด้านล่างนี้ Chrome ลบความสนใจโดยอัตโนมัติเป็นประจำทุกเดือนเพื่อปกป้องความเป็นส่วนตัวของคุณ ระบบจะรีเฟรชความสนใจหากคุณไม่นำออก</translation>
+<translation id="8991530961471831170">เปิด Gemini ใน Chrome</translation>
 <translation id="8992769679401294069">ข้อมูลของคุณมีการเข้ารหัสด้วยรหัสผ่าน ป้อนรหัสผ่านเพื่อใช้และบันทึกข้อมูล Chrome ในบัญชี Google</translation>
 <translation id="8999117580775242387">เมื่อ HTTPS ไม่พร้อมใช้งาน Chrome จะใช้การเชื่อมต่อที่ไม่ปลอดภัยโดยไม่แจ้งเตือนคุณ</translation>
 <translation id="8999208279178790196">{0,plural, =0{มีอัปเดต Chrome พร้อมให้ใช้งาน}=1{มีอัปเดต Chrome พร้อมให้ใช้งาน}other{อัปเดต Chrome พร้อมให้ใช้งานมาแล้ว # วัน}}</translation>
 <translation id="9014771989710951291">องค์กรหลายแห่งจัดการ Chrome</translation>
 <translation id="9024318700713112071">ตั้ง Chrome เป็นเบราว์เซอร์เริ่มต้น</translation>
+<translation id="9066987883552592250">ปิด Gemini ใน Chrome Canary</translation>
 <translation id="9090566250983691233">ดูสาเหตุที่ Chrome บล็อกบางไฟล์</translation>
 <translation id="9106236359747881194">เลือกข้อความที่จะค้นหา</translation>
 <translation id="911206726377975832">ลบข้อมูลการท่องเว็บด้วยหรือไม่</translation>

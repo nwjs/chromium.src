@@ -255,6 +255,10 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   // ready.
   void SendText(lens::mojom::TextPtr text);
 
+  // Send region text data to the WebUI and indicates whether the text is from
+  // an injected image. If the WebUI is not ready, this is a no-op.
+  void SendRegionText(lens::mojom::TextPtr text, bool is_injected_image);
+
   // Creates theme with data obtained from `palette_id` to be sent to the WebUI.
   lens::mojom::OverlayThemePtr CreateTheme(lens::PaletteId palette_id);
 
@@ -314,6 +318,9 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
 
   // Handles a new region thumbnail being created.
   void HandleRegionBitmapCreated(const SkBitmap& region_bitmap);
+
+  // Called when the side panel alignment changes.
+  void OnSidePanelAlignmentChanged();
 
   // Testing function to issue a Lens region selection request.
   void IssueLensRegionRequestForTesting(lens::mojom::CenterRotatedBoxPtr region,
@@ -824,6 +831,11 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   // another side panel opens.
   void OnSidePanelDidOpen();
 
+  // Sets the top right or top left corner of the overlay to be rounded if the
+  // side panel is open and the tab is in a split, since SidePanelRoundedCorner
+  // will be hidden in that case.
+  void SetOverlayRoundedCorner();
+
   // Called to continue the screenshot process while opening lens overlay.
   void FinishedWaitingForReflow();
 
@@ -1057,6 +1069,9 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   // dependent on whether the page is context eligible or not.
   bool should_send_screenshot_on_init_ = false;
 
+  // Indicates whether live blur should be enabled when the overlay is shown.
+  bool should_enable_live_blur_on_show_ = false;
+
   // TODO(384778180): The two `pre_initialization_*` fields below are used to
   // store data that came back before the initialization data was ready. This
   // should be refactored into one struct to make it cleaner.
@@ -1172,11 +1187,10 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   // order.
   raw_ptr<views::View> preselection_widget_anchor_;
 
-#if BUILDFLAG(IS_MAC)
   // Register for adding observers to prefs the current profiles pref service.
-  // Currently only used to observe the immersive mode pref on Mac.
+  // Used to observe the immersive mode pref on Mac, and the side panel
+  // horizontal alignment pref.
   PrefChangeRegistrar pref_change_registrar_;
-#endif  // BUILDFLAG(IS_MAC)
 
   // --------------------Browser window scoped state: END---------------------
 

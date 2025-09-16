@@ -491,22 +491,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/signin/ios/browser/account_consistency_service.mm:GaiaPage) -->
 
-<!-- LINT.IfChange(GaiaRemoteConsentFlowResult) -->
-
-<enum name="GaiaRemoteConsentFlowResult">
-  <int value="0" label="Success"/>
-  <int value="1" label="Window was closed"/>
-  <int value="2" label="Failed to load the consent page"/>
-  <int value="3" label="Failed to set accounts in cookies (deprecated 07/23)"/>
-  <int value="4" label="Failed to parse the consent result"/>
-  <int value="5" label="Consent wasn't granted"/>
-  <int value="6" label="User navigated away (deprecated 07/23)"/>
-  <int value="7" label="Cannot create a window"/>
-  <int value="8" label="Failed to set resolution cookies"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/extensions/api/identity/gaia_remote_consent_flow.h:GaiaRemoteConsentFlowResult) -->
-
 <!-- LINT.IfChange(GetAuthTokenResult) -->
 
 <enum name="GetAuthTokenResult">
@@ -711,9 +695,60 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Sanitized image source"/>
   <int value="5" label="Optimization Guide (get hints)"/>
   <int value="6" label="Optimization Guide (model execution)"/>
+  <int value="7" label="Nearby Sharing"/>
+  <int value="8" label="Projector token fetcher"/>
+  <int value="9" label="Add Supervision"/>
+  <int value="10" label="Parent Access"/>
+  <int value="11" label="Data Sharing"/>
+  <int value="12" label="Launcher item suggest"/>
+  <int value="13" label="Marketing backend connector"/>
+  <int value="14" label="Password Sync token fetcher"/>
+  <int value="15" label="Locale Switch Screen"/>
+  <int value="16" label="Token Handle Service"/>
+  <int value="17" label="Supervised User (list family members)"/>
+  <int value="18" label="Supervised User (classify url)"/>
+  <int value="19" label="Supervised User (create permission request)"/>
+  <int value="20" label="Extension Downloader"/>
+  <int value="21" label="Enclave Manager"/>
+  <int value="22" label="Ntp Drive Service"/>
+  <int value="23" label="Force Signin Verifier"/>
+  <int value="24" label="Capture Mode Delegate"/>
+  <int value="25" label="Fcm Invalidation"/>
+  <int value="26" label="Nearby Share"/>
+  <int value="27" label="Advanced Protection Status Manager"/>
+  <int value="28" label="Push Notification"/>
+  <int value="29" label="K-Anonymity Service"/>
+  <int value="30" label="Feedback Uploader"/>
+  <int value="31" label="Password Sharing Recipients Downloader"/>
+  <int value="32" label="Web History Service"/>
+  <int value="33" label="Composebox Query Controller"/>
+  <int value="34" label="Document Suggestions Service"/>
+  <int value="35" label="Enterprise Search Aggregator"/>
+  <int value="36" label="Parent Permission Dialog"/>
+  <int value="37" label="User Cloud Signin Restriction Policy Fetcher"/>
+  <int value="38" label="Cloud Policy Client Registration"/>
+  <int value="39" label="Safe Browsing"/>
+  <int value="40" label="Tailored Security Service"/>
+  <int value="41" label="Lens Overlay Query controller"/>
+  <int value="42" label="Trusted Vault Frontend"/>
+  <int value="43" label="Feed Network"/>
+  <int value="44" label="Autofill Payments"/>
+  <int value="45" label="Payments Access Token Fetcher"/>
+  <int value="46" label="Save to Drive"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/public/identity_manager/oauth_consumer_ids.h:OAuthConsumerId) -->
+
+<!-- LINT.IfChange(OAuthMultiloginDeviceBoundSessionParsingError) -->
+
+<enum name="OAuthMultiloginDeviceBoundSessionParsingError">
+  <int value="0" label="No error, successfully parsed"/>
+  <int value="1" label="Invalid domain"/>
+  <int value="2" label="Register payload required field missing"/>
+  <int value="3" label="Register payload required credential field missing"/>
+</enum>
+
+<!-- LINT.ThenChange(//google_apis/gaia/oauth_multilogin_result.h:OAuthMultiloginDeviceBoundSessionParsingError) -->
 
 <!-- LINT.IfChange(OAuthMultiloginResponseStatus) -->
 
@@ -784,6 +819,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Cookies cleared"/>
   <int value="2" label="Session termination header"/>
   <int value="3" label="Session override"/>
+  <int value="4" label="Rotation stopped timeout"/>
 </enum>
 
 <enum name="ShouldShowChromeSigninBubbleWithReason">
@@ -1238,6 +1274,10 @@ chromium-metrics-reviews@google.com.
   <int value="40"
       label="Sign out when declining the enterprise management disclaimer">
     The user tried to sign in but declined the enterprise management disclaimer.
+  </int>
+  <int value="41" label="Forced DICe migration">
+    The user was signed out because they were a DICe user and they didn't accept
+    or see the migration dialog.
   </int>
 </enum>
 

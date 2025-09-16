@@ -55,6 +55,7 @@ export interface LensSidePanelAppElement {
     messageToastDismissButton: CrButtonElement,
     errorPage: SidePanelErrorPageElement,
     results: HTMLIFrameElement,
+    resultsWebview: chrome.webviewTag.WebView,
     searchbox: SearchboxElement,
     searchboxContainer: HTMLElement,
     searchboxGhostLoader: SearchboxGhostLoaderElement,
@@ -83,6 +84,20 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         reflectToAttribute: true,
         type: Boolean,
         value: () => loadTimeData.getBoolean('enableAimSearchbox'),
+      },
+      enableFloatingGForHeader: {
+        reflectToAttribute: true,
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableFloatingGForHeader'),
+      },
+      enableClientSideAimHeader: {
+        reflectToAttribute: true,
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableClientSideAimHeader'),
+      },
+      enableWebviewResults: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableWebviewResults'),
       },
       enableCsbMotionTweaks: {
         reflectToAttribute: true,
@@ -222,6 +237,12 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   declare private autocompleteRequestStarted: boolean;
   // Whether the AIM searchbox is enabled via feature flag.
   declare private enableAimSearchbox: boolean;
+  // Whether the floating G for header is enabled via feature flag.
+  declare private enableFloatingGForHeader: boolean;
+  // Whether the client side header is enabled via feature flag.
+  declare private enableClientSideAimHeader: boolean;
+  // Whether the webview results container is enabled via feature flag.
+  declare private enableWebviewResults: boolean;
   declare private isErrorPageVisible: boolean;
   // Whether the results iframe is currently loading. This needs to be done via
   // browser because the iframe is cross-origin. Default true since the side
@@ -314,7 +335,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
 
     // Start listening to postMessages on the window.
     this.postMessageReceiver = new PostMessageReceiver(
-        SidePanelBrowserProxyImpl.getInstance(), this.$.results);
+        SidePanelBrowserProxyImpl.getInstance(), this.getResults());
   }
 
   override disconnectedCallback() {
@@ -398,7 +419,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
 
   private loadResultsInFrame(resultsUrl: Url) {
     const url = new URL(resultsUrl.url);
-    const resultsBoundingRect = this.$.results.getBoundingClientRect();
+    const resultsBoundingRect = this.getResults().getBoundingClientRect();
     if (resultsBoundingRect.width > 0) {
       url.searchParams.set(
           VIEWPORT_WIDTH_KEY, resultsBoundingRect.width.toString());
@@ -410,7 +431,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     // The src needs to be reset explicitly every time this function is called
     // to force a reload. We cannot get the currently displayed URL from the
     // frame because of cross-origin restrictions.
-    this.$.results.src = url.href;
+    this.getResults().src = url.href;
     // Remove focus from the input when results are loaded. Does not have
     // any effect if input is not focused.
     this.blurSearchbox();
@@ -589,6 +610,15 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     }
   }
 
+  // Returns the container housing the results. Can either be the results
+  // iframe or webview.
+  private getResults(): HTMLIFrameElement|chrome.webviewTag.WebView {
+    if (this.enableWebviewResults) {
+      return this.$.resultsWebview;
+    }
+    return this.$.results;
+  }
+
   makeGhostLoaderVisibleForTesting() {
     this.isContextualSearchbox = true;
     this.suppressGhostLoader = false;
@@ -609,7 +639,13 @@ declare global {
 // registered once per document, so this must be done in the main window, rather
 // than in the class itself.
 window.CSS.registerProperty({
-  name: '--color-new-tab-page-composebox-scrim-background',
+  name: '--search-background-color',
+  syntax: '<color>',
+  inherits: true,
+  initialValue: 'white',
+});
+window.CSS.registerProperty({
+  name: '--ntp-composebox-background-color',
   syntax: '<color>',
   inherits: true,
   initialValue: 'white',

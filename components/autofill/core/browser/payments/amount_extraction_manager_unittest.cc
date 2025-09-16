@@ -12,7 +12,7 @@
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/foundations/test_autofill_driver.h"
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
-#include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide.h"
+#include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide_decider.h"
 #include "components/autofill/core/browser/metrics/payments/amount_extraction_metrics.h"
 #include "components/autofill/core/browser/payments/amount_extraction_heuristic_regexes.h"
 #include "components/autofill/core/browser/payments/constants.h"
@@ -66,7 +66,7 @@ class AmountExtractionManagerTest : public Test {
  public:
   AmountExtractionManagerTest() {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kAutofillEnableAmountExtractionDesktop,
+        /*enabled_features=*/{features::kAutofillEnableAmountExtraction,
                               features::kAutofillEnableBuyNowPayLaterSyncing,
                               features::kAutofillEnableBuyNowPayLater},
         /*disabled_features=*/{
@@ -91,9 +91,10 @@ class AmountExtractionManagerTest : public Test {
 
     test_api(payments_data()).AddBnplIssuer(test::GetTestUnlinkedBnplIssuer());
 
-    ON_CALL(*static_cast<MockAutofillOptimizationGuide*>(
-                autofill_manager_->client().GetAutofillOptimizationGuide()),
-            IsUrlEligibleForBnplIssuer)
+    ON_CALL(
+        *static_cast<MockAutofillOptimizationGuideDecider*>(
+            autofill_manager_->client().GetAutofillOptimizationGuideDecider()),
+        IsUrlEligibleForBnplIssuer)
         .WillByDefault(Return(true));
   }
 
@@ -105,6 +106,11 @@ class AmountExtractionManagerTest : public Test {
   void FakeCheckoutAmountReceived(const std::string& extracted_amount) {
     amount_extraction_manager_->OnCheckoutAmountReceived(base::TimeTicks::Now(),
                                                          extracted_amount);
+  }
+
+  void FakeAmountExtractionTimeout() {
+    amount_extraction_manager_->SetSearchRequestPendingForTesting(true);
+    amount_extraction_manager_->OnTimeoutReached();
   }
 
   void SetUpCheckoutAmountExtractionCall(const std::string& extracted_amount,
@@ -154,7 +160,7 @@ TEST_F(AmountExtractionManagerTest, ShouldTriggerWhenEligible) {
 
 TEST_F(AmountExtractionManagerTest, ShouldNotTriggerWhenCvcFieldIsClicked) {
   base::test::ScopedFeatureList scoped_feature_list{
-      features::kAutofillEnableAmountExtractionDesktop};
+      features::kAutofillEnableAmountExtraction};
 
   SuggestionsContext context;
   context.is_autofill_available = true;
@@ -178,7 +184,7 @@ TEST_F(AmountExtractionManagerTest, ShouldNotTriggerWhenFeatureIsNotEnabled) {
   scoped_feature_list_.InitWithFeatures(
       /*enabled_features=*/{features::kAutofillEnableBuyNowPayLaterSyncing,
                             features::kAutofillEnableBuyNowPayLater},
-      /*disabled_features=*/{features::kAutofillEnableAmountExtractionDesktop});
+      /*disabled_features=*/{features::kAutofillEnableAmountExtraction});
 
   SuggestionsContext context;
   context.is_autofill_available = true;
@@ -258,9 +264,10 @@ TEST_F(AmountExtractionManagerTest, ShouldNotTriggerIfUrlNotEligible) {
   context.is_autofill_available = true;
   context.filling_product = FillingProduct::kCreditCard;
 
-  ON_CALL(*static_cast<MockAutofillOptimizationGuide*>(
-              autofill_manager_->client().GetAutofillOptimizationGuide()),
-          IsUrlEligibleForBnplIssuer)
+  ON_CALL(
+      *static_cast<MockAutofillOptimizationGuideDecider*>(
+          autofill_manager_->client().GetAutofillOptimizationGuideDecider()),
+      IsUrlEligibleForBnplIssuer)
       .WillByDefault(Return(false));
 
   EXPECT_THAT(amount_extraction_manager_->GetEligibleFeatures(
@@ -688,7 +695,7 @@ TEST_F(AmountExtractionManagerTest, ResponseBeforeTimeout) {
 TEST_F(AmountExtractionManagerTest,
        OnCheckoutAmountReceived_EmptyResult_BnplManagerNotified) {
   EXPECT_CALL(*autofill_manager_->GetPaymentsBnplManager(),
-              OnAmountExtractionReturned(std::optional<uint64_t>()))
+              OnAmountExtractionReturned(std::optional<uint64_t>(), false))
       .Times(1);
 
   FakeCheckoutAmountReceived("");
@@ -698,12 +705,23 @@ TEST_F(AmountExtractionManagerTest,
 // extraction receives a result with correct format.
 TEST_F(AmountExtractionManagerTest,
        OnCheckoutAmountReceived_AmountInCorrectFormat_BnplManagerNotified) {
-  EXPECT_CALL(
-      *autofill_manager_->GetPaymentsBnplManager(),
-      OnAmountExtractionReturned(std::optional<uint64_t>(123'450'000ULL)))
+  EXPECT_CALL(*autofill_manager_->GetPaymentsBnplManager(),
+              OnAmountExtractionReturned(
+                  std::optional<uint64_t>(123'450'000ULL), false))
       .Times(1);
 
   FakeCheckoutAmountReceived("$ 123.45");
+}
+
+// This test checks that the BNPL manager will be notified when the amount
+// extraction times out.
+TEST_F(AmountExtractionManagerTest,
+       OnCheckoutAmountReceived_AmountExtractionTimeout_BnplManagerNotified) {
+  EXPECT_CALL(*autofill_manager_->GetPaymentsBnplManager(),
+              OnAmountExtractionReturned(Eq(std::nullopt), true))
+      .Times(1);
+
+  FakeAmountExtractionTimeout();
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)

@@ -73,6 +73,12 @@ class CORE_EXPORT InlineChildLayoutContext {
     balanced_available_width_ = value;
   }
 
+  // FitText: Enable the measuring mode if `paragraph_scale` is std::nullopt.
+  void EnableMeasuringModeIfNecessary(std::optional<float> paragraph_scale);
+  bool IsMeasuringScale() const { return is_measuring_scale_; }
+  // FitText: Returns the minimum scale handled in the measuring mode.
+  float MeasuredScale() const;
+
  protected:
   InlineChildLayoutContext(const InlineNode& node,
                            BoxFragmentBuilder* container_builder,
@@ -100,6 +106,12 @@ class CORE_EXPORT InlineChildLayoutContext {
 
   // Used by `ParagraphLineBreaker`.
   std::optional<LayoutUnit> balanced_available_width_;
+
+  // FitText: In the measuring mode, this field is updated for every line.
+  // Otherwise, this holds the paragraph scale which is applied to every line.
+  float minimum_scale_ = 1.0f;
+  // FitText: True if in the measuring mode.
+  bool is_measuring_scale_ = false;
 };
 
 // A subclass of `InlineChildLayoutContext` for when the algorithm requires

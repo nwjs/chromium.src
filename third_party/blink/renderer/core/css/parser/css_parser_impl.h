@@ -146,6 +146,8 @@ class CORE_EXPORT CSSParserImpl {
   };
 
   // Rules that are valid when nested within a style rule.
+  // Note that this is not a strict subset of kRegularRules
+  // (in particular, @apply is not valid at top level).
   //
   // https://drafts.csswg.org/css-nesting/#nested-group-rules
   static constexpr AllowedRules kNestedGroupRules =
@@ -331,7 +333,9 @@ class CORE_EXPORT CSSParserImpl {
   ConsumeFunctionParameters(CSSParserTokenStream& stream);
   StyleRuleMixin* ConsumeMixinRule(CSSParserTokenStream& stream);
   StyleRuleApplyMixin* ConsumeApplyMixinRule(CSSParserTokenStream& stream);
+  StyleRuleContentsStatement* ConsumeContentsRule(CSSParserTokenStream& stream);
   StyleRuleCustomMedia* ConsumeCustomMediaRule(CSSParserTokenStream& stream);
+  StyleRule* ConsumeDeclarationListForMixins(CSSParserTokenStream& stream);
 
   StyleRuleKeyframe* ConsumeKeyframeStyleRule(
       std::unique_ptr<Vector<KeyframeOffset>> key_list,
@@ -482,6 +486,9 @@ class CORE_EXPORT CSSParserImpl {
 
   // True when parsing a StyleRule via ConsumeNestedRule.
   bool in_nested_style_rule_ = false;
+
+  // True when parsing a @mixin.
+  bool in_mixin_ = false;
 
   HeapHashMap<String, Member<const MediaQuerySet>> media_query_cache_;
 };

@@ -826,6 +826,10 @@ class PermissionUmaUtil {
       base::Time current_time,
       HostContentSettingsMap* hcsm);
 
+  // Records whether the 'Reload this page' info bar was shown after a quiet
+  // permission prompt was granted.
+  static void RecordPageReloadInfoBarShown(bool shown);
+
   // Records UKM metrics for ContentSettingsTypes that have user facing
   // permission prompts triggered by the user clicking on the Embedded
   // Permission Element. The passed in `permission` must be such that
@@ -881,6 +885,12 @@ class PermissionUmaUtil {
       PredictionModelType model_type,
       bool success);
 
+  // Records the size of the rendered text when it was fetched successfully and
+  // was suitable as input for model execution.
+  static void RecordRenderedTextSize(PredictionModelType model_type,
+                                     RequestType request_type,
+                                     size_t text_size);
+
   // Records whether we needed to cancel the previous passage embeddings model
   // call before starting a new one.
   static void RecordTryCancelPreviousEmbeddingsModelExecution(
@@ -905,6 +915,10 @@ class PermissionUmaUtil {
   // Records whether the passage embeddings calculation ran into a timeout
   // during the Aiv4 workflow.
   static void RecordPassageEmbeddingsCalculationTimeout(bool timeout);
+
+  // Records whether the passage embedder metadata was valid when the AIv4
+  // workflow was initiated.
+  static void RecordPassageEmbedderMetadataValid(bool valid);
 
   // Records if the browser was active at the time the prompt started displaying
   static void RecordPromptShownInActiveBrowser(

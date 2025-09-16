@@ -95,7 +95,6 @@ ci.builder(
             target_bits = 64,
             target_platform = builder_config.target_platform.MAC,
         ),
-        build_gs_bucket = "chromium-mac-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -150,7 +149,6 @@ ci.builder(
             target_bits = 64,
             target_platform = builder_config.target_platform.MAC,
         ),
-        build_gs_bucket = "chromium-mac-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -584,19 +582,56 @@ ci.thin_tester(
             "chromium_mac_rel_isolated_scripts",
         ],
         mixins = [
-            # Only run selected test suites on CQ. https://crbug.com/1234525.
+            # Only run selected test suites on CQ. https://crbug.com/40192006.
             "ci_only",
-            "mac_15_arm64",
+            "mac_15_vm_optional",
         ],
         per_test_modifications = {
+            # TODO(crbug.com/436628295): test fails on VM
+            "blink_web_tests": targets.per_test_modification(
+                mixins = "mac_15_arm64",
+                remove_mixins = "mac_15_vm_optional",
+            ),
+            # TODO(crbug.com/436628295): test fails on VM
+            "blink_wpt_tests": targets.per_test_modification(
+                mixins = "mac_15_arm64",
+                remove_mixins = "mac_15_vm_optional",
+            ),
             "browser_tests": targets.remove(
                 reason = "https://crbug.com/1406364",
             ),
-            "interactive_ui_tests": targets.mixin(
-                ci_only = False,
-                swarming = targets.swarming(
-                    shards = 7,
-                ),
+            # TODO(crbug.com/436628295): test fails on VM
+            "chromedriver_py_tests_headless_shell": targets.per_test_modification(
+                mixins = "mac_15_arm64",
+                remove_mixins = "mac_15_vm_optional",
+            ),
+            # TODO(crbug.com/436628295): test fails on VM
+            "chromedriver_py_tests": targets.per_test_modification(
+                mixins = "mac_15_arm64",
+                remove_mixins = "mac_15_vm_optional",
+            ),
+            # TODO(crbug.com/436628295): test fails on VM
+            "content_browsertests": targets.per_test_modification(
+                mixins = "mac_15_arm64",
+                remove_mixins = "mac_15_vm_optional",
+            ),
+            "interactive_ui_tests": targets.per_test_modification(
+                mixins = [
+                    targets.mixin(
+                        ci_only = False,
+                        swarming = targets.swarming(
+                            shards = 7,
+                        ),
+                    ),
+                    "mac_15_arm64",
+                ],
+                # TODO(crbug.com/436628295): test fails on VM
+                remove_mixins = "mac_15_vm_optional",
+            ),
+            # TODO(crbug.com/436628295): test fails on VM
+            "headless_shell_wpt_tests": targets.per_test_modification(
+                mixins = "mac_15_arm64",
+                remove_mixins = "mac_15_vm_optional",
             ),
         },
     ),
@@ -807,7 +842,6 @@ ci.thin_tester(
             target_bits = 64,
             target_platform = builder_config.target_platform.MAC,
         ),
-        build_gs_bucket = "chromium-mac-archive",
     ),
     targets = targets.bundle(
         targets = [
@@ -1084,7 +1118,6 @@ ios_builder(
             target_bits = 64,
             target_platform = builder_config.target_platform.IOS,
         ),
-        build_gs_bucket = "chromium-mac-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -1134,7 +1167,6 @@ ios_builder(
             target_bits = 64,
             target_platform = builder_config.target_platform.IOS,
         ),
-        build_gs_bucket = "chromium-mac-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -1161,7 +1193,7 @@ ios_builder(
             "limited_capacity_bot",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_16_main",
+            "xcode_26_main",
             "xctest",
         ],
     ),
@@ -1205,7 +1237,6 @@ ios_builder(
             target_bits = 64,
             target_platform = builder_config.target_platform.IOS,
         ),
-        build_gs_bucket = "chromium-mac-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -1230,7 +1261,7 @@ ios_builder(
             "mac_default_arm64",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_16_main",
+            "xcode_26_main",
             "xctest",
         ],
     ),
@@ -1279,7 +1310,6 @@ ios_builder(
             target_bits = 64,
             target_platform = builder_config.target_platform.IOS,
         ),
-        build_gs_bucket = "chromium-mac-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -1304,7 +1334,7 @@ ios_builder(
             "mac_default_arm64",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_16_main",
+            "xcode_26_main",
             "xctest",
         ],
     ),
@@ -1345,7 +1375,6 @@ ios_builder(
             target_bits = 64,
             target_platform = builder_config.target_platform.IOS,
         ),
-        build_gs_bucket = "chromium-mac-archive",
     ),
     gn_args = gn_args.config(
         configs = [
@@ -1369,7 +1398,7 @@ ios_builder(
             "mac_default_arm64",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_16_main",
+            "xcode_26_main",
             "xctest",
         ],
     ),

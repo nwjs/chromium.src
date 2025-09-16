@@ -182,6 +182,7 @@ bool IsValidRole(ax::mojom::blink::Role role) {
     case ax::mojom::blink::Role::kKeyboard:
     case ax::mojom::blink::Role::kImeCandidate:
     case ax::mojom::blink::Role::kListGrid:
+    case ax::mojom::blink::Role::kMenuItemSeparator:
     case ax::mojom::blink::Role::kPane:
     case ax::mojom::blink::Role::kPdfActionableHighlight:
     case ax::mojom::blink::Role::kPdfRoot:
@@ -980,18 +981,6 @@ Node* AXObject::GetParentNodeForComputeParent(AXObjectCacheImpl& cache,
     return AXObject::GetMapForImage(image_element) == map_element
                ? image_element
                : nullptr;
-  }
-
-  if (RuntimeEnabledFeatures::SelectAccessibilityReparentInputEnabled()) {
-    if (auto* input = DynamicTo<HTMLInputElement>(node)) {
-      if (auto* select = input->FirstAncestorSelectElement()) {
-        if (input->IsFirstTextInputInAncestorSelect() && input->IsTextField()) {
-          // The first descendant <input> in a <select> is reparented to be a
-          // direct child of the <select> in the a11y tree.
-          return select;
-        }
-      }
-    }
   }
 
   return CanComputeAsNaturalParent(parent) ? parent : nullptr;
@@ -2780,7 +2769,9 @@ AXObject* AXObject::GetCommandForElement() const {
     const AtomicString& action =
         button_element->FastGetAttribute(html_names::kCommandAttr);
     if (!command_for->IsValidBuiltinPopoverCommand(
-            *button_element, HTMLButtonElement::GetCommandEventType(action))) {
+            *button_element,
+            HTMLButtonElement::GetCommandEventType(
+                action, command_for->GetDocument().GetExecutionContext()))) {
       return nullptr;
     }
 
@@ -3037,7 +3028,7 @@ void AXObject::SerializeTextInsertionDeletionOffsetAttributes(
     return;
   }
 
-  WTF::Vector<TextChangedOperation>* offsets =
+  Vector<TextChangedOperation>* offsets =
       AXObjectCache().GetFromTextOperationInNodeIdMap(AXObjectID());
   if (!offsets) {
     return;
@@ -3215,8 +3206,7 @@ ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
   // get their role changed to dialog. This is computed before serialization
   // because there is a lot of other code which looks at kMenuListPopup which we
   // don't want to adjust for the popup being changed to a dialog.
-  if (role_ == ax::mojom::blink::Role::kMenuListPopup &&
-      RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
+  if (role_ == ax::mojom::blink::Role::kMenuListPopup) {
     if (auto* parent = ParentObject()) {
       if (auto* select = DynamicTo<HTMLSelectElement>(parent->GetNode())) {
         if (select->IsAppearanceBasePicker() && select->IsInDialogMode()) {
@@ -4457,8 +4447,7 @@ bool AXObject::ComputeIsIgnoredButIncludedInTree() {
 
   // We need to keep the <select>'s author provided <button> in the tree despite
   // being ignored in order to use it to calculate a value for the <select>
-  if (RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
-      IsInMenuListSubtree() && IsInert()) {
+  if (IsInMenuListSubtree() && IsInert()) {
     for (auto* ancestor = this;
          ancestor &&
          ancestor->RoleValue() != ax::mojom::blink::Role::kMenuListPopup;
@@ -8388,6 +8377,7 @@ bool AXObject::SupportsNameFromContents(bool recursive,
     case ax::mojom::blink::Role::kDirectoryDeprecated:
     case ax::mojom::blink::Role::kKeyboard:
     case ax::mojom::blink::Role::kImeCandidate:
+    case ax::mojom::blink::Role::kMenuItemSeparator:
     case ax::mojom::blink::Role::kListGrid:
     case ax::mojom::blink::Role::kPane:
     case ax::mojom::blink::Role::kPdfActionableHighlight:

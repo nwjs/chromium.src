@@ -26,6 +26,7 @@
 #include "components/autofill/core/browser/data_model/usage_history_information.h"
 #include "components/autofill/core/browser/data_quality/addresses/profile_token_quality.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/signin/public/identity_manager/account_info.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/scoped_java_ref.h"
@@ -112,6 +113,9 @@ class AutofillProfile : public FormGroup {
                   AddressCountryCode country_code);
   AutofillProfile(RecordType record_type, AddressCountryCode country_code);
   explicit AutofillProfile(AddressCountryCode country_code);
+  // This constructor creates a profile of type `kAccountNameEmail` with the
+  // `AddressCountryCode` of the `Address` set to `kLegacyHierarchyCountryCode`.
+  explicit AutofillProfile(const AccountInfo& info);
 
   AutofillProfile(const AutofillProfile& profile);
   ~AutofillProfile() override;
@@ -147,7 +151,7 @@ class AutofillProfile : public FormGroup {
                         FieldTypeSet* matching_types) const override;
   using FormGroup::GetInfo;
   std::u16string GetInfo(const AutofillType& type,
-                         const std::string& app_locale) const override;
+                         std::string_view app_locale) const override;
   std::u16string GetRawInfo(FieldType type) const override;
   void SetRawInfoWithVerificationStatus(FieldType type,
                                         const std::u16string& value,
@@ -346,11 +350,16 @@ class AutofillProfile : public FormGroup {
     last_modifier_id_ = modifier_id;
   }
 
-  // Converts a kLocalOrSyncable profile to a kAccount profile and returns it.
+  // Converts a non-`kAccount` profile to a `kAccount` profile and returns it.
   // The converted profile shares the same content, but with a different GUID
-  // and with `record_type` kAccount. Additional kAccount-specific metadata is
-  // set.
+  // and with `record_type` `kAccount`. Additional `kAccount`-specific metadata
+  // is set.
   AutofillProfile ConvertToAccountProfile() const;
+
+  // Converts a non-`kLocalOrSyncable` to `kLocalOrSyncable` profile and
+  // returns it. The converted profile shares the same content, but with a
+  // different GUID and with `record_type` `kLocalOrSyncable`.
+  AutofillProfile ConvertToLocalOrSyncableProfile() const;
 
   // Checks for non-empty setting-inaccessible fields and returns all that were
   // found.

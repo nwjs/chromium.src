@@ -173,7 +173,7 @@ public class HubToolbarMediator {
 
         mPropertyModel.set(SEARCH_LISTENER, this::onSearchClicked);
         mPropertyModel.set(BACK_BUTTON_LISTENER, exitHubRunnable);
-        mPropertyModel.set(BACK_BUTTON_ENABLED, mCurrentTabSupplier.hasValue());
+        mPropertyModel.set(BACK_BUTTON_ENABLED, mCurrentTabSupplier.get() != null);
         mCurrentTabSupplier.addObserver(mOnCurrentTabChange);
 
         // Fire an event for the original setup.
@@ -294,8 +294,6 @@ public class HubToolbarMediator {
         boolean enabled = hubSearchEnabledState == null ? true : hubSearchEnabledState;
         mPropertyModel.set(HUB_SEARCH_ENABLED_STATE, enabled);
 
-        // TODO(crbug.com/436529097): Decouple the search loupe from the menu button container on
-        // the tab groups pane so it can be displayed.
         mPropertyModel.set(MENU_BUTTON_VISIBLE, focusedPane.getMenuButtonVisible());
 
         boolean isIncognito = focusedPaneId == PaneId.INCOGNITO_TAB_SWITCHER;
@@ -371,7 +369,10 @@ public class HubToolbarMediator {
     }
 
     private boolean maybeExcludeHubSearchForTabGroupsPane(@PaneId int focusedPaneId) {
-        if (!OmniboxFeatures.sAndroidHubSearchTabGroups.isEnabled()) return true;
+        if (!OmniboxFeatures.sAndroidHubSearchTabGroups.isEnabled()
+                || !OmniboxFeatures.sAndroidHubSearchEnableOnTabGroupsPane.getValue()) {
+            return true;
+        }
 
         return focusedPaneId != PaneId.TAB_GROUPS;
     }

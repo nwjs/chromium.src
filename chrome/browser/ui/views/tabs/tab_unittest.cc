@@ -18,7 +18,6 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/tab_types.h"
-#include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/views/tabs/alert_indicator_button.h"
 #include "chrome/browser/ui/views/tabs/fake_base_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/fake_tab_slot_controller.h"
@@ -36,6 +35,7 @@
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/models/list_selection_model.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
@@ -915,7 +915,6 @@ TEST_F(TabContentsTest, AccessibleNameChanged) {
   EXPECT_FALSE(
       tab_strip_->tab_at(0)->ShouldUpdateAccessibleName(old_data, new_data));
 
-  new_data.incognito = !new_data.incognito;
   EXPECT_FALSE(
       tab_strip_->tab_at(0)->ShouldUpdateAccessibleName(old_data, new_data));
 

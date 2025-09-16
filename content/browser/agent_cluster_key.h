@@ -59,6 +59,19 @@ class CONTENT_EXPORT AgentClusterKey {
     CrossOriginIsolationMode cross_origin_isolation_mode;
   };
 
+  // Tracks the state of an Origin-Agent-Cluster request for a document.
+  // The Origin-Agent-Cluster header can be used to request either an
+  // origin-keyed agent cluster (1?) or a site-keyed one (0?). In the absence of
+  // an OAC header, agent clusters will be either site-keyed or origin-keyed by
+  // default, depending on whether features::kOriginKeyedProcessesByDefault is
+  // enabled.
+  enum class OACStatus {
+    kOriginKeyedByHeader,
+    kSiteKeyedByHeader,
+    kOriginKeyedByDefault,
+    kSiteKeyedByDefault
+  };
+
   // Following the deprecation of document.domain by default (a.k.a.
   // Origin-Agent-Cluster by default), AgentClusterKeys should be origin keyed
   // unless the document sends a "Origin-Agent-Cluster: ?0" header. However,
@@ -91,6 +104,12 @@ class CONTENT_EXPORT AgentClusterKey {
   // respectively. The functions will CHECK fail if called in the wrong cases.
   const GURL& GetSite() const;
   const url::Origin& GetOrigin() const;
+
+  // This will return a URL based on the site URL or the origin of the
+  // AgentClusterKey depending on whether the AgentClusterKey is site-keyed or
+  // origin-keyed. Prefer comparing the Site URL or the Origin directly when
+  // possible.
+  GURL GetURL() const;
 
   // Returns nullopt if the AgentClusterKey is not cross-origin isolated.
   // Otherwise, returns the CrossOriginIsolationKey associated to the

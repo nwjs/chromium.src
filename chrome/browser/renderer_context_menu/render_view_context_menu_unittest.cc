@@ -48,7 +48,6 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
-#include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/search_test_utils.h"
 #include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -351,9 +350,8 @@ class RenderViewContextMenuPrefsTest
     search_test_utils::WaitForTemplateURLServiceToLoad(template_url_service_);
 
     // Set up policies.
-    testing_local_state_ = std::make_unique<ScopedTestingLocalState>(
-        TestingBrowserProcess::GetGlobal());
-    local_state()->SetBoolean(prefs::kAllowFileSelectionDialogs, true);
+    TestingBrowserProcess::GetGlobal()->local_state()->SetBoolean(
+        prefs::kAllowFileSelectionDialogs, true);
     DownloadCoreServiceFactory::GetForBrowserContext(profile())
         ->SetDownloadManagerDelegateForTesting(
             std::make_unique<ChromeDownloadManagerDelegate>(profile()));
@@ -404,7 +402,6 @@ class RenderViewContextMenuPrefsTest
     content::RenderProcessHost::SetMaxRendererProcessCount(0);
 
     ChromeRenderViewHostTestHarness::TearDown();
-    testing_local_state_.reset();
   }
 
   std::unique_ptr<TestRenderViewContextMenu> CreateContextMenu() {
@@ -441,16 +438,11 @@ class RenderViewContextMenuPrefsTest
     template_url_service_->SetUserSelectedDefaultSearchProvider(template_url);
   }
 
-  PrefService* local_state() { return testing_local_state_->Get(); }
-  ScopedTestingLocalState* testing_local_state() {
-    return testing_local_state_.get();
-  }
-
   Browser* GetBrowser() {
     if (!browser_) {
       Browser::CreateParams create_params(profile(), true);
-      browser_window_ = std::make_unique<TestBrowserWindow>();
-      create_params.window = browser_window_.get();
+      auto browser_window = std::make_unique<TestBrowserWindow>();
+      create_params.window = browser_window.release();
       browser_ = Browser::DeprecatedCreateOwnedForTesting(create_params);
     }
     return browser_.get();
@@ -460,8 +452,8 @@ class RenderViewContextMenuPrefsTest
     if (!browser_) {
       Browser::CreateParams create_params(Browser::Type::TYPE_APP, profile(),
                                           true);
-      browser_window_ = std::make_unique<TestBrowserWindow>();
-      create_params.window = browser_window_.get();
+      auto browser_window = std::make_unique<TestBrowserWindow>();
+      create_params.window = browser_window.release();
       browser_ = Browser::DeprecatedCreateOwnedForTesting(create_params);
     }
     return browser_.get();
@@ -478,10 +470,8 @@ class RenderViewContextMenuPrefsTest
 
  private:
   std::unique_ptr<custom_handlers::ProtocolHandlerRegistry> registry_;
-  std::unique_ptr<ScopedTestingLocalState> testing_local_state_;
   raw_ptr<TemplateURLService> template_url_service_;
   std::unique_ptr<Browser> browser_;
-  std::unique_ptr<TestBrowserWindow> browser_window_;
   GURL last_preresolved_url_;
   base::OnceClosure preresolved_finished_closure_;
 
@@ -529,8 +519,8 @@ class RenderViewContextMenuDlpPrefsTest
 
     base::Value::List rules;
     rules.Append(rule.Create());
-    local_state()->SetList(policy::policy_prefs::kDlpRulesList,
-                           std::move(rules));
+    TestingBrowserProcess::GetGlobal()->local_state()->SetList(
+        policy::policy_prefs::kDlpRulesList, std::move(rules));
   }
 
   static constexpr char PAGE_URL[] = "http://www.foo.com/";
@@ -551,7 +541,8 @@ TEST_F(RenderViewContextMenuDlpPrefsTest,
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKNEWTAB));
 
   TestingProfile profile;
-  MockDlpRulesManager mock_dlp_rules_manager(local_state(), &profile);
+  MockDlpRulesManager mock_dlp_rules_manager(
+      TestingBrowserProcess::GetGlobal()->local_state(), &profile);
   menu->set_dlp_rules_manager(&mock_dlp_rules_manager);
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKNEWTAB));
 
@@ -579,7 +570,8 @@ TEST_F(RenderViewContextMenuDlpPrefsTest,
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKNEWWINDOW));
 
   TestingProfile profile;
-  MockDlpRulesManager mock_dlp_rules_manager(local_state(), &profile);
+  MockDlpRulesManager mock_dlp_rules_manager(
+      TestingBrowserProcess::GetGlobal()->local_state(), &profile);
   menu->set_dlp_rules_manager(&mock_dlp_rules_manager);
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKNEWWINDOW));
 
@@ -607,7 +599,8 @@ TEST_F(RenderViewContextMenuDlpPrefsTest,
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKINPROFILE));
 
   TestingProfile profile;
-  MockDlpRulesManager mock_dlp_rules_manager(local_state(), &profile);
+  MockDlpRulesManager mock_dlp_rules_manager(
+      TestingBrowserProcess::GetGlobal()->local_state(), &profile);
   menu->set_dlp_rules_manager(&mock_dlp_rules_manager);
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKINPROFILE));
 
@@ -635,7 +628,8 @@ TEST_F(RenderViewContextMenuDlpPrefsTest,
       menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKBOOKMARKAPP));
 
   TestingProfile profile;
-  MockDlpRulesManager mock_dlp_rules_manager(local_state(), &profile);
+  MockDlpRulesManager mock_dlp_rules_manager(
+      TestingBrowserProcess::GetGlobal()->local_state(), &profile);
   menu->set_dlp_rules_manager(&mock_dlp_rules_manager);
   EXPECT_TRUE(
       menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKBOOKMARKAPP));
@@ -665,7 +659,8 @@ TEST_F(RenderViewContextMenuDlpPrefsTest,
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_GOTOURL));
 
   TestingProfile profile;
-  MockDlpRulesManager mock_dlp_rules_manager(local_state(), &profile);
+  MockDlpRulesManager mock_dlp_rules_manager(
+      TestingBrowserProcess::GetGlobal()->local_state(), &profile);
   menu->set_dlp_rules_manager(&mock_dlp_rules_manager);
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_GOTOURL));
 
@@ -689,7 +684,8 @@ TEST_F(RenderViewContextMenuDlpPrefsTest,
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SEARCHWEBFOR));
 
   TestingProfile profile;
-  MockDlpRulesManager mock_dlp_rules_manager(local_state(), &profile);
+  MockDlpRulesManager mock_dlp_rules_manager(
+      TestingBrowserProcess::GetGlobal()->local_state(), &profile);
   menu->set_dlp_rules_manager(&mock_dlp_rules_manager);
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SEARCHWEBFOR));
 
@@ -714,7 +710,8 @@ TEST_F(RenderViewContextMenuDlpPrefsTest,
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SEARCHWEBFORNEWTAB));
 
   TestingProfile profile;
-  MockDlpRulesManager mock_dlp_rules_manager(local_state(), &profile);
+  MockDlpRulesManager mock_dlp_rules_manager(
+      TestingBrowserProcess::GetGlobal()->local_state(), &profile);
   menu->set_dlp_rules_manager(&mock_dlp_rules_manager);
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SEARCHWEBFORNEWTAB));
 
@@ -854,7 +851,8 @@ TEST_F(RenderViewContextMenuPrefsTest,
 
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVELINKAS));
 
-  local_state()->SetBoolean(prefs::kAllowFileSelectionDialogs, false);
+  TestingBrowserProcess::GetGlobal()->local_state()->SetBoolean(
+      prefs::kAllowFileSelectionDialogs, false);
 
   EXPECT_FALSE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVELINKAS));
 }
@@ -1519,6 +1517,41 @@ TEST_F(RenderViewContextMenuPrefsTest, GetIsNewFeatureAtValue) {
   const char* const kUnregisteredFeatureName = "UnregisteredFeature";
   // An unknown feature name should not be considered new.
   ASSERT_FALSE(menu.GetIsNewFeatureAtValue(kUnregisteredFeatureName));
+}
+
+TEST_F(RenderViewContextMenuPrefsTest, GetIsNewFeatureAtValue_GuestProfile) {
+  profile_metrics::SetBrowserProfileType(
+      profile(), profile_metrics::BrowserProfileType::kGuest);
+
+  // The profile should be a guest profile.
+  ASSERT_TRUE(profile()->IsGuestSession());
+
+  content::ContextMenuParams params;
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+
+  // If it is not a regular profile, we don't have user education tracking and
+  // the feature should not be considered new.
+  ASSERT_FALSE(menu.GetIsNewFeatureAtValue(
+      user_education::features::kNewBadgeTestFeature.name));
+}
+
+TEST_F(RenderViewContextMenuPrefsTest,
+       GetIsNewFeatureAtValue_IncognitoProfile) {
+  profile_metrics::SetBrowserProfileType(
+      profile(), profile_metrics::BrowserProfileType::kIncognito);
+
+  // The profile should be an incognito profile.
+  ASSERT_TRUE(profile()->IsIncognitoProfile());
+
+  content::ContextMenuParams params;
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+
+  // If it is not a regular profile, we don't have user education tracking and
+  // the feature should not be considered new.
+  ASSERT_FALSE(menu.GetIsNewFeatureAtValue(
+      user_education::features::kNewBadgeTestFeature.name));
 }
 
 // Verify that the Lens Region Search menu item is enabled for Progressive Web

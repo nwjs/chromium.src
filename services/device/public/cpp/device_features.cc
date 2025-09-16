@@ -90,7 +90,7 @@ BASE_FEATURE(kUsbDeviceLinuxOpenCrashKey,
 // receiver to the background thread.
 BASE_FEATURE(kBatteryStatusManagerBroadcastReceiverInBackground,
              "BatteryStatusManagerBroadcastReceiverInBackground",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -155,7 +155,7 @@ BASE_FEATURE(kAutomaticUsbDetach,
 // Can be disabled as a kill switch if needed.
 BASE_FEATURE(kSerialSplitDtrAndRts,
              "SerialSplitDtrAndRts",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_WIN)
 
 }  // namespace features

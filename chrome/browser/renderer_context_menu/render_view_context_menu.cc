@@ -50,7 +50,7 @@
 #include "chrome/browser/devtools/features.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/download/download_stats.h"
-#include "chrome/browser/glic/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/language/language_model_manager_factory.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_features.h"
@@ -1028,10 +1028,14 @@ void RenderViewContextMenu::IssuePreconnectionToUrl(
 ui::IsNewFeatureAtValue RenderViewContextMenu::GetIsNewFeatureAtValue(
     const std::string& feature_name) const {
   Profile* profile = Profile::FromBrowserContext(browser_context_);
+  UserEducationService* user_education_service =
+      UserEducationServiceFactory::GetForBrowserContext(profile);
+  if (!user_education_service ||
+      !user_education_service->new_badge_registry()) {
+    return ui::IsNewFeatureAtValue();
+  }
   auto& feature_data =
-      UserEducationServiceFactory::GetForBrowserContext(profile)
-          ->new_badge_registry()
-          ->feature_data();
+      user_education_service->new_badge_registry()->feature_data();
   for (const auto& [feature, spec] : feature_data) {
     if (feature_name == feature->name) {
       return UserEducationService::MaybeShowNewBadge(browser_context_,
@@ -2878,8 +2882,12 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
     case IDC_CONTENT_CONTEXT_OPENLINKNEWTAB:
     case IDC_CONTENT_CONTEXT_OPENLINKNEWWINDOW:
     case IDC_CONTENT_CONTEXT_OPENLINKPREVIEW:
+      return navigation_allowed && params_.link_url.is_valid() &&
+             IsOpenLinkAllowedByDlp(params_.link_url);
+
     case IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW:
       return navigation_allowed && params_.link_url.is_valid() &&
+             params_.link_url.IsStandard() &&
              IsOpenLinkAllowedByDlp(params_.link_url);
 
     case IDC_CONTENT_CONTEXT_COPYLINKLOCATION:
@@ -4370,6 +4378,7 @@ void RenderViewContextMenu::ExecSearchLensForImage(int event_flags) {
     frame->RequestBitmapForContextNodeWithBoundsHint(base::BindOnce(
         &RenderViewContextMenu::OpenLensOverlayWithPreselectedRegion,
         weak_pointer_factory_.GetWeakPtr(), std::move(chrome_render_frame),
+        lens::LensOverlayInvocationSource::kContentAreaContextMenuImage,
         tab_bounds, view_bounds, device_scale_factor));
   } else {
     // If keyboard selection in Lens Overlay is disabled, when the Lens image
@@ -4391,6 +4400,7 @@ void RenderViewContextMenu::ExecSearchLensForImage(int event_flags) {
 void RenderViewContextMenu::OpenLensOverlayWithPreselectedRegion(
     mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame>
         chrome_render_frame,
+    lens::LensOverlayInvocationSource invocation_source,
     const gfx::Rect& tab_bounds,
     const gfx::Rect& view_bounds,
     float device_scale_factor,
@@ -4403,8 +4413,8 @@ void RenderViewContextMenu::OpenLensOverlayWithPreselectedRegion(
       LensSearchController::FromTabWebContents(source_web_contents_);
   CHECK(controller);
   controller->OpenLensOverlayWithPendingRegionFromBounds(
-      lens::LensOverlayInvocationSource::kContentAreaContextMenuImage,
-      tab_bounds, view_bounds, scaled_region_bounds, region_bitmap);
+      invocation_source, tab_bounds, view_bounds, scaled_region_bounds,
+      region_bitmap);
 }
 
 void RenderViewContextMenu::ExecRegionSearch(
@@ -4448,11 +4458,6 @@ void RenderViewContextMenu::ExecRegionSearch(
   // TODO(crbug.com/428031945): Clean up once LensOverlayKeyboardSelection
   // lands.
   const bool use_fullscreen_capture = use_keyboard_accessibility_fallback;
-
-  if (!lens_region_search_controller_) {
-    lens_region_search_controller_ =
-        std::make_unique<lens::LensRegionSearchController>();
-  }
   const lens::AmbientSearchEntryPoint entry_point =
       lens_overlay_for_region_search_enabled
           ? lens::AmbientSearchEntryPoint::
@@ -4461,9 +4466,10 @@ void RenderViewContextMenu::ExecRegionSearch(
           ? lens::AmbientSearchEntryPoint::
                 CONTEXT_MENU_SEARCH_REGION_WITH_GOOGLE_LENS
           : lens::AmbientSearchEntryPoint::CONTEXT_MENU_SEARCH_REGION_WITH_WEB;
-  lens_region_search_controller_->Start(
+  browser->GetFeatures().lens_region_search_controller()->Start(
       embedder_web_contents_, use_fullscreen_capture,
       is_google_default_search_provider, entry_point);
+  lens_region_search_controller_started_for_testing_ = true;
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
 
@@ -4742,6 +4748,7 @@ void RenderViewContextMenu::SearchForVideoFrame(
     OpenLensOverlayWithPreselectedRegion(
         /*chrome_render_frame=*/mojo::AssociatedRemote<
             chrome::mojom::ChromeRenderFrame>(),
+        lens::LensOverlayInvocationSource::kContentAreaContextMenuVideo,
         tab_bounds, view_bounds, device_scale_factor, bitmap, region_bounds);
     return;
   }
@@ -4920,29 +4927,32 @@ void RenderViewContextMenu::OpenLinkInSplitView() {
       if (tab != source_tab) {
         // Navigate the tab that wasn't the source of the context menu to the
         // URL
-        tab->GetContents()->GetController().LoadURL(
-            params_.link_url, content::Referrer(),
-            ui::PageTransition::PAGE_TRANSITION_LINK, std::string());
+        content::NavigationController::LoadURLParams params(params_.link_url);
+        params.initiator_origin = params_.frame_origin;
+        params.started_from_context_menu = true;
+        params.transition_type = ui::PAGE_TRANSITION_LINK;
+        params.referrer = CreateReferrer(params_.link_url, params_);
+        tab->GetContents()->GetController().LoadURLWithParams(params);
         break;
       }
     }
-  } else {  // Create new split tab
-    const int active_index = tab_strip_model->active_index();
-    // AddTabAt always adds an unpinned tab so if adding to an index within the
-    // pinned tabs, it will add to the first unpinned index instead.
-    // Additionally, it does not return a tab pointer or index, so we have to
-    // insert at the end of the tab strip, since it is the only place we can
-    // insert a tab and be guaranteed the final destination index is the same as
-    // the provided index.
-    const int new_tab_index = tab_strip_model->count();
-    tab_strip_model->delegate()->AddTabAt(
-        params_.link_url, new_tab_index, false,
-        tab_strip_model->GetTabGroupForTab(active_index));
-    tabs::TabInterface* new_tab = tab_strip_model->GetTabAtIndex(new_tab_index);
+  } else {
+    // Create new background tab.
+    OpenURLParams params = GetOpenURLParamsWithExtraHeaders(
+        params_.link_url, params_.frame_url, params_.frame_origin,
+        WindowOpenDisposition::NEW_BACKGROUND_TAB, ui::PAGE_TRANSITION_LINK,
+        /*extra_headers=*/std::string(), /*started_from_context_menu=*/true);
+    const WebContents* new_web_contents =
+        browser->OpenURL(params, /*navigation_handle_callback=*/{});
+    const int new_tab_index =
+        tab_strip_model->GetIndexOfWebContents(new_web_contents);
+
+    // Create split and activate new tab.
     tab_strip_model->AddToNewSplit(
         {new_tab_index}, split_tabs::SplitTabVisualData(),
         split_tabs::SplitTabCreatedSource::kLinkContextMenu);
-    tab_strip_model->ActivateTabAt(tab_strip_model->GetIndexOfTab(new_tab));
+    tab_strip_model->ActivateTabAt(
+        tab_strip_model->GetIndexOfWebContents(new_web_contents));
   }
 }
 #endif  // !BUILDFLAG(IS_ANDROID)

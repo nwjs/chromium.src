@@ -7,6 +7,7 @@
 #include <ranges>
 
 #include "base/strings/utf_string_conversions.h"
+#include "components/password_manager/core/browser/actor_login/internal/actor_login_util.h"
 #include "components/password_manager/core/browser/form_fetcher_impl.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
@@ -22,11 +23,10 @@ Credential PasswordFormToCredential(
   CHECK_NE(form.match_type.value(),
            password_manager::PasswordForm::MatchType::kGrouped);
   Credential credential;
+  credential.id = Credential::GenerateCredentialId();
   credential.username = form.username_value;
-  // TODO(crbug.com/427171031): Clarify the format.
-  credential.source_site_or_app =
-      base::UTF8ToUTF16(form.url.GetWithEmptyPath().spec());
-  // TODO(crbug.com/427171031): Use PasswordManager to set the real value here.
+  credential.source_site_or_app = GetSourceSiteOrAppFromUrl(form.url);
+  // TODO(crbug.com/434165685): Use PasswordManager to set the real value here.
   credential.immediatelyAvailableToLogin = true;
   return credential;
 }
@@ -40,7 +40,7 @@ ActorLoginGetCredentialsHelper::ActorLoginGetCredentialsHelper(
     : callback_(std::move(callback)) {
   password_manager::PasswordFormDigest form_digest(
       password_manager::PasswordForm::Scheme::kHtml,
-      password_manager::GetSignonRealm(url), url);
+      password_manager_util::GetSignonRealm(url), url);
   form_fetcher_ = std::make_unique<password_manager::FormFetcherImpl>(
       std::move(form_digest), client,
       /*should_migrate_http_passwords=*/false);

@@ -26,7 +26,7 @@
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/frame/browser_caption_button_container_win.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/tab_strip_view_interface.h"
 #include "chrome/browser/ui/views/frame/webui_tab_strip_container_view.h"
 #include "chrome/browser/ui/views/tabs/new_tab_button.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
@@ -193,23 +193,6 @@ int BrowserFrameViewWin::GetTopInset(bool restored) const {
   return ShouldBrowserCustomDrawTitlebar(browser_view())
              ? TitlebarHeight(restored)
              : 0;
-}
-
-bool BrowserFrameViewWin::HasVisibleBackgroundTabShapes(
-    BrowserFrameActiveState active_state) const {
-  DCHECK(GetWidget());
-
-  // Enabling high contrast mode disables the custom-drawn titlebar (so the
-  // system-drawn frame will respect the native frame colors) and enables the
-  // IncreasedContrastThemeSupplier (which does not respect the native frame
-  // colors).
-  // TODO(pkasting): https://crbug.com/831769  Change the architecture of the
-  // high contrast support to respect system colors, then remove this.
-  if (GetNativeTheme()->UserHasContrastPreference()) {
-    return true;
-  }
-
-  return BrowserNonClientFrameView::HasVisibleBackgroundTabShapes(active_state);
 }
 
 SkColor BrowserFrameViewWin::GetCaptionColor(
@@ -614,7 +597,9 @@ int BrowserFrameViewWin::TitlebarHeight(bool restored) const {
 
 int BrowserFrameViewWin::GetFrameHeight() const {
   if (browser_view()->GetTabStripVisible()) {
-    return browser_view()->tab_strip_region_view()->GetMinimumSize().height() -
+    // TODO(crbug.com/437915973): Account for the vertical tab region when using
+    // GetMinimumSize().
+    return browser_view()->tab_strip_view()->GetMinimumSize().height() -
            WindowTopY() - GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP);
   }
   return IsMaximized() ? TitlebarMaximizedVisualHeight()
@@ -747,10 +732,12 @@ void BrowserFrameViewWin::PaintTitlebar(gfx::Canvas* canvas) const {
       titlebar_color));
   canvas->DrawRect(gfx::RectF(0, 0, width() * scale, y), flags);
 
+  // TODO(crbug.com/437915973): Account for the vertical tab region when using
+  // GetMinimumSize().
   const int titlebar_height =
       browser_view()->GetTabStripVisible()
           ? GetBoundsForTabStripRegion(
-                browser_view()->tab_strip_region_view()->GetMinimumSize())
+                browser_view()->tab_strip_view()->GetMinimumSize())
                 .bottom()
           : TitlebarHeight(false);
   const gfx::Rect titlebar_rect = gfx::ToEnclosingRect(

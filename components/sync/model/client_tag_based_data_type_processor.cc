@@ -5,7 +5,6 @@
 #include "components/sync/model/client_tag_based_data_type_processor.h"
 
 #include <optional>
-#include <set>
 #include <utility>
 #include <vector>
 
@@ -42,6 +41,7 @@
 #include "components/sync/protocol/proto_value_conversions.h"
 #include "components/sync/protocol/unique_position.pb.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 namespace syncer {
 namespace {
@@ -101,16 +101,13 @@ SyncMetadataConsistency GetSyncMetadataConsistency(
 }
 
 size_t CountDuplicateClientTags(const EntityMetadataMap& metadata_map) {
-  size_t count = 0u;
-  std::set<std::string> client_tag_hashes;
+  absl::flat_hash_set<std::string> client_tag_hashes;
   for (const auto& [storage_key, metadata] : metadata_map) {
-    const std::string& client_tag_hash = metadata->client_tag_hash();
-    if (client_tag_hashes.find(client_tag_hash) != client_tag_hashes.end()) {
-      count++;
-    }
-    client_tag_hashes.insert(client_tag_hash);
+    client_tag_hashes.insert(metadata->client_tag_hash());
   }
-  return count;
+  // The number of duplicates is the total number of items minus the number of
+  // unique items.
+  return metadata_map.size() - client_tag_hashes.size();
 }
 
 void RecordDataTypeNumUnsyncedEntitiesOnModelReady(
@@ -674,14 +671,10 @@ void ClientTagBasedDataTypeProcessor::UntrackEntityForClientTagHash(
 
 std::vector<std::string>
 ClientTagBasedDataTypeProcessor::GetAllTrackedStorageKeys() const {
-  std::vector<std::string> storage_keys;
   if (entity_tracker_) {
-    for (const ProcessorEntity* entity :
-         entity_tracker_->GetAllEntitiesIncludingTombstones()) {
-      storage_keys.push_back(entity->storage_key());
-    }
+    return entity_tracker_->GetAllStorageKeys();
   }
-  return storage_keys;
+  return {};
 }
 
 bool ClientTagBasedDataTypeProcessor::IsEntityUnsynced(
@@ -774,7 +767,7 @@ void ClientTagBasedDataTypeProcessor::GetLocalChanges(
   }
   if (!entities_requiring_data.empty()) {
     // Make a copy to later check if everything was loaded successfully.
-    std::unordered_set<std::string> storage_keys_to_load(
+    absl::flat_hash_set<std::string> storage_keys_to_load(
         entities_requiring_data.begin(), entities_requiring_data.end());
     std::unique_ptr<DataBatch> data_batch =
         bridge_->GetDataForCommit(std::move(entities_requiring_data));
@@ -1185,7 +1178,7 @@ ClientTagBasedDataTypeProcessor::OnIncrementalUpdateReceived(
 }
 
 void ClientTagBasedDataTypeProcessor::ConsumeDataBatch(
-    std::unordered_set<std::string> storage_keys_to_load,
+    absl::flat_hash_set<std::string> storage_keys_to_load,
     std::unique_ptr<DataBatch> data_batch) {
   DUMP_WILL_BE_CHECK(entity_tracker_);
   while (data_batch->HasNext()) {

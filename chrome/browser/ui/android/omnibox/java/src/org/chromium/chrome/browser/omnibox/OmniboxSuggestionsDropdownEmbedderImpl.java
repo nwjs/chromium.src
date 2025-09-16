@@ -17,18 +17,20 @@ import android.view.WindowInsets;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
 
-import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.ObservableSupplierImpl;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsDropdownEmbedder;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.display.DisplayUtil;
+
+import java.util.function.Supplier;
 
 /**
  * Implementation of {@link OmniboxSuggestionsDropdownEmbedder} that positions it using an "anchor"
@@ -46,6 +48,7 @@ class OmniboxSuggestionsDropdownEmbedderImpl
     private final View mAnchorView;
     private final View mAlignmentView;
     private final boolean mForcePhoneStyleOmnibox;
+    private final Supplier<@ControlsPosition Integer> mControlsPositionSupplier;
     private final Supplier<Integer> mKeyboardHeightSupplier;
     private final Supplier<Integer> mBottomWindowPaddingSupplier;
     private final Context mContext;
@@ -84,12 +87,14 @@ class OmniboxSuggestionsDropdownEmbedderImpl
             View alignmentView,
             boolean forcePhoneStyleOmnibox,
             @Nullable View baseChromeLayout,
+            Supplier<@ControlsPosition Integer> controlsPositionSupplier,
             Supplier<Integer> keyboardHeightSupplier,
             Supplier<Integer> bottomWindowPaddingSupplier) {
         mWindowAndroid = windowAndroid;
         mAnchorView = anchorView;
         mAlignmentView = alignmentView;
         mForcePhoneStyleOmnibox = forcePhoneStyleOmnibox;
+        mControlsPositionSupplier = controlsPositionSupplier;
         mKeyboardHeightSupplier = keyboardHeightSupplier;
         mBottomWindowPaddingSupplier = bottomWindowPaddingSupplier;
         mContext = mAnchorView.getContext();
@@ -218,12 +223,20 @@ class OmniboxSuggestionsDropdownEmbedderImpl
             contentView = mAnchorView.getRootView().findViewById(android.R.id.content);
         }
 
-        ViewUtils.getRelativeLayoutPosition(contentView, mAnchorView, mPositionArray);
-        int top = mPositionArray[1] + mAnchorView.getMeasuredHeight() - contentView.getPaddingTop();
+        int top;
         int left;
         int width;
         int paddingLeft;
         int paddingRight;
+
+        @ControlsPosition int controlsPosition = mControlsPositionSupplier.get();
+        if (controlsPosition == ControlsPosition.BOTTOM) {
+            top = 0;
+        } else {
+            ViewUtils.getRelativeLayoutPosition(contentView, mAnchorView, mPositionArray);
+            top = mPositionArray[1] + mAnchorView.getMeasuredHeight() - contentView.getPaddingTop();
+        }
+
         if (isTablet()) {
             ViewUtils.getRelativeLayoutPosition(mAnchorView, mAlignmentView, mPositionArray);
             // Width equal to alignment view and left equivalent to left of alignment view. Top
@@ -254,7 +267,7 @@ class OmniboxSuggestionsDropdownEmbedderImpl
         int keyboardHeight = mKeyboardHeightSupplier.get();
 
         int windowHeight;
-        if (BuildInfo.getInstance().isAutomotive
+        if (DeviceInfo.isAutomotive()
                 && contentView != null
                 && contentView.getRootWindowInsets() != null) {
             // Some automotive devices dismiss bottom system bars when bringing up the keyboard,
@@ -291,7 +304,12 @@ class OmniboxSuggestionsDropdownEmbedderImpl
                 contentView == null
                         ? Integer.MAX_VALUE
                         : contentView.getMeasuredHeight() - keyboardHeight;
-        int height = Math.min(windowSpace, contentSpace) - top;
+        int height;
+        if (controlsPosition == ControlsPosition.BOTTOM) {
+            height = Math.min(windowSpace, contentSpace) - mAnchorView.getMeasuredHeight();
+        } else {
+            height = Math.min(windowSpace, contentSpace) - top;
+        }
 
         // TODO(pnoland@, https://crbug.com/1416985): avoid pushing changes that are identical to
         // the previous alignment value.

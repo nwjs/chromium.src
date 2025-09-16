@@ -1266,6 +1266,7 @@ VISIT_PROTO_FIELDS(const sync_pb::SavedTabGroup& proto) {
   VISIT(title);
   VISIT_ENUM(color);
   VISIT(pinned_position);
+  VISIT(bookmark_node_id);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SavedTabGroupTab& proto) {
@@ -1462,11 +1463,20 @@ VISIT_PROTO_FIELDS(const sync_pb::SyncEntity::CollaborationMetadata& proto) {
   VISIT(collaboration_id);
   VISIT(creation_attribution);
   VISIT(last_update_attribution);
+  VISIT_REP(per_field_attributions);
 }
 
 VISIT_PROTO_FIELDS(
     const sync_pb::SyncEntity::CollaborationMetadata::Attribution& proto) {
   VISIT(obfuscated_gaia_id);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::SyncEntity::CollaborationMetadata::PerFieldAttribution&
+        proto) {
+  VISIT(attribution_name);
+  VISIT(last_update_obfuscated_gaia_id);
+  VISIT(mtime);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SyncInvalidationsPayload& proto) {
@@ -2013,17 +2023,47 @@ VISIT_PROTO_FIELDS(
   VISIT(is_collapsed);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::Any& proto) {
+  VISIT_REP(type_url);
+  VISIT_REP(value);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::AutofillValuableSpecifics& proto) {
   VISIT(id);
   VISIT(loyalty_card);
+  VISIT(vehicle_registration);
+  VISIT(flight_reservation);
+  VISIT(serialized_chrome_valuables_metadata);
 }
 
-VISIT_PROTO_FIELDS(
-    const sync_pb::AutofillValuableSpecifics::LoyaltyCard& proto) {
+VISIT_PROTO_FIELDS(const sync_pb::LoyaltyCard& proto) {
   VISIT(merchant_name);
   VISIT(program_name);
   VISIT(program_logo);
   VISIT(loyalty_card_number);
+  VISIT_REP(merchant_domains);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::VehicleRegistration& proto) {
+  VISIT(vehicle_make);
+  VISIT(vehicle_model);
+  VISIT(vehicle_year);
+  VISIT(vehicle_identification_number);
+  VISIT(vehicle_license_plate);
+  VISIT(license_plate_region);
+  VISIT(license_plate_country);
+  VISIT(owner_name);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::FlightReservation& proto) {
+  VISIT(flight_number);
+  VISIT(flight_ticket_number);
+  VISIT(flight_confirmation_code);
+  VISIT(passenger_name);
+  VISIT(departure_airport);
+  VISIT(arrival_airport);
+  VISIT(departure_date_unix_epoch_micros);
+  VISIT(arrival_date_unix_epoch_micros);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SharedTabDetails& proto) {

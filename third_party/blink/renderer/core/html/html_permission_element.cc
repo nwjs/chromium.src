@@ -52,6 +52,7 @@
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer_entry.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/computed_style_base_constants.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
@@ -100,10 +101,14 @@ constexpr int kMaxLengthToFontSizeRatio = 3;
 constexpr int kMinLengthToFontSizeRatio = 1;
 constexpr int kMaxVerticalPaddingToFontSizeRatio = 1;
 constexpr int kMaxHorizontalPaddingToFontSizeRatio = 5;
+constexpr float kMaxBorderWidthToFontSizeRatio = 0.5;
 constexpr float kIntersectionThreshold = 1.0f;
 
 constexpr float kDefaultSmallFontSize = 13;     // Default 'small' font size.
 constexpr float kDefaultXxxLargeFontSize = 48;  // Default 'xxxlarge' font size.
+
+constexpr float kDefaultMaxPercentRadiusWidth = 25;
+constexpr float kDefaultMaxPercentRadiusHeight = 50;
 
 // These display styles are not allowed for permission elements as they can mess
 // with the layout in unsupported ways. Additionally, all "table" styles are
@@ -269,6 +274,7 @@ V8PermissionState::Enum PermissionStatusToV8Enum(MojoPermissionStatus status) {
     case MojoPermissionStatus::ASK:
       return V8PermissionState::Enum::kPrompt;
     case MojoPermissionStatus::DENIED:
+    case MojoPermissionStatus::UNSATISFIED_OPTIONS:
       return V8PermissionState::Enum::kDenied;
   }
   NOTREACHED();
@@ -446,8 +452,8 @@ void HTMLPermissionElement::AttachLayoutTree(AttachContext& context) {
   if (!intersection_observer_) {
     intersection_observer_ = IntersectionObserver::Create(
         GetDocument(),
-        WTF::BindRepeating(&HTMLPermissionElement::OnIntersectionChanged,
-                           WrapWeakPersistent(this)),
+        BindRepeating(&HTMLPermissionElement::OnIntersectionChanged,
+                      WrapWeakPersistent(this)),
         LocalFrameUkmAggregator::kPermissionElementIntersectionObserver,
         IntersectionObserver::Params{
             .margin = {Length::Fixed(kMarginVisibleContent)},
@@ -531,6 +537,7 @@ bool HTMLPermissionElement::CanGeneratePseudoElement(PseudoId id) const {
     case PseudoId::kPseudoIdBefore:
     case PseudoId::kPseudoIdCheckMark:
     case PseudoId::kPseudoIdPickerIcon:
+    case PseudoId::kPseudoIdInterestHint:
       return false;
     default:
       return Element::CanGeneratePseudoElement(id);
@@ -554,6 +561,28 @@ bool HTMLPermissionElement::IsRenderered() const {
   }
 
   return false;
+}
+
+void HTMLPermissionElement::setType(const AtomicString& type) {
+  // `type` should only take effect once, when is added to the permission
+  // element. Removing, or modifying the attribute has no effect.
+  if (!type_.IsNull()) {
+    return;
+  }
+
+  type_ = type;
+
+  CHECK(permission_descriptors_.empty());
+  permission_descriptors_ = ParsePermissionDescriptorsFromString(GetType());
+  if (permission_descriptors_.empty()) {
+    AddConsoleError(StrCat({"The permission type '", GetType().GetString(),
+                            "' is not supported by the permission element."}));
+    EnableFallbackMode();
+    return;
+  }
+
+  CHECK_LE(permission_descriptors_.size(), 2U)
+      << "Unexpected permissions size " << permission_descriptors_.size();
 }
 
 // static
@@ -626,9 +655,9 @@ PermissionService* HTMLPermissionElement::GetPermissionService() {
   if (!permission_service_.is_bound()) {
     GetExecutionContext()->GetBrowserInterfaceBroker().GetInterface(
         permission_service_.BindNewPipeAndPassReceiver(GetTaskRunner()));
-    permission_service_.set_disconnect_handler(WTF::BindOnce(
-        &HTMLPermissionElement::OnPermissionServiceConnectionFailed,
-        WrapWeakPersistent(this)));
+    permission_service_.set_disconnect_handler(
+        BindOnce(&HTMLPermissionElement::OnPermissionServiceConnectionFailed,
+                 WrapWeakPersistent(this)));
   }
 
   return permission_service_.get();
@@ -710,26 +739,7 @@ void HTMLPermissionElement::LangAttributeChanged() {
 void HTMLPermissionElement::AttributeChanged(
     const AttributeModificationParams& params) {
   if (params.name == html_names::kTypeAttr) {
-    // `type` should only take effect once, when is added to the permission
-    // element. Removing, or modifying the attribute has no effect.
-    if (!type_.IsNull()) {
-      return;
-    }
-
-    type_ = params.new_value;
-
-    CHECK(permission_descriptors_.empty());
-    permission_descriptors_ = ParsePermissionDescriptorsFromString(GetType());
-    if (permission_descriptors_.empty()) {
-      AddConsoleError(
-          StrCat({"The permission type '", GetType().GetString(),
-                  "' is not supported by the permission element."}));
-      EnableFallbackMode();
-      return;
-    }
-
-    CHECK_LE(permission_descriptors_.size(), 2U)
-        << "Unexpected permissions size " << permission_descriptors_.size();
+    setType(params.new_value);
   }
 
   MaybeRegisterPageEmbeddedPermissionControl();
@@ -902,18 +912,40 @@ void HTMLPermissionElement::AdjustStyle(ComputedStyleBuilder& builder) {
     builder.ResetPaddingBottom();
   }
 
-  if (builder.BorderBottomWidth() > builder.FontSize()) {
-    builder.SetBorderBottomWidth(builder.FontSize());
+  if (builder.BorderBottomWidth() >
+      builder.FontSize() * kMaxBorderWidthToFontSizeRatio) {
+    builder.SetBorderBottomWidth(builder.FontSize() *
+                                 kMaxBorderWidthToFontSizeRatio);
   }
-  if (builder.BorderTopWidth() > builder.FontSize()) {
-    builder.SetBorderTopWidth(builder.FontSize());
+  if (builder.BorderTopWidth() >
+      builder.FontSize() * kMaxBorderWidthToFontSizeRatio) {
+    builder.SetBorderTopWidth(builder.FontSize() *
+                              kMaxBorderWidthToFontSizeRatio);
   }
-  if (builder.BorderLeftWidth() > builder.FontSize()) {
-    builder.SetBorderLeftWidth(builder.FontSize());
+  if (builder.BorderLeftWidth() >
+      builder.FontSize() * kMaxBorderWidthToFontSizeRatio) {
+    builder.SetBorderLeftWidth(builder.FontSize() *
+                               kMaxBorderWidthToFontSizeRatio);
   }
-  if (builder.BorderRightWidth() > builder.FontSize()) {
-    builder.SetBorderRightWidth(builder.FontSize());
+  if (builder.BorderRightWidth() >
+      builder.FontSize() * kMaxBorderWidthToFontSizeRatio) {
+    builder.SetBorderRightWidth(builder.FontSize() *
+                                kMaxBorderWidthToFontSizeRatio);
   }
+
+  // The radius is adjusted to be at most the hardcoded percentage.
+  builder.SetBorderTopLeftRadius(AdjustedPercentBoundedRadius(
+      builder.BorderTopLeftRadius(), kDefaultMaxPercentRadiusWidth,
+      kDefaultMaxPercentRadiusHeight));
+  builder.SetBorderTopRightRadius(AdjustedPercentBoundedRadius(
+      builder.BorderTopRightRadius(), kDefaultMaxPercentRadiusWidth,
+      kDefaultMaxPercentRadiusHeight));
+  builder.SetBorderBottomLeftRadius(AdjustedPercentBoundedRadius(
+      builder.BorderBottomLeftRadius(), kDefaultMaxPercentRadiusWidth,
+      kDefaultMaxPercentRadiusHeight));
+  builder.SetBorderBottomRightRadius(AdjustedPercentBoundedRadius(
+      builder.BorderBottomRightRadius(), kDefaultMaxPercentRadiusWidth,
+      kDefaultMaxPercentRadiusHeight));
 
   // The base `text-decoration` property must be reset for each `<permission>`
   // element. This prevents any `text-decoration` from a parent element from
@@ -1032,8 +1064,8 @@ void HTMLPermissionElement::RequestPageEmbededPermissions() {
 
   GetPermissionService()->RequestPageEmbeddedPermission(
       std::move(descriptor),
-      WTF::BindOnce(&HTMLPermissionElement::OnEmbeddedPermissionsDecided,
-                    WrapWeakPersistent(this)));
+      BindOnce(&HTMLPermissionElement::OnEmbeddedPermissionsDecided,
+               WrapWeakPersistent(this)));
 }
 
 void HTMLPermissionElement::OnPermissionStatusChange(
@@ -1376,11 +1408,11 @@ void HTMLPermissionElement::UpdateText() {
           GetDocument().GetExecutionContext())) {
     GetTaskRunner()->PostTask(
         FROM_HERE,
-        WTF::BindOnce(&HTMLPermissionIconElement::SetIcon,
-                      WrapWeakPersistent(permission_internal_icon_.Get()),
-                      permission_count == 1 ? permission_name
-                                            : PermissionName::VIDEO_CAPTURE,
-                      is_precise_location_));
+        BindOnce(&HTMLPermissionIconElement::SetIcon,
+                 WrapWeakPersistent(permission_internal_icon_.Get()),
+                 permission_count == 1 ? permission_name
+                                       : PermissionName::VIDEO_CAPTURE,
+                 is_precise_location_));
   }
   AtomicString language_string = ComputeInheritedLanguage().LowerASCII();
 
@@ -1471,7 +1503,23 @@ void HTMLPermissionElement::OnIntersectionChanged(
           WrapWeakPersistent(this)));
 }
 
+bool HTMLPermissionElement::IsMaskedByAncestor() const {
+  if (LayoutObject* layout_object = GetLayoutObject()) {
+    for (PaintLayer* layer = layout_object->EnclosingLayer(); layer;
+         layer = layer->Parent()) {
+      if (layer->GetLayoutObject().HasMask()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 bool HTMLPermissionElement::IsStyleValid() {
+  if (IsMaskedByAncestor()) {
+    return false;
+  }
+
   const ComputedStyle* style = GetComputedStyle();
 
   // No computed style when using `display: none`.
@@ -1577,6 +1625,35 @@ Length HTMLPermissionElement::AdjustedBoundedLengthWrapper(
   }
   return HTMLPermissionElementUtils::AdjustedBoundedLength(
       length, lower_bound, upper_bound, should_multiply_by_content_size);
+}
+
+LengthSize HTMLPermissionElement::AdjustedPercentBoundedRadius(
+    const LengthSize& length_size,
+    float width_percent_bound,
+    float height_percent_bound) {
+  LengthSize adjusted_length_size;
+
+  auto* width_upper_bound_expr =
+      MakeGarbageCollected<CalculationExpressionPixelsAndPercentNode>(
+          PixelsAndPercent(0, width_percent_bound,
+                           /*has_explicit_pixels=*/false,
+                           /*has_explicit_percent=*/true));
+  adjusted_length_size.SetWidth(Length(CalculationValue::CreateSimplified(
+      HTMLPermissionElementUtils::BuildLengthBoundExpr(
+          length_size.Width(), nullptr, width_upper_bound_expr),
+      Length::ValueRange::kNonNegative)));
+
+  auto* height_upper_bound_expr =
+      MakeGarbageCollected<CalculationExpressionPixelsAndPercentNode>(
+          PixelsAndPercent(0, height_percent_bound,
+                           /*has_explicit_pixels=*/false,
+                           /*has_explicit_percent=*/true));
+  adjusted_length_size.SetHeight(Length(CalculationValue::CreateSimplified(
+      HTMLPermissionElementUtils::BuildLengthBoundExpr(
+          length_size.Height(), nullptr, height_upper_bound_expr),
+      Length::ValueRange::kNonNegative)));
+
+  return adjusted_length_size;
 }
 
 void HTMLPermissionElement::DidFinishLifecycleUpdate(

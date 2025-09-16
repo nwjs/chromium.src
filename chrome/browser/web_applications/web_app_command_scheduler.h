@@ -12,17 +12,18 @@
 
 #include "base/files/file_path.h"
 #include "base/types/expected.h"
-#include "base/version.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/web_applications/commands/internal/callback_command.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_sub_manager.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
+#include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_install_params.h"
 #include "chrome/browser/web_applications/web_app_management_type.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/browser/uninstall_result_code.h"
+#include "components/webapps/isolated_web_apps/types/iwa_version.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_cache_client.h"
@@ -50,7 +51,6 @@ class ComputedAppSizeWithOrigin;
 class IsolatedWebAppInstallSource;
 class IsolatedWebAppUrlInfo;
 class IsolatedWebAppUpdatePrepareAndStoreCommandUpdateInfo;
-class IsolatedWebAppApplyUpdateCommandSuccess;
 class IsolationData;
 class SignedWebBundleMetadata;
 class WebApp;
@@ -224,7 +224,7 @@ class WebAppCommandScheduler {
 
   using ManifestSilentUpdateCompletedCallback =
       base::OnceCallback<void(ManifestSilentUpdateCheckResult check_result)>;
-    // A newer version of `ScheduleManifestUpdateCheck` that uses a more
+  // A newer version of `ScheduleManifestUpdateCheck` that uses a more
   // predictable app updating algorithm. This will eventually replace the
   // original.
   // For more details, go/predictable-app-updating-design-doc.
@@ -279,7 +279,7 @@ class WebAppCommandScheduler {
   virtual void InstallIsolatedWebApp(
       const IsolatedWebAppUrlInfo& url_info,
       const IsolatedWebAppInstallSource& install_source,
-      const std::optional<base::Version>& expected_version,
+      const std::optional<IwaVersion>& expected_version,
       std::unique_ptr<ScopedKeepAlive> optional_keep_alive,
       std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive,
       InstallIsolatedWebAppCallback callback,
@@ -318,8 +318,8 @@ class WebAppCommandScheduler {
       std::unique_ptr<ScopedKeepAlive> optional_keep_alive,
       std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive,
       base::OnceCallback<
-          void(base::expected<IsolatedWebAppApplyUpdateCommandSuccess,
-                              IsolatedWebAppApplyUpdateCommandError>)> callback,
+          void(base::expected<void, IsolatedWebAppApplyUpdateCommandError>)>
+          callback,
       const base::Location& call_location = FROM_HERE);
 
   // Checks if a Signed Web Bundle is a valid and installable Isolated Web App.
@@ -329,7 +329,7 @@ class WebAppCommandScheduler {
   virtual void CheckIsolatedWebAppBundleInstallability(
       const SignedWebBundleMetadata& bundle_metadata,
       base::OnceCallback<void(IsolatedInstallabilityCheckResult,
-                              std::optional<base::Version>)> callback,
+                              std::optional<IwaVersion>)> callback,
       const base::Location& call_location = FROM_HERE);
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -338,7 +338,7 @@ class WebAppCommandScheduler {
   // version.
   void GetIsolatedWebAppBundleCachePath(
       const IsolatedWebAppUrlInfo& url_info,
-      const std::optional<base::Version>& version,
+      const std::optional<IwaVersion>& version,
       IwaCacheClient::SessionType session_type,
       base::OnceCallback<void(
           base::expected<GetBundleCachePathSuccess, GetBundleCachePathError>)>
@@ -657,6 +657,15 @@ class WebAppCommandScheduler {
                          const base::Location& location = FROM_HERE);
 
   base::WeakPtr<WebAppCommandScheduler> GetWeakPtr();
+
+  // Safely gets all apps given the WebAppFilter.
+  void GetAllAppsForFilter(
+      const WebAppFilter&,
+      base::OnceCallback<void(std::vector<webapps::AppId>)> callback);
+
+  // Synchronizes the os integration of all apps that apply to the filter.
+  void SynchronizeOsIntegrationForAllApps(const WebAppFilter& filter,
+                                          base::OnceClosure callback);
 
   // TODO(crbug.com/40215411): expose all commands for web app
   // operations.

@@ -280,8 +280,6 @@ void FormDataImporter::ImportAndProcessFormData(
         submitted_form, extracted_data.extracted_credit_card,
         credit_card_upload_enabled, ukm_source_id);
   }
-  fetched_card_instrument_id_.reset();
-  card_was_fetched_from_cache_.reset();
 
   bool iban_prompt_potentially_shown = false;
   if (extracted_data.extracted_iban.has_value() &&
@@ -289,6 +287,10 @@ void FormDataImporter::ImportAndProcessFormData(
     iban_prompt_potentially_shown =
         ProcessIbanImportCandidate(*extracted_data.extracted_iban);
   }
+
+  // Reset last fetch payments method metadata after all payments related form
+  // data processing logic is finished.
+  fetched_payments_data_context_ = FetchedPaymentsDataContext();
 
   // Record the prompt status iff at least one prompt could have been displayed.
   // Recording that status isn't pertinent otherwise. When there is a full
@@ -306,6 +308,18 @@ void FormDataImporter::ImportAndProcessFormData(
   } else if (payments_prompt_potentially_shown) {
     AutofillMetrics::LogAutofillPromptStatus(
         AutofillMetrics::AutofillPromptStatus::kCreditCardShown);
+  }
+
+  // TODO(crbug.com/356845298) Clean up when launched.
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillEnableSupportForNameAndEmail)) {
+    base::flat_set<std::string> unedited_autofilled_profile_guids =
+        ExtractGUIDsOfProfilesWithoutManualEdits(submitted_form);
+
+    for (auto& candidate : extracted_data.extracted_address_profiles) {
+      candidate.import_metadata.unedited_autofilled_profile_guids =
+          unedited_autofilled_profile_guids;
+    }
   }
 
   ProcessExtractedAddressProfiles(
@@ -362,10 +376,6 @@ void FormDataImporter::RemoveInaccessibleProfileValues(
 void FormDataImporter::CacheFetchedVirtualCard(
     const std::u16string& last_four) {
   fetched_virtual_cards_.insert(last_four);
-}
-
-void FormDataImporter::SetFetchedCardInstrumentId(int64_t instrument_id) {
-  fetched_card_instrument_id_ = instrument_id;
 }
 
 FormDataImporter::ExtractedFormData FormDataImporter::ExtractFormData(
@@ -840,8 +850,9 @@ bool FormDataImporter::ProcessExtractedCreditCard(
       client_->GetPaymentsAutofillClient()->GetVirtualCardEnrollmentManager();
   if (virtual_card_enrollment_manager &&
       virtual_card_enrollment_manager->ShouldOfferVirtualCardEnrollment(
-          *extracted_credit_card, fetched_card_instrument_id_,
-          card_was_fetched_from_cache_)) {
+          *extracted_credit_card,
+          fetched_payments_data_context_.fetched_card_instrument_id,
+          fetched_payments_data_context_.card_was_fetched_from_cache)) {
     virtual_card_enrollment_manager->InitVirtualCardEnroll(
         *extracted_credit_card, VirtualCardEnrollmentSource::kDownstream,
         base::BindOnce(
@@ -902,6 +913,13 @@ std::optional<CreditCard> FormDataImporter::ExtractCreditCard(
   // the expiration date fix flow. However, cards with invalid card numbers must
   // still be ignored.
   if (!candidate.HasValidCardNumber()) {
+    return std::nullopt;
+  }
+
+  // If Save and Fill suggestion was clicked (regardless of whether the card was
+  // saved or not eventually) before the form extraction, don't offer other
+  // payments post-checkout flows.
+  if (fetched_payments_data_context_.card_submitted_through_save_and_fill) {
     return std::nullopt;
   }
 
@@ -1152,6 +1170,22 @@ Iban FormDataImporter::ExtractIbanFromForm(const FormStructure& form) {
     }
   }
   return candidate_iban;
+}
+
+base::flat_set<std::string>
+FormDataImporter::ExtractGUIDsOfProfilesWithoutManualEdits(
+    const FormStructure& submitted_form) const {
+  base::flat_set<std::string> unedited_source_profile_guids;
+  for (const std::unique_ptr<AutofillField>& field : submitted_form) {
+    if (field->is_user_edited()) {
+      return {};
+    }
+    if (const std::optional<std::string>& guid =
+            field->autofill_source_profile_guid()) {
+      unedited_source_profile_guids.insert(guid.value());
+    }
+  }
+  return unedited_source_profile_guids;
 }
 
 void FormDataImporter::OnAddressDataChanged() {

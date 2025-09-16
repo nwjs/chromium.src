@@ -118,6 +118,20 @@ class AutofillMetrics {
     kMaxValue = kKeyboardAccessory
   };
 
+  // The user action that triggered the acceptance of a suggestion entry.
+  // These values are used in enums.xml; do not reorder or renumber entries!
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class SuggestionAcceptedMethod {
+    // The user clicked on the suggestion.
+    kMouse = 0,
+    // The user pressed enter or tab to accept the suggestion.
+    kKeyboard = 1,
+    // The user tapped on the suggestion.
+    kTap = 2,
+    kMaxValue = kTap,
+  };
+
   // Represents card submitted state.
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
@@ -470,6 +484,17 @@ class AutofillMetrics {
     kCreditCardShown = 2,
     kMaxValue = kCreditCardShown,
   };
+
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // LINT.IfChange(AutofillStrikeDatabaseBlockReason)
+  enum class AutofillStrikeDatabaseBlockReason {
+    kMaxStrikeLimitReached = 0,
+    kRequiredDelayNotMet = 1,
+    kMaxValue = kRequiredDelayNotMet,
+  };
+  // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:AutofillStrikeDatabaseBlockReason)
 
   // Utility class for determining the seamlessness of a credit card fill.
   class CreditCardSeamlessness {

@@ -24,7 +24,8 @@ namespace tabs_api::events {
 // The notification mechanism is a simple |RepeatingCallback|.
 class TabStripEventRecorder : public TabStripModelObserver {
  public:
-  using EventNotificationCallback = base::RepeatingCallback<void(const Event&)>;
+  using EventNotificationCallback =
+      base::RepeatingCallback<void(const std::vector<Event>&)>;
 
   TabStripEventRecorder(const TabStripModelAdapter* tab_strip_model_adapter,
                         EventNotificationCallback event_notification_callback);
@@ -60,8 +61,11 @@ class TabStripEventRecorder : public TabStripModelObserver {
                               int index) override;
 
  protected:
+  // Consumes the event.
   void Handle(Event event);
-  void Notify(Event& event);
+  // Consumes the events.
+  void Handle(std::vector<Event> event);
+  void Notify(const std::vector<Event>& event);
 
  private:
   enum class Mode {

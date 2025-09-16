@@ -301,7 +301,7 @@ bool ShouldEmitNewNavigationHistogram(WebNavigationType navigation_type) {
   }
 }
 
-// Helpers to convert between base::flat_map and WTF::HashMap
+// Helpers to convert between base::flat_map and blink::HashMap
 std::optional<
     HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>>
 ConvertPermissionStatusFlatMapToHashMap(
@@ -1732,15 +1732,15 @@ mojom::CommitResult DocumentLoader::CommitSameDocumentNavigation(
     frame_->GetTaskRunner(TaskType::kInternalLoading)
         ->PostTask(
             FROM_HERE,
-            WTF::BindOnce(&DocumentLoader::CommitSameDocumentNavigationInternal,
-                          WrapWeakPersistent(this), url, frame_load_type,
-                          WrapPersistent(history_item),
-                          same_document_navigation_type, client_redirect_policy,
-                          has_transient_user_activation,
-                          WTF::RetainedRef(initiator_origin),
-                          is_browser_initiated, is_synchronously_committed,
-                          triggering_event_info, task_state_id,
-                          has_ua_visual_transition, should_skip_screenshot));
+            blink::BindOnce(
+                &DocumentLoader::CommitSameDocumentNavigationInternal,
+                WrapWeakPersistent(this), url, frame_load_type,
+                WrapPersistent(history_item), same_document_navigation_type,
+                client_redirect_policy, has_transient_user_activation,
+                blink::RetainedRef(initiator_origin), is_browser_initiated,
+                is_synchronously_committed, triggering_event_info,
+                task_state_id, has_ua_visual_transition,
+                should_skip_screenshot));
   } else {
     CommitSameDocumentNavigationInternal(
         url, frame_load_type, history_item, same_document_navigation_type,
@@ -2840,6 +2840,9 @@ void DocumentLoader::CommitNavigation() {
       ->GetRuntimeFeatureStateOverrideContext()
       ->ApplyOverrideValuesFromParams(modified_runtime_features_);
 
+  frame_->DomWindow()->SetCanvasNoiseToken(
+      frame_->GetPage()->CanvasNoiseToken());
+
   // Previous same-document navigation tasks are not relevant once a
   // cross-document navigation has happened.
   if (auto* tracker = scheduler::TaskAttributionTracker::From(
@@ -2971,10 +2974,17 @@ void DocumentLoader::CommitNavigation() {
     frame_->GetLocalFrameHostRemote()
         .HadStickyUserActivationBeforeNavigationChanged(had_sticky_activation_);
   }
-  bool was_focused_frame = old_document_info_for_commit &&
-                           old_document_info_for_commit->was_focused_frame;
-  if (was_focused_frame) {
-    frame_->GetPage()->GetFocusController().SetFocusedFrame(frame_);
+
+  if (old_document_info_for_commit) {
+    bool was_focused_frame = old_document_info_for_commit->was_focused_frame;
+    if (was_focused_frame) {
+      frame_->GetPage()->GetFocusController().SetFocusedFrame(frame_);
+    }
+
+    if (old_document_info_for_commit->overlay_color.has_value()) {
+      frame_->SetFrameColorOverlay(
+          old_document_info_for_commit->overlay_color.value());
+    }
   }
 
   bool should_clear_window_name =
@@ -3186,24 +3196,20 @@ void DocumentLoader::CreateParserPostCommit() {
 
   // DidObserveLoadingBehavior() must be called after DispatchDidCommitLoad() is
   // called for the metrics tracking logic to handle it properly.
+  LoadingBehaviorFlag loading_behavior = kLoadingBehaviorNone;
   if (service_worker_network_provider_ &&
       service_worker_network_provider_->GetControllerServiceWorkerMode() ==
           mojom::blink::ControllerServiceWorkerMode::kControlled) {
-    LoadingBehaviorFlag loading_behavior =
-        kLoadingBehaviorServiceWorkerControlled;
+    loading_behavior |= kLoadingBehaviorServiceWorkerControlled;
     if (service_worker_network_provider_->GetFetchHandlerType() !=
         mojom::blink::ServiceWorkerFetchHandlerType::kNotSkippable) {
       DCHECK_NE(service_worker_network_provider_->GetFetchHandlerType(),
                 mojom::blink::ServiceWorkerFetchHandlerType::kNoHandler);
-      // LoadingBehaviorFlag is a bit stream, and `|` should work.
-      loading_behavior = static_cast<LoadingBehaviorFlag>(
-          loading_behavior |
-          kLoadingBehaviorServiceWorkerFetchHandlerSkippable);
+      loading_behavior |= kLoadingBehaviorServiceWorkerFetchHandlerSkippable;
     }
     if (!response_.WasFetchedViaServiceWorker()) {
-      loading_behavior = static_cast<LoadingBehaviorFlag>(
-          loading_behavior |
-          kLoadingBehaviorServiceWorkerMainResourceFetchFallback);
+      loading_behavior |=
+          kLoadingBehaviorServiceWorkerMainResourceFetchFallback;
     }
     if (service_worker_network_provider_->GetFetchHandlerBypassOption() ==
             mojom::blink::ServiceWorkerFetchHandlerBypassOption::
@@ -3211,9 +3217,13 @@ void DocumentLoader::CreateParserPostCommit() {
         service_worker_network_provider_->GetFetchHandlerBypassOption() ==
             mojom::blink::ServiceWorkerFetchHandlerBypassOption::
                 kRaceNetworkRequestHoldback) {
-      loading_behavior = static_cast<LoadingBehaviorFlag>(
-          loading_behavior | kLoadingBehaviorServiceWorkerRaceNetworkRequest);
+      loading_behavior |= kLoadingBehaviorServiceWorkerRaceNetworkRequest;
     }
+  }
+  if (response_.FromSyntheticResponse()) {
+    loading_behavior |= kLoadingBehaviorServiceWorkerSyntheticResponse;
+  }
+  if (loading_behavior != kLoadingBehaviorNone) {
     GetLocalFrameClient().DidObserveLoadingBehavior(loading_behavior);
   }
 

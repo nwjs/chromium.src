@@ -85,7 +85,6 @@ public class ExternalNavigationParams {
     private final GURL mReferrerUrl;
     private final int mPageTransition;
     private final boolean mIsRedirect;
-    private final boolean mApplicationMustBeInForeground;
     private final RedirectHandler mRedirectHandler;
     private final boolean mOpenInNewTab;
     private final boolean mIsBackgroundTabNavigation;
@@ -101,6 +100,7 @@ public class ExternalNavigationParams {
     private final long mNavigationId;
     private final boolean mIsTabInPWA;
     private final boolean mIsInDesktopWindowingMode;
+    private final int mOriginalWindowOpenDisposition;
 
     // Populated when an async action is taken, ensuring the callback gets called.
     private @Nullable RequiredCallback<AsyncActionTakenParams> mRequiredAsyncActionTakenCallback;
@@ -111,7 +111,6 @@ public class ExternalNavigationParams {
             @Nullable GURL referrerUrl,
             int pageTransition,
             boolean isRedirect,
-            boolean appMustBeInForeground,
             RedirectHandler redirectHandler,
             boolean openInNewTab,
             boolean isBackgroundTabNavigation,
@@ -126,13 +125,13 @@ public class ExternalNavigationParams {
             boolean isSandboxedMainFrame,
             long navigationId,
             boolean isTabInPWA,
-            boolean isInDesktopWindowingMode) {
+            boolean isInDesktopWindowingMode,
+            int originalWindowOpenDisposition) {
         mUrl = url;
         mIsIncognito = isIncognito;
         mPageTransition = pageTransition;
         mReferrerUrl = (referrerUrl == null) ? GURL.emptyGURL() : referrerUrl;
         mIsRedirect = isRedirect;
-        mApplicationMustBeInForeground = appMustBeInForeground;
         mRedirectHandler = redirectHandler;
         mOpenInNewTab = openInNewTab;
         mIsBackgroundTabNavigation = isBackgroundTabNavigation;
@@ -148,6 +147,7 @@ public class ExternalNavigationParams {
         mNavigationId = navigationId;
         mIsTabInPWA = isTabInPWA;
         mIsInDesktopWindowingMode = isInDesktopWindowingMode;
+        mOriginalWindowOpenDisposition = originalWindowOpenDisposition;
     }
 
     public void onAsyncActionStarted() {
@@ -181,12 +181,9 @@ public class ExternalNavigationParams {
         return mIsRedirect;
     }
 
-    /** @return Whether the application has to be in foreground to open the URL. */
-    public boolean isApplicationMustBeInForeground() {
-        return mApplicationMustBeInForeground;
-    }
-
-    /** @return The redirect handler. */
+    /**
+     * @return The redirect handler.
+     */
     public RedirectHandler getRedirectHandler() {
         return mRedirectHandler;
     }
@@ -281,6 +278,14 @@ public class ExternalNavigationParams {
         return mIsInDesktopWindowingMode;
     }
 
+    /**
+     * @return the window open disposition that was originally requested when this WebContents was
+     *     created.
+     */
+    public int getOriginalWindowOpenDisposition() {
+        return mOriginalWindowOpenDisposition;
+    }
+
     /** The builder for {@link ExternalNavigationParams} objects. */
     public static class Builder {
         private final GURL mUrl;
@@ -288,7 +293,6 @@ public class ExternalNavigationParams {
         private @Nullable GURL mReferrerUrl;
         private int mPageTransition;
         private boolean mIsRedirect;
-        private boolean mApplicationMustBeInForeground;
         private @Nullable RedirectHandler mRedirectHandler;
         private boolean mOpenInNewTab;
         private boolean mIsBackgroundTabNavigation;
@@ -304,6 +308,7 @@ public class ExternalNavigationParams {
         private long mNavigationId;
         private boolean mIsTabInPWA;
         private boolean mIsInDesktopWindowingMode;
+        private int mOriginalWindowOpenDisposition;
 
         public Builder(GURL url, boolean isIncognito) {
             mUrl = url;
@@ -321,12 +326,6 @@ public class ExternalNavigationParams {
             mReferrerUrl = referrer;
             mPageTransition = pageTransition;
             mIsRedirect = isRedirect;
-        }
-
-        /** Specify whether the application must be in foreground to launch an external intent. */
-        public Builder setApplicationMustBeInForeground(boolean v) {
-            mApplicationMustBeInForeground = v;
-            return this;
         }
 
         /** Sets a tab redirect handler. */
@@ -407,14 +406,23 @@ public class ExternalNavigationParams {
         }
 
         /** Sets whether this navigation was started in a PWA (TWA or WebAPK). */
-        public Builder setIsTabInPWA(boolean isTabInPWA) {
-            mIsTabInPWA = isTabInPWA;
+        public Builder setIsTabInPWA(boolean v) {
+            mIsTabInPWA = v;
             return this;
         }
 
         /** Sets whether this application is in a desktop window. */
         public Builder setIsInDesktopWindowingMode(boolean v) {
             mIsInDesktopWindowingMode = v;
+            return this;
+        }
+
+        /**
+         * Sets the window open disposition that was originally requested when this WebContents was
+         * created.
+         */
+        public Builder setOriginalWindowOpenDisposition(int v) {
+            mOriginalWindowOpenDisposition = v;
             return this;
         }
 
@@ -428,7 +436,6 @@ public class ExternalNavigationParams {
                     mReferrerUrl,
                     mPageTransition,
                     mIsRedirect,
-                    mApplicationMustBeInForeground,
                     assertNonNull(mRedirectHandler),
                     mOpenInNewTab,
                     mIsBackgroundTabNavigation,
@@ -443,7 +450,8 @@ public class ExternalNavigationParams {
                     mIsSandboxedMainFrame,
                     mNavigationId,
                     mIsTabInPWA,
-                    mIsInDesktopWindowingMode);
+                    mIsInDesktopWindowingMode,
+                    mOriginalWindowOpenDisposition);
         }
     }
 }

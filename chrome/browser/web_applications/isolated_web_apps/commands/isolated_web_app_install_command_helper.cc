@@ -309,8 +309,8 @@ KeyRotationData GetKeyRotationData(
 }
 
 VersionChangeValidationResult ValidateVersionChangeFeasibility(
-    const base::Version& expected_version,
-    const base::Version& installed_version,
+    const IwaVersion& expected_version,
+    const IwaVersion& installed_version,
     bool allow_downgrades,
     bool same_version_update_allowed_by_key_rotation) {
   if (expected_version < installed_version && !allow_downgrades) {
@@ -552,9 +552,9 @@ void IsolatedWebAppInstallCommandHelper::
   std::move(callback).Run(std::move(opt_manifest));
 }
 
-base::expected<base::Version, std::string>
+base::expected<IwaVersion, std::string>
 IsolatedWebAppInstallCommandHelper::ValidateManifestAndGetVersion(
-    const std::optional<base::Version>& expected_version,
+    const std::optional<IwaVersion>& expected_version,
     const blink::mojom::Manifest& manifest) {
   const GURL& manifest_url = manifest.manifest_url;
 
@@ -582,11 +582,11 @@ IsolatedWebAppInstallCommandHelper::ValidateManifestAndGetVersion(
              ". Got: ", version_string});
       });
 
-  if (expected_version.has_value() && *expected_version != *iwa_version) {
+  if (expected_version.has_value() && *expected_version != iwa_version) {
     return base::unexpected(
         "Expected version (" + expected_version->GetString() +
         ") does not match the version provided in the manifest (" +
-        iwa_version->GetString() + ")");
+        iwa_version.GetString() + ")");
   }
 
   std::string encoded_id = manifest.id.path();
@@ -612,14 +612,14 @@ IsolatedWebAppInstallCommandHelper::ValidateManifestAndGetVersion(
                       manifest.scope.possibly_invalid_spec(),
                       ", origin: ", origin.Serialize()}));
   }
-  return *iwa_version;
+  return iwa_version;
 }
 
 void IsolatedWebAppInstallCommandHelper::
     RetrieveInstallInfoWithIconsFromManifest(
         const blink::mojom::Manifest& manifest,
         content::WebContents& web_contents,
-        const base::Version parsed_version,
+        IwaVersion parsed_version,
         base::OnceCallback<void(base::expected<WebAppInstallInfo, std::string>)>
             callback) {
   // install source needs to be peaced together properly.
@@ -639,11 +639,11 @@ void IsolatedWebAppInstallCommandHelper::
 }
 
 void IsolatedWebAppInstallCommandHelper::OnGettingInstallInfoFromManifest(
-    const base::Version parsed_version,
+    IwaVersion parsed_version,
     base::OnceCallback<void(base::expected<WebAppInstallInfo, std::string>)>
         callback,
     std::unique_ptr<WebAppInstallInfo> install_info) {
-  install_info->isolated_web_app_version = std::move(parsed_version);
+  install_info->set_isolated_web_app_version(std::move(parsed_version));
 
   if (install_info->title.empty()) {
     std::move(callback).Run(base::unexpected(base::StrCat(

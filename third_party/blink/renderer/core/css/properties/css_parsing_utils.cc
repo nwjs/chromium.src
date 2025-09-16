@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/css/css_ray_value.h"
 #include "third_party/blink/renderer/core/css/css_repeat_value.h"
 #include "third_party/blink/renderer/core/css/css_revert_layer_value.h"
+#include "third_party/blink/renderer/core/css/css_revert_rule_value.h"
 #include "third_party/blink/renderer/core/css/css_revert_value.h"
 #include "third_party/blink/renderer/core/css/css_scoped_keyword_value.h"
 #include "third_party/blink/renderer/core/css/css_scroll_value.h"
@@ -4080,7 +4081,9 @@ bool IsContentPositionOrLeftOrRightKeyword(CSSValueID id) {
 bool IsCSSWideKeyword(CSSValueID id) {
   return id == CSSValueID::kInherit || id == CSSValueID::kInitial ||
          id == CSSValueID::kUnset || id == CSSValueID::kRevert ||
-         id == CSSValueID::kRevertLayer;
+         id == CSSValueID::kRevertLayer ||
+         (id == CSSValueID::kRevertRule &&
+          RuntimeEnabledFeatures::CSSRevertRuleEnabled());
   // This function should match the overload after it.
 }
 
@@ -4090,7 +4093,9 @@ bool IsCSSWideKeyword(StringView keyword) {
          EqualIgnoringASCIICase(keyword, "inherit") ||
          EqualIgnoringASCIICase(keyword, "unset") ||
          EqualIgnoringASCIICase(keyword, "revert") ||
-         EqualIgnoringASCIICase(keyword, "revert-layer");
+         EqualIgnoringASCIICase(keyword, "revert-layer") ||
+         (EqualIgnoringASCIICase(keyword, "revert-rule") &&
+          RuntimeEnabledFeatures::CSSRevertRuleEnabled());
   // This function should match the overload before it.
 }
 
@@ -4133,6 +4138,12 @@ CSSValue* ConsumeCSSWideKeyword(CSSParserTokenStream& stream) {
       return cssvalue::CSSRevertValue::Create();
     case CSSValueID::kRevertLayer:
       return cssvalue::CSSRevertLayerValue::Create();
+    case CSSValueID::kRevertRule: {
+      if (!RuntimeEnabledFeatures::CSSRevertRuleEnabled()) {
+        return nullptr;
+      }
+      return cssvalue::CSSRevertRuleValue::Create();
+    }
     default:
       NOTREACHED();
   }
@@ -4901,11 +4912,7 @@ CSSValue* ConsumeBackgroundComponent(CSSPropertyID resolved_property,
                                      bool use_alias_parsing) {
   switch (resolved_property) {
     case CSSPropertyID::kBackgroundClip:
-      if (RuntimeEnabledFeatures::CSSBackgroundClipUnprefixEnabled()) {
-        return ConsumeBackgroundBoxOrText(stream);
-      } else {
-        return ConsumeBackgroundBox(stream);
-      }
+      return ConsumeBackgroundBoxOrText(stream);
     case CSSPropertyID::kBackgroundAttachment:
       return ConsumeBackgroundAttachment(stream);
     case CSSPropertyID::kBackgroundOrigin:
@@ -6347,45 +6354,46 @@ CSSValue* ConsumeFitContent(CSSParserTokenStream& stream,
   return result;
 }
 
-bool IsGridBreadthFixedSized(const CSSValue& value) {
+bool IsGridBreadthFlexSized(const CSSValue& value) {
+  return value.IsPrimitiveValue() && To<CSSPrimitiveValue>(value).IsFlex();
+}
+
+bool IsGridBreadthIntrinsicSized(const CSSValue& value) {
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     CSSValueID value_id = identifier_value->GetValueID();
-    return value_id != CSSValueID::kAuto &&
-           value_id != CSSValueID::kMinContent &&
-           value_id != CSSValueID::kMaxContent;
+    return value_id == CSSValueID::kAuto ||
+           value_id == CSSValueID::kMinContent ||
+           value_id == CSSValueID::kMaxContent;
   }
 
-  if (auto* primitive_value = DynamicTo<CSSPrimitiveValue>(value)) {
-    return !primitive_value->IsFlex();
+  if (auto* function = DynamicTo<CSSFunctionValue>(value)) {
+    return function->FunctionType() == CSSValueID::kFitContent;
   }
 
-  NOTREACHED();
+  return false;
+}
+
+bool IsGridBreadthFixedSized(const CSSValue& value) {
+  return !IsGridBreadthFlexSized(value) && !IsGridBreadthIntrinsicSized(value);
 }
 
 bool IsGridTrackFixedSized(const CSSValue& value) {
-  if (value.IsPrimitiveValue() || value.IsIdentifierValue()) {
-    return IsGridBreadthFixedSized(value);
+  // TODO(almaher): Do we want to update this defintion for Masonry?
+  //
+  // https://github.com/w3c/csswg-drafts/issues/12573
+  auto* function = DynamicTo<CSSFunctionValue>(value);
+  if (function && function->FunctionType() != CSSValueID::kFitContent) {
+    const CSSValue& min_value = function->Item(0);
+    const CSSValue& max_value = function->Item(1);
+    return IsGridBreadthFixedSized(min_value) ||
+           IsGridBreadthFixedSized(max_value);
   }
 
-  auto& function = To<CSSFunctionValue>(value);
-  if (function.FunctionType() == CSSValueID::kFitContent) {
-    return false;
-  }
-
-  const CSSValue& min_value = function.Item(0);
-  const CSSValue& max_value = function.Item(1);
-  return IsGridBreadthFixedSized(min_value) ||
-         IsGridBreadthFixedSized(max_value);
+  return IsGridBreadthFixedSized(value);
 }
 
-bool IsGridTrackFixedSizedOrAuto(const CSSValue& value) {
-  if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
-    CSSValueID value_id = identifier_value->GetValueID();
-    if (value_id == CSSValueID::kAuto) {
-      return true;
-    }
-  }
-  return IsGridTrackFixedSized(value);
+bool IsGridTrackFixedOrIntrinsicSized(const CSSValue& value) {
+  return IsGridBreadthIntrinsicSized(value) || IsGridTrackFixedSized(value);
 }
 
 CSSValue* ConsumeGridTrackSize(CSSParserTokenStream& stream,
@@ -6489,7 +6497,7 @@ bool ConsumeGridTrackRepeatFunction(
     bool is_subgrid_track_list,
     CSSValueList& list,
     bool& is_auto_repeat,
-    bool& all_tracks_are_auto_repeat_or_fixed_sized) {
+    bool& all_tracks_are_intrinsic_repeat_or_fixed_sized) {
   DCHECK_EQ(stream.Peek().GetType(), kFunctionToken);
   CSSParserTokenStream::BlockGuard guard(stream);
   stream.ConsumeWhitespace();
@@ -6537,21 +6545,20 @@ bool ConsumeGridTrackRepeatFunction(
       if (!track_size) {
         return false;
       }
-      // TODO(almaher): We need to adjust this to allow for other
-      // intrinsically sized repeats besides auto (like min-content).
-      if (all_tracks_are_auto_repeat_or_fixed_sized) {
-        // Whether repeat(auto-fill, auto) should be allowed, and if it should
-        // apply to both grid and masonry is still in discussion in the CSSWG.
+      if (all_tracks_are_intrinsic_repeat_or_fixed_sized) {
+        // Whether repeat(auto-fill, <intrinsic-track-size>) should be allowed,
+        // and if it should apply to both grid and masonry is still in
+        // discussion in the CSSWG.
         //
         // TODO(almaher): Make adjustments once a resolution is made [1].
         //
         // [1] https://github.com/w3c/csswg-drafts/issues/10915
         if (is_auto_repeat &&
             RuntimeEnabledFeatures::CSSMasonryLayoutEnabled()) {
-          all_tracks_are_auto_repeat_or_fixed_sized =
-              IsGridTrackFixedSizedOrAuto(*track_size);
+          all_tracks_are_intrinsic_repeat_or_fixed_sized =
+              IsGridTrackFixedOrIntrinsicSized(*track_size);
         } else {
-          all_tracks_are_auto_repeat_or_fixed_sized =
+          all_tracks_are_intrinsic_repeat_or_fixed_sized =
               IsGridTrackFixedSized(*track_size);
         }
       }
@@ -6762,7 +6769,7 @@ CSSValue* ConsumeGridTrackList(CSSParserTokenStream& stream,
   bool allow_repeat =
       is_subgrid_track_list || track_list_type == TrackListType::kGridTemplate;
   bool seen_auto_repeat = false;
-  bool all_tracks_are_auto_repeat_or_fixed_sized = true;
+  bool all_tracks_are_intrinsic_repeat_or_fixed_sized = true;
   auto IsRangeAtEnd = [](CSSParserTokenStream& stream) -> bool {
     return stream.AtEnd() || stream.Peek().GetType() == kDelimiterToken;
   };
@@ -6780,7 +6787,7 @@ CSSValue* ConsumeGridTrackList(CSSParserTokenStream& stream,
       }
       if (!ConsumeGridTrackRepeatFunction(
               stream, context, is_subgrid_track_list, *values, is_auto_repeat,
-              all_tracks_are_auto_repeat_or_fixed_sized)) {
+              all_tracks_are_intrinsic_repeat_or_fixed_sized)) {
         return nullptr;
       }
       stream.ConsumeWhitespace();
@@ -6795,10 +6802,8 @@ CSSValue* ConsumeGridTrackList(CSSParserTokenStream& stream,
       if (is_subgrid_track_list) {
         return nullptr;
       }
-      // TODO(almaher): We need to adjust this to allow intrinsic sized
-      // tracks alongside repeat(auto-fill, auto).
-      if (all_tracks_are_auto_repeat_or_fixed_sized) {
-        all_tracks_are_auto_repeat_or_fixed_sized =
+      if (all_tracks_are_intrinsic_repeat_or_fixed_sized) {
+        all_tracks_are_intrinsic_repeat_or_fixed_sized =
             IsGridTrackFixedSized(*value);
       }
 
@@ -6807,7 +6812,7 @@ CSSValue* ConsumeGridTrackList(CSSParserTokenStream& stream,
       return nullptr;
     }
 
-    if (seen_auto_repeat && !all_tracks_are_auto_repeat_or_fixed_sized) {
+    if (seen_auto_repeat && !all_tracks_are_intrinsic_repeat_or_fixed_sized) {
       return nullptr;
     }
     if (!allow_grid_line_names &&
@@ -7352,7 +7357,8 @@ bool ValidWidthOrHeightKeyword(CSSValueID id, const CSSParserContext& context) {
       id == CSSValueID::kWebkitMaxContent ||
       id == CSSValueID::kWebkitFillAvailable ||
       id == CSSValueID::kWebkitFitContent || id == CSSValueID::kMinContent ||
-      id == CSSValueID::kMaxContent || id == CSSValueID::kFitContent) {
+      id == CSSValueID::kMaxContent || id == CSSValueID::kFitContent ||
+      id == CSSValueID::kStretch) {
     switch (id) {
       case CSSValueID::kWebkitMinContent:
         context.Count(WebFeature::kCSSValuePrefixedMinContent);
@@ -7369,10 +7375,6 @@ bool ValidWidthOrHeightKeyword(CSSValueID id, const CSSParserContext& context) {
       default:
         break;
     }
-    return true;
-  }
-  if (RuntimeEnabledFeatures::LayoutStretchEnabled() &&
-      id == CSSValueID::kStretch) {
     return true;
   }
   return false;
@@ -9137,6 +9139,7 @@ CSSValue* ConsumePositionArea(CSSParserTokenStream& stream) {
 
 bool IsRepeatedPositionAreaValue(CSSValueID value_id) {
   switch (value_id) {
+    case CSSValueID::kSpanAll:
     case CSSValueID::kCenter:
     case CSSValueID::kStart:
     case CSSValueID::kEnd:

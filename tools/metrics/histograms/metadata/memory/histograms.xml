@@ -839,7 +839,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="HeapProfiling.InProcess.Enabled{Process}"
-    enum="BooleanEnabled" expires_after="2025-12-21">
+    enum="BooleanEnabled" expires_after="2026-02-22">
   <owner>joenotcharles@google.com</owner>
   <owner>chrome-memory@google.com</owner>
   <summary>
@@ -851,7 +851,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="HeapProfiling.InProcess.SampledAddressCacheBucketLengths{Process}"
-    units="nodes" expires_after="2025-11-30">
+    units="nodes" expires_after="2026-02-01">
   <owner>joenotcharles@google.com</owner>
   <owner>chrome-memory@google.com</owner>
   <summary>
@@ -876,7 +876,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HeapProfiling.InProcess.SampledAddressCacheHitRate{Process}"
-    units="1/100 %" expires_after="2025-11-30">
+    units="1/100 %" expires_after="2026-02-01">
   <owner>joenotcharles@google.com</owner>
   <owner>chrome-memory@google.com</owner>
   <summary>
@@ -917,7 +917,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="HeapProfiling.InProcess.SampledAddressCacheUniformity{Process}"
-    units="%" expires_after="2025-11-30">
+    units="%" expires_after="2026-02-01">
   <owner>joenotcharles@google.com</owner>
   <owner>chrome-memory@google.com</owner>
   <summary>
@@ -931,7 +931,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HeapProfiling.InProcess.SamplesPerSnapshot{Process}"
-    units="samples" expires_after="2025-12-21">
+    units="samples" expires_after="2026-02-22">
   <owner>joenotcharles@google.com</owner>
   <owner>chrome-memory@google.com</owner>
   <summary>
@@ -1439,7 +1439,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Experimental.Gpu2.Small{ProcessMemoryAllocatorSmall2}"
-    units="KB" expires_after="2025-11-30">
+    units="KB" expires_after="2026-02-01">
   <owner>erikchen@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <owner>lizeb@chromium.org</owner>
@@ -1469,7 +1469,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Experimental.Gpu2{ProcessMemoryAllocator2}" units="MB"
-    expires_after="2025-11-30">
+    expires_after="2026-02-01">
   <owner>erikchen@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <owner>lizeb@chromium.org</owner>
@@ -1705,7 +1705,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Experimental.Renderer2{ProcessMemoryAllocator2}"
-    units="MB" expires_after="2025-11-30">
+    units="MB" expires_after="2026-02-01">
   <owner>erikchen@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <owner>lizeb@chromium.org</owner>
@@ -1786,7 +1786,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Memory.Experimental.Utility2.Small{ProcessMemoryAllocatorSmall2}"
-    units="KB" expires_after="2025-11-30">
+    units="KB" expires_after="2026-02-01">
   <owner>erikchen@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <owner>lizeb@chromium.org</owner>
@@ -1976,7 +1976,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Gpu.SharedMemoryFootprint" units="MB"
-    expires_after="2025-12-14">
+    expires_after="2026-02-15">
   <owner>erikchen@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <summary>
@@ -2030,21 +2030,8 @@ chromium-metrics-reviews@google.com.
   <summary>The memory size freed by each low memory kill event.</summary>
 </histogram>
 
-<histogram name="Memory.MemoryStatusRetrievalSuccess" enum="Boolean"
-    expires_after="2026-01-04">
-  <owner>aattar@google.com</owner>
-  <owner>catan-team@chromium.org</owner>
-  <summary>
-    Reported for Windows only. This status indicates whether the system
-    successfully retrieved memory status via a call to GlobalMemoryStatusEx. The
-    successful retrieval of memory status is a prerequisite for emitting metrics
-    like Memory.CommitLimitMB and Memory.CommitAvailableMB. This helps diagnose
-    issues with memory metric collection on Windows systems.
-  </summary>
-</histogram>
-
 <histogram name="Memory.NativeLibrary.MappedAndResidentMemoryFootprint3"
-    units="KB" expires_after="2025-11-30">
+    units="KB" expires_after="2026-02-01">
   <owner>lizeb@chromium.org</owner>
   <owner>pasko@chromium.org</owner>
   <summary>
@@ -2290,7 +2277,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.ParkableString.Compression.Latency"
-    units="microseconds" expires_after="2025-12-07">
+    units="microseconds" expires_after="2026-02-09">
   <owner>lizeb@chromium.org</owner>
   <owner>thiabaud@google.com</owner>
   <summary>
@@ -2311,7 +2298,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.ParkableString.Decompression.Latency"
-    units="microseconds" expires_after="2025-12-14">
+    units="microseconds" expires_after="2026-02-22">
   <owner>lizeb@chromium.org</owner>
   <owner>thiabaud@google.com</owner>
   <summary>
@@ -2375,7 +2362,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.ParkableString.Read.Latency" units="microseconds"
-    expires_after="2025-12-21">
+    expires_after="2026-02-22">
   <owner>lizeb@chromium.org</owner>
   <owner>pasko@chromium.org</owner>
   <summary>
@@ -2451,7 +2438,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.PreFreeze2{Process}.PrivateMemoryFootprint.{Timing}"
-    units="MiB" expires_after="2025-12-21">
+    units="MiB" expires_after="2026-02-22">
   <owner>thiabaud@google.com</owner>
   <owner>lizeb@google.com</owner>
   <summary>
@@ -2667,7 +2654,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Count2.All" units="processes"
-    expires_after="2025-12-14">
+    expires_after="2026-02-22">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -2687,7 +2674,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Count2.InitializedAndNotDead"
-    units="processes" expires_after="2025-12-14">
+    units="processes" expires_after="2026-02-15">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -2707,7 +2694,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Count2.OriginAgentClusterOverhead"
-    units="processes" expires_after="2025-11-30">
+    units="processes" expires_after="2026-02-01">
   <owner>wjmaclean@chromium.org</owner>
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
@@ -2732,7 +2719,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Count2.SandboxedIframeOverhead"
-    units="processes" expires_after="2025-11-30">
+    units="processes" expires_after="2026-02-01">
   <owner>wjmaclean@chromium.org</owner>
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
@@ -2745,7 +2732,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Percent.OriginAgentClusterOverhead"
-    units="%" expires_after="2025-11-30">
+    units="%" expires_after="2026-02-22">
   <owner>wjmaclean@chromium.org</owner>
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
@@ -2769,7 +2756,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RunningOrSelfCompact.Renderer.Cancellation.Reason"
-    enum="SelfCompactionCancellationReason" expires_after="2025-12-07">
+    enum="SelfCompactionCancellationReason" expires_after="2026-02-09">
   <owner>thiabaud@google.com</owner>
   <owner>lizeb@google.com</owner>
   <summary>
@@ -2780,7 +2767,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.StackSamplingProfiler.StackSampleSize2" units="KB"
-    expires_after="2025-12-14">
+    expires_after="2026-02-22">
   <owner>iby@chromium.org</owner>
   <owner>chromeos-data-eng@google.com</owner>
   <summary>
@@ -3039,7 +3026,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Total.SharedMemoryFootprint" units="MB"
-    expires_after="2025-12-14">
+    expires_after="2026-02-15">
   <owner>erikchen@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <summary>
@@ -3308,7 +3295,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.{Type}.Renderer.AreAllPagesFrozen"
-    enum="BooleanAreAllPagesFrozen" expires_after="2025-12-07">
+    enum="BooleanAreAllPagesFrozen" expires_after="2026-02-09">
   <owner>thiabaud@google.com</owner>
   <owner>lizeb@google.com</owner>
   <summary>
@@ -3319,7 +3306,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.{Type}.Renderer.ReadProcMaps"
-    enum="PreFreezeReadProcMapsType" expires_after="2025-12-07">
+    enum="PreFreezeReadProcMapsType" expires_after="2026-02-09">
   <owner>thiabaud@google.com</owner>
   <owner>lizeb@google.com</owner>
   <summary>
@@ -3331,7 +3318,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.{Type}.Renderer.SelfCompactionTime" units="ms"
-    expires_after="2025-12-07">
+    expires_after="2026-02-09">
   <owner>thiabaud@google.com</owner>
   <owner>lizeb@google.com</owner>
   <summary>
@@ -3341,7 +3328,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.{Type}.Renderer.TimeSinceLastCancel" units="ms"
-    expires_after="2025-12-07">
+    expires_after="2026-02-09">
   <owner>thiabaud@google.com</owner>
   <owner>lizeb@google.com</owner>
   <summary>
@@ -3352,7 +3339,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.{Type}.Renderer.{Metric}.Diff.{Timing}.{Direction}"
-    units="MiB" expires_after="2025-12-07">
+    units="MiB" expires_after="2026-02-09">
   <owner>thiabaud@google.com</owner>
   <owner>lizeb@google.com</owner>
   <summary>
@@ -3369,7 +3356,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.{Type}.Renderer.{Metric}.{Timing}" units="MiB"
-    expires_after="2025-12-07">
+    expires_after="2026-02-09">
   <owner>thiabaud@google.com</owner>
   <owner>lizeb@google.com</owner>
   <summary>

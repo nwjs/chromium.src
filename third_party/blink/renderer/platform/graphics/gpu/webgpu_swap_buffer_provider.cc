@@ -278,7 +278,7 @@ WebGPUSwapBufferProvider::ExportCurrentSharedImage(
   // any thread in case this thread was terminated. Ref to SwapBuffers is enough
   // to keep underlying resources alive, so we don't need to hold ref to
   // WebGPUSwapBufferProvider itself.
-  *out_release_callback = WTF::BindOnce(
+  *out_release_callback = blink::BindOnce(
       &WebGPUSwapBufferProvider::MailboxReleased,
       weak_ptr_factory_.GetWeakPtr(), base::PlatformThread::CurrentRef(),
       std::move(current_swap_buffer_));
@@ -385,8 +385,7 @@ WebGPUSwapBufferProvider::SwapBuffer::~SwapBuffer() = default;
 
 #if BUILDFLAG(IS_CHROMEOS)
 // This feature is only used as a possible killswitch.
-BASE_FEATURE(kWebGPUSwapBufferProviderAllowScanout,
-             "WebGPUSwapBufferProviderAllowScanout",
+BASE_FEATURE(WebGPUSwapBufferProviderAllowScanout,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 

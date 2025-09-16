@@ -4,22 +4,27 @@
 
 #import "ios/chrome/browser/home_customization/ui/home_customization_main_view_controller.h"
 
+#import "base/apple/foundation_util.h"
 #import "base/strings/sys_string_conversions.h"
-#import "ios/chrome/browser/home_customization/model/background_customization_configuration.h"
-#import "ios/chrome/browser/home_customization/model/background_customization_configuration_item.h"
+#import "ios/chrome/browser/home_customization/ui/background_collection_configuration.h"
+#import "ios/chrome/browser/home_customization/ui/background_customization_configuration.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_cell.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_picker_cell.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_collection_configurator.h"
-#import "ios/chrome/browser/home_customization/ui/home_customization_color_palette_provider.h"
+#import "ios/chrome/browser/home_customization/ui/home_customization_framing_coordinates.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_mutator.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_search_engine_logo_mediator_provider.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_toggle_cell.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_view_controller_protocol.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_image_background_trait.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_trait.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
+#import "ios/chrome/browser/shared/ui/util/custom_ui_trait_accessor.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
@@ -46,10 +51,8 @@
   // Registration for the background picker cell.
   UICollectionViewCellRegistration* _backgroundPickerCellRegistration;
 
-  // Contains the options the HomeCustomizationBackgroundCell will use to set a
-  // background on the NTP.
-  NSMutableDictionary<NSString*, id<BackgroundCustomizationConfiguration>>*
-      _backgroundCustomizationConfigurationMap;
+  // Collection of backgrounds to display in the collection view.
+  BackgroundCollectionConfiguration* _backgroundCollectionConfiguration;
 
   // The id of the selected background cell.
   NSString* _selectedBackgroundId;
@@ -59,6 +62,14 @@
 @synthesize collectionView = _collectionView;
 @synthesize diffableDataSource = _diffableDataSource;
 @synthesize page = _page;
+
+- (instancetype)init {
+  self = [super init];
+  if (self) {
+    self.backgroundCustomizationUserInteractionEnabled = YES;
+  }
+  return self;
+}
 
 - (void)viewDidLoad {
   [super viewDidLoad];
@@ -98,7 +109,10 @@
              cell.mutator = weakSelf.mutator;
            }];
 
-  if (IsNTPBackgroundCustomizationEnabled()) {
+  // TODO(crbug.com/439549295): Update the UI to show a message when NTP
+  // customization is blocked by enterprise policy.
+  if (IsNTPBackgroundCustomizationEnabled() &&
+      self.isNTPCustomBackgroundEnabledByPolicy) {
     _backgroundCellRegistration = [UICollectionViewCellRegistration
         registrationWithCellClass:[HomeCustomizationBackgroundCell class]
              configurationHandler:^(HomeCustomizationBackgroundCell* cell,
@@ -126,13 +140,12 @@
   NSDiffableDataSourceSnapshot<CustomizationSection*, NSString*>* snapshot =
       [[NSDiffableDataSourceSnapshot alloc] init];
 
-  if (IsNTPBackgroundCustomizationEnabled()) {
+  if (IsNTPBackgroundCustomizationEnabled() &&
+      self.isNTPCustomBackgroundEnabledByPolicy) {
     // Create background customization section and add items to it.
     [snapshot
         appendSectionsWithIdentifiers:@[ kCustomizationSectionBackground ]];
-    [snapshot appendItemsWithIdentifiers:
-                  [self identifiersForBackgroundCells:
-                            _backgroundCustomizationConfigurationMap]
+    [snapshot appendItemsWithIdentifiers:[self identifiersForBackgroundCells]
                intoSectionWithIdentifier:kCustomizationSectionBackground];
     [snapshot appendItemsWithIdentifiers:@[ kBackgroundPickerCellIdentifier ]
                intoSectionWithIdentifier:kCustomizationSectionBackground];
@@ -216,7 +229,24 @@
     return nil;
   }
 
+  id<BackgroundCustomizationConfiguration> configuration =
+      _backgroundCollectionConfiguration.configurations[itemIdentifier];
+  // Don't allow deletion for the default entry.
+  if (configuration.backgroundStyle ==
+      HomeCustomizationBackgroundStyle::kDefault) {
+    return [UIContextMenuConfiguration configurationWithIdentifier:nil
+                                                   previewProvider:nil
+                                                    actionProvider:nil];
+  }
+
   __weak __typeof(self) weakSelf = self;
+
+  // The currently selected background should have the menu item visible but
+  // disabled.
+  UIMenuElementAttributes actionAttributes =
+      ([collectionView.indexPathsForSelectedItems containsObject:indexPath])
+          ? UIMenuElementAttributesDisabled
+          : UIMenuElementAttributesDestructive;
 
   return [UIContextMenuConfiguration
       configurationWithIdentifier:indexPath
@@ -238,8 +268,7 @@
                                        handleDeleteBackgroundActionAtIndexPath:
                                            indexPath];
                                  }];
-                     deleteAction.attributes =
-                         UIMenuElementAttributesDestructive;
+                     deleteAction.attributes = actionAttributes;
 
                      return [UIMenu menuWithTitle:@""
                                          children:@[ deleteAction ]];
@@ -254,6 +283,7 @@
       [self.diffableDataSource itemIdentifierForIndexPath:indexPath];
 
   return [section isEqualToString:kCustomizationSectionBackground] &&
+         self.backgroundCustomizationUserInteractionEnabled &&
          ![itemIdentifier isEqualToString:kBackgroundPickerCellIdentifier];
 }
 
@@ -261,9 +291,10 @@
     didSelectItemAtIndexPath:(NSIndexPath*)indexPath {
   NSString* itemIdentifier =
       [self.diffableDataSource itemIdentifierForIndexPath:indexPath];
+  _selectedBackgroundId = itemIdentifier;
 
   id<BackgroundCustomizationConfiguration> backgroundConfiguration =
-      _backgroundCustomizationConfigurationMap[itemIdentifier];
+      _backgroundCollectionConfiguration.configurations[itemIdentifier];
 
   [self.mutator applyBackgroundForConfiguration:backgroundConfiguration];
 }
@@ -281,18 +312,43 @@
   }
 
   id<BackgroundCustomizationConfiguration> backgroundConfiguration =
-      _backgroundCustomizationConfigurationMap[itemIdentifier];
+      _backgroundCollectionConfiguration.configurations[itemIdentifier];
 
-  if (backgroundConfiguration &&
-      !backgroundConfiguration.thumbnailURL.is_empty()) {
+  if (!backgroundConfiguration) {
+    return;
+  }
+
+  HomeCustomizationBackgroundCell* backgroundCell =
+      base::apple::ObjCCast<HomeCustomizationBackgroundCell>(cell);
+
+  if (!cell) {
+    return;
+  }
+
+  if (backgroundConfiguration.backgroundStyle ==
+      HomeCustomizationBackgroundStyle::kPreset) {
     [self.mutator
         fetchBackgroundCustomizationThumbnailURLImage:backgroundConfiguration
                                                           .thumbnailURL
                                            completion:^(UIImage* image) {
-                                             [(HomeCustomizationBackgroundCell*)
-                                                     cell
-                                                 updateBackgroundImage:image];
+                                             [backgroundCell
+                                                 updateBackgroundImage:image
+                                                    framingCoordinates:nil];
                                            }];
+  } else if (backgroundConfiguration.backgroundStyle ==
+             HomeCustomizationBackgroundStyle::kUserUploaded) {
+    HomeCustomizationFramingCoordinates* framingCoordinates =
+        backgroundConfiguration.userUploadedFramingCoordinates;
+    __weak __typeof(self) weakSelf = self;
+    void (^imageHandler)(UIImage*) = ^(UIImage* image) {
+      [weakSelf handleLoadedUserUploadedImage:image
+                           framingCoordinates:framingCoordinates
+                               backgroundCell:backgroundCell];
+    };
+    [self.mutator
+        fetchBackgroundCustomizationUserUploadedImage:backgroundConfiguration
+                                                          .userUploadedImagePath
+                                           completion:imageHandler];
   }
 }
 
@@ -314,14 +370,11 @@
   [_diffableDataSource applySnapshot:snapshot animatingDifferences:YES];
 }
 
-- (void)populateBackgroundCustomizationConfigurations:
-            (NSMutableDictionary<NSString*,
-                                 id<BackgroundCustomizationConfiguration>>*)
-                backgroundCustomizationConfigurationMap
-                                 selectedBackgroundId:
-                                     (NSString*)selectedBackgroundId {
-  _backgroundCustomizationConfigurationMap =
-      backgroundCustomizationConfigurationMap;
+- (void)
+    populateBackgroundCollectionConfiguration:
+        (BackgroundCollectionConfiguration*)backgroundCollectionConfiguration
+                         selectedBackgroundId:(NSString*)selectedBackgroundId {
+  _backgroundCollectionConfiguration = backgroundCollectionConfiguration;
   _selectedBackgroundId = selectedBackgroundId;
 
   // Recreate the snapshot with the new items to take into account all the
@@ -331,9 +384,8 @@
 
   // Reconfigure all present items to ensure that they are updated in case their
   // content changed.
-  [snapshot reconfigureItemsWithIdentifiers:
-                [self identifiersForBackgroundCells:
-                          _backgroundCustomizationConfigurationMap]];
+  [snapshot
+      reconfigureItemsWithIdentifiers:[self identifiersForBackgroundCells]];
 
   [_diffableDataSource applySnapshot:snapshot animatingDifferences:YES];
 }
@@ -342,11 +394,12 @@
 
 // Returns an array of identifiers for the background options, which can be used
 // by the snapshot.
-- (NSArray<NSString*>*)identifiersForBackgroundCells:
-    (NSMutableDictionary<NSString*, id<BackgroundCustomizationConfiguration>>*)
-        backgroundCustomizationConfigurationMap {
+- (NSArray<NSString*>*)identifiersForBackgroundCells {
   NSMutableArray<NSString*>* identifiers = [[NSMutableArray alloc] init];
-  for (NSString* key in backgroundCustomizationConfigurationMap) {
+  for (NSString* key in _backgroundCollectionConfiguration.configurationOrder) {
+    if (![_backgroundCollectionConfiguration.configurations objectForKey:key]) {
+      continue;
+    }
     [identifiers addObject:key];
   }
 
@@ -374,25 +427,24 @@
                     atIndexPath:(NSIndexPath*)indexPath
              withItemIdentifier:(NSString*)itemIdentifier {
   id<BackgroundCustomizationConfiguration> backgroundConfiguration =
-      _backgroundCustomizationConfigurationMap[itemIdentifier];
+      _backgroundCollectionConfiguration.configurations[itemIdentifier];
 
-  if (![backgroundConfiguration
-          isKindOfClass:[BackgroundCustomizationConfigurationItem class]]) {
-    return;
-  }
-  BackgroundCustomizationConfigurationItem* configurationItem =
-      static_cast<BackgroundCustomizationConfigurationItem*>(
-          backgroundConfiguration);
+  CustomUITraitAccessor* traitAccessor =
+      [[CustomUITraitAccessor alloc] initWithMutableTraits:cell.traitOverrides];
+  [traitAccessor
+      setObjectForNewTabPageTrait:backgroundConfiguration.colorPalette];
+
+  BOOL hasBackgroundImage =
+      !backgroundConfiguration.thumbnailURL.is_empty() ||
+      backgroundConfiguration.userUploadedImagePath.length > 0;
+  [traitAccessor setBoolForNewTabPageImageBackgroundTrait:hasBackgroundImage];
 
   SearchEngineLogoMediator* searchEngineLogoMediator =
-      [self.searchEngineLogoMediatorProvider provideSearchEngineLogoMediator];
-  NewTabPageColorPalette* colorPalette = [self.colorPaletteProvider
-      provideColorPaletteFromSeedColor:backgroundConfiguration.backgroundColor
-                          colorVariant:configurationItem.colorVariant];
+      [self.searchEngineLogoMediatorProvider
+          provideSearchEngineLogoMediatorForKey:itemIdentifier];
 
   [cell configureWithBackgroundOption:backgroundConfiguration
-             searchEngineLogoMediator:searchEngineLogoMediator
-                         colorPalette:colorPalette];
+             searchEngineLogoMediator:searchEngineLogoMediator];
 
   if ([itemIdentifier isEqualToString:_selectedBackgroundId]) {
     [self.collectionView
@@ -416,9 +468,57 @@
   }
 
   NSDiffableDataSourceSnapshot* snapshot = [self.diffableDataSource snapshot];
-  [self.mutator deleteBackgroundFromRecentlyUsedAtIndex:indexPath.item];
+  [self.mutator
+      deleteBackgroundFromRecentlyUsed:_backgroundCollectionConfiguration
+                                           .configurations[identifier]];
   [snapshot deleteItemsWithIdentifiers:@[ identifier ]];
-  [_backgroundCustomizationConfigurationMap removeObjectForKey:identifier];
+  [_backgroundCollectionConfiguration.configurations
+      removeObjectForKey:identifier];
+  [_backgroundCollectionConfiguration.configurationOrder
+      removeObject:identifier];
   [self.diffableDataSource applySnapshot:snapshot animatingDifferences:YES];
 }
+
+// Handles a loaded user-uploaded image, including optimizations for displaying
+// large images in the small menu thumbnails.
+//
+// TODO(crbug.com/441181385): Improve optimization logic. Some possible options:
+// - Cache prepared image so scrolling the carousel doesn't take time to re-load
+// image.
+// - pre-crop larger images, possibly to a square around the framing
+// coordinates, as highly zoomed in images look even worse when made into a low
+// resolution thumbnail.
+// - pick thumbnail sized based on a combination of view size and frame size.
+- (void)handleLoadedUserUploadedImage:(UIImage*)image
+                   framingCoordinates:
+                       (HomeCustomizationFramingCoordinates*)framingCoordinates
+                       backgroundCell:
+                           (HomeCustomizationBackgroundCell*)backgroundCell {
+  // This thumnail size gives a good balance between quality and responsiveness.
+  CGFloat thumbnailDimension =
+      3 * MAX(self.view.bounds.size.width, self.view.bounds.size.height);
+  CGSize thumbnailSize = CGSize(thumbnailDimension, thumbnailDimension);
+  CGFloat originalImageHeight = image.size.height;
+
+  void (^thumbnailHandler)(UIImage*) = ^(UIImage* preparedImage) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      // Scale the framing coordinates down to the size of the prepared image.
+      CGFloat scale = preparedImage.size.height / originalImageHeight;
+      CGRect visibleRect = framingCoordinates.visibleRect;
+      CGRect scaledVisibleRect = CGRectMake(
+          visibleRect.origin.x * scale, visibleRect.origin.y * scale,
+          visibleRect.size.width * scale, visibleRect.size.height * scale);
+      HomeCustomizationFramingCoordinates* newFramingCoordinates =
+          [[HomeCustomizationFramingCoordinates alloc]
+              initWithVisibleRect:scaledVisibleRect];
+
+      [backgroundCell updateBackgroundImage:preparedImage
+                         framingCoordinates:newFramingCoordinates];
+    });
+  };
+
+  [image prepareThumbnailOfSize:thumbnailSize
+              completionHandler:thumbnailHandler];
+}
+
 @end

@@ -42,19 +42,11 @@ namespace history {
 
 namespace {
 
-const char kHistoryOAuthScope[] = "https://www.googleapis.com/auth/chromesync";
-
 const char kHistoryQueryHistoryUrl[] =
     "https://history.google.com/history/api/lookup?client=chrome";
 
 const char kHistoryDeleteHistoryUrl[] =
     "https://history.google.com/history/api/delete?client=chrome";
-
-const char kHistoryAudioHistoryUrl[] =
-    "https://history.google.com/history/api/lookup?client=audio";
-
-const char kHistoryAudioHistoryChangeUrl[] =
-    "https://history.google.com/history/api/change";
 
 const char kQueryWebAndAppActivityUrl[] =
     "https://history.google.com/history/api/lookup?client=web_app";
@@ -160,9 +152,6 @@ class RequestImpl : public WebHistoryService::Request {
 
   // Tells the request to do its thang.
   void Start() override {
-    signin::ScopeSet oauth_scopes;
-    oauth_scopes.insert(kHistoryOAuthScope);
-
     // TODO(crbug.com/40066882): Simplify this once
     // kReplaceSyncPromosWithSignInPromos has rolled out on all platforms.
     signin::ConsentLevel consent_level = signin::ConsentLevel::kSync;
@@ -173,7 +162,7 @@ class RequestImpl : public WebHistoryService::Request {
 
     access_token_fetcher_ =
         std::make_unique<signin::PrimaryAccountAccessTokenFetcher>(
-            "web_history", identity_manager_, oauth_scopes,
+            signin::OAuthConsumerId::kWebHistoryService, identity_manager_,
             base::BindOnce(&RequestImpl::OnAccessTokenFetchComplete,
                            base::Unretained(this)),
             signin::PrimaryAccountAccessTokenFetcher::Mode::kImmediate,
@@ -193,11 +182,9 @@ class RequestImpl : public WebHistoryService::Request {
     // If the response code indicates that the token might not be valid,
     // invalidate the token and try again.
     if (response_code_ == net::HTTP_UNAUTHORIZED && ++auth_retry_count_ <= 1) {
-      signin::ScopeSet oauth_scopes;
-      oauth_scopes.insert(kHistoryOAuthScope);
       identity_manager_->RemoveAccessTokenFromCache(
           identity_manager_->GetPrimaryAccountId(signin::ConsentLevel::kSignin),
-          oauth_scopes, access_token_);
+          signin::OAuthConsumerId::kWebHistoryService, access_token_);
 
       access_token_.clear();
       Start();
@@ -465,53 +452,6 @@ void WebHistoryService::ExpireHistoryBetween(
   ExpireHistory(expire_list, std::move(callback), partial_traffic_annotation);
 }
 
-void WebHistoryService::GetAudioHistoryEnabled(
-    AudioWebHistoryCallback callback,
-    const net::PartialNetworkTrafficAnnotationTag& partial_traffic_annotation) {
-  // Wrap the original callback into a generic completion callback.
-  CompletionCallback completion_callback =
-      base::BindOnce(&WebHistoryService::AudioHistoryCompletionCallback,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback));
-
-  GURL url(kHistoryAudioHistoryUrl);
-
-  std::unique_ptr<Request> request(CreateRequest(
-      url, std::move(completion_callback), partial_traffic_annotation));
-  request->Start();
-  Request* request_ptr = request.get();
-  pending_audio_history_requests_[request_ptr] = std::move(request);
-}
-
-void WebHistoryService::SetAudioHistoryEnabled(
-    bool new_enabled_value,
-    AudioWebHistoryCallback callback,
-    const net::PartialNetworkTrafficAnnotationTag& partial_traffic_annotation) {
-  // Wrap the original callback into a generic completion callback.
-  CompletionCallback completion_callback =
-      base::BindOnce(&WebHistoryService::AudioHistoryCompletionCallback,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback));
-
-  GURL url(kHistoryAudioHistoryChangeUrl);
-  std::unique_ptr<Request> request(CreateRequest(
-      url, std::move(completion_callback), partial_traffic_annotation));
-
-  base::Value::Dict enable_audio_history =
-      base::Value::Dict()
-          .Set("enable_history_recording", new_enabled_value)
-          .Set("client", "audio");
-  std::string post_data;
-  base::JSONWriter::Write(enable_audio_history, &post_data);
-  request->SetPostData(post_data);
-
-  request->Start();
-  Request* request_ptr = request.get();
-  pending_audio_history_requests_[request_ptr] = std::move(request);
-}
-
-size_t WebHistoryService::GetNumberOfPendingAudioHistoryRequests() {
-  return pending_audio_history_requests_.size();
-}
-
 void WebHistoryService::QueryWebAndAppActivity(
     QueryWebAndAppActivityCallback callback,
     const net::PartialNetworkTrafficAnnotationTag& partial_traffic_annotation) {
@@ -600,35 +540,6 @@ void WebHistoryService::ExpireHistoryCompletionCallback(
     observer.OnWebHistoryDeleted();
   }
   std::move(callback).Run(/*success=*/true);
-}
-
-void WebHistoryService::AudioHistoryCompletionCallback(
-    WebHistoryService::AudioWebHistoryCallback callback,
-    WebHistoryService::Request* request,
-    bool success) {
-  std::unique_ptr<Request> request_ptr =
-      std::move(pending_audio_history_requests_[request]);
-  pending_audio_history_requests_.erase(request);
-
-  if (!success) {
-    std::move(callback).Run(/*success=*/false, /*new_enabled_value=*/false);
-    return;
-  }
-
-  if (std::optional<base::Value::Dict> response = ReadResponse(request)) {
-    bool enabled_value = false;
-    if (std::optional<bool> enabled =
-            response->FindBool("history_recording_enabled")) {
-      enabled_value = *enabled;
-    }
-    std::move(callback).Run(/*success=*/true, enabled_value);
-    return;
-  }
-
-  // If there is no response_value, then for our purposes, the request has
-  // failed, despite receiving a true `success` value. This can happen if
-  // the user is offline.
-  std::move(callback).Run(/*success=*/false, /*new_enabled_value=*/false);
 }
 
 void WebHistoryService::QueryWebAndAppActivityCompletionCallback(

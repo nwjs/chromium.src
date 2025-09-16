@@ -12,7 +12,6 @@
 #import "components/optimization_guide/core/optimization_guide_constants.h"
 #import "components/optimization_guide/core/optimization_guide_features.h"
 #import "ios/chrome/browser/optimization_guide/model/ios_chrome_hints_manager.h"
-#import "ios/chrome/browser/optimization_guide/model/ios_chrome_prediction_model_store.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
@@ -79,8 +78,10 @@ void OptimizationGuideServiceFactory::InitializePredictionModelStore() {
   base::PathService::Get(ios::DIR_USER_DATA, &model_downloads_dir);
   model_downloads_dir = model_downloads_dir.Append(
       optimization_guide::kOptimizationGuideModelStoreDirPrefix);
-  optimization_guide::IOSChromePredictionModelStore::GetInstance()->Initialize(
-      model_downloads_dir);
+  GetApplicationContext()
+      ->GetOptimizationGuideGlobalState()
+      ->prediction_model_store()
+      .Initialize(model_downloads_dir);
 }
 
 OptimizationGuideServiceFactory::OptimizationGuideServiceFactory()

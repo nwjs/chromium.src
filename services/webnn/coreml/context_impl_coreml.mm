@@ -7,12 +7,14 @@
 #import <CoreML/CoreML.h>
 
 #include "base/sequence_checker.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "services/webnn/coreml/graph_builder_coreml.h"
 #include "services/webnn/coreml/graph_impl_coreml.h"
 #include "services/webnn/coreml/tensor_impl_coreml.h"
 #include "services/webnn/public/cpp/context_properties.h"
 #include "services/webnn/public/cpp/webnn_types.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom.h"
+#include "services/webnn/scoped_sequence.h"
 #include "services/webnn/webnn_constant_operand.h"
 #include "services/webnn/webnn_context_impl.h"
 #include "services/webnn/webnn_context_provider_impl.h"
@@ -20,13 +22,19 @@
 namespace webnn::coreml {
 
 ContextImplCoreml::ContextImplCoreml(
-    mojo::PendingReceiver<mojom::WebNNContext> receiver,
+    mojo::PendingAssociatedReceiver<mojom::WebNNContext> receiver,
     WebNNContextProviderImpl* context_provider,
-    mojom::CreateContextOptionsPtr options)
+    mojom::CreateContextOptionsPtr options,
+    gpu::CommandBufferId command_buffer_id,
+    std::unique_ptr<ScopedSequence> sequence,
+    scoped_refptr<gpu::SchedulerTaskRunner> task_runner)
     : WebNNContextImpl(std::move(receiver),
                        context_provider,
                        GraphBuilderCoreml::GetContextProperties(),
-                       std::move(options)) {}
+                       std::move(options),
+                       command_buffer_id,
+                       std::move(sequence),
+                       std::move(task_runner)) {}
 
 ContextImplCoreml::~ContextImplCoreml() = default;
 
@@ -50,37 +58,49 @@ void ContextImplCoreml::CreateGraphImpl(
       std::move(callback));
 }
 
-void ContextImplCoreml::CreateTensorImpl(
+base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
+ContextImplCoreml::CreateTensorImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
-    mojom::TensorInfoPtr tensor_info,
-    CreateTensorImplCallback callback) {
+    mojom::TensorInfoPtr tensor_info) {
   // TODO(crbug.com/332350952): implement constant tensors for CoreML.
   if (tensor_info->usage.Has(MLTensorUsageFlags::kGraphConstant)) {
-    std::move(callback).Run(base::unexpected(
+    return base::unexpected(
         mojom::Error::New(mojom::Error::Code::kNotSupportedError,
-                          "Creation of constant tensors is not supported.")));
-    return;
+                          "Creation of constant tensors is not supported."));
   }
   // TODO(crbug.com/345352987): implement WebGPU interop tensors for CoreML
   // backend.
   if (tensor_info->usage.Has(MLTensorUsageFlags::kWebGpuInterop)) {
-    std::move(callback).Run(base::unexpected(
+    return base::unexpected(
         mojom::Error::New(mojom::Error::Code::kNotSupportedError,
-                          "WebGPU Interop is not supported.")));
-    return;
+                          "WebGPU Interop is not supported."));
   }
-  std::move(callback).Run(TensorImplCoreml::Create(
-      std::move(receiver), AsWeakPtr(), std::move(tensor_info)));
+  return TensorImplCoreml::Create(std::move(receiver), AsWeakPtr(),
+                                  std::move(tensor_info));
 }
 
-void ContextImplCoreml::CreateTensorFromMailboxImpl(
+base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
+ContextImplCoreml::CreateTensorFromMailboxImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
     mojom::TensorInfoPtr tensor_info,
-    gpu::Mailbox mailbox,
-    CreateTensorImplCallback callback) {
-  std::move(callback).Run(
-      base::unexpected(mojom::Error::New(mojom::Error::Code::kNotSupportedError,
-                                         "WebGPU Interop is not supported.")));
+    gpu::Mailbox mailbox) {
+  gpu::SharedImageManager* shared_image_manager =
+      context_provider()->shared_image_manager();
+  CHECK(shared_image_manager);
+
+  // TODO(crbug.com/345352987): give WebNN its own memory source and tracker.
+  std::unique_ptr<gpu::WebNNTensorRepresentation> representation =
+      shared_image_manager->ProduceWebNNTensor(
+          mailbox,
+          context_provider()->shared_context_state()->memory_type_tracker());
+  if (!representation) {
+    return base::unexpected(mojom::Error::New(mojom::Error::Code::kUnknownError,
+                                              "Failed to create tensor."));
+  }
+
+  return TensorImplCoreml::Create(std::move(receiver), AsWeakPtr(),
+                                  std::move(tensor_info),
+                                  std::move(representation));
 }
 
 }  // namespace webnn::coreml

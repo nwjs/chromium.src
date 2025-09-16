@@ -6,6 +6,7 @@
 // Communicates with the web client side in
 // glic_api_host/glic_api_impl.ts.
 
+import {assertNotReached} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {BigBuffer} from '//resources/mojo/mojo/public/mojom/base/big_buffer.mojom-webui.js';
 import type {TimeDelta} from '//resources/mojo/mojo/public/mojom/base/time.mojom-webui.js';
@@ -14,13 +15,14 @@ import {AlphaType} from '//resources/mojo/skia/public/mojom/image_info.mojom-web
 import type {Origin} from '//resources/mojo/url/mojom/origin.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
+import type {SelectCredentialDialogErrorReason as SelectCredentialDialogErrorReasonMojo, SelectCredentialDialogRequest as SelectCredentialDialogRequestMojo, SelectCredentialDialogResponse as SelectCredentialDialogResponseMojo, UserGrantedPermissionDuration as UserGrantedPermissionDurationMojo} from '../actor_webui.mojom-webui.js';
+import type {PageMetadata as PageMetadataMojo} from '../ai_page_content_metadata.mojom-webui.js';
 import type {BrowserProxy} from '../browser_proxy.js';
 import {ContentSettingsType} from '../content_settings_types.mojom-webui.js';
-import type {ActorTaskState as ActorTaskStateMojo, FocusedTabData as FocusedTabDataMojo, GetPinCandidatesOptions as GetPinCandidatesOptionsMojo, GetTabContextOptions as TabContextOptionsMojo, OpenPanelInfo as OpenPanelInfoMojo, OpenSettingsOptions as OpenSettingsOptionsMojo, PanelOpeningData as PanelOpeningDataMojo, PanelState as PanelStateMojo, PinCandidate as PinCandidateMojo, PinCandidatesObserver, ScrollToSelector as ScrollToSelectorMojo, TabContext as TabContextMojo, TabData as TabDataMojo, ViewChangeRequest as ViewChangeRequestMojo, WebClientHandlerInterface, WebClientInterface, ZeroStateSuggestionsOptions as ZeroStateSuggestionsOptionsMojo, ZeroStateSuggestionsV2 as ZeroStateSuggestionsV2Mojo} from '../glic.mojom-webui.js';
-import {CurrentView as CurrentViewMojo, PinCandidatesObserverReceiver, SettingsPageField as SettingsPageFieldMojo, WebClientHandlerRemote, WebClientMode, WebClientReceiver} from '../glic.mojom-webui.js';
-import type {HostCapability as HostCapabilityMojo} from '../glic.mojom-webui.js';
-import type {ActorTaskState, DraggableArea, GetPinCandidatesOptions, HostCapability, Journal, OpenSettingsOptions, PageMetadata, PanelOpeningData, PanelState, Screenshot, ScrollToParams, TabContextOptions, ViewChangedNotification, ViewChangeRequest, WebPageData, ZeroStateSuggestions, ZeroStateSuggestionsOptions, ZeroStateSuggestionsV2} from '../glic_api/glic_api.js';
-import {CaptureScreenshotErrorReason, ClientView, CreateTaskErrorReason, DEFAULT_INNER_TEXT_BYTES_LIMIT, DEFAULT_PDF_SIZE_LIMIT, PerformActionsErrorReason, ScrollToErrorReason} from '../glic_api/glic_api.js';
+import type {ActiveBrowserInfo as ActiveBrowserInfoMojo, ActorTaskPauseReason as ActorTaskPauseReasonMojo, ActorTaskState as ActorTaskStateMojo, ActorTaskStopReason as ActorTaskStopReasonMojo, FocusedTabData as FocusedTabDataMojo, GetPinCandidatesOptions as GetPinCandidatesOptionsMojo, GetTabContextOptions as TabContextOptionsMojo, HostCapability as HostCapabilityMojo, OpenPanelInfo as OpenPanelInfoMojo, OpenSettingsOptions as OpenSettingsOptionsMojo, PanelOpeningData as PanelOpeningDataMojo, PanelState as PanelStateMojo, PinCandidate as PinCandidateMojo, PinCandidatesObserver, ScrollToSelector as ScrollToSelectorMojo, TabContext as TabContextMojo, TabData as TabDataMojo, ViewChangeRequest as ViewChangeRequestMojo, WebClientHandlerInterface, WebClientInitialState, WebClientInterface, ZeroStateSuggestionsOptions as ZeroStateSuggestionsOptionsMojo, ZeroStateSuggestionsV2 as ZeroStateSuggestionsV2Mojo} from '../glic.mojom-webui.js';
+import {CurrentView as CurrentViewMojo, PinCandidatesObserverReceiver, ResponseStopCause as ResponseStopCauseMojo, SettingsPageField as SettingsPageFieldMojo, WebClientHandlerRemote, WebClientMode, WebClientReceiver} from '../glic.mojom-webui.js';
+import type {ActiveBrowserInfo, ActorTaskPauseReason, ActorTaskState, ActorTaskStopReason, DraggableArea, GetPinCandidatesOptions, HostCapability, Journal, OnResponseStoppedDetails, OpenSettingsOptions, PageMetadata, PanelOpeningData, PanelState, Screenshot, ScrollToParams, TabContextOptions, ViewChangedNotification, ViewChangeRequest, WebPageData, ZeroStateSuggestions, ZeroStateSuggestionsOptions, ZeroStateSuggestionsV2} from '../glic_api/glic_api.js';
+import {CaptureScreenshotErrorReason, ClientView, CreateTaskErrorReason, DEFAULT_INNER_TEXT_BYTES_LIMIT, DEFAULT_PDF_SIZE_LIMIT, PerformActionsErrorReason, ResponseStopCause, ScrollToErrorReason} from '../glic_api/glic_api.js';
 import {ObservableValue} from '../observable.js';
 import type {ObservableValueReadOnly} from '../observable.js';
 import {OneShotTimer} from '../timer.js';
@@ -28,7 +30,7 @@ import {OneShotTimer} from '../timer.js';
 import {replaceProperties} from './conversions.js';
 import type {PostMessageRequestHandler} from './post_message_transport.js';
 import {newSenderId, PostMessageRequestReceiver, PostMessageRequestSender, ResponseExtras} from './post_message_transport.js';
-import type {AnnotatedPageDataPrivate, FocusedTabDataPrivate, HostRequestTypes, PdfDocumentDataPrivate, RequestRequestType, RequestResponseType, RgbaImage, TabContextResultPrivate, TabDataPrivate, TransferableException, WebClientInitialStatePrivate} from './request_types.js';
+import type {AllRequestTypesWithoutReturn, AllRequestTypesWithReturn, AnnotatedPageDataPrivate, FocusedTabDataPrivate, HostRequestTypes, PdfDocumentDataPrivate, RequestRequestType, RequestResponseType, RgbaImage, SelectCredentialDialogResponsePrivate, TabContextResultPrivate, TabDataPrivate, TransferableException, WebClientInitialStatePrivate, WebClientRequestTypes} from './request_types.js';
 import {ErrorWithReasonImpl, exceptionFromTransferable, ImageAlphaType, ImageColorType, requestTypeToHistogramSuffix} from './request_types.js';
 
 export enum WebClientState {
@@ -77,20 +79,95 @@ export interface ApiHostEmbedder {
 // Turn everything except void into a promise.
 type Promisify<T> = T extends void ? void : Promise<T>;
 
+// Is a request type allowed in the background?
+type IsBackgroundRequest<T extends keyof HostRequestTypes> =
+    'backgroundAllowed' extends keyof HostRequestTypes[T] ?
+    HostRequestTypes[T]['backgroundAllowed'] :
+    false;
+
+// Configuration of how to handle requests received while glic is in the
+// background. Requests that are annotated with `backgroundAllowed` are
+// unaffected. Otherwise, an entry must exist in `BACKGROUND_RESPONSES`
+// to define behavior.
+// Note that if glic becomes backgrounded while a request is being processed,
+// the request will not be affected.
+
+// Throw an exception, returning an error to the client.
+interface HostBackgroundResponseThrows {
+  throws: true;
+}
+
+// Run `does()` and return its result to the client.
+interface HostBackgroundResponseDoes<R> {
+  does: () => R;
+}
+
+// Returns a constant value to the client.
+interface HostBackgroundResponseReturns<R> {
+  returns: R;
+}
+
+type HostBackgroundResponse<R> = HostBackgroundResponseThrows|
+    HostBackgroundResponseReturns<R>|HostBackgroundResponseDoes<R>;
+
+type HostBackgroundResponseMap = {
+  [RequestName in keyof HostRequestTypes as
+       IsBackgroundRequest<RequestName> extends true ? never : RequestName]:
+      HostBackgroundResponse<RequestResponseType<RequestName>>;
+};
+
+// How to respond to each requests received in the background. One entry for
+// each request type that does not specify `backgroundAllowed`.
+const BACKGROUND_RESPONSES: HostBackgroundResponseMap = {
+  glicBrowserCreateTab: {returns: {}},
+  glicBrowserShowProfilePicker: {throws: true},
+  glicBrowserGetContextFromFocusedTab: {throws: true},
+  glicBrowserGetContextFromTab: {throws: true},
+  glicBrowserGetContextForActorFromTab: {throws: true},
+  glicBrowserCreateTask: {throws: true},
+  glicBrowserPerformActions: {throws: true},
+  glicBrowserStopActorTask: {throws: true},
+  glicBrowserPauseActorTask: {throws: true},
+  glicBrowserResumeActorTask: {throws: true},
+  glicBrowserCaptureScreenshot: {throws: true},
+  glicBrowserScrollTo: {
+    does: () => {
+      throw new ErrorWithReasonImpl(
+          'scrollTo', ScrollToErrorReason.NOT_SUPPORTED);
+    },
+  },
+  glicBrowserOpenOsPermissionSettingsMenu: {throws: true},
+  glicBrowserPinTabs: {returns: {pinnedAll: false}},
+  glicBrowserUnpinAllTabs: {returns: undefined},
+  glicBrowserSubscribeToPinCandidates: {returns: undefined},
+  glicBrowserGetZeroStateSuggestionsForFocusedTab: {returns: {}},
+  glicBrowserGetZeroStateSuggestionsAndSubscribe: {returns: {}},
+};
+
 // A type which the host should implement. This helps verify that
 // `HostMessageHandler` is implemented with the correct parameter and return
 // types.
 type HostMessageHandlerInterface = {
-  [Property in keyof HostRequestTypes]:
+  [Property in keyof HostRequestTypes as string extends Property ? never :
+                                                                   Property]:
       // `payload` is the message payload.
   (payload: RequestRequestType<Property>, extras: ResponseExtras) =>
       Promisify<RequestResponseType<Property>>;
 };
 
+type IsGatedRequest<T extends keyof WebClientRequestTypes> =
+    'backgroundAllowed' extends keyof WebClientRequestTypes[T] ? false : true;
+type UngatedWebClientRequestTypes = {
+  [Property in keyof WebClientRequestTypes as
+       IsGatedRequest<Property> extends true ? never : Property]: true;
+};
+
 class WebClientImpl implements WebClientInterface {
-  constructor(
-      private sender: PostMessageRequestSender, private host: GlicApiHost,
-      private embedder: ApiHostEmbedder) {}
+  private sender: GatedSender;
+
+  constructor(private host: GlicApiHost, private embedder: ApiHostEmbedder) {
+    this.sender = this.host.sender;
+  }
 
   async notifyPanelWillOpen(panelOpeningData: PanelOpeningDataMojo):
       Promise<{openPanelInfo: OpenPanelInfoMojo}> {
@@ -181,17 +258,27 @@ class WebClientImpl implements WebClientInterface {
         });
   }
 
+  notifyDefaultTabContextPermissionStateChanged(enabled: boolean) {
+    this.sender.requestNoResponse(
+        'glicWebClientNotifyDefaultTabContextPermissionStateChanged', {
+          enabled: enabled,
+        });
+  }
+
   notifyFocusedTabChanged(focusedTabData: (FocusedTabDataMojo)): void {
     const extras = new ResponseExtras();
-    this.sender.requestNoResponse(
+    this.sender.sendLatestWhenActive(
         'glicWebClientNotifyFocusedTabChanged', {
           focusedTabDataPrivate: focusedTabDataToClient(focusedTabData, extras),
         },
         extras.transfers);
   }
+
   notifyPanelActiveChange(panelActive: boolean): void {
     this.sender.requestNoResponse(
         'glicWebClientNotifyPanelActiveChanged', {panelActive});
+    this.host.panelIsActive = panelActive;
+    this.host.updateSenderActive();
   }
 
   notifyManualResizeChanged(resizing: boolean): void {
@@ -217,7 +304,7 @@ class WebClientImpl implements WebClientInterface {
 
   notifyPinnedTabsChanged(tabData: TabDataMojo[]): void {
     const extras = new ResponseExtras();
-    this.sender.requestNoResponse(
+    this.sender.sendLatestWhenActive(
         'glicWebClientNotifyPinnedTabsChanged',
         {tabData: tabData.map((x) => tabDataToClient(x, extras))},
         extras.transfers);
@@ -225,24 +312,33 @@ class WebClientImpl implements WebClientInterface {
 
   notifyPinnedTabDataChanged(tabData: TabDataMojo): void {
     const extras = new ResponseExtras();
-    this.sender.requestNoResponse(
+    this.sender.sendLatestWhenActive(
         'glicWebClientNotifyPinnedTabDataChanged',
-        {tabData: tabDataToClient(tabData, extras)}, extras.transfers);
+        {tabData: tabDataToClient(tabData, extras)}, extras.transfers,
+        // Cache only one entry per tab ID.
+        `${tabData.tabId}`);
   }
 
   notifyZeroStateSuggestionsChanged(
       suggestions: ZeroStateSuggestionsV2Mojo,
       options: ZeroStateSuggestionsOptionsMojo): void {
-    this.sender.requestNoResponse(
+    this.sender.sendLatestWhenActive(
         'glicWebClientZeroStateSuggestionsChanged',
         {suggestions: suggestions, options: options});
   }
 
   notifyActorTaskStateChanged(taskId: number, state: ActorTaskStateMojo): void {
     const clientState = state as number as ActorTaskState;
-    this.sender.requestNoResponse(
+    this.sender.sendWhenActive(
         'glicWebClientNotifyActorTaskStateChanged',
         {taskId, state: clientState});
+  }
+
+  notifyActiveBrowserChanged(activeBrowserInfo: ActiveBrowserInfoMojo|null):
+      void {
+    this.sender.requestNoResponse('glicWebClientNotifyActiveBrowserChanged', {
+      activeBrowserInfo: activeBrowserInfoToClient(activeBrowserInfo),
+    });
   }
 
   requestViewChange(requestMojo: ViewChangeRequestMojo): void {
@@ -257,15 +353,60 @@ class WebClientImpl implements WebClientInterface {
     }
     this.sender.requestNoResponse('glicWebClientRequestViewChange', {request});
   }
+
+  notifyPageMetadataChanged(tabId: number, metadata: PageMetadataMojo|null):
+      void {
+    this.sender.sendLatestWhenActive(
+        'glicWebClientPageMetadataChanged', {
+          tabId: tabIdToClient(tabId),
+          pageMetadata: pageMetadataToClient(metadata),
+        },
+        undefined, `${tabId}`);
+  }
+
+  async requestToShowCredentialSelectionDialog(
+      request: SelectCredentialDialogRequestMojo):
+      Promise<{response: SelectCredentialDialogResponseMojo}> {
+    const clientResponse = await this.sender.requestWithResponse(
+        'glicWebClientRequestToShowDialog', {request});
+    return {
+      response: selectCredentialDialogResponseToMojo(clientResponse.response),
+    };
+  }
 }
 
 class PinCandidatesObserverImpl implements PinCandidatesObserver {
+  receiver?: PinCandidatesObserverReceiver;
   constructor(
-      private sender: PostMessageRequestSender, public observationId: number) {}
+      private sender: GatedSender, private handler: WebClientHandlerInterface,
+      private options: GetPinCandidatesOptions, public observationId: number) {
+    this.connectToSource();
+  }
+
+  // Stops requesting updates. This should be called on destruction, as well as
+  // when the panel is hidden to avoid incurring unnecessary costs.
+  disconnectFromSource() {
+    if (!this.receiver) {
+      return;
+    }
+    this.receiver.$.close();
+    this.receiver = undefined;
+  }
+
+  // Start/resume requesting updates.
+  connectToSource() {
+    if (this.receiver) {
+      return;
+    }
+    this.receiver = new PinCandidatesObserverReceiver(this);
+    this.handler.subscribeToPinCandidates(
+        getPinCandidatesOptionsFromClient(this.options),
+        this.receiver.$.bindNewPipeAndPassRemote());
+  }
 
   onPinCandidatesChanged(candidates: PinCandidateMojo[]): void {
     const extras = new ResponseExtras();
-    this.sender.requestNoResponse(
+    this.sender.sendLatestWhenActive(
         'glicWebClientPinCandidatesChanged', {
           candidates:
               candidates.map(c => ({
@@ -293,8 +434,7 @@ class HostMessageHandler implements HostMessageHandlerInterface {
   // Reminder: Don't add more state here! See `HostMessageHandler`'s comment.
 
   constructor(
-      private handler: WebClientHandlerInterface,
-      private sender: PostMessageRequestSender,
+      private handler: WebClientHandlerInterface, private sender: GatedSender,
       private embedder: ApiHostEmbedder, private host: GlicApiHost) {}
 
   destroy() {
@@ -311,13 +451,28 @@ class HostMessageHandler implements HostMessageHandlerInterface {
     }
     this.host.detailedWebClientState =
         DetailedWebClientState.WEB_CLIENT_NOT_INITIALIZED;
-    this.receiver = new WebClientReceiver(
-        new WebClientImpl(this.sender, this.host, this.embedder));
+
+    const webClientImpl = new WebClientImpl(this.host, this.embedder);
+    this.receiver = new WebClientReceiver(webClientImpl);
     const {initialState} = await this.handler.webClientCreated(
         this.receiver.$.bindNewPipeAndPassRemote());
+    this.host.setInitialState(initialState);
     const chromeVersion = initialState.chromeVersion.components;
     const hostCapabilities = initialState.hostCapabilities;
     this.host.setBrowserIsActive(initialState.browserIsActive);
+
+    // If the panel isn't active, don't send the focused tab until later.
+    if (initialState.enableApiActivationGating && !initialState.panelIsActive) {
+      const actualFocus = initialState.focusedTabData;
+      initialState.focusedTabData = {
+        noFocusedTabData: {
+          activeTabData: null,
+          noFocusReason: 'glic not active',
+        },
+      };
+      // Note: this will queue up the message, and not send it right awway.
+      webClientImpl.notifyFocusedTabChanged(actualFocus);
+    }
 
     return {
       initialState: replaceProperties(initialState, {
@@ -332,6 +487,8 @@ class HostMessageHandler implements HostMessageHandlerInterface {
         },
         loggingEnabled: loadTimeData.getBoolean('loggingEnabled'),
         hostCapabilities: hostCapabilitiesToClient(hostCapabilities),
+        activeBrowserInfo:
+            activeBrowserInfoToClient(initialState.activeBrowserInfo),
       }),
     };
   }
@@ -508,12 +665,18 @@ class HostMessageHandler implements HostMessageHandlerInterface {
     }
   }
 
-  glicBrowserStopActorTask(request: {taskId: number}): void {
-    this.handler.stopActorTask(request.taskId);
+  glicBrowserStopActorTask(
+      request: {taskId: number, stopReason: ActorTaskStopReason}): void {
+    const actorTaskStopReason =
+        request.stopReason as number as ActorTaskStopReasonMojo;
+    this.handler.stopActorTask(request.taskId, actorTaskStopReason);
   }
 
-  glicBrowserPauseActorTask(request: {taskId: number}): void {
-    this.handler.pauseActorTask(request.taskId);
+  glicBrowserPauseActorTask(
+      request: {taskId: number, pauseReason: ActorTaskPauseReason}): void {
+    const actorTaskPauseReason =
+        request.pauseReason as number as ActorTaskPauseReasonMojo;
+    this.handler.pauseActorTask(request.taskId, actorTaskPauseReason);
   }
 
   async glicBrowserResumeActorTask(
@@ -632,8 +795,24 @@ class HostMessageHandler implements HostMessageHandlerInterface {
     this.handler.onResponseStarted();
   }
 
-  glicBrowserOnResponseStopped(): void {
-    this.handler.onResponseStopped();
+  glicBrowserOnResponseStopped(request: {details?: OnResponseStoppedDetails}):
+      void {
+    const cause = request.details?.cause;
+
+    let causeMojo = ResponseStopCauseMojo.kUnknown;
+    if (cause !== undefined) {
+      switch (cause) {
+        case ResponseStopCause.USER:
+          causeMojo = ResponseStopCauseMojo.kUser;
+          break;
+        case ResponseStopCause.OTHER:
+          causeMojo = ResponseStopCauseMojo.kOther;
+          break;
+        default:
+          assertNotReached();
+      }
+    }
+    this.handler.onResponseStopped({cause: causeMojo});
   }
 
   glicBrowserOnSessionTerminated(): void {
@@ -643,6 +822,10 @@ class HostMessageHandler implements HostMessageHandlerInterface {
   glicBrowserOnTurnCompleted(request: {model: number, duration: number}): void {
     this.handler.onTurnCompleted(
         request.model, timeDeltaFromClient(request.duration));
+  }
+
+  glicBrowserOnModelChanged(request: {model: number}): void {
+    this.handler.onModelChanged(request.model);
   }
 
   glicBrowserLogBeginAsyncEvent(request: {
@@ -819,13 +1002,9 @@ class HostMessageHandler implements HostMessageHandlerInterface {
     options: GetPinCandidatesOptions,
     observationId: number,
   }): void {
-    const observer =
-        new PinCandidatesObserverImpl(this.sender, request.observationId);
-    const receiver = new PinCandidatesObserverReceiver(observer);
-    this.host.pinCandidatesObserver = {receiver, observer};
-    this.handler.subscribeToPinCandidates(
-        getPinCandidatesOptionsFromClient(request.options),
-        receiver.$.bindNewPipeAndPassRemote());
+    this.host.pinCandidatesObserver?.disconnectFromSource();
+    this.host.pinCandidatesObserver = new PinCandidatesObserverImpl(
+        this.sender, this.handler, request.options, request.observationId);
   }
 
   glicBrowserUnsubscribeFromPinCandidates(request: {observationId: number}):
@@ -833,9 +1012,9 @@ class HostMessageHandler implements HostMessageHandlerInterface {
     if (!this.host.pinCandidatesObserver) {
       return;
     }
-    if (this.host.pinCandidatesObserver.observer.observationId ===
+    if (this.host.pinCandidatesObserver.observationId ===
         request.observationId) {
-      this.host.pinCandidatesObserver.receiver.$.close();
+      this.host.pinCandidatesObserver.disconnectFromSource();
       this.host.pinCandidatesObserver = undefined;
     }
   }
@@ -905,6 +1084,14 @@ class HostMessageHandler implements HostMessageHandlerInterface {
             `glicBrowserOnViewChanged: invalid currentView: ${_exhaustive}`);
     }
   }
+
+  glicBrowserSubscribeToPageMetadata(request: {
+    tabId: string,
+    names: string[],
+  }): Promise<{success: boolean}> {
+    return this.handler.subscribeToPageMetadata(
+        tabIdFromClient(request.tabId), request.names);
+  }
 }
 
 /**
@@ -917,7 +1104,9 @@ export class GlicApiHost implements PostMessageRequestHandler {
   private senderId = newSenderId();
   private messageHandler: HostMessageHandler;
   private readonly postMessageReceiver: PostMessageRequestReceiver;
-  private sender: PostMessageRequestSender;
+  sender: GatedSender;
+  private enableApiActivationGating = true;
+  panelIsActive = false;
   private handler: WebClientHandlerRemote;
   private bootstrapPingIntervalId: number|undefined;
   private webClientErrorTimer: OneShotTimer;
@@ -929,10 +1118,8 @@ export class GlicApiHost implements PostMessageRequestHandler {
   private browserIsActive = true;
   private hasShownDebuggerAttachedWarning = false;
   detailedWebClientState = DetailedWebClientState.BOOTSTRAP_PENDING;
-  pinCandidatesObserver?: {
-    receiver: PinCandidatesObserverReceiver,
-    observer: PinCandidatesObserverImpl,
-  };
+  // Present while the client is monitoring pin candidates.
+  pinCandidatesObserver?: PinCandidatesObserverImpl;
 
   constructor(
       private browserProxy: BrowserProxy, private windowProxy: WindowProxy,
@@ -941,9 +1128,10 @@ export class GlicApiHost implements PostMessageRequestHandler {
         embeddedOrigin, this.senderId, windowProxy, this, 'glic_api_host');
     this.postMessageReceiver.setLoggingEnabled(
         loadTimeData.getBoolean('loggingEnabled'));
-    this.sender = new PostMessageRequestSender(
+    const ungatedSender = new PostMessageRequestSender(
         windowProxy, embeddedOrigin, this.senderId, 'glic_api_host');
-    this.sender.setLoggingEnabled(loadTimeData.getBoolean('loggingEnabled'));
+    ungatedSender.setLoggingEnabled(loadTimeData.getBoolean('loggingEnabled'));
+    this.sender = new GatedSender(ungatedSender);
     this.handler = new WebClientHandlerRemote();
     this.browserProxy.handler.createWebClient(
         this.handler.$.bindNewPipeAndPassReceiver());
@@ -965,7 +1153,21 @@ export class GlicApiHost implements PostMessageRequestHandler {
     this.postMessageReceiver.destroy();
     this.messageHandler.destroy();
     this.sender.destroy();
-    this.closePinCandidatesObserver();
+    this.pinCandidatesObserver?.disconnectFromSource();
+  }
+
+  setInitialState(initialState: WebClientInitialState) {
+    this.enableApiActivationGating = initialState.enableApiActivationGating;
+    this.panelIsActive = initialState.panelIsActive;
+    this.updateSenderActive();
+  }
+
+  updateSenderActive() {
+    this.sender.setGating(this.shouldGateRequests());
+  }
+
+  shouldGateRequests(): boolean {
+    return !this.panelIsActive && this.enableApiActivationGating;
   }
 
   // Called when the webview page is loaded.
@@ -988,7 +1190,9 @@ export class GlicApiHost implements PostMessageRequestHandler {
     this.panelOpenState = state;
     this.clientActiveObs.assignAndSignal(this.isClientActive());
     if (state === PanelOpenState.CLOSED) {
-      this.closePinCandidatesObserver();
+      this.pinCandidatesObserver?.disconnectFromSource();
+    } else {
+      this.pinCandidatesObserver?.connectToSource();
     }
   }
 
@@ -1188,15 +1392,34 @@ export class GlicApiHost implements PostMessageRequestHandler {
     }
     this.stopBootstrapPing();
 
-    const response =
-        await handlerFunction.call(this.messageHandler, payload, extras);
+    let response;
+    if (this.shouldGateRequests() &&
+        Object.hasOwn(BACKGROUND_RESPONSES, type)) {
+      const backgroundResponse =
+          BACKGROUND_RESPONSES[type as keyof typeof BACKGROUND_RESPONSES] as
+          HostBackgroundResponse<any>;
+      if (Object.hasOwn(backgroundResponse, 'throws')) {
+        const friendlyName =
+            type.replaceAll(/^glicBrowser|^glicWebClient/g, '');
+        throw new Error(`${friendlyName} not allowed while backgrounded`);
+      }
+      if (Object.hasOwn(backgroundResponse, 'does')) {
+        response = await (backgroundResponse as HostBackgroundResponseDoes<any>)
+                       .does();
+      } else {
+        response =
+            (backgroundResponse as HostBackgroundResponseReturns<any>).returns;
+      }
+    } else {
+      response =
+          await handlerFunction.call(this.messageHandler, payload, extras);
+    }
     if (!response) {
       // Not all request types require a return value.
       return;
     }
     return {payload: response};
   }
-
 
   onRequestReceived(type: string): void {
     this.reportRequestCountEvent(type, GlicRequestEvent.REQUEST_RECEIVED);
@@ -1224,12 +1447,119 @@ export class GlicApiHost implements PostMessageRequestHandler {
         `Glic.Api.RequestCounts.${suffix}`, event,
         GlicRequestEvent.MAX_VALUE + 1);
   }
+}
 
-  closePinCandidatesObserver() {
-    if (this.pinCandidatesObserver) {
-      this.pinCandidatesObserver.receiver.$.close();
-      this.pinCandidatesObserver = undefined;
+interface QueuedMessage {
+  order: number;
+  requestType: string;
+  payload: any;
+  transfer: Transferable[];
+}
+
+// Sends messages to the client, subject to the `backgroundAllowed` property.
+// Supports queueing of messages not `backgroundAllowed`.
+export class GatedSender {
+  private sequenceNumber = 0;
+  private messageQueue: QueuedMessage[] = [];
+  private keyedMessages = new Map<string, QueuedMessage>();
+  private shouldGateRequests = true;
+  constructor(private sender: PostMessageRequestSender) {}
+
+  // This is an escape hatch which should be used sparingly.
+  getRawSender(): PostMessageRequestSender {
+    return this.sender;
+  }
+
+  destroy() {
+    this.sender.destroy();
+  }
+
+  setGating(shouldGateRequests: boolean): void {
+    if (this.shouldGateRequests === shouldGateRequests) {
+      return;
     }
+    this.shouldGateRequests = shouldGateRequests;
+    if (this.shouldGateRequests) {
+      return;
+    }
+
+    // Sort and send the queued messages.
+    const messages = this.messageQueue;
+    this.messageQueue = [];
+    messages.push(...this.keyedMessages.values());
+    this.keyedMessages.clear();
+    messages.sort((a, b) => a.order - b.order);
+    messages.forEach((message) => {
+      this.sender.requestNoResponse(
+          message.requestType as any, message.payload, message.transfer);
+    });
+  }
+
+  // Sends a request whenever glic is active.
+  // Queues the request for later if glic is backgrounded.
+  sendWhenActive<T extends keyof AllRequestTypesWithoutReturn>(
+      requestType: T, request: RequestRequestType<T>,
+      transfer: Transferable[] = []): void {
+    if (!this.shouldGateRequests) {
+      this.sender.requestNoResponse(requestType, request, transfer);
+    } else {
+      this.messageQueue.push({
+        order: this.sequenceNumber++,
+        requestType,
+        payload: request,
+        transfer,
+      });
+    }
+  }
+
+  // Sends a request only if glic is active, otherwise it is dropped.
+  sendIfActiveOrDrop<T extends keyof AllRequestTypesWithoutReturn>(
+      requestType: T, request: RequestRequestType<T>,
+      transfer: Transferable[] = []): void {
+    if (!this.shouldGateRequests) {
+      this.sender.requestNoResponse(requestType, request, transfer);
+    }
+  }
+
+  // Sends a request if glic is active, otherwise the request is queued for
+  // later. If more than one request has the same key
+  // `${requestType},${additionalKey}`, only the last request is saved in the
+  // queue.
+  sendLatestWhenActive<T extends keyof AllRequestTypesWithoutReturn>(
+      requestType: T, request: RequestRequestType<T>,
+      transfer: Transferable[] = [], additionalKey?: string): void {
+    if (!this.shouldGateRequests) {
+      this.sender.requestNoResponse(requestType, request, transfer);
+    } else {
+      let key: string = requestType;
+      if (additionalKey) {
+        key += ',' + additionalKey;
+      }
+      this.keyedMessages.set(key, {
+        order: this.sequenceNumber++,
+        requestType,
+        payload: request,
+        transfer,
+      });
+    }
+  }
+
+  // Sends a request without waiting for a response. Allowed only for
+  // backgroundAllowed request types.
+  requestNoResponse < T extends keyof
+  Omit < UngatedWebClientRequestTypes,
+      keyof AllRequestTypesWithReturn >> (requestType: T,
+                                          request: RequestRequestType<T>,
+                                          transfer: Transferable[] = []): void {
+    this.sender.requestNoResponse(requestType, request, transfer);
+  }
+
+  // Sends a request and waits for a response. Allowed only for
+  // backgroundAllowed request types.
+  requestWithResponse<T extends keyof UngatedWebClientRequestTypes>(
+      requestType: T, request: RequestRequestType<T>,
+      transfer: Transferable[] = []) {
+    return this.sender.requestWithResponse(requestType, request, transfer);
   }
 }
 
@@ -1429,6 +1759,17 @@ function panelStateToClient(panelState: PanelStateMojo): PanelState {
   };
 }
 
+function pageMetadataToClient(metadata: PageMetadataMojo|
+                              null): PageMetadata|null {
+  if (!metadata) {
+    return null;
+  }
+  return {
+    frameMetadata: metadata.frameMetadata.map(
+        m => replaceProperties(m, {url: urlToClient(m.url)})),
+  };
+}
+
 /** Takes a time value in milliseconds and converts to a Mojo TimeDelta. */
 function timeDeltaFromClient(durationMs: number = 0): TimeDelta {
   if (!Number.isFinite(durationMs)) {
@@ -1440,22 +1781,8 @@ function timeDeltaFromClient(durationMs: number = 0): TimeDelta {
 function tabContextToClient(
     tabContext: TabContextMojo,
     extras: ResponseExtras): TabContextResultPrivate {
-  const tabData = tabContext.tabData;
-  let favicon: RgbaImage|undefined = undefined;
-  if (tabData.favicon) {
-    favicon = bitmapN32ToRGBAImage(tabData.favicon);
-    if (favicon) {
-      extras.addTransfer(favicon.dataRGBA);
-    }
-  }
-
-  const tabDataResult: TabDataPrivate = {
-    tabId: tabIdToClient(tabData.tabId),
-    windowId: windowIdToClient(tabData.windowId),
-    url: urlToClient(tabData.url),
-    title: optionalToClient(tabData.title),
-    favicon,
-  };
+  const tabDataResult: TabDataPrivate =
+      tabDataToClient(tabContext.tabData, extras);
   const webPageData = tabContext.webPageData;
   let webPageDataResult: WebPageData|undefined = undefined;
   if (webPageData) {
@@ -1542,6 +1869,16 @@ function tabContextOptionsFromClient(options: TabContextOptions):
   };
 }
 
+function activeBrowserInfoToClient(info: ActiveBrowserInfoMojo|null):
+    ActiveBrowserInfo|undefined {
+  if (!info) {
+    return undefined;
+  }
+  return replaceProperties(info, {
+    windowId: windowIdToClient(info.windowId),
+  });
+}
+
 // Taken from mojo_type_utils.ts
 function getPinCandidatesOptionsFromClient(options: GetPinCandidatesOptions):
     GetPinCandidatesOptionsMojo {
@@ -1559,4 +1896,25 @@ function byteArrayFromClient(buffer: ArrayBuffer): number[] {
 function hostCapabilitiesToClient(capabilities: HostCapabilityMojo[]):
     HostCapability[] {
   return capabilities.map(capability => capability as number as HostCapability);
+}
+
+function selectCredentialDialogResponseToMojo(
+    response: SelectCredentialDialogResponsePrivate):
+    SelectCredentialDialogResponseMojo {
+  return response.errorReason ?
+      {
+        taskId: response.taskId,
+        errorReason: response.errorReason as number as
+            SelectCredentialDialogErrorReasonMojo,
+        permissionDuration: null,
+        selectedCredentialId: null,
+      } :
+      {
+        ...response,
+        errorReason: null,
+        permissionDuration: optionalFromClient(response.permissionDuration) as
+                UserGrantedPermissionDurationMojo |
+            null,
+        selectedCredentialId: response.selectedCredentialId ?? null,
+      };
 }

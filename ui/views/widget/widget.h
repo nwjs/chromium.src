@@ -26,6 +26,7 @@
 #include "ui/base/metadata/metadata_types.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_types.h"
+#include "ui/color/color_id.h"
 #include "ui/color/color_provider_key.h"
 #include "ui/color/color_provider_source.h"
 #include "ui/color/color_provider_utils.h"
@@ -33,7 +34,7 @@
 #include "ui/display/types/display_constants.h"
 #include "ui/events/event_source.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_window_types.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/native_theme/native_theme_observer.h"
 #include "ui/views/focus/focus_manager.h"
@@ -553,7 +554,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 #endif
 
     // Initial native widget background color, if supported.
-    std::optional<SkColor> background_color;
+    std::optional<ui::ColorId> background_color;
   };
 
   // Represents a lock held on the widget's ShouldPaintAsActive() state. As
@@ -603,9 +604,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
       gfx::NativeWindow context,
       const gfx::Rect& bounds = gfx::Rect());
 
-  // Closes all Widgets that aren't identified as "secondary widgets". Called
-  // during application shutdown when the last non-secondary widget is closed.
-  static void CloseAllSecondaryWidgets();
+  // Closes all platform Widgets. Called during application shutdown to ensure
+  // no platform Widgets remain.
+  static void CloseAllWidgets();
 
   // Retrieves the Widget implementation associated with the given
   // NativeView or Window, or NULL if the supplied handle has no associated
@@ -627,6 +628,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Returns all Widgets owned by |native_view| (including child widgets, but
   // not including itself).
   static Widgets GetAllOwnedWidgets(gfx::NativeView native_view);
+
+  // Iterates over all owned widgets, running `on_widget` for each. This is
+  // robust against widgets being destroyed during iteration.
+  static void ForEachOwnedWidget(gfx::NativeView native_view,
+                                 base::FunctionRef<void(Widget*)> on_widget);
 
   // https://crbug.com/391414831: This is only used by some views
   // implementation details for content::WebContents glue, and for ChromeOS.
@@ -879,9 +885,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   void CloseWithReason(ClosedReason closed_reason, bool force = false);
 
   // This method is used by clients to intercept calls to Close() from other
-  // code in //ui such as DialogDelegate. The only valid use case is to allow
-  // clients to implement a synchronous version of Close() by resetting the
-  // unique_ptr.
+  // code in //ui such as DialogDelegate. The callback is called when Close()
+  // is called, or when the user clicks the close button.
+  //
+  // Typically the client should reset the
+  // unique_ptr<Widget> in the callback.
   //
   //  widget_->MakeCloseSynchronous(
   //      base::BindOnce(&Client::CloseWidget, this));
@@ -897,6 +905,10 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   //  Client::ClientCloseWidget() {
   //    CloseWidget(CloseReason::kUnspecified);
   //  }
+  //
+  // It is OK to not reset the Widget in the callback. This blocks the window
+  // from closing. Used for example in web page unload handlers that shows a
+  // dialog to the user to confirm whether to discard changes.
   void MakeCloseSynchronous(
       base::OnceCallback<void(ClosedReason)> override_close);
 
@@ -911,10 +923,13 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // MakeCloseSynchronous() for more details.
   void SetBlockCloseForTesting(bool block_close) { block_close_ = block_close; }
 
-  // TODO(beng): Move off public API.
   // Closes the widget immediately. Compare to |Close|. This will destroy the
   // window handle associated with this Widget, so should not be called from
   // any code that expects it to be valid beyond this call.
+  // This should generally be avoided for Widgets (typically top-level) that
+  // want to animate when closed, or fullscreen Widgets where the platform may
+  // want to manipulate the NativeWidget's layer post-close (see
+  // crbug.com/40619853).
   void CloseNow();
 
   // Whether the widget has been asked to close itself. In particular this is
@@ -923,6 +938,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Returns the reason the widget was closed, if it was specified.
   ClosedReason closed_reason() const { return closed_reason_; }
+
+  // True if the Widget is being destroyed and running its destructor.
+  bool is_destroying() const { return is_destroying_; }
 
   // Shows the widget. The widget is activated if during initialization the
   // can_activate flag in the InitParams structure is set to true.
@@ -1422,7 +1440,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // e.g. if set to kDark, colors will always be for the dark theme.
   void SetColorModeOverride(
       std::optional<ui::ColorProviderKey::ColorMode> color_mode,
-      std::optional<SkColor> background_color);
+      std::optional<ui::ColorId> background_color);
 
   // ui::ColorProviderSource:
   const ui::ColorProvider* GetColorProvider() const override;
@@ -1459,6 +1477,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   void UpdateAccessibleURLForRootView(const GURL& url);
 
   WidgetAXManager* ax_manager() { return ax_manager_.get(); }
+
+  // Invokes SaveWindowPlacement() if the native widget has been initialized.
+  // This is called at times when the native widget may not have been
+  // initialized.
+  void SaveWindowPlacementIfNeeded();
 
  protected:
   // Creates the RootView to be used within this Widget. Subclasses may override
@@ -1497,6 +1520,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // ui::ColorProviderSource:
   ui::ColorProviderKey GetColorProviderKey() const override;
 
+  void set_widget_closed() { widget_closed_ = true; }
+
  private:
   // Type of ways to ignore activation changes.
   enum class DisableActivationChangeHandlingType {
@@ -1531,11 +1556,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Persists the window's restored position and "show" state using the
   // window delegate.
   void SaveWindowPlacement();
-
-  // Invokes SaveWindowPlacement() if the native widget has been initialized.
-  // This is called at times when the native widget may not have been
-  // initialized.
-  void SaveWindowPlacementIfNeeded();
 
   // Sizes and positions the window just after it is created.
   void SetInitialBounds(const gfx::Rect& bounds);
@@ -1672,6 +1692,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Set to true if the widget is in the process of closing.
   bool widget_closed_ = false;
 
+  // Set to true if the widget is in the process of being destroyed.
+  bool is_destroying_ = false;
+
   // Set to true after OnWidgetDestroyed called.
   bool native_widget_destroyed_ = false;
 
@@ -1761,7 +1784,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   base::OnceCallback<void(ClosedReason)> override_close_;
 
   // Color used to fill the native widget if supported, overriding theme colors.
-  std::optional<SkColor> background_color_;
+  std::optional<ui::ColorId> background_color_;
 
   base::ScopedObservation<ui::NativeTheme, ui::NativeThemeObserver>
       native_theme_observation_{this};

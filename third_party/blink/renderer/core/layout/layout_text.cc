@@ -655,11 +655,7 @@ void LayoutText::AbsoluteQuadsForRange(Vector<gfx::QuadF>& quads,
         quad.Scale(1 / scaling_factor, 1 / scaling_factor);
         quad = LocalToAbsoluteQuad(quad);
       } else {
-        if (RuntimeEnabledFeatures::LayoutBoxVisualLocationEnabled()) {
-          rect.Move(cursor.CurrentOffsetInFirstContainerFragment());
-        } else {
-          rect.Move(cursor.CurrentOffsetInBlockFlow());
-        }
+        rect.Move(cursor.CurrentOffsetInFirstContainerFragment());
         quad = LocalRectToAbsoluteQuad(rect);
       }
       if (!is_collapsed) {
@@ -689,8 +685,8 @@ PositionWithAffinity LayoutText::PositionForPoint(
   NOT_DESTROYED();
   // NG codepath requires |kPrePaintClean|.
   // |SelectionModifier| calls this only in legacy codepath.
-  DCHECK(!IsLayoutNGObject() || GetDocument().Lifecycle().GetState() >=
-                                    DocumentLifecycle::kPrePaintClean);
+  DCHECK(GetDocument().Lifecycle().GetState() >=
+         DocumentLifecycle::kPrePaintClean);
 
   if (IsInLayoutNGInlineFormattingContext()) {
     // Because of Texts in "position:relative" can be outside of line box, we
@@ -816,7 +812,7 @@ void LayoutText::LogicalStartingPointAndHeight(
       logical_starting_point = {physical_offset.left, physical_offset.top};
       return;
     }
-    PhysicalSize outer_size = ContainingBlock()->Size();
+    PhysicalSize outer_size = ContainingBlock()->StitchedSize();
     logical_starting_point =
         WritingModeConverter(StyleRef().GetWritingDirection(), outer_size)
             .ToLogical(physical_offset, cursor.Current().Size());

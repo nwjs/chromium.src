@@ -13,6 +13,7 @@ import static org.chromium.ui.listmenu.ListMenuSubmenuHeaderItemProperties.KEY_L
 import static org.chromium.ui.listmenu.ListMenuSubmenuItemProperties.SUBMENU_ITEMS;
 
 import android.content.res.Resources;
+import android.util.Pair;
 import android.view.View;
 import android.widget.ListView;
 
@@ -31,12 +32,46 @@ import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.ModelListAdapter;
 import org.chromium.ui.modelutil.PropertyModel;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
 @NullMarked
 public class ListMenuUtils {
+    /**
+     * Defines a contract for managing a series of flyout popups, typically used for nested context
+     * menus. An implementing class is responsible for the lifecycle of these popups, including
+     * their creation, tracking, and dismissal as the user navigates the menu hierarchy.
+     *
+     * @param <T> The type of the object representing the flyout popup. This is generic to allow the
+     *     implementation to use any UI component.
+     */
+    public interface FlyoutHandler<T> {
+        /**
+         * Returns the list of the dialogs, along with the parent ListItem.
+         *
+         * @return A List of pairs of the parent ListItems and their corresponding dialog popups of
+         *     type T.
+         */
+        List<Pair<@Nullable ListItem, T>> getFlyoutWindows();
+
+        /**
+         * Adds a flyout popup.
+         *
+         * @param item The ListItem that got the hover.
+         * @param view The View that got the hover.
+         */
+        void addFlyoutWindow(ListItem item, View view);
+
+        /**
+         * Remove popups with indices above removeFromIndex.
+         *
+         * @param removeFromIndex The minimum index of the popup to be removed.
+         */
+        void removeFlyoutWindows(int removeFromIndex);
+    }
+
     /**
      * Creates and configures a {@link ModelListAdapter} for the context menu.
      *
@@ -112,8 +147,6 @@ public class ListMenuUtils {
         @Nullable ModelList parentHeaderModelList =
                 headerModelList == null ? null : shallowCopy(headerModelList);
         ModelList parentModelList = shallowCopy(contentModelList);
-        contentModelList.clear();
-        if (headerModelList != null) headerModelList.clear();
         // Add the clicked item as a header to the submenu.
         Runnable headerBackClick =
                 () -> {
@@ -138,19 +171,23 @@ public class ListMenuUtils {
                                     return false;
                                 })
                         .build();
-        (headerModelList == null ? contentModelList : headerModelList)
-                .add(new ListItem(ListItemType.SUBMENU_HEADER, model));
-
-        for (ListItem listItem : item.model.get(SUBMENU_ITEMS)) {
-            contentModelList.add(listItem);
+        ListItem headerItem = new ListItem(ListItemType.SUBMENU_HEADER, model);
+        List<ListItem> newContentList = new ArrayList<>();
+        if (headerModelList == null) {
+            newContentList.add(headerItem);
+        } else {
+            headerModelList.set(List.of(headerItem));
         }
+        newContentList.addAll(item.model.get(SUBMENU_ITEMS));
+        contentModelList.set(newContentList);
     }
 
     private static void setModelListContent(ModelList modelList, ModelList target) {
-        modelList.clear();
+        List<ListItem> targetItems = new ArrayList<>();
         for (ListItem item : target) {
-            modelList.add(item);
+            targetItems.add(item);
         }
+        modelList.set(targetItems);
     }
 
     /** Returns a shallow copy of {@param modelList}. */
@@ -265,10 +302,10 @@ public class ListMenuUtils {
             mContentModelList = contentModelList;
         }
 
-        // Note: because ListMenuUtils methods clear the ModelList and add elements one-by-one,
-        // we need to listen to a "0th item added" signal to determine when we have a new header.
+        // Note: because ListMenuUtils methods use ModelList#set, they trigger onItemRangeChanged.
         @Override
-        public void onItemRangeInserted(ListObservable source, int index, int count) {
+        public void onItemRangeChanged(
+                ListObservable<Void> source, int index, int count, @Nullable Void payload) {
             if (index != 0) return; // If the 1st element wasn't changed, the "header" is the same.
             String accessibilityPaneTitle =
                     mView.getContext().getString(R.string.listmenu_a11y_default_pane_title);
@@ -279,7 +316,8 @@ public class ListMenuUtils {
                 firstItem = mContentModelList.get(0);
             }
             if (firstItem instanceof ListItem firstListItem && firstListItem.model != null) {
-                if (firstListItem.model.containsKey(TITLE)) {
+                if (firstListItem.model.containsKey(TITLE)
+                        && firstListItem.model.get(TITLE) != null) {
                     CharSequence title = firstListItem.model.get(TITLE);
                     if (title.length() != 0) {
                         accessibilityPaneTitle = String.valueOf(title);

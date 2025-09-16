@@ -6,8 +6,9 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
-#include "base/android/build_info.h"
+#include "base/android/device_info.h"
 #include "base/check_deref.h"
 #include "base/functional/callback_helpers.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
@@ -125,7 +126,7 @@ bool ChromeFacilitatedPaymentsClient::IsInLandscapeMode() {
 }
 
 bool ChromeFacilitatedPaymentsClient::IsFoldable() {
-  return base::android::BuildInfo::GetInstance()->is_foldable();
+  return base::android::device_info::is_foldable();
 }
 
 optimization_guide::OptimizationGuideDecider*
@@ -154,12 +155,14 @@ void ChromeFacilitatedPaymentsClient::ShowPaymentLinkPrompt(
     base::span<const autofill::Ewallet> ewallet_suggestions,
     std::unique_ptr<payments::facilitated::FacilitatedPaymentsAppInfoList>
         app_suggestions,
-    base::OnceCallback<void(int64_t)> on_payment_account_selected) {
+    base::OnceCallback<void(int64_t)> on_payment_account_selected,
+    base::OnceCallback<void(std::string_view, std::string_view)>
+        on_payment_app_selected) {
   facilitated_payments_controller_->ShowForPaymentLink(
       ewallet_suggestions, std::move(app_suggestions),
-      std::move(on_payment_account_selected));
+      std::move(on_payment_account_selected),
+      std::move(on_payment_app_selected));
 }
-
 void ChromeFacilitatedPaymentsClient::ShowProgressScreen() {
   facilitated_payments_controller_->ShowProgressScreen();
 }

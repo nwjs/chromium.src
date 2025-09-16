@@ -19,7 +19,6 @@
 #include <sstream>
 
 #include "base/containers/contains.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/strings/stringprintf.h"
@@ -65,16 +64,6 @@ std::string GetDriverName(const media::IoctlAsCallback& ioctl_cb) {
 }
 }  // namespace
 namespace media {
-
-void RecordMediaIoctlUMA(MediaIoctlRequests function) {
-  base::UmaHistogramEnumeration("Media.V4l2VideoDecoder.MediaIoctlError",
-                                function);
-}
-
-void RecordVidiocIoctlErrorUMA(VidiocIoctlRequests function) {
-  base::UmaHistogramEnumeration("Media.V4l2VideoDecoder.VidiocIoctlError",
-                                function);
-}
 
 const char* V4L2MemoryToString(const v4l2_memory memory) {
   switch (memory) {
@@ -563,10 +552,17 @@ base::TimeDelta TimeValToTimeDelta(const struct timeval& timeval) {
 struct timeval TimeDeltaToTimeVal(base::TimeDelta time_delta) {
   const int64_t time_delta_linear = time_delta.InMicroseconds();
   constexpr int64_t kMicrosecondsPerSecond = 1000 * 1000;
-  return {.tv_sec = base::checked_cast<__time_t>(time_delta_linear /
-                                                 kMicrosecondsPerSecond),
-          .tv_usec = base::checked_cast<__suseconds_t>(time_delta_linear %
-                                                       kMicrosecondsPerSecond)};
+  int64_t tv_sec = time_delta_linear / kMicrosecondsPerSecond;
+  int64_t tv_usec = time_delta_linear % kMicrosecondsPerSecond;
+
+  // Ensure that microseconds timeval field is non-negative.
+  if (tv_usec < 0) {
+    tv_usec += kMicrosecondsPerSecond;
+    tv_sec -= 1;
+  }
+
+  return {.tv_sec = base::checked_cast<__time_t>(tv_sec),
+          .tv_usec = base::checked_cast<__suseconds_t>(tv_usec)};
 }
 
 std::optional<SupportedVideoDecoderConfigs> GetSupportedV4L2DecoderConfigs() {

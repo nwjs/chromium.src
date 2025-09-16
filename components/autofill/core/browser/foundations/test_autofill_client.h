@@ -36,8 +36,8 @@
 #include "components/autofill/core/browser/integrators/autofill_ai/mock_autofill_ai_manager.h"
 #include "components/autofill/core/browser/integrators/fast_checkout/mock_fast_checkout_client.h"
 #include "components/autofill/core/browser/integrators/identity_credential/identity_credential_delegate.h"
-#include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide.h"
-#include "components/autofill/core/browser/integrators/password_manager/otp_suggestion_delegate.h"
+#include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide_decider.h"
+#include "components/autofill/core/browser/integrators/password_manager/otp_delegate.h"
 #include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
 #include "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
@@ -78,9 +78,6 @@
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
 
-#if BUILDFLAG(IS_ANDROID)
-#include "base/android/build_info.h"
-#endif
 
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 #include "components/autofill/core/browser/ml_model/field_classification_model_handler.h"
@@ -162,12 +159,13 @@ class TestAutofillClientTemplate : public T {
                : entity_data_manager_.get();
   }
 
-  MockAutofillOptimizationGuide* GetAutofillOptimizationGuide() const override {
-    return mock_autofill_optimization_guide_.get();
+  MockAutofillOptimizationGuideDecider* GetAutofillOptimizationGuideDecider()
+      const override {
+    return mock_autofill_optimization_guide_decider_.get();
   }
 
-  void ResetAutofillOptimizationGuide() {
-    mock_autofill_optimization_guide_.reset();
+  void ResetAutofillOptimizationGuideDecider() {
+    mock_autofill_optimization_guide_decider_.reset();
   }
 
   MockAutofillAiManager* GetAutofillAiManager() override {
@@ -201,9 +199,7 @@ class TestAutofillClientTemplate : public T {
     return password_manager_delegate_.get();
   }
 
-  OtpSuggestionDelegate* GetOtpSuggestionDelegate() override {
-    return otp_suggestion_delegate_.get();
-  }
+  OtpDelegate* GetOtpDelegate() override { return otp_delegate_.get(); }
 
   test::AutofillTestingPrefService* GetPrefs() override {
     if (!prefs_) {
@@ -392,6 +388,10 @@ class TestAutofillClientTemplate : public T {
 
   bool IsContextSecure() const override {
     return last_committed_primary_main_frame_url_.SchemeIs("https");
+  }
+
+  bool IsCvcSavingSupported() const override {
+    return is_cvc_saving_supported_;
   }
 
   LogManager* GetCurrentLogManager() override { return log_manager_.get(); }
@@ -584,6 +584,10 @@ class TestAutofillClientTemplate : public T {
     is_off_the_record_ = is_off_the_record;
   }
 
+  void set_is_cvc_saving_supported(bool is_cvc_saving_supported) {
+    is_cvc_saving_supported_ = is_cvc_saving_supported;
+  }
+
   void set_crowdsourcing_manager(
       std::unique_ptr<AutofillCrowdsourcingManager> crowdsourcing_manager) {
     crowdsourcing_manager_ = std::move(crowdsourcing_manager);
@@ -610,9 +614,8 @@ class TestAutofillClientTemplate : public T {
     password_manager_delegate_ = std::move(password_manager_delegate);
   }
 
-  void set_otp_suggestion_delegate(
-      std::unique_ptr<OtpSuggestionDelegate> otp_suggestion_delegate) {
-    otp_suggestion_delegate_ = std::move(otp_suggestion_delegate);
+  void set_otp_delegate(std::unique_ptr<OtpDelegate> otp_delegate) {
+    otp_delegate_ = std::move(otp_delegate);
   }
 
   void set_suggestion_ui_session_id(
@@ -636,11 +639,11 @@ class TestAutofillClientTemplate : public T {
   std::unique_ptr<AutofillPlusAddressDelegate> plus_address_delegate_;
   std::unique_ptr<IdentityCredentialDelegate> identity_credential_delegate_;
   std::unique_ptr<PasswordManagerDelegate> password_manager_delegate_;
-  std::unique_ptr<OtpSuggestionDelegate> otp_suggestion_delegate_;
+  std::unique_ptr<OtpDelegate> otp_delegate_;
   TestAddressNormalizer test_address_normalizer_;
-  std::unique_ptr<::testing::NiceMock<MockAutofillOptimizationGuide>>
-      mock_autofill_optimization_guide_ =
-          std::make_unique<testing::NiceMock<MockAutofillOptimizationGuide>>();
+  std::unique_ptr<::testing::NiceMock<MockAutofillOptimizationGuideDecider>>
+      mock_autofill_optimization_guide_decider_ = std::make_unique<
+          testing::NiceMock<MockAutofillOptimizationGuideDecider>>();
   std::unique_ptr<::testing::NiceMock<MockAutofillAiManager>>
       mock_autofill_ai_delegate_ =
           std::make_unique<testing::NiceMock<MockAutofillAiManager>>(
@@ -693,6 +696,8 @@ class TestAutofillClientTemplate : public T {
   bool is_off_the_record_ = false;
 
   bool is_showing_popup_ = false;
+
+  bool is_cvc_saving_supported_ = true;
 
   SuggestionHidingReason popup_hidden_reason_;
 

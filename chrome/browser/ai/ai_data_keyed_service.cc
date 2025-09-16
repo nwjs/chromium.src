@@ -60,6 +60,7 @@
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/ax_tree_update.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/geometry/rect.h"
@@ -124,8 +125,8 @@ void GetAIPageContentForModelPrototyping(
     AiDataKeyedService::AiDataCallback continue_callback) {
   TRACE_EVENT("browser", "GetAIPageContentForModelPrototyping");
 
-  auto options = optimization_guide::DefaultAIPageContentOptions();
-  options->on_critical_path = true;
+  auto options = optimization_guide::DefaultAIPageContentOptions(
+      /*on_critical_path =*/true);
   optimization_guide::OnAIPageContentDone callback = base::BindOnce(
       &OnGotAIPageContentForModelPrototyping, std::move(continue_callback));
   optimization_guide::GetAIPageContent(web_contents, std::move(options),
@@ -138,8 +139,8 @@ void GetAIPageContentWithActionableElementsForModelPrototyping(
   TRACE_EVENT("browser",
               "GetAIPageContentWithActionableElementsForModelPrototyping");
 
-  auto options = optimization_guide::ActionableAIPageContentOptions();
-  options->on_critical_path = true;
+  auto options = optimization_guide::ActionableAIPageContentOptions(
+      /*on_critical_path =*/true);
   optimization_guide::OnAIPageContentDone callback = base::BindOnce(
       &OnGotAIPageContentWithActionableElementsForModelPrototyping,
       std::move(continue_callback));

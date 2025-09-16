@@ -29,8 +29,10 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ntp_customization.BottomSheetDelegate;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.R;
 import org.chromium.chrome.browser.ntp_customization.theme.NtpThemeCoordinator.NTPThemeBottomSheetSection;
+import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpChromeColorsCoordinator;
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.NtpThemeCollectionsCoordinator;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.browser_ui.share.ShareImageFileUtils;
@@ -52,6 +54,7 @@ public class NtpThemeMediator {
     private @Nullable ActivityResultRegistry mActivityResultRegistry;
     private @Nullable ActivityResultLauncher<String> mActivityResultLauncher;
     private @Nullable NtpThemeCollectionsCoordinator mNtpThemeCollectionsCoordinator;
+    private @Nullable NtpChromeColorsCoordinator mNtpChromeColorsCoordinator;
 
     public NtpThemeMediator(
             Context context,
@@ -105,6 +108,10 @@ public class NtpThemeMediator {
                                         mContext,
                                         uri,
                                         bitmap -> {
+                                            // If failed to get the bitmap of the chosen image,
+                                            // don't update existing background type.
+                                            if (bitmap == null) return;
+
                                             mNtpCustomizationConfigManager.onBackgroundChanged(
                                                     bitmap);
                                         });
@@ -163,7 +170,10 @@ public class NtpThemeMediator {
     void handleChromeDefaultSectionClick(View view) {
         updateTrailingIconVisibilityForSectionType(CHROME_DEFAULT);
 
-        mNtpCustomizationConfigManager.onBackgroundChanged(/* bitmap= */ null);
+        mNtpCustomizationConfigManager.onBackgroundColorChanged(
+                mContext,
+                /* colorInfo= */ null,
+                NtpCustomizationUtils.NtpBackgroundImageType.DEFAULT);
     }
 
     @VisibleForTesting
@@ -178,6 +188,12 @@ public class NtpThemeMediator {
     @VisibleForTesting
     void handleChromeColorsSectionClick(View view) {
         updateTrailingIconVisibilityForSectionType(CHROME_COLORS);
+
+        if (mNtpChromeColorsCoordinator == null) {
+            mNtpChromeColorsCoordinator =
+                    new NtpChromeColorsCoordinator(mContext, mBottomSheetDelegate);
+        }
+        mBottomSheetDelegate.showBottomSheet(BottomSheetType.CHROME_COLORS);
     }
 
     @VisibleForTesting

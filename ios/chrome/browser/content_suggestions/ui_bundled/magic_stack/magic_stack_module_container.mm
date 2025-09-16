@@ -26,6 +26,7 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/shop_card_item.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_item.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_image_background_trait.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_trait.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_settings_util.h"
@@ -211,7 +212,13 @@ const CGFloat kSeparatorHeight = 0.5;
           @[ UITraitPreferredContentSizeCategory.class ]);
       [self registerForTraitChanges:traits
                          withAction:@selector(updateCardSizing)];
+
+      if (IsNTPBackgroundCustomizationEnabled()) {
+        [self registerForTraitChanges:@[ NewTabPageTrait.class ]
+                           withAction:@selector(applyBackgroundColors)];
+      }
     }
+    [self applyBackgroundColors];
   }
   return self;
 }
@@ -411,9 +418,6 @@ const CGFloat kSeparatorHeight = 0.5;
       return content_suggestions::SetUpListTitleString();
     case ContentSuggestionsModuleType::kSafetyCheck:
       return l10n_util::GetNSString(IDS_IOS_SAFETY_CHECK_TITLE);
-    case ContentSuggestionsModuleType::kParcelTracking:
-      return l10n_util::GetNSString(
-          IDS_IOS_CONTENT_SUGGESTIONS_PARCEL_TRACKING_MODULE_TITLE);
     case ContentSuggestionsModuleType::kPriceTrackingPromo:
     case ContentSuggestionsModuleType::kSendTabPromo:
       // Send Tab and Price Tracking Promo design do not use title.
@@ -431,6 +435,7 @@ const CGFloat kSeparatorHeight = 0.5;
     }
     case ContentSuggestionsModuleType::kTipsWithProductImage:
     case ContentSuggestionsModuleType::kTips:
+    case ContentSuggestionsModuleType::kAppBundlePromo:
       return l10n_util::GetNSString(IDS_IOS_MAGIC_STACK_TIP_TITLE);
     default:
       NOTREACHED();
@@ -516,6 +521,15 @@ const CGFloat kSeparatorHeight = 0.5;
 }
 #endif
 
+#pragma mark - NewTabPageColorUpdating
+
+- (void)applyBackgroundColors {
+  NewTabPageColorPalette* colorPalette =
+      [self.traitCollection objectForNewTabPageTrait];
+
+  _seeMoreButton.tintColor = colorPalette ? colorPalette.tintColor : nil;
+}
+
 #pragma mark - MagicStackModuleContentViewDelegate
 
 - (void)updateNotificationsOptInVisibility:(BOOL)showNotificationsOptIn {
@@ -586,6 +600,7 @@ const CGFloat kSeparatorHeight = 0.5;
     case ContentSuggestionsModuleType::kSetUpListNotifications:
     case ContentSuggestionsModuleType::kSafetyCheck:
     case ContentSuggestionsModuleType::kTips:
+    case ContentSuggestionsModuleType::kAppBundlePromo:
       return YES;
     case ContentSuggestionsModuleType::kTabResumption:
     case ContentSuggestionsModuleType::kTipsWithProductImage:

@@ -145,8 +145,7 @@ constexpr unsigned kMaxCanvasAnimationBacklog = 2;
 constexpr unsigned kDisableAccelerationThreshold = 100;
 constexpr unsigned kDisableAccelerationPercent = 95;
 
-BASE_FEATURE(kOneCopyCanvasCapture,
-             "OneCopyCanvasCapture",
+BASE_FEATURE(OneCopyCanvasCapture,
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
@@ -155,8 +154,7 @@ BASE_FEATURE(kOneCopyCanvasCapture,
 );
 
 // Kill switch for not requesting continuous begin frame for low latency canvas.
-BASE_FEATURE(kLowLatencyCanvasNoBeginFrameKillSwitch,
-             "LowLatencyCanvasNoBeginFrameKillSwitch",
+BASE_FEATURE(LowLatencyCanvasNoBeginFrameKillSwitch,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // These values come from the WhatWG spec.
@@ -1337,7 +1335,7 @@ String HTMLCanvasElement::ToDataURLInternal(const String& mime_type,
     bool noised = false;
     if (readback_type == ReadbackType::kWebExposed) {
       noised = CanvasInterventionsHelper::MaybeNoiseSnapshot(
-          context_, GetExecutionContext(), image_bitmap);
+          GetExecutionContext(), image_bitmap);
     }
     std::unique_ptr<ImageDataBuffer> data_buffer =
         ImageDataBuffer::Create(image_bitmap);
@@ -1437,8 +1435,8 @@ void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
     GetDocument()
         .GetTaskRunner(TaskType::kCanvasBlobSerialization)
         ->PostTask(FROM_HERE,
-                   WTF::BindOnce(&V8BlobCallback::InvokeAndReportException,
-                                 WrapPersistent(callback), nullptr, nullptr));
+                   BindOnce(&V8BlobCallback::InvokeAndReportException,
+                            WrapPersistent(callback), nullptr, nullptr));
     return;
   }
 
@@ -1460,8 +1458,8 @@ void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
   if (image_bitmap) {
     auto intervention_type =
         CanvasInterventionsHelper::CanvasInterventionType::kNone;
-    if (CanvasInterventionsHelper::MaybeNoiseSnapshot(
-            context_, GetExecutionContext(), image_bitmap)) {
+    if (CanvasInterventionsHelper::MaybeNoiseSnapshot(GetExecutionContext(),
+                                                      image_bitmap)) {
       intervention_type =
           CanvasInterventionsHelper::CanvasInterventionType::kNoise;
     }
@@ -1484,8 +1482,8 @@ void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
     GetDocument()
         .GetTaskRunner(TaskType::kCanvasBlobSerialization)
         ->PostTask(FROM_HERE,
-                   WTF::BindOnce(&V8BlobCallback::InvokeAndReportException,
-                                 WrapPersistent(callback), nullptr, nullptr));
+                   BindOnce(&V8BlobCallback::InvokeAndReportException,
+                            WrapPersistent(callback), nullptr, nullptr));
   }
 }
 

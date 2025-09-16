@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/core/layout/layout_text_combine.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/text_utils.h"
+#include "third_party/blink/renderer/core/style/computed_style_base_constants.h"
 #include "third_party/blink/renderer/platform/text/character_break_iterator.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 
@@ -57,6 +58,8 @@ bool ShouldAlignCaretRight(ETextAlign text_align, TextDirection direction) {
       return IsRtl(direction);
     case ETextAlign::kEnd:
       return IsLtr(direction);
+    case ETextAlign::kMatchParent:
+      return IsRtl(direction);
   }
   NOTREACHED();
 }
@@ -141,6 +144,11 @@ LogicalRect ComputeNextCharacterLogicalRect(const InlineCursor& cursor,
       cursor_inline_size = ComputeCharacterWidthAtOffset(
           cursor, offset - cursor.Current().TextStartOffset() - 1, style);
     }
+  }
+  // When the inline size is zero, e.g. in the case that character is
+  // "&ZeroWidthSpace;", the inline size falls back to bar width.
+  if (cursor_inline_size == LayoutUnit()) {
+    cursor_inline_size = caret_width;
   }
   caret_rect.offset.block_offset = cursor_block_offset;
 

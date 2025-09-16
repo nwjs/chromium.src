@@ -9,12 +9,14 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/tabs/glic_actor_task_icon_controller.h"
 #include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/commerce/product_specifications_button.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/tabs/fake_base_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/glic_button.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_nudge_button.h"
@@ -56,10 +58,10 @@ class FakeGlicTabStripController : public FakeBaseTabStripController {
     return profile_.get();
   }
   void Setup() {
-    browser_window_ = std::make_unique<TestBrowserWindow>();
+    auto browser_window = std::make_unique<TestBrowserWindow>();
     Browser::CreateParams params(profile_.get(), /*user_gesture*/ true);
     params.type = Browser::TYPE_NORMAL;
-    params.window = browser_window_.get();
+    params.window = browser_window.release();
     browser_ = Browser::DeprecatedCreateOwnedForTesting(params);
   }
   void ShouldUseOtrProfile(bool use_otr_profile) {
@@ -73,7 +75,6 @@ class FakeGlicTabStripController : public FakeBaseTabStripController {
  private:
   bool use_otr_profile_ = false;
   std::unique_ptr<TestingProfile> profile_ = std::make_unique<TestingProfile>();
-  std::unique_ptr<TestBrowserWindow> browser_window_;
   std::unique_ptr<Browser> browser_;
 };
 
@@ -132,9 +133,9 @@ class TabStripActionContainerTest : public ChromeViewsTestBase {
     tab_interface_ = std::make_unique<tabs::MockTabInterface>();
 
     browser_window_interface_ = std::make_unique<MockBrowserWindowInterface>();
-    ON_CALL(*browser_window_interface_, GetTabStripModel)
+    ON_CALL(*browser_window_interface_, GetTabStripModel())
         .WillByDefault(::testing::Return(tab_strip_model_.get()));
-    ON_CALL(*browser_window_interface_, GetProfile)
+    ON_CALL(*browser_window_interface_, GetProfile())
         .WillByDefault(
             ::testing::Return(tab_strip_->controller()->GetProfile()));
     ON_CALL(*browser_window_interface_, GetActiveTabInterface)
@@ -181,7 +182,7 @@ class TabStripActionContainerTest : public ChromeViewsTestBase {
 };
 
 #if BUILDFLAG(ENABLE_GLIC)
-// TODO(crbug.com/422439931): Fix flaky tests on Mac.
+// TODO(crbug.com/437141881): Fix flaky tests on Mac.
 TEST_F(TabStripActionContainerTest, GlicButtonDrawing) {
   BuildGlicContainer(/*use_otr_profile=*/false);
   EXPECT_TRUE(tab_strip_action_container_->GetGlicButton());
@@ -203,7 +204,7 @@ TEST_F(TabStripActionContainerTest, OrdersButtonsCorrectly) {
             tab_strip_action_container_->children()[1]);
 
 #if BUILDFLAG(ENABLE_GLIC)
-// TODO(crbug.com/422439931): Fix flaky tests on Mac.
+// TODO(crbug.com/437141881): Fix flaky tests on Mac.
 // Mac doesn't have a separator, so the children sizes are different.
 #if !BUILDFLAG(IS_MAC)
   ASSERT_THAT(tab_strip_action_container_->children(), SizeIs(5));
@@ -249,7 +250,7 @@ TEST_F(TabStripActionContainerTest, OrdersButtonsCorrectlyWithProduct) {
             tab_strip_action_container_->children()[2]);
 
 #if BUILDFLAG(ENABLE_GLIC)
-// TODO(crbug.com/422439931): Fix flaky tests on Mac.
+// TODO(crbug.com/437141881): Fix flaky tests on Mac.
 // Mac doesn't have a separator, so the children sizes are different.
 #if !BUILDFLAG(IS_MAC)
   ASSERT_THAT(tab_strip_action_container_->children(), SizeIs(6));

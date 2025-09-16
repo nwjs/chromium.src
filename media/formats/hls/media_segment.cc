@@ -2,13 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "media/formats/hls/media_segment.h"
 
+#include "base/containers/span.h"
+#include "base/containers/span_writer.h"
 #include "base/numerics/byte_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
@@ -51,13 +48,13 @@ std::optional<std::string> MediaSegment::EncryptionData::GetIVStr(
     return std::nullopt;
   }
   std::string str;
-  char* write_buffer = base::WriteInto(&str, 17);
+  base::WriteInto(&str, 17);
   uint64_t msb, lsb;
   std::tie(msb, lsb) = iv.value();
-  msb = base::ByteSwap(msb);
-  lsb = base::ByteSwap(lsb);
-  memcpy(write_buffer, &msb, 8);
-  memcpy(&write_buffer[8], &lsb, 8);
+
+  base::SpanWriter writer(base::as_writable_byte_span(str));
+  writer.WriteU64BigEndian(msb);
+  writer.WriteU64BigEndian(lsb);
   return str;
 }
 

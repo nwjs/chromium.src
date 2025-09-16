@@ -6281,7 +6281,7 @@ class ChromeDriverPageLoadTimeoutTest(ChromeDriverBaseTestWithWebServer):
     self._CheckPageLoadTimeout(self._driver.Refresh)
 
 
-class ChromeDriverAndroidTest(ChromeDriverBaseTest):
+class ChromeDriverAndroidTest(ChromeDriverBaseTestWithWebServer):
   """End to end tests for Android-specific tests."""
 
   def testLatestAndroidAppInstalled(self):
@@ -6357,6 +6357,64 @@ class ChromeDriverAndroidTest(ChromeDriverBaseTest):
 
       # Verify that the second tab target is indeed in a different window.
       self.assertNotEqual(window1['windowId'], window2['windowId'])
+
+  def testAndroidScrollsMultipleWindows(self):
+      """ Regression test for crbug.com/413382905
+      """
+      self._driver = self.CreateDriver()
+      size = self._driver.GetWindowRect()
+
+      old_target_id = self._driver.GetCurrentWindowHandle()
+      window1 = self._driver.SendCommandAndGetResult(
+          'Browser.getWindowForTarget', {'targetId': old_target_id})
+      new_window1 = self._driver.NewWindow(window_type='window')
+      new_window2 = self._driver.NewWindow(window_type='window')
+      new_window3 = self._driver.NewWindow(window_type='window')
+
+      # Switch to first window
+      self._driver.SwitchToWindow(new_window1['handle'])
+      self.assertTrue(
+          self.WaitForCondition(
+              lambda: self._driver.GetCurrentWindowHandle() !=
+                old_target_id))
+      window1_target_id = self._driver.GetCurrentWindowHandle()
+      self.assertNotEqual(None, window1_target_id)
+      self.assertNotEqual(old_target_id, window1_target_id)
+
+      scroll_top = 'return document.documentElement.scrollTop;'
+
+      # Scroll first window.
+      self._driver.Load(self.GetHttpUrlForFile(
+            '/chromedriver/touch_action_tests.html'))
+      self.assertEqual(0, self._driver.ExecuteScript(scroll_top))
+      self._driver.ExecuteScript('window.scrollTo(0, %d);' % 53)
+      self.assertAlmostEqual(53,
+          self._driver.ExecuteScript(scroll_top), delta=1)
+
+      # Switch to second window
+      self._driver.SwitchToWindow(new_window2['handle'])
+      self.assertTrue(
+          self.WaitForCondition(
+              lambda: self._driver.GetCurrentWindowHandle() !=
+                window1_target_id))
+      window2_target_id = self._driver.GetCurrentWindowHandle()
+      self.assertNotEqual(None, window2_target_id)
+      self.assertNotEqual(window1_target_id, window2_target_id)
+
+      # Scroll second window.
+      self._driver.Load(self.GetHttpUrlForFile(
+            '/chromedriver/touch_action_tests.html'))
+      self.assertEqual(0, self._driver.ExecuteScript(scroll_top))
+      self._driver.ExecuteScript('window.scrollTo(0, %d);' % 25)
+
+      # Assert both windows were independently scrolled and positions
+      # maintained.
+      self._driver.SwitchToWindow(new_window1['handle'])
+      self.assertAlmostEqual(53,
+          self._driver.ExecuteScript(scroll_top), delta=1)
+      self._driver.SwitchToWindow(new_window2['handle'])
+      self.assertAlmostEqual(25,
+          self._driver.ExecuteScript(scroll_top), delta=1)
 
   def testAndroidPrefs(self):
     package_name = constants.PACKAGE_INFO[_ANDROID_PACKAGE_KEY].package
@@ -7305,6 +7363,32 @@ class ChromeDriverLogTest(CustomChromeDriverInstanceTest):
       chromedriver_server.Kill()
     with open(tmp_log_path, 'r') as f:
       self.assertTrue(self.LOG_MESSAGE in f.read())
+
+  def testRendererCrashSkipsChromeDriverStackTrace(self):
+    '''Regression test for crbug.com/395131239'''
+    _, tmp_log_path = tempfile.mkstemp(prefix='chromedriver_log_')
+    chromedriver_server = self.CreateChromeDriverServer(
+        _CHROMEDRIVER_BINARY, log_path=tmp_log_path)
+    try:
+      driver = chromedriver.ChromeDriver(
+          chromedriver_server.GetUrl(), chromedriver_server.GetPid(),
+          chrome_binary=_CHROME_BINARY,
+          http_timeout=_HTTP_TIMEOUT)
+      # Cause the renderer to crash.
+      driver.SendCommandAndGetResult("Page.crash", {})
+      # allow time to complete writing the minidump.
+      time.sleep(2)
+    except chromedriver.ChromeDriverException as e:
+      # Ensure a ChromeDriver stack trace is not printed.
+      self.assertFalse("StackTrace:" in str(e))
+      self.assertTrue("tab crashed" in str(e))
+    finally:
+      chromedriver_server.Kill()
+    with open(tmp_log_path, 'r') as f:
+      log_contents = f.read()
+      # Assert that there's renderer crash stack trace available in log.
+      self.assertTrue("NOTREACHED hit." in log_contents)
+      self.assertTrue("[end of stack trace]" in log_contents)
 
   def testDisablingDriverLogsSuppressesChromeDriverLog(self):
     _, tmp_log_path = tempfile.mkstemp(prefix='chromedriver_log_')

@@ -124,14 +124,24 @@ bool AiModePageActionIconView::ShouldShow() {
     return false;
   }
 
+  OmniboxView* omnibox_view = GetOmniboxView();
+  if (!omnibox_view) {
+    return false;
+  }
+
+  // If the user is currently in keyword mode, then suppress the AIM entrypoint.
+  if (omnibox_view->model()->is_keyword_selected()) {
+    return false;
+  }
+
   // If the feature is enabled to hide the AIM entrypoint on user input, don't
   // show the AIM entrypoint if the user typed text is non-empty.
   if (base::FeatureList::IsEnabled(omnibox::kHideAimEntrypointOnUserInput)) {
-    OmniboxView* omnibox_view = GetOmniboxView();
-    if (omnibox_view && !omnibox_view->model()->user_text().empty()) {
+    if (!omnibox_view->model()->user_text().empty()) {
       return false;
     }
   }
+
   // Otherwise, we should show the AIM view if the focus is within any view in
   // the location bar, including the omnibox, this view or any other page action
   // icon views.
@@ -143,8 +153,19 @@ bool AiModePageActionIconView::ShouldShow() {
     return false;
   }
   const views::FocusManager* const focus_manager = GetFocusManager();
-  return focus_manager &&
-         location_bar_view->Contains(focus_manager->GetFocusedView());
+  const bool has_focus = focus_manager && location_bar_view->Contains(
+                                              focus_manager->GetFocusedView());
+
+  // ...unless the user triggers the following edge-case in the Omnibox. In this
+  // case, we suppress the AIM page action in order to ensure that it doesn't
+  // get visually "sandwiched" in between the other page actions that show up in
+  // this state.
+  if (has_focus && !omnibox_view->model()->user_input_in_progress() &&
+      !omnibox_view->model()->PopupIsOpen()) {
+    return false;
+  }
+
+  return has_focus;
 }
 
 OmniboxView* AiModePageActionIconView::GetOmniboxView() {

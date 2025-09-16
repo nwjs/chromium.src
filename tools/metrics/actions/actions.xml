@@ -3731,12 +3731,31 @@ should be able to be added at any place in this file.
   <description>The survey infobar was displayed.</description>
 </action>
 
+<action name="Android.WindowManager.ChangeWindowName">
+  <owner>aishwaryarj@google.com</owner>
+  <owner>rathomas@google.com</owner>
+  <description>
+    User tapped 'Save' on the dialog opened via the 3-dot menu on the in-app
+    window manager to successfully save and change the name of a Chrome window
+    and dismiss the dialog.
+  </description>
+</action>
+
 <action name="Android.WindowManager.CloseWindow">
   <owner>jinsukkim@chromium.org</owner>
   <owner>twellington@chromium.org</owner>
   <description>
     User tapped Close in the 3-dot menu from the in-app window manager to remove
     a Chrome window.
+  </description>
+</action>
+
+<action name="Android.WindowManager.NameWindow">
+  <owner>aishwaryarj@google.com</owner>
+  <owner>rathomas@google.com</owner>
+  <description>
+    User tapped 'Name' on the 3-dot menu on the in-app window manager to name a
+    Chrome window.
   </description>
 </action>
 
@@ -3764,6 +3783,16 @@ should be able to be added at any place in this file.
   <description>
     User tapped on 'Restore' in Chrome's in-app window manager to restore an
     inactive Window and bring it to the foreground.
+  </description>
+</action>
+
+<action name="Android.WindowManager.SaveWindowName">
+  <owner>aishwaryarj@google.com</owner>
+  <owner>rathomas@google.com</owner>
+  <description>
+    User tapped 'Save' on the dialog opened via the 3-dot menu on the in-app
+    window manager to successfully save the name of a Chrome window and dismiss
+    the dialog.
   </description>
 </action>
 
@@ -6243,6 +6272,60 @@ should be able to be added at any place in this file.
   <description>
     User added the &quot;bookmark shortcut&quot; widget, which is an icon to
     open a single bookmark in Chrome, to their homescreen on Android.
+  </description>
+</action>
+
+<action name="BookmarkTabGroupConversion_ConvertToBookmarkConfirmed">
+  <owner>yuhengh@google.com</owner>
+  <description>
+    User selects the save button from the bookmark editor dialog to complete
+    converting a tab group to bookmark folder.
+  </description>
+</action>
+
+<action name="BookmarkTabGroupConversion_ConvertToBookmarkSelected">
+  <owner>yuhengh@google.com</owner>
+  <description>
+    User selected the menu item to convert a tab group to bookmark folder
+  </description>
+</action>
+
+<action name="BookmarkTabGroupConversion_ShowGroupAlreadyCreatedDialog">
+  <owner>yuhengh@google.com</owner>
+  <description>
+    The user tries to open a bookmark folder as group but the bookmark folder is
+    already connected to an existing group. A dialog is shown to prompt user to
+    make a choice.
+  </description>
+</action>
+
+<action name="BookmarkTabGroupConversion_UserSelectCancel">
+  <owner>yuhengh@google.com</owner>
+  <description>
+    The user tries to open a bookmark folder as group but the bookmark folder is
+    already connected to an existing group. A dialog is shown to prompt user to
+    make a choice. User dismisses the dialog without selecting either the create
+    new group button or the replace old group button.
+  </description>
+</action>
+
+<action name="BookmarkTabGroupConversion_UserSelectCreateNewGroup">
+  <owner>yuhengh@google.com</owner>
+  <description>
+    The user tries to open a bookmark folder as group but the bookmark folder is
+    already connected to an existing group. A dialog is shown to prompt user to
+    make a choice. User selects the create new group button. This action is used
+    for logging user selection, it's not equivalent to creating new group.
+  </description>
+</action>
+
+<action name="BookmarkTabGroupConversion_UserSelectReplaceOldGroup">
+  <owner>yuhengh@google.com</owner>
+  <description>
+    The user tries to open a bookmark folder as group but the bookmark folder is
+    already connected to an existing group. A dialog is shown to prompt user to
+    make a choice. User selects the replace old group button. This action is
+    used for logging user selection, it's not equivalent to replacing old group.
   </description>
 </action>
 
@@ -10379,6 +10462,16 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="DomDistiller.Android.OnStoppedReaderMode">
+  <owner>wylieb@google.com</owner>
+  <owner>evanluo@google.com</owner>
+  <owner>chrome-reader-mode-team@google.com</owner>
+  <description>
+    Recorded when a user stopped reader mode. This could be because of a
+    navigation away from the page, switching tabs, or closing the browser.
+  </description>
+</action>
+
 <action name="DomDistiller.Android.ThemeChanged">
   <owner>wylieb@google.com</owner>
   <owner>chrome-reader-mode-team@google.com</owner>
@@ -13029,6 +13122,34 @@ should be able to be added at any place in this file.
   <description>Tracks a single response stop in glic.</description>
 </action>
 
+<action name="GlicResponseStopByUser">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    Tracks a single response stop in glic, initiated by the user.
+  </description>
+</action>
+
+<action name="GlicResponseStopOther" not_user_triggered="true">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    Tracks a single response stop in glic, initiated by a non-user cause (could
+    be normal completion).
+  </description>
+</action>
+
+<action name="GlicResponseStopUnknownCause">
+  <owner>carlosk@chromium.org</owner>
+  <owner>harringtond@chromium.org</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    Tracks a single response stop in glic, the cause is unspecified.
+  </description>
+</action>
+
 <action name="GlicSessionBegin">
   <owner>carlosk@chromium.org</owner>
   <owner>harringtond@chromium.org</owner>
@@ -13395,6 +13516,24 @@ should be able to be added at any place in this file.
 <action name="HistoryPage_SearchResultRemove">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="HistoryPage_SideBarFooterGeminiAppsActivityClick">
+  <owner>lamzin@google.com</owner>
+  <owner>rainhard@chromium.org</owner>
+  <description>
+    User clicked the &quot;Gemini Apps Activity&quot; link in the footer of the
+    history page sidebar.
+  </description>
+</action>
+
+<action name="HistoryPage_SideBarFooterGoogleMyActivityClick">
+  <owner>lamzin@google.com</owner>
+  <owner>rainhard@chromium.org</owner>
+  <description>
+    User clicked the &quot;My Activity&quot; link in the footer of the history
+    page sidebar.
+  </description>
 </action>
 
 <action name="Home">
@@ -15494,6 +15633,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="IOS.HomeCustomization.MagicStackPage.ParcelTracking.Toggled">
+  <obsolete>
+    Unused as of 08/2025, as ParcelTracking code has been turned down and
+    removed from the codebase
+  </obsolete>
   <owner>adamta@google.com</owner>
   <owner>bling-pandamonium@google.com</owner>
   <description>
@@ -15649,6 +15792,16 @@ should be able to be added at any place in this file.
     Recorded when the user taps the ShopCard in the Magic Stack (which opens the
     price tracking URL) when the ShopCard contains a price drop from a user's
     tracked products.
+  </description>
+</action>
+
+<action name="IOS.MagicStack.ShopCard.PriceTracking.Track">
+  <owner>davidjm@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <description>
+    Recorded when the user taps 'track' in a the ShopCard in the magic stack
+    which gives the user the option to price track a recently visited shopping
+    URL.
   </description>
 </action>
 
@@ -16402,6 +16555,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="IOSMagicStackParcelTrackingFreshSignal" not_user_triggered="true">
+  <obsolete>
+    Unused as of 08/2025, as ParcelTracking code has been turned down and
+    removed from the codebase
+  </obsolete>
   <owner>thegreenfrog@google.com</owner>
   <owner>bling-team@google.com</owner>
   <description>
@@ -28418,6 +28575,25 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileToolbarReorderTab.TabsAddedToGroup">
+  <owner>clank-app-team@google.com</owner>
+  <owner>hitarthkothari@google.com</owner>
+  <description>
+    User long-pressed on a tab part of a multi-tab selection, dragged and
+    dropped it within a tab group in the tablet tab strip. Android Only.
+  </description>
+</action>
+
+<action name="MobileToolbarReorderTab.TabsRemovedFromGroup">
+  <owner>clank-app-team@google.com</owner>
+  <owner>hitarthkothari@google.com</owner>
+  <description>
+    User long-pressed on a tab part of a multi-tab selection with in a group,
+    dragged and dropped it outside of the group in the tablet tab strip. Android
+    Only.
+  </description>
+</action>
+
 <action name="MobileToolbarSearchButtonTapped">
   <obsolete>Deprecate as of 3/2020</obsolete>
   <owner>stkhapugin@chromium.org</owner>
@@ -28523,6 +28699,14 @@ should be able to be added at any place in this file.
 <action name="MobileToolbarStackViewNewTab">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="MobileToolbarStartMultiTabReorder">
+  <owner>clank-app-team@google.com</owner>
+  <owner>hitarthkothari@google.org</owner>
+  <description>
+    User started to drag a multi-tab re-order in tablet tab strip. Android only.
+  </description>
 </action>
 
 <action name="MobileToolbarStartReorderGroup">
@@ -28680,64 +28864,13 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="MobileToolbarTabMenu.AddToTabGroup">
+<action name="MobileToolbarTabMenu">
   <owner>jhimawan@google.com</owner>
+  <owner>hitarthkothari@google.com</owner>
   <owner>clank-large-form-factors@google.com</owner>
   <description>
-    User opened the bottom sheet to add a tab to a new or existing tab group,
-    via the tab context menu on tab strip on Android.
-  </description>
-</action>
-
-<action name="MobileToolbarTabMenu.CloseTab">
-  <owner>jhimawan@google.com</owner>
-  <owner>clank-large-form-factors@google.com</owner>
-  <description>
-    User closed a tab via the tab context menu on tab strip on Android.
-  </description>
-</action>
-
-<action name="MobileToolbarTabMenu.MoveTabToNewWindow">
-  <owner>jhimawan@google.com</owner>
-  <owner>clank-large-form-factors@google.com</owner>
-  <description>
-    User moved a tab to a new window via the tab context menu on tab strip on
+    Recorded when the user interacts with the tab menu on the tab strip on
     Android.
-  </description>
-</action>
-
-<action name="MobileToolbarTabMenu.MoveTabToOtherWindow">
-  <owner>jhimawan@google.com</owner>
-  <owner>clank-large-form-factors@google.com</owner>
-  <description>
-    User moved a tab to another window via the tab context menu on tab strip on
-    Android.
-  </description>
-</action>
-
-<action name="MobileToolbarTabMenu.RemoveFromTabGroup">
-  <owner>jhimawan@google.com</owner>
-  <owner>clank-large-form-factors@google.com</owner>
-  <description>
-    User removed a tab from its tab group via the tab context menu on tab strip
-    on Android.
-  </description>
-</action>
-
-<action name="MobileToolbarTabMenu.ShareTab">
-  <owner>jhimawan@google.com</owner>
-  <owner>clank-large-form-factors@google.com</owner>
-  <description>
-    User shared the URL open in a tab, via the tab context menu on tab strip on
-    Android.
-  </description>
-</action>
-
-<action name="MobileToolbarTabMenu.Shown">
-  <owner>jhimawan@google.com</owner>
-  <owner>clank-large-form-factors@google.com</owner>
-  <description>
-    User opened the tab context menu via long-press on tab strip on Android.
   </description>
 </action>
 
@@ -33032,6 +33165,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="PageInfo.CookiesSubpage.RwsSiteSettingsOpened">
+  <obsolete>Deprecated. Never launched.</obsolete>
   <owner>mjenn@google.com</owner>
   <owner>koilos@google.com</owner>
   <description>
@@ -39424,6 +39558,12 @@ should be able to be added at any place in this file.
     Recorded when the feed side panel entry is unpinned via the pin button in
     the side panel header.
   </description>
+</action>
+
+<action name="SidePanel.Glic.Shown">
+  <owner>perrier@chromium.org</owner>
+  <owner>dewittj@google.com</owner>
+  <description>Recorded when the Glic side panel entry is shown.</description>
 </action>
 
 <action name="SidePanel.Hide">
@@ -50056,6 +50196,7 @@ should be able to be added at any place in this file.
       label="For AddToHomescreen IPH feature."/>
   <suffix name="AddToHomescreenTextBubble"
       label="For AddToHomescreen IPH feature using text bubble (obsolete)."/>
+  <suffix name="AIHubNewBadge" label="For AI Hub New Badge feature."/>
   <suffix name="AndroidTabDeclutter" label="For archived tabs on android."/>
   <suffix name="AppSpecificHistory" label="For App Specific History feature."/>
   <suffix name="AutoDarkOptOut" label="For AutoDarkOptOut dialog feature."/>
@@ -50063,6 +50204,8 @@ should be able to be added at any place in this file.
       label="For AutoDarkUserEducationMessage feature."/>
   <suffix name="AutoDarkUserEducationMessageOptIn"
       label="For AutoDarkUserEducationMessageOptIn feature."/>
+  <suffix name="AutofillAccountNameEmailSuggestion"
+      label="For AutofillAccountNameEmailSuggestion feature."/>
   <suffix name="AutofillAiOptIn" label="For AutofillAiOptIn feature."/>
   <suffix name="AutofillBnplAffirmOrZipSuggestion"
       label="For AutofillBnplAffirmOrZipSuggestion IPH feature."/>
@@ -50085,6 +50228,8 @@ should be able to be added at any place in this file.
   <suffix name="AutofillVirtualCardSuggestion"
       label="For AutofillVirtualCardSuggestion feature."/>
   <suffix name="BackNavigationMenu" label="For BackNavigationMenu feature."/>
+  <suffix name="BadgedReaderMode"
+      label="For What's New badge in Reading Mode feature."/>
   <suffix name="BadgedReadingList" label="For BadgedReadingList feature."/>
   <suffix name="BadgedTranslateManualTrigger"
       label="For BadgedTranslateManualTrigger feature."/>
@@ -50154,8 +50299,6 @@ should be able to be added at any place in this file.
   <suffix name="DesktopCustomizeChrome" label="For Customize Chrome feature."/>
   <suffix name="DesktopCustomizeChromeRefresh"
       label="For Customize Chrome refresh feature."/>
-  <suffix name="DesktopNewTabPageModulesCustomize"
-      label="For Desktop NTP modules customize feature."/>
   <suffix name="DesktopPwaInstall" label="For desktop PWA install icon."/>
   <suffix name="DesktopPWAsLinkCapturingLaunch"
       label="For desktop PWAs launched via Link Capturing."/>
@@ -50679,8 +50822,13 @@ should be able to be added at any place in this file.
   <suffix name="DownloadItem" label="Download a suggested item."/>
   <suffix name="EditItem" label="Open a modal dialog to edit a custom item."/>
   <suffix name="LearnMore" label="Open the learn more link for product help."/>
+  <suffix name="MoveItemDown" label="Move a custom item to the next position."/>
+  <suffix name="MoveItemUp"
+      label="Move a custom item to the previous position."/>
   <suffix name="OpenItemInIncognitoTab"
       label="Open a suggested item in an incognito tab."/>
+  <suffix name="OpenItemInIncognitoWindow"
+      label="Open a suggested item in an incognito window."/>
   <suffix name="OpenItemInNewTab" label="Open a suggested item in a new tab."/>
   <suffix name="OpenItemInNewTabInGroup"
       label="Open a suggested item in a new tab in group."/>
@@ -51391,11 +51539,17 @@ should be able to be added at any place in this file.
   <suffix name="MoveToGroup"
       label="Recorded when the 'Move to group' option in the context menu is
              selected."/>
+  <suffix name="PinTab"
+      label="Recorded when the 'Pin Tab' option in the context menu is
+             selected."/>
   <suffix name="SelectTabs"
       label="Recorded when the 'Select tabs' option in the context menu is
              selected."/>
   <suffix name="ShareTab"
       label="Recorded when the 'Share' option in the context menu is
+             selected."/>
+  <suffix name="UnpinTab"
+      label="Recorded when the 'Unpin Tab' option in the context menu is
              selected."/>
   <affected-action name="TabSwitcher.ContextMenu"/>
 </action-suffix>
@@ -51419,6 +51573,78 @@ should be able to be added at any place in this file.
       label="Recorded when a group suggestion is considered invalid."/>
   <suffix name="Shown" label="Recorded when a group suggestion is shown."/>
   <affected-action name="TabSwitcher.GroupSuggest"/>
+</action-suffix>
+
+<action-suffix separator="." ordering="suffix">
+  <suffix name="AddToTabGroup"
+      label="User opened the bottom sheet to add a tab to a new or existing
+             tab group, via the tab context menu on tab strip on Android."/>
+  <suffix name="AddToTabGroup.MultiTab"
+      label="User opened the bottom sheet to add multiple tabs to a new or
+             existing tab group, via the tab context menu on tab strip on
+             Android."/>
+  <suffix name="CloseTab"
+      label="User closed a tab via the tab context menu on tab strip on
+             Android."/>
+  <suffix name="CloseTab.MultiTab"
+      label="User closed multiple tabs via the tab context menu on tab strip
+             on Android."/>
+  <suffix name="MoveTabToGroup"
+      label="User moved a tab to a synced tab group via the tab context menu
+             on tab strip on Android."/>
+  <suffix name="MoveTabToGroup.MultiTab"
+      label="User moved multiple tabs to a synced tab group via the tab
+             context menu on tab strip on Android."/>
+  <suffix name="MoveTabToIncognitoGroup"
+      label="User moved a tab to an incognito tab group via the tab context
+             menu on tab strip on Android."/>
+  <suffix name="MoveTabToIncognitoGroup.MultiTab"
+      label="User moved multiple tabs to an incognito tab group via the tab
+             context menu on tab strip on Android."/>
+  <suffix name="MoveTabToNewWindow"
+      label="User moved a tab to a new window via the tab context menu on tab
+             strip on Android."/>
+  <suffix name="MoveTabToNewWindow.MultiTab"
+      label="User moved multiple tabs to a new window via the tab context
+             menu on tab strip on Android."/>
+  <suffix name="MoveTabToOtherWindow"
+      label="User moved a tab to another window via the tab context menu on
+             tab strip on Android."/>
+  <suffix name="MoveTabToOtherWindow.MultiTab"
+      label="User moved multiple tabs to another window via the tab context
+             menu on tab strip on Android."/>
+  <suffix name="NewGroup"
+      label="User created a new tab group via the tab context menu on tab
+             strip on Android."/>
+  <suffix name="NewGroup.MultiTab"
+      label="User created a new tab group with multiple tabs via the tab
+             context menu on tab strip on Android."/>
+  <suffix name="PinTab"
+      label="User pinned a tab via the tab context menu on tab strip on
+             Android."/>
+  <suffix name="PinTab.MultiTab"
+      label="User pinned multiple tabs via the tab context menu on tab strip
+             on Android."/>
+  <suffix name="RemoveTabFromTabGroup"
+      label="User removed a tab from its tab group via the tab context menu
+             on tab strip on Android."/>
+  <suffix name="RemoveTabFromTabGroup.MultiTab"
+      label="User removed multiple tabs from their tab group via the tab
+             context menu on tab strip on Android."/>
+  <suffix name="ShareTab"
+      label="User shared the URL open in a tab, via the tab context menu on
+             tab strip on Android."/>
+  <suffix name="Shown" label="Recorded when the tab context menu is shown."/>
+  <suffix name="Shown.MultiTab"
+      label="Recorded when the tab context menu is shown with multiple tabs
+             selected."/>
+  <suffix name="UnpinTab"
+      label="User unpinned a tab via the tab context menu on tab strip on
+             Android."/>
+  <suffix name="UnpinTab.MultiTab"
+      label="User unpinned multiple tabs via the tab context menu on tab
+             strip on Android."/>
+  <affected-action name="MobileToolbarTabMenu"/>
 </action-suffix>
 
 </actions>

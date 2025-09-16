@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include "extensions/renderer/native_extension_bindings_system.h"
 
 #include <string_view>
@@ -14,6 +9,7 @@
 #include "extensions/common/manifest_constants.h"
 
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -70,8 +66,8 @@
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_origin_trials.h"
 #include "v8/include/cppgc/allocation.h"
-#include "v8/include/v8-cppgc.h"
 #include "v8/include/v8-context.h"
+#include "v8/include/v8-cppgc.h"
 #include "v8/include/v8-isolate.h"
 #include "v8/include/v8-object.h"
 #include "v8/include/v8-primitive.h"
@@ -181,18 +177,21 @@ v8::Local<v8::Object> GetOrCreateGlobalObjectProperty(
     // MUST MATCH Private() in module_system.cc
     v8::Local<v8::Object> global(context->Global());
     v8::Local<v8::Value> privates;
+    v8::Isolate* isolate = v8::Isolate::GetCurrent();
     ScriptContext* script_context = GetScriptContextFromV8ContextChecked(context);
     if (!script_context->module_system()->GetPrivate(global, "privates", &privates) || !privates->IsObject()) {
-      privates = v8::Object::New(context->GetIsolate());
+      privates = v8::Object::New(isolate);
       script_context->module_system()->SetPrivate(global, "privates", privates);
     }
     v8::Local<v8::Object> priv_obj = v8::Local<v8::Object>::Cast(privates);
     v8::Local<v8::Value> chrome(priv_obj->Get(context, object_string).ToLocalChecked());
     if (chrome->IsUndefined()) {
-      chrome = v8::Object::New(context->GetIsolate());
+      chrome = v8::Object::New(isolate);
       v8::Local<v8::String> hidden_key(
-                                       v8::String::NewFromUtf8(context->GetIsolate(), "__nw_is_hidden", v8::NewStringType::kNormal).ToLocalChecked());
-      std::ignore = chrome->ToObject(context).ToLocalChecked()->Set(context, hidden_key, v8::Boolean::New(context->GetIsolate(), true));
+                                       v8::String::NewFromUtf8(isolate, "__nw_is_hidden", v8::NewStringType::kNormal).ToLocalChecked());
+      std::ignore = chrome->ToObject(context).ToLocalChecked()
+                    ->Set(context, hidden_key,
+                          v8::Boolean::New(isolate, true));
       std::ignore = priv_obj->Set(context, object_string, chrome);
     }
     return chrome->IsObject() ? chrome.As<v8::Object>() : v8::Local<v8::Object>();
@@ -296,7 +295,7 @@ v8::Local<v8::Object> CreateRootBinding(v8::Local<v8::Context> context,
     script_context->module_system()->OnNativeBindingCreated(name,
                                                             native_api_bridge);
   if (exports->IsObject()) {
-    v8::Local<v8::String> binding_name = gin::StringToSymbol(context->GetIsolate(), "binding");
+    v8::Local<v8::String> binding_name = gin::StringToSymbol(isolate, "binding");
     v8::Local<v8::Object> exports_obj;
     if (exports->ToObject(context).ToLocal(&exports_obj)) {
       if (exports_obj->HasRealNamedProperty(context, binding_name).FromJust()) {
@@ -730,7 +729,7 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
     for (const char* feature_name : kWebAvailableFeatures) {
       if (context->GetAvailability(feature_name).is_available()) {
         // chrome.app is exposed to all webpages, we ignore it for this check.
-        if (strcmp(feature_name, "app") != 0) {
+        if (UNSAFE_TODO(strcmp(feature_name, "app")) != 0) {
           is_any_feature_available_to_page = true;
         }
         if (!set_accessor(feature_name)) {
@@ -1127,16 +1126,7 @@ void NativeExtensionBindingsSystem::SendRequest(
       << script_context->GetDebugString();
 
   if (!params->extension_id.empty() && ShouldCollectJSStackTrace(*request)) {
-    auto start_time = base::TimeTicks::Now();
-    auto stack_trace = script_context->GetStackTrace(/*frame_limit=*/5);
-    auto end_time = base::TimeTicks::Now();
-    UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-        "Extensions.Functions.ExtractJSCallStackElapsedTime",
-        end_time - start_time, base::Microseconds(1), base::Milliseconds(10),
-        50);
-    params->js_callstack = std::move(stack_trace);
-  } else {
-    params->js_callstack = std::nullopt;
+    params->js_callstack = script_context->GetStackTrace(/*frame_limit=*/5);
   }
 
   ipc_message_sender_->SendRequestIPC(script_context, std::move(params),

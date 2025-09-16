@@ -27,22 +27,21 @@ import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridItemLongPressOrchestrator.OnLongPressTabItemEventListener;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
-import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabActionListener;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabGridDialogHandler;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
+import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageType;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
@@ -52,6 +51,7 @@ import org.chromium.ui.recyclerview.widget.ItemTouchHelper2;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * A {@link ItemTouchHelper2.SimpleCallback} implementation to host the logic for swipe and drag
@@ -75,9 +75,9 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
     private final Supplier<TabGroupModelFilter> mCurrentTabGroupModelFilterSupplier;
     private final ObservableSupplierImpl<Integer> mRecentlySwipedTabIdSupplier =
             new ObservableSupplierImpl<>(Tab.INVALID_TAB_ID);
-    private final TabListMediator.TabActionListener mTabClosedListener;
+    private final TabActionListener mTabClosedListener;
     private final String mComponentName;
-    private final TabListMediator.TabGridDialogHandler mTabGridDialogHandler;
+    private final TabListMediator.@Nullable TabGridDialogHandler mTabGridDialogHandler;
     private final int mLongPressDpThresholdSquared;
     private final TabGroupCreationDialogManager mTabGroupCreationDialogManager;
     private final ObservableSupplierImpl<RecyclerView> mRecyclerViewSupplier =
@@ -124,7 +124,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
             TabListModel tabListModel,
             Supplier<TabGroupModelFilter> currentTabGroupModelFilterSupplier,
             TabActionListener tabClosedListener,
-            TabGridDialogHandler tabGridDialogHandler,
+            @Nullable TabGridDialogHandler tabGridDialogHandler,
             String componentName,
             boolean actionsOnAllRelatedTabs,
             @TabListMode int mode) {
@@ -150,9 +150,9 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
     /**
      * @param listener the handler for longpress actions.
      */
-    void setOnLongPressTabItemEventListener(OnLongPressTabItemEventListener listener) {
+    void setOnLongPressTabItemEventListener(@Nullable OnLongPressTabItemEventListener listener) {
         assert mTabGridItemLongPressOrchestrator == null;
-        if (ChromeFeatureList.sTabGroupParityBottomSheetAndroid.isEnabled()) {
+        if (ChromeFeatureList.sTabGroupParityBottomSheetAndroid.isEnabled() && listener != null) {
             setTabGridItemLongPressOrchestrator(
                     new TabGridItemLongPressOrchestrator(
                             mRecyclerViewSupplier,
@@ -167,7 +167,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
      * @param listener the handler for dropping tabs on top of an archival message card.
      */
     void setOnDropOnArchivalMessageCardEventListener(
-            OnDropOnArchivalMessageCardEventListener listener) {
+            @Nullable OnDropOnArchivalMessageCardEventListener listener) {
         mOnDropOnArchivalMessageCardEventListener = listener;
     }
 
@@ -277,14 +277,39 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
             int newIndex =
                     distance >= 0
                             ? TabGroupUtils.getLastTabModelIndexForList(
-                                            tabModel, destinationTabGroup)
+                                    tabModel, destinationTabGroup)
                             : TabGroupUtils.getFirstTabModelIndexForList(
                                     tabModel, destinationTabGroup);
+            newIndex = adjustIndexBasedOnPinning(tabModel, currentTabId, newIndex);
             filter.moveRelatedTabs(currentTabId, newIndex);
         }
         RecordUserAction.record("TabGrid.Drag.Reordered." + mComponentName);
         mActionAttempted = true;
         return true;
+    }
+
+    private int adjustIndexBasedOnPinning(TabModel tabModel, int fromTabId, int newIndex) {
+        // Get the tab being moved.
+        Tab fromTab = tabModel.getTabById(fromTabId);
+        if (fromTab != null) {
+
+            // Determine the index of the last pinned tab.
+            int lastPinnedIndex = tabModel.findFirstNonPinnedTabIndex() - 1;
+
+            if (fromTab.getIsPinned()) {
+                // If the moved tab is pinned, ensure it doesn't move beyond the last pinned index.
+                if (newIndex > lastPinnedIndex) {
+                    newIndex = lastPinnedIndex;
+                }
+            } else {
+                // If the moved tab is not pinned, ensure it doesn't move before the first
+                // non-pinned index.
+                if (newIndex <= lastPinnedIndex) {
+                    newIndex = lastPinnedIndex + 1;
+                }
+            }
+        }
+        return newIndex;
     }
 
     @Override
@@ -735,9 +760,9 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
 
         // If user has used drop-to-merge, send a signal to disable
         // FeatureConstants.TAB_GROUPS_DRAG_AND_DROP_FEATURE.
-        final Tracker tracker =
-                TrackerFactory.getTrackerForProfile(
-                        mCurrentTabGroupModelFilterSupplier.get().getTabModel().getProfile());
+        Profile profile = mCurrentTabGroupModelFilterSupplier.get().getTabModel().getProfile();
+        assert profile != null;
+        Tracker tracker = TrackerFactory.getTrackerForProfile(profile);
         tracker.notifyEvent(EventConstants.TAB_DRAG_AND_DROP_TO_GROUP);
     }
 

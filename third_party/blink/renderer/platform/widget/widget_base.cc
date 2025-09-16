@@ -280,11 +280,10 @@ void WidgetBase::InitializeNonCompositing() {
   initialized_ = true;
 }
 
-void WidgetBase::DidFirstVisuallyNonEmptyPaint(
-    base::TimeTicks& first_paint_time) {
+void WidgetBase::OnFirstContentfulPaint(
+    const base::TimeTicks& first_paint_time) {
   if (widget_input_handler_manager_) {
-    widget_input_handler_manager_->DidFirstVisuallyNonEmptyPaint(
-        first_paint_time);
+    widget_input_handler_manager_->OnFirstContentfulPaint(first_paint_time);
   }
 }
 
@@ -752,6 +751,8 @@ void WidgetBase::RequestNewLayerTreeFrameSink(
 
   // The renderer runs animations and layout for animate_only BeginFrames.
   params->wants_animate_only_begin_frames = true;
+  params->no_compositor_frame_acks =
+      base::FeatureList::IsEnabled(::features::kNoCompositorFrameAcks);
 
   // In disable frame rate limit mode, also let the renderer tick as fast as it
   // can. The top level begin frame source will also be running as a back to
@@ -889,7 +890,6 @@ void WidgetBase::FinishRequestNewLayerTreeFrameSink(
   // RasterContextProvider and now we use RasterInterface in
   // VideoResourceUpdater.
   attributes.enable_gles2_interface = false;
-  attributes.enable_grcontext = false;
   attributes.enable_raster_interface = true;
   attributes.enable_gpu_rasterization = false;
 

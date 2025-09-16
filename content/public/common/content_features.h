@@ -16,6 +16,7 @@
 #include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "content/public/common/btm_utils.h"
+#include "content/public/common/buildflags.h"
 #include "tools/v8_context_snapshot/buildflags.h"
 
 namespace features {
@@ -29,6 +30,9 @@ CONTENT_EXPORT extern const base::Feature kNWNewWin;
 // alongside the definition of their values in the .cc file.
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAdditionalOpaqueOriginEnforcements);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidCaptureKeyEvents);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidDevToolsFrontend);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(
+    kAndroidEnableBackgroundMediaLargeFormFactors);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidFallbackToNextSlot);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidWarmUpSpareRendererWithTimeout);
 CONTENT_EXPORT extern const base::FeatureParam<std::string>
@@ -60,12 +64,13 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kBackgroundFetch);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBackForwardCache);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBackForwardCacheEntryTimeout);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBackForwardCacheMemoryControls);
+#if BUILDFLAG(IS_ANDROID)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kBackForwardTransitionsCrossDocSharedImage);
+#endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBatterySaverModeAlignWakeUps);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBlockInsecurePrivateNetworkRequests);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kBlockInsecurePrivateNetworkRequestsFromPrivate);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(
-    kBlockInsecurePrivateNetworkRequestsDeprecationTrial);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kBrokerFileOperationsOnDiskCacheInNetworkService);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBypassRedirectChecksPerRequest);
@@ -106,7 +111,8 @@ CONTENT_EXPORT extern const base::FeatureParam<base::TimeDelta>
     kBtmClientBounceDetectionTimeout;
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBtmDualUse);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebContentsDiscard);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kDisablePartialStorageCleanupForGPUDiskCache);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(
+    kDisablePartialStorageCleanupForGPUDiskCache);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDrawCutoutEdgeToEdge);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEarlyEstablishGpuChannel);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableCanvas2DLayers);
@@ -116,15 +122,13 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnsureExistingRendererAlive);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCm);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmAlternativeIdentifiers);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmAutofill);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmCooldownOnIgnore);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmDelegation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmIdPRegistration);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmIframeOrigin);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmMetricsEndpoint);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmMultipleIdentityProviders);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmShowFilteredAccounts);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmWithoutWellKnownEnforcement);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmLightweightMode);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmNonceInParams);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFencedFramesEnforceFocus);
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
@@ -146,7 +150,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsolatesPriorityBestEffortWhenHidden);
 // LINT.IfChange
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsolatedWebApps);
 // LINT.ThenChange(//PRESUBMIT.py)
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kAutomaticFullscreenContentSetting);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsolateFencedFrames);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsolateOrigins);
 CONTENT_EXPORT extern const char kIsolateOriginsFieldTrialParamName[];
@@ -198,7 +201,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrerender2ReuseHost);
 CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
                                           kPrerender2ReuseSearchResultHost);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFeaturePolicyHeader);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchBrowserInitiatedTriggers);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivacySandboxAdsAPIsOverride);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivateNetworkAccessForNavigations);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
@@ -208,14 +210,15 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivateNetworkAccessForWorkersWarningOnly);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kPrivateNetworkAccessRespectPreflightResults);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivateNetworkAccessSendPreflights);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kProcessSelectionDeferringConditions);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kOriginKeyedProcessesByDefault);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPushSubscriptionChangeEventOnInvalidation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPushSubscriptionChangeEventOnResubscribe);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kQueueNavigationsWhileWaitingForCommit);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kReduceSubresourceResponseStartedIPC);
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if BUILDFLAG(ENABLE_SCREEN_CAPTURE)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRegionCaptureOfOtherTabs);
-#endif
+#endif  // BUILDFLAG(ENABLE_SCREEN_CAPTURE)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRenderDocument);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRenderDocumentCompositorReuse);
 #if BUILDFLAG(IS_ANDROID)
@@ -230,8 +233,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kRetryGetVideoCaptureDeviceInfos);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kProcessPerSiteUpToMainFrameThreshold);
 CONTENT_EXPORT extern const base::FeatureParam<int>
     kProcessPerSiteMainFrameThreshold;
-CONTENT_EXPORT extern const base::FeatureParam<bool>
-    kProcessPerSiteMainFrameAllowIPAndLocalhost;
 CONTENT_EXPORT extern const base::FeatureParam<bool>
     kProcessPerSiteMainFrameAllowDevToolsAttached;
 CONTENT_EXPORT extern const base::FeatureParam<double>
@@ -305,9 +306,9 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyBaseline);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableExperimentalWebAssemblyJSPI);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kEnableExperimentalWebAssemblySharedEverything);
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if BUILDFLAG(ENABLE_SCREEN_CAPTURE)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kElementCaptureOfOtherTabs);
-#endif
+#endif  // BUILDFLAG(ENABLE_SCREEN_CAPTURE)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyLazyCompilation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyTiering);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyTrapHandler);
@@ -347,7 +348,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidOpenPdfInline);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidWebAppLaunchHandler);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kGinJavaBridgeMojoSkipClearObjectsOnMainDocumentReady);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kGroupRebindingForGroupImportance);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kReduceGpuPriorityOnBackground);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSmartZoom);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSubframeImportance);
@@ -363,6 +363,10 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kSonomaAccessibilityActivationRefinements);
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebauthnDisabledOnAuto);
 #endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_ANDROID)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableExclusiveAccessManager);
+#endif
 
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kKeyboardLockApiOnAndroid);

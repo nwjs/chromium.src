@@ -64,7 +64,7 @@ import org.mockito.Mockito;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 
-import org.chromium.base.BuildInfo;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
@@ -73,6 +73,7 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.blink.mojom.DisplayMode;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
+import org.chromium.chrome.browser.app.tab_activity_glue.PopupCreator;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider.CustomTabsUiType;
 import org.chromium.chrome.browser.browserservices.intents.ColorProvider;
@@ -82,6 +83,7 @@ import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.GoogleBottomBarIntentParams;
 import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.GoogleBottomBarIntentParams.VariantLayoutType;
+import org.chromium.chrome.browser.util.WindowFeatures;
 import org.chromium.device.mojom.ScreenOrientationLockType;
 
 import java.util.ArrayList;
@@ -1288,7 +1290,7 @@ public class CustomTabIntentDataProviderTest {
     public void searchInCct_notAllowedOnAutomotive() {
         var shadowPkgMgr = Shadows.shadowOf(mContext.getPackageManager());
         shadowPkgMgr.setSystemFeature(PackageManager.FEATURE_AUTOMOTIVE, /* supported= */ true);
-        assertTrue(BuildInfo.getInstance().isAutomotive);
+        assertTrue(DeviceInfo.isAutomotive());
 
         CustomTabsConnection connection = Mockito.mock(CustomTabsConnection.class);
         CustomTabsConnection.setInstanceForTesting(connection);
@@ -2143,5 +2145,71 @@ public class CustomTabIntentDataProviderTest {
         assertTrue(
                 "Custom/Chrome action button count should not exceed 2",
                 dataProvider.getCustomButtonsOnToolbar().size() <= 2);
+    }
+
+    @Test
+    public void uiTypePopup_returnsRequestedWindowFeatures() {
+        final WindowFeatures windowFeatures = new WindowFeatures(12, 34, 56, null);
+        Intent intent =
+                new Intent()
+                        .putExtra(
+                                PopupCreator.EXTRA_REQUESTED_WINDOW_FEATURES,
+                                windowFeatures.toBundle())
+                        .putExtra(
+                                CustomTabIntentDataProvider.EXTRA_UI_TYPE, CustomTabsUiType.POPUP);
+        IntentUtils.setForceIsTrustedIntentForTesting(true);
+
+        CustomTabIntentDataProvider dataProvider =
+                new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+
+        assertEquals(
+                "The data provider has not returned the window features specified in the intent",
+                windowFeatures,
+                dataProvider.getRequestedWindowFeatures());
+
+        IntentUtils.setForceIsTrustedIntentForTesting(false);
+    }
+
+    @Test
+    public void uiTypePopup_returnsEmptyWindowFeaturesWhenNotSpecifiedInIntent() {
+        Intent intent =
+                new Intent()
+                        .putExtra(
+                                CustomTabIntentDataProvider.EXTRA_UI_TYPE, CustomTabsUiType.POPUP);
+        IntentUtils.setForceIsTrustedIntentForTesting(true);
+
+        CustomTabIntentDataProvider dataProvider =
+                new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+
+        assertEquals(
+                "The data provider has not returned empty window features",
+                new WindowFeatures(),
+                dataProvider.getRequestedWindowFeatures());
+
+        IntentUtils.setForceIsTrustedIntentForTesting(false);
+    }
+
+    @Test
+    public void uiTypeDefault_returnsNullRequestedWindowFeatures() {
+        final WindowFeatures windowFeatures = new WindowFeatures(12, 34, 56, null);
+        Intent intent =
+                new Intent()
+                        .putExtra(
+                                PopupCreator.EXTRA_REQUESTED_WINDOW_FEATURES,
+                                windowFeatures.toBundle())
+                        .putExtra(
+                                CustomTabIntentDataProvider.EXTRA_UI_TYPE,
+                                CustomTabsUiType.DEFAULT);
+        IntentUtils.setForceIsTrustedIntentForTesting(true);
+
+        CustomTabIntentDataProvider dataProvider =
+                new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+
+        assertNull(
+                "The data provider has returned the window features specified in the intent even if"
+                        + " the UI type is not popup",
+                dataProvider.getRequestedWindowFeatures());
+
+        IntentUtils.setForceIsTrustedIntentForTesting(false);
     }
 }

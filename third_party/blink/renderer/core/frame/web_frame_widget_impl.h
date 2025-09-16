@@ -593,6 +593,8 @@ class CORE_EXPORT WebFrameWidgetImpl
   // content (only clip it).
   void SetBrowserControlsParams(cc::BrowserControlsParams params);
 
+  void SetLoadProgress(float);
+
   void SetMaxSafeAreaInsets(const gfx::InsetsF& max_safe_area_insets);
 
   // This function provides zooming for find in page results when browsing with
@@ -751,6 +753,8 @@ class CORE_EXPORT WebFrameWidgetImpl
   void RequestNewLocalSurfaceId();
 
   void OnDevToolsSessionConnectionChanged(bool attached);
+
+  void OnFirstContentfulPaint(const base::TimeTicks& first_paint_time) override;
 
  protected:
   // WidgetBaseClient overrides:

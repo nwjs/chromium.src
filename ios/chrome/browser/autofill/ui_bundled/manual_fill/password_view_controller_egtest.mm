@@ -332,6 +332,11 @@ void CheckKeyboardIsUpAndNotCovered() {
         password_manager::features::kIOSFillRecoveryPassword);
   }
 
+  // The proactive password suggestion bottom sheet isn't tested here, it
+  // is tested in its own suite in password_suggestion_egtest.mm.
+  config.features_disabled.push_back(
+      password_manager::features::kIOSProactivePasswordGenerationBottomSheet);
+
   return config;
 }
 
@@ -448,6 +453,12 @@ void CheckKeyboardIsUpAndNotCovered() {
 // Tests that the Password Manager is dismissed when local authentication fails
 // after tapping "Manage Passwords...".
 - (void)testManagePasswordsActionWithFailedAuthDismissesPasswordManager {
+// TODO(crbug.com/436459761): Re-enable the test on iOS26.
+#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+  if (base::ios::IsRunningOnIOS26OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
+  }
+#endif
   CheckPasswordManagerUIDismissesAfterFailedAuthentication(
       manual_fill::ManagePasswordsMatcher());
 
@@ -699,6 +710,12 @@ void CheckKeyboardIsUpAndNotCovered() {
 // Tests that the "Select Password..." UI is dismissed after failed local
 // authentication.
 - (void)testOtherPasswordListUIDismissedAfterFailedAuth {
+// TODO(crbug.com/436457807): Re-enable the test on iOS26.
+#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+  if (base::ios::IsRunningOnIOS26OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
+  }
+#endif
   // Setup failed authentication.
   [PasswordSettingsAppInterface mockReauthenticationModuleExpectedResult:
                                     ReauthenticationResult::kFailure];
@@ -1047,15 +1064,7 @@ void CheckKeyboardIsUpAndNotCovered() {
 }
 
 // Tests password generation on manual fallback.
-// TODO(crbug.com/424760140): Test fails on simulator.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testPasswordGenerationOnManualFallback \
-  DISABLED_testPasswordGenerationOnManualFallback
-#else
-#define MAYBE_testPasswordGenerationOnManualFallback \
-  testPasswordGenerationOnManualFallback
-#endif
-- (void)MAYBE_testPasswordGenerationOnManualFallback {
+- (void)testPasswordGenerationOnManualFallback {
   [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
 
@@ -1081,37 +1090,6 @@ void CheckKeyboardIsUpAndNotCovered() {
       [NSString stringWithFormat:@"document.getElementById('%s').value !== ''",
                                  kFormElementPassword];
   [ChromeEarlGrey waitForJavaScriptCondition:javaScriptCondition];
-}
-
-// Tests password generation on manual fallback for signed in users.
-// TODO(crbug.com/424760140): Test fails on simulator.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testPasswordGenerationOnManualFallbackSignedInAccount \
-  DISABLED_testPasswordGenerationOnManualFallbackSignedInAccount
-#else
-#define MAYBE_testPasswordGenerationOnManualFallbackSignedInAccount \
-  testPasswordGenerationOnManualFallbackSignedInAccount
-#endif
-- (void)MAYBE_testPasswordGenerationOnManualFallbackSignedInAccount {
-  [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
-  [ChromeEarlGrey waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
-
-  [self loadLoginPage];
-
-  // Bring up the keyboard.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
-      performAction:TapWebElementWithId(kFormElementPassword)];
-
-  // Open the password manual fill view.
-  OpenPasswordManualFillView(/*has_suggestions=*/false);
-
-  // Verify a suggest password option is showing.
-  [[EarlGrey selectElementWithMatcher:manual_fill::SuggestPasswordMatcher()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
-  // Select a suggest password option.
-  [[EarlGrey selectElementWithMatcher:manual_fill::SuggestPasswordMatcher()]
-      performAction:grey_tap()];
 }
 
 // Tests password generation on manual fallback not showing for signed in users

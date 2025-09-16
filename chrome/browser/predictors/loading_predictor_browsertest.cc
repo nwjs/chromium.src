@@ -1485,7 +1485,8 @@ class LCPPAutoPreconnectTest : public InProcessBrowserTest,
   std::unique_ptr<TestPreconnectManagerObserver> preconnect_manager_observer_;
 };
 
-IN_PROC_BROWSER_TEST_P(LCPPAutoPreconnectTest, EnabledAllOrigins) {
+// https://crbug.com/440185653: Test is flaky.
+IN_PROC_BROWSER_TEST_P(LCPPAutoPreconnectTest, DISABLED_EnabledAllOrigins) {
   const bool kEnabledAllOrigins = GetParam();
 
   const GURL kUrl = embedded_test_server()->GetURL(
@@ -2551,9 +2552,9 @@ class LoadingPredictorPrefetchBrowserTest
  private:
   void MonitorRequest(const net::test_server::HttpRequest& request) {
     // Monitor only prefetches.
-    if (request.headers.find(blink::kPurposeHeaderName) ==
+    if (request.headers.find(blink::kSecPurposeHeaderName) ==
             request.headers.end() ||
-        (request.headers.at(blink::kPurposeHeaderName) !=
+        (request.headers.at(blink::kSecPurposeHeaderName) !=
          blink::kSecPurposePrefetchHeaderValue)) {
       return;
     }

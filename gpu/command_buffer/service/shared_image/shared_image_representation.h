@@ -43,6 +43,7 @@ class VulkanImplementation;
 #endif
 
 #if BUILDFLAG(IS_WIN)
+#include "services/webnn/d3d12_backend.h"  // nogncheck
 #include "ui/gl/dc_layer_overlay_image.h"
 #endif
 
@@ -334,14 +335,13 @@ class GPU_GLES2_EXPORT SkiaImageRepresentation
   class GPU_GLES2_EXPORT GraphiteTextureHolder
       : public base::RefCountedThreadSafe<GraphiteTextureHolder> {
    public:
-    explicit GraphiteTextureHolder(skgpu::graphite::BackendTexture texture)
-        : texture_(std::move(texture)) {}
+    explicit GraphiteTextureHolder(skgpu::graphite::BackendTexture texture);
 
     const skgpu::graphite::BackendTexture& texture() { return texture_; }
 
    protected:
     friend class base::RefCountedThreadSafe<GraphiteTextureHolder>;
-    virtual ~GraphiteTextureHolder() = default;
+    virtual ~GraphiteTextureHolder();
 
     skgpu::graphite::BackendTexture texture_;
   };
@@ -923,9 +923,29 @@ class GPU_GLES2_EXPORT WebNNTensorRepresentation
                             SharedImageBacking* backing,
                             MemoryTypeTracker* tracker)
       : SharedImageRepresentation(manager, backing, tracker) {}
+
+  class GPU_GLES2_EXPORT ScopedAccess
+      : public ScopedAccessBase<WebNNTensorRepresentation> {
+   public:
+    ScopedAccess(base::PassKey<WebNNTensorRepresentation> pass_key,
+                 WebNNTensorRepresentation* representation,
+                 AccessMode access_mode);
+    ~ScopedAccess();
+  };
+
+  std::unique_ptr<ScopedAccess> BeginScopedAccess();
+
 #if BUILDFLAG(IS_WIN)
   virtual Microsoft::WRL::ComPtr<ID3D12Resource> GetD3D12Buffer() const;
+  virtual void ConsumeWebNNTensor(
+      base::WeakPtr<webnn::native::d3d12::WebNNTensor> webnn_tensor);
 #endif  // BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_APPLE)
+  virtual IOSurfaceRef GetIOSurface() const;
+#endif  // BUILDFLAG(IS_APPLE)
+ protected:
+  virtual bool BeginAccess() = 0;
+  virtual void EndAccess() = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

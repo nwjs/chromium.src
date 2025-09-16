@@ -23,7 +23,6 @@ import org.chromium.base.CallbackController;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.back_press.BackPressManager;
@@ -38,6 +37,7 @@ import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.merchant_viewer.MerchantTrustSignalsCoordinator;
 import org.chromium.chrome.browser.omnibox.LocationBarMediator.OmniboxUma;
 import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
+import org.chromium.chrome.browser.omnibox.navattach.NavigationAttachmentsCoordinator;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator.PageInfoAction;
 import org.chromium.chrome.browser.omnibox.status.StatusView;
@@ -68,6 +68,7 @@ import org.chromium.ui.widget.ViewRectProvider;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 /**
  * The public API of the location bar component. Location bar responsibilities are:
@@ -84,6 +85,8 @@ import java.util.function.BooleanSupplier;
 public class LocationBarCoordinator
         implements LocationBar, NativeInitObserver, AutocompleteDelegate {
 
+    private final DeferredIMEWindowInsetApplicationCallback
+            mDeferredIMEWindowInsetApplicationCallback;
     private OmniboxSuggestionsDropdownEmbedderImpl mOmniboxDropdownEmbedderImpl;
 
     /** Identifies coordinators with methods specific to a device type. */
@@ -100,6 +103,7 @@ public class LocationBarCoordinator
     private UrlBarCoordinator mUrlCoordinator;
     private AutocompleteCoordinator mAutocompleteCoordinator;
     private StatusCoordinator mStatusCoordinator;
+    private NavigationAttachmentsCoordinator mNavigationAttachmentsCoordinator;
     private final WindowAndroid mWindowAndroid;
     private LocationBarMediator mLocationBarMediator;
     private View mUrlBar;
@@ -108,6 +112,7 @@ public class LocationBarCoordinator
     private @Nullable View mLensButton;
     private @Nullable View mComposeplateButton;
     private @Nullable View mBookmarksButton;
+    private @Nullable View mInstallButton;
     private CallbackController mCallbackController = new CallbackController();
     private boolean mDestroyed;
 
@@ -205,7 +210,7 @@ public class LocationBarCoordinator
         Context context = mLocationBarLayout.getContext();
         OneshotSupplierImpl<TemplateUrlService> templateUrlServiceSupplier =
                 new OneshotSupplierImpl<>();
-        DeferredIMEWindowInsetApplicationCallback deferredIMEWindowInsetApplicationCallback =
+        mDeferredIMEWindowInsetApplicationCallback =
                 new DeferredIMEWindowInsetApplicationCallback(
                         () -> mOmniboxDropdownEmbedderImpl.recalculateOmniboxAlignment());
         mOmniboxDropdownEmbedderImpl =
@@ -215,7 +220,11 @@ public class LocationBarCoordinator
                         mLocationBarLayout,
                         uiOverrides.isForcedPhoneStyleOmnibox(),
                         baseChromeLayout,
-                        deferredIMEWindowInsetApplicationCallback::getCurrentKeyboardHeight,
+                        () ->
+                                mBrowserControlsStateProvider == null
+                                        ? ControlsPosition.TOP
+                                        : mBrowserControlsStateProvider.getControlsPosition(),
+                        mDeferredIMEWindowInsetApplicationCallback::getCurrentKeyboardHeight,
                         bottomWindowPaddingSupplier);
 
         mUrlBar = mLocationBarLayout.findViewById(R.id.url_bar);
@@ -239,7 +248,8 @@ public class LocationBarCoordinator
                         isToolbarMicEnabledSupplier,
                         mOmniboxDropdownEmbedderImpl,
                         tabModelSelectorSupplier,
-                        browserControlsStateProvider);
+                        browserControlsStateProvider,
+                        modalDialogManagerSupplier);
         if (backPressManager != null) {
             backPressManager.addHandler(mLocationBarMediator, BackPressHandler.Type.LOCATION_BAR);
         }
@@ -276,7 +286,7 @@ public class LocationBarCoordinator
                         mActivityLifecycleDispatcher,
                         uiOverrides.isForcedPhoneStyleOmnibox(),
                         windowAndroid,
-                        deferredIMEWindowInsetApplicationCallback);
+                        mDeferredIMEWindowInsetApplicationCallback);
         StatusView statusView = mLocationBarLayout.findViewById(R.id.location_bar_status);
         mStatusCoordinator =
                 new StatusCoordinator(
@@ -290,8 +300,12 @@ public class LocationBarCoordinator
                         pageInfoAction,
                         merchantTrustSignalsCoordinatorSupplier,
                         browserControlsVisibilityDelegate);
+        mNavigationAttachmentsCoordinator =
+                new NavigationAttachmentsCoordinator(
+                        context, windowAndroid, mLocationBarLayout, profileObservableSupplier);
         mLocationBarMediator.setCoordinators(
                 mUrlCoordinator, mAutocompleteCoordinator, mStatusCoordinator);
+        mLocationBarMediator.addUrlFocusChangeListener(mNavigationAttachmentsCoordinator);
 
         mLocationBarMediator.addUrlFocusChangeListener(mAutocompleteCoordinator);
         mLocationBarMediator.addUrlFocusChangeListener(mUrlCoordinator);
@@ -309,6 +323,9 @@ public class LocationBarCoordinator
         if (ChromeFeatureList.sAndroidComposeplate.isEnabled()) {
             mComposeplateButton.setOnClickListener(mLocationBarMediator::composeplateButtonClicked);
         }
+
+        mInstallButton = mLocationBarLayout.findViewById(R.id.install_button);
+        mInstallButton.setOnClickListener(mLocationBarMediator::installButtonClicked);
 
         mUrlCoordinator.setTextChangeListener(mAutocompleteCoordinator::onTextChanged);
         mUrlCoordinator.setKeyDownListener(mLocationBarMediator);
@@ -382,6 +399,9 @@ public class LocationBarCoordinator
         mComposeplateButton.setOnClickListener(null);
         mComposeplateButton = null;
 
+        mInstallButton.setOnClickListener(null);
+        mInstallButton = null;
+
         if (mBookmarksButton != null) {
             mBookmarksButton.setOnClickListener(null);
             mBookmarksButton = null;
@@ -399,6 +419,11 @@ public class LocationBarCoordinator
 
         mStatusCoordinator.destroy();
         mStatusCoordinator = null;
+
+        if (mNavigationAttachmentsCoordinator != null) {
+            mNavigationAttachmentsCoordinator.destroy();
+            mNavigationAttachmentsCoordinator = null;
+        }
 
         mLocationBarLayout.destroy();
         mLocationBarLayout = null;
@@ -527,6 +552,7 @@ public class LocationBarCoordinator
     @Override
     public void setUrlBarUsesSmallText(boolean useSmallText) {
         mUrlCoordinator.setUseSmallText(useSmallText);
+        mStatusCoordinator.setUseSmallWidget(useSmallText);
     }
 
     @Override
@@ -558,8 +584,7 @@ public class LocationBarCoordinator
 
     @Override
     public boolean isKeyboardActive() {
-        return KeyboardVisibilityDelegate.getInstance()
-                        .isKeyboardShowing(mLocationBarLayout.getContext(), mUrlBar)
+        return KeyboardVisibilityDelegate.getInstance().isKeyboardShowing(mUrlBar)
                 || (mLocationBarLayout.getContext().getResources().getConfiguration().keyboard
                         == Configuration.KEYBOARD_QWERTY);
     }
@@ -659,7 +684,8 @@ public class LocationBarCoordinator
     /** Initiates a pre-fetch of autocomplete suggestions. */
     public void startAutocompletePrefetch() {
         if (!mNativeInitialized) return;
-        mAutocompleteCoordinator.prefetchZeroSuggestResults();
+        mAutocompleteCoordinator.prefetchZeroSuggestResults(
+                mLocationBarMediator.getLocationBarDataProvider().getTab());
     }
 
     /**

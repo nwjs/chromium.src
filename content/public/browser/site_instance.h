@@ -163,7 +163,7 @@ class CONTENT_EXPORT SiteInstance : public base::RefCounted<SiteInstance> {
   //   derived from the origin, it only contains the scheme and the eTLD + 1,
   //   i.e. an origin with the host "deeply.nested.subdomain.example.com"
   //   corresponds to a site URL with the host "example.com".
-  virtual const GURL& GetSiteURL() = 0;
+  virtual const GURL& GetSiteURL() const = 0;
 
   // Get the StoragePartitionConfig used by this SiteInstance.
   virtual const StoragePartitionConfig& GetStoragePartitionConfig() = 0;
@@ -191,10 +191,6 @@ class CONTENT_EXPORT SiteInstance : public base::RefCounted<SiteInstance> {
   // Returns true if this SiteInstance is for a site that requires a dedicated
   // process. This only returns true under the "site per process" process model.
   virtual bool RequiresDedicatedProcess() = 0;
-
-  // Returns true if this SiteInstance is for a process-isolated origin with its
-  // own OriginAgentCluster.
-  virtual bool RequiresOriginKeyedProcess() = 0;
 
   // Returns true if the SiteInstance is for a process-isolated sandboxed
   // documents only.

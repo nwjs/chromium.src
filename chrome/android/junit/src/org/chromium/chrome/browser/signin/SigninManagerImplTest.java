@@ -75,8 +75,6 @@ import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.components.signin.test.util.FakeIdentityManager;
 import org.chromium.components.signin.test.util.TestAccounts;
-import org.chromium.components.user_prefs.UserPrefs;
-import org.chromium.components.user_prefs.UserPrefsJni;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -99,7 +97,6 @@ public class SigninManagerImplTest {
 
     @Mock private SigninManagerImpl.Natives mNativeMock;
     @Mock private BrowsingDataBridge.Natives mBrowsingDataBridgeNativeMock;
-    @Mock private UserPrefs.Natives mUserPrefsNativeMock;
     @Mock private PrefChangeRegistrar.Natives mPrefChangeRegistrarNativeMock;
     @Mock private PrefService mPrefService;
     @Mock private IdentityMutator mIdentityMutator;
@@ -114,10 +111,8 @@ public class SigninManagerImplTest {
     public void setUp() {
         SigninManagerImplJni.setInstanceForTesting(mNativeMock);
         BrowsingDataBridgeJni.setInstanceForTesting(mBrowsingDataBridgeNativeMock);
-        UserPrefsJni.setInstanceForTesting(mUserPrefsNativeMock);
         PrefChangeRegistrarJni.setInstanceForTesting(mPrefChangeRegistrarNativeMock);
 
-        when(mUserPrefsNativeMock.get(mProfile)).thenReturn(mPrefService);
         ExternalAuthUtils.setInstanceForTesting(mExternalAuthUtils);
         BookmarkModel.setInstanceForTesting(FakeBookmarkModel.createModel());
 
@@ -574,6 +569,7 @@ public class SigninManagerImplTest {
                         SigninManagerImpl.create(
                                 NATIVE_SIGNIN_MANAGER,
                                 mProfile,
+                                mPrefService,
                                 mIdentityManager,
                                 mIdentityMutator);
         mSigninManager.addSignInStateObserver(mSignInStateObserver);

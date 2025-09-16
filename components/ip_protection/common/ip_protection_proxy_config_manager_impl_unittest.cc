@@ -23,10 +23,12 @@
 #include "components/ip_protection/common/ip_protection_proxy_config_fetcher.h"
 #include "components/ip_protection/common/ip_protection_proxy_config_manager.h"
 #include "components/ip_protection/common/ip_protection_telemetry.h"
+#include "ip_protection_data_types.h"
 #include "net/base/features.h"
 #include "net/base/network_anonymization_key.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
+#include "net/base/schemeful_site.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -106,10 +108,9 @@ class MockIpProtectionCore : public IpProtectionCore {
       size_t chain_index) override {
     return std::nullopt;
   }
-  bool IsProbabilisticRevealTokenAvailable() override { NOTREACHED(); }
   std::optional<std::string> GetProbabilisticRevealToken(
-      const std::string& top_level,
-      const std::string& third_party) override {
+      const GURL& url,
+      const net::SchemefulSite& top_frame_site) override {
     NOTREACHED();
   }
   bool IsProxyListAvailable() override { return false; }
@@ -125,6 +126,9 @@ class MockIpProtectionCore : public IpProtectionCore {
   bool ShouldRequestIncludeProbabilisticRevealToken(
       const GURL& request_url) override {
     return false;
+  }
+  IpProxyStatus GetIpProxyStatus() override {
+    return IpProxyStatus::kUnavailable;
   }
 };
 

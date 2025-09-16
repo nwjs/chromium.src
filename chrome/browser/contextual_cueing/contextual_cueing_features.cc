@@ -10,8 +10,8 @@
 #include "components/variations/service/variations_service.h"
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/glic_enabling.h"
 #include "chrome/browser/glic/host/glic_features.mojom.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 namespace contextual_cueing {
@@ -129,7 +129,7 @@ const base::FeatureParam<base::TimeDelta> kZSSPageContextTimeout(
 const base::FeatureParam<int> kMaxPinnedPagesForTriggeringSuggestions(
     &glic::mojom::features::kZeroStateSuggestionsV2,
     "ZSSMaxPinnedPagesForTriggeringSuggestions",
-    3);
+    10);
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 }  // namespace contextual_cueing

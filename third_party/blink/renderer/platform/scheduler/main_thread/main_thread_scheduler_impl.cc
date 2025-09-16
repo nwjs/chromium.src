@@ -391,9 +391,7 @@ MainThreadSchedulerImpl::MainThreadOnly::MainThreadOnly(
           &main_thread_scheduler_impl->tracing_controller_,
           YesNoStateToString),
       background_status_changed_at(now),
-      metrics_helper(main_thread_scheduler_impl,
-                     now,
-                     kLaunchingProcessIsBackgrounded),
+      metrics_helper(now, kLaunchingProcessIsBackgrounded),
       task_description_for_tracing(
           std::nullopt,
           MakeNamedTrack("Scheduler.MainThreadTask", this),
@@ -772,7 +770,7 @@ void MainThreadSchedulerImpl::ShutdownEmptyDetachedTaskQueues() {
   if (main_thread_only().detached_task_queues.empty()) {
     return;
   }
-  WTF::Vector<scoped_refptr<MainThreadTaskQueue>> queues_to_delete;
+  Vector<scoped_refptr<MainThreadTaskQueue>> queues_to_delete;
   for (auto& queue : main_thread_only().detached_task_queues) {
     if (queue->IsEmpty()) {
       queues_to_delete.push_back(queue);
@@ -1481,7 +1479,8 @@ void MainThreadSchedulerImpl::UpdatePolicyLocked(UpdateType update_type) {
   new_policy.should_prioritize_ipc_tasks =
       num_pending_urgent_ipc_messages_.load(std::memory_order_relaxed) > 0;
 
-  new_policy.should_freeze_compositor_task_queue = AllPagesFrozen();
+  const bool are_all_pages_frozen = AllPagesFrozen();
+  new_policy.should_freeze_compositor_task_queue = are_all_pages_frozen;
 
   // Tracing is done before the early out check, because it's quite possible we
   // will otherwise miss this information in traces.
@@ -1513,6 +1512,16 @@ void MainThreadSchedulerImpl::UpdatePolicyLocked(UpdateType update_type) {
   main_thread_only().current_policy = new_policy;
 
   UpdateStateForAllTaskQueues(old_policy);
+
+  if (are_all_pages_frozen) {
+    if (!main_thread_only().renderer_frozen_metadata.has_value()) {
+      main_thread_only().renderer_frozen_metadata.emplace(
+          "MainThreadSchedulerImpl.RendererFrozen2", /* is_frozen */ 1,
+          base::SampleMetadataScope::kProcess);
+    }
+  } else {
+    main_thread_only().renderer_frozen_metadata.reset();
+  }
 }
 
 RAILMode MainThreadSchedulerImpl::ComputeCurrentRAILMode(
@@ -2013,10 +2022,10 @@ void MainThreadSchedulerImpl::RemoveRAILModeObserver(
 }
 
 void MainThreadSchedulerImpl::ForEachMainThreadIsolate(
-    base::RepeatingCallback<void(v8::Isolate* isolate)> callback) {
-  // TODO(dtapuska): For each AgentGroupScheduler's isolate invoke the callback.
+    base::FunctionRef<void(v8::Isolate* isolate)> function) {
+  // TODO(dtapuska): For each AgentGroupScheduler's isolate invoke the function.
   if (v8::Isolate* isolate = Isolate()) {
-    callback.Run(isolate);
+    function(isolate);
   }
 }
 
@@ -2295,13 +2304,9 @@ void MainThreadSchedulerImpl::OnPageFrozen(
 #endif
   memory_purge_manager_.OnPageFrozen(called_from);
   UpdatePolicy();
-  main_thread_only().renderer_frozen_metadata.emplace(
-      "MainThreadSchedulerImpl.RendererFrozen", /* is_frozen */ 1,
-      base::SampleMetadataScope::kProcess);
 }
 
 void MainThreadSchedulerImpl::OnPageResumed() {
-  main_thread_only().renderer_frozen_metadata.reset();
   memory_purge_manager_.OnPageResumed();
   UpdatePolicy();
 }
@@ -2729,7 +2734,7 @@ const char* MainThreadSchedulerImpl::TimeDomainTypeToString(
   }
 }
 
-WTF::Vector<base::OnceClosure>&
+Vector<base::OnceClosure>&
 MainThreadSchedulerImpl::GetOnTaskCompletionCallbacks() {
   return main_thread_only().on_task_completion_callbacks;
 }

@@ -19,7 +19,6 @@ import androidx.core.view.ViewCompat;
 import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -56,6 +55,7 @@ import org.chromium.ui.modelutil.PropertyModel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /** Coordinator that handles the interactions with the autocomplete system. */
 @NullMarked
@@ -68,6 +68,7 @@ public class AutocompleteCoordinator
     private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
     private final OmniboxSuggestionsDropdownAdapter mAdapter;
     private final Optional<PreWarmingRecycledViewPool> mRecycledViewPool;
+    private @Nullable OmniboxSuggestionsContainer mContainer;
     private @Nullable OmniboxSuggestionsDropdown mDropdown;
     private final ObserverList<OmniboxSuggestionsDropdownScrollListener> mScrollListenerList =
             new ObserverList<>();
@@ -137,7 +138,8 @@ public class AutocompleteCoordinator
                         lifecycleDispatcher,
                         dropdownEmbedder,
                         windowAndroid,
-                        deferredIMEWindowInsetApplicationCallback);
+                        deferredIMEWindowInsetApplicationCallback,
+                        forcePhoneStyleOmnibox);
         mMediator.initDefaultProcessors();
 
         if (scrollListener != null) {
@@ -153,10 +155,10 @@ public class AutocompleteCoordinator
                 SuggestionListProperties.DROPDOWN_SCROLL_TO_TOP_LISTENER,
                 this::dropdownOverscrolledToTop);
 
-        ViewProvider<SuggestionListViewHolder> viewProvider =
-                createViewProvider(forcePhoneStyleOmnibox);
+        ViewProvider<SuggestionListViewHolder> viewProvider = createViewProvider();
         viewProvider.whenLoaded(
                 (holder) -> {
+                    mContainer = holder.container;
                     mDropdown = holder.dropdown;
                 });
         LazyConstructionPropertyMcp.create(
@@ -187,9 +189,9 @@ public class AutocompleteCoordinator
         mRecycledViewPool.ifPresent(p -> p.destroy());
         mProfileSupplier.removeObserver(mProfileChangeCallback);
         mMediator.destroy();
-        if (mDropdown != null) {
-            mDropdown.destroy();
-            mDropdown = null;
+        if (mContainer != null) {
+            mContainer.destroy();
+            mContainer = null;
         }
     }
 
@@ -204,8 +206,7 @@ public class AutocompleteCoordinator
         mMediator.setOmniboxSuggestionsVisualStateObserver(omniboxSuggestionsVisualStateObserver);
     }
 
-    private ViewProvider<SuggestionListViewHolder> createViewProvider(
-            boolean forcePhoneStyleOmnibox) {
+    private ViewProvider<SuggestionListViewHolder> createViewProvider() {
         return new ViewProvider<>() {
             private AsyncViewProvider<ViewGroup> mAsyncProvider;
             private final List<Callback<SuggestionListViewHolder>> mCallbacks = new ArrayList<>();
@@ -224,13 +225,14 @@ public class AutocompleteCoordinator
             }
 
             private void onAsyncInflationComplete(ViewGroup container) {
+                OmniboxSuggestionsContainer suggestionsContainer =
+                        (OmniboxSuggestionsContainer) container;
                 OmniboxSuggestionsDropdown dropdown =
                         container.findViewById(R.id.omnibox_suggestions_dropdown);
 
-                dropdown.forcePhoneStyleOmnibox(forcePhoneStyleOmnibox);
                 dropdown.setAdapter(mAdapter);
                 mRecycledViewPool.ifPresent(p -> dropdown.setRecycledViewPool(p));
-                mHolder = new SuggestionListViewHolder(container, dropdown);
+                mHolder = new SuggestionListViewHolder(suggestionsContainer, dropdown);
                 for (int i = 0; i < mCallbacks.size(); i++) {
                     mCallbacks.get(i).onResult(mHolder);
                 }
@@ -341,7 +343,7 @@ public class AutocompleteCoordinator
             return false;
         }
 
-        boolean isShowingList = mDropdown != null && mDropdown.getViewGroup().isShown();
+        boolean isShowingList = mContainer != null && mContainer.isShown();
 
         if (event.getKeyCode() == KeyEvent.KEYCODE_ESCAPE) {
             if (isShowingList) {
@@ -356,8 +358,7 @@ public class AutocompleteCoordinator
         // This allows users to navigate to the typed url or query.
         // Try to dispatch to suggestions list, if one is showing, otherwise invoke navigation.
         if (KeyNavigationUtil.isEnter(event)) {
-            if (isShowingList
-                    && assumeNonNull(mDropdown).getViewGroup().onKeyDown(keyCode, event)) {
+            if (isShowingList && assumeNonNull(mContainer).onKeyDown(keyCode, event)) {
                 return true;
             }
 
@@ -382,7 +383,7 @@ public class AutocompleteCoordinator
                 || (keyCode == KeyEvent.KEYCODE_DPAD_DOWN)
                 || (keyCode == KeyEvent.KEYCODE_TAB)) {
             mMediator.allowPendingItemSelection();
-            assumeNonNull(mDropdown).getViewGroup().onKeyDown(keyCode, event);
+            assumeNonNull(mContainer).onKeyDown(keyCode, event);
             return true;
         }
 
@@ -429,9 +430,13 @@ public class AutocompleteCoordinator
                 .orElse(null);
     }
 
-    /** Sends a zero suggest request to the server in order to pre-populate the result cache. */
-    public void prefetchZeroSuggestResults() {
-        mMediator.startPrefetch();
+    /**
+     * Sends a zero suggest request to the server in order to pre-populate the result cache.
+     *
+     * @param tab The current tab.
+     */
+    public void prefetchZeroSuggestResults(@Nullable Tab tab) {
+        mMediator.startPrefetch(tab != null ? tab.getWebContents() : null);
     }
 
     /**
@@ -439,6 +444,13 @@ public class AutocompleteCoordinator
      */
     public @Nullable OmniboxSuggestionsDropdown getSuggestionsDropdownForTest() {
         return mDropdown;
+    }
+
+    /**
+     * @return Suggestions Dropdown view, showing the list of suggestions.
+     */
+    public @Nullable OmniboxSuggestionsContainer getSuggestionsContainerForTest() {
+        return mContainer;
     }
 
     /**

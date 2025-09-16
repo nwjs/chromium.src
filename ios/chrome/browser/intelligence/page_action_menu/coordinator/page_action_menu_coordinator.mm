@@ -29,8 +29,11 @@
 
 namespace {
 
+#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+const CGFloat kMenuCornerRadius = 28;
+#else
 const CGFloat kMenuCornerRadius = 20;
-
+#endif
 }
 
 @interface PageActionMenuCoordinator () <
@@ -65,6 +68,7 @@ const CGFloat kMenuCornerRadius = 20;
                               self.profile)
                BWGService:BwgServiceFactory::GetForProfile(self.profile)
       readerModeTabHelper:readerModeTabHelper];
+  _mediator.consumer = _viewController;
 
   if (readerModeTabHelper) {
     DistillerService* distillerService =
@@ -93,6 +97,8 @@ const CGFloat kMenuCornerRadius = 20;
 
   _navigationController = [[UINavigationController alloc]
       initWithRootViewController:_viewController];
+  _navigationController.view.accessibilityIdentifier =
+      kAIHubBottomSheetAccessibilityIdentifier;
   _navigationController.delegate = self;
   _navigationController.presentationController.delegate = self;
   _navigationController.modalPresentationStyle = UIModalPresentationPageSheet;
@@ -136,6 +142,7 @@ const CGFloat kMenuCornerRadius = 20;
                                                 completion:completion];
   }
   _viewController = nil;
+  [_mediator disconnect];
   _mediator = nil;
   _readerModeOptionsViewController = nil;
   [_readerModeOptionsMediator disconnect];
@@ -149,7 +156,7 @@ const CGFloat kMenuCornerRadius = 20;
     (PageActionMenuViewController*)viewController {
   _readerModeOptionsViewController =
       [[ReaderModeOptionsViewController alloc] init];
-  [_readerModeOptionsViewController updateHideReaderModeButtonVisibility:YES];
+  [_readerModeOptionsViewController updateHideReaderModeButtonVisibility:NO];
   _readerModeOptionsViewController.readerModeOptionsHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(),
                          ReaderModeOptionsCommands);

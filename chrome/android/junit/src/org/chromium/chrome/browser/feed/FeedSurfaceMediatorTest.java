@@ -47,6 +47,7 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.feed.componentinterfaces.SurfaceCoordinator;
 import org.chromium.chrome.browser.feed.sections.OnSectionHeaderSelectedListener;
 import org.chromium.chrome.browser.feed.sections.SectionHeaderListProperties;
 import org.chromium.chrome.browser.feed.sections.SectionHeaderProperties;
@@ -74,7 +75,6 @@ import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayS
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig.DisplayStyle;
 import org.chromium.components.browser_ui.widget.displaystyle.VerticalDisplayStyle;
-import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.prefs.PrefChangeRegistrar;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -117,6 +117,7 @@ public class FeedSurfaceMediatorTest {
     private FeedSurfaceMediator mFeedSurfaceMediator;
 
     @Before
+    @SuppressWarnings("DirectInvocationOnMock")
     public void setUp() {
         // Print logs to stdout.
         ShadowLog.stream = System.out;
@@ -378,23 +379,6 @@ public class FeedSurfaceMediatorTest {
         // Verifies that observer isn't removed when the Feeds become invisible.
         mFeedSurfaceMediator.destroyPropertiesForStream();
         verify(mUrlService, never()).removeObserver(mTemplateUrlServiceObserverCaptor.capture());
-    }
-
-    @Test
-    @DisableFeatures(OmniboxFeatureList.OMNIBOX_MOBILE_PARITY_UPDATE)
-    public void testWithEeaCountryOnlyEnabled() {
-        PropertyModel model = SectionHeaderListProperties.create(TOOLBAR_HEIGHT);
-        doReturn(false).when(mUrlService).isDefaultSearchEngineGoogle();
-        DseNewTabUrlManager.setIsEeaChoiceCountryForTesting(false);
-
-        // Verifies that Feeds is enabled if the device isn't from an EEA country.
-        mFeedSurfaceMediator = createMediator(FeedSurfaceCoordinator.StreamTabId.FOR_YOU, model);
-        verify(mPrefService).setBoolean(eq(Pref.ENABLE_SNIPPETS_BY_DSE), eq(true));
-
-        // Verifies that Feeds is disabled if the device is from an EEA country.
-        DseNewTabUrlManager.setIsEeaChoiceCountryForTesting(true);
-        mFeedSurfaceMediator = createMediator(FeedSurfaceCoordinator.StreamTabId.FOR_YOU, model);
-        verify(mPrefService).setBoolean(eq(Pref.ENABLE_SNIPPETS_BY_DSE), eq(false));
     }
 
     @Test
@@ -1052,12 +1036,12 @@ public class FeedSurfaceMediatorTest {
     }
 
     private FeedSurfaceMediator createMediator(
-            @FeedSurfaceCoordinator.StreamTabId int tabId, PropertyModel sectionHeaderModel) {
+            @SurfaceCoordinator.StreamTabId int tabId, PropertyModel sectionHeaderModel) {
         return createMediator(tabId, sectionHeaderModel, /* uiConfig= */ null);
     }
 
     private FeedSurfaceMediator createMediator(
-            @FeedSurfaceCoordinator.StreamTabId int tabId,
+            @SurfaceCoordinator.StreamTabId int tabId,
             PropertyModel sectionHeaderModel,
             UiConfig uiConfig) {
         return new FeedSurfaceMediator(

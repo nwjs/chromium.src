@@ -208,6 +208,7 @@
   /* Multi contents view colors. */ \
   E_CPONLY(kColorMulitContentsViewActiveContentOutline) \
   E_CPONLY(kColorMulitContentsViewInactiveContentOutline) \
+  E_CPONLY(kColorMulitContentsViewHighlightContentOutline) \
   E_CPONLY(kColorMulitContentsViewMiniToolbarForeground) \
   /* New tab button colors. */ \
   E_CPONLY(kColorNewTabButtonForegroundFrameActive) \
@@ -247,14 +248,20 @@
   E_CPONLY(kColorNewTabPageChipForeground) \
   E_CPONLY(kColorNewTabPageComposeboxBackground) \
   E_CPONLY(kColorNewTabPageComposeboxFont) \
+  E_CPONLY(kColorNewTabPageComposeboxFontLight) \
   E_CPONLY(kColorNewTabPageComposeboxCancelButton) \
+  E_CPONLY(kColorNewTabPageComposeboxCancelButtonLight) \
   E_CPONLY(kColorNewTabPageComposeboxErrorScrimBackground) \
   E_CPONLY(kColorNewTabPageComposeboxErrorScrimButtonBackground) \
   E_CPONLY(kColorNewTabPageComposeboxErrorScrimButtonBackgroundHover) \
   E_CPONLY(kColorNewTabPageComposeboxErrorScrimButtonText) \
   E_CPONLY(kColorNewTabPageComposeboxErrorScrimForeground) \
   E_CPONLY(kColorNewTabPageComposeboxHover) \
+  E_CPONLY(kColorNewTabPageComposeboxInputIcon) \
+  E_CPONLY(kColorNewTabPageComposeboxLabel) \
   E_CPONLY(kColorNewTabPageComposeboxOutlineHcm) \
+  E_CPONLY(kColorNewTabPageComposeboxResultsBackgroundHovered) \
+  E_CPONLY(kColorNewTabPageComposeboxResultsIcon) \
   E_CPONLY(kColorNewTabPageComposeboxScrimBackground) \
   E_CPONLY(kColorNewTabPageComposeboxSubmitButton) \
   E_CPONLY(kColorNewTabPageComposeboxUploadButton) \
@@ -265,13 +272,6 @@
   E_CPONLY(kColorNewTabPageComposeboxFileImageOverlay) \
   E_CPONLY(kColorNewTabPageControlBackgroundHovered) \
   E_CPONLY(kColorNewTabPageControlBackgroundSelected) \
-  E_CPONLY(kColorNewTabPageDialogBackground) \
-  E_CPONLY(kColorNewTabPageDialogBackgroundActive) \
-  E_CPONLY(kColorNewTabPageDialogBorder) \
-  E_CPONLY(kColorNewTabPageDialogBorderSelected) \
-  E_CPONLY(kColorNewTabPageDialogControlBackgroundHovered) \
-  E_CPONLY(kColorNewTabPageDialogForeground) \
-  E_CPONLY(kColorNewTabPageDialogSecondaryForeground) \
   E_CPONLY(kColorNewTabPageFirstRunBackground) \
   E_CPONLY(kColorNewTabPageFocusRing) \
   E_CPONLY(kColorNewTabPageHeader) \
@@ -301,6 +301,15 @@
   E_CPONLY(kColorNewTabPageModuleItemBackgroundHovered) \
   E_CPONLY(kColorNewTabPageModuleScrollButtonBackground) \
   E_CPONLY(kColorNewTabPageModuleScrollButtonBackgroundHovered) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsGrey) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsBlue) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsRed) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsYellow) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsGreen) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsPink) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsPurple) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsCyan) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsOrange) \
   E_CPONLY(kColorNewTabPageMostVisitedForeground) \
   E_CPONLY(kColorNewTabPageMostVisitedTileBackground) \
   E_CPONLY(kColorNewTabPageMostVisitedTileBackgroundThemed) \
@@ -315,9 +324,6 @@
   E_CPONLY(kColorNewTabPageSearchBoxResultsTextDimmedSelected) \
   E_CPONLY(kColorNewTabPageSecondaryForeground) \
   E_CPONLY(kColorNewTabPageSectionBorder) \
-  E_CPONLY(kColorNewTabPageSelectedBackground) \
-  E_CPONLY(kColorNewTabPageSelectedBorder) \
-  E_CPONLY(kColorNewTabPageSelectedForeground) \
   E_CPONLY(kColorNewTabPageTagBackground) \
   E_CPONLY(kColorNewTabPageText) \
   E_CPONLY(kColorNewTabPageTextUnthemed) \

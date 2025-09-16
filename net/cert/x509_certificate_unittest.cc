@@ -20,7 +20,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/string_view_util.h"
 #include "base/time/time.h"
-#include "crypto/rsa_private_key.h"
 #include "net/base/net_errors.h"
 #include "net/cert/asn1_util.h"
 #include "net/cert/x509_util.h"
@@ -776,14 +775,12 @@ TEST(X509CertificateTest, Pickle) {
   scoped_refptr<X509Certificate> cert_from_pickle =
       X509Certificate::CreateFromPickle(&iter);
   ASSERT_TRUE(cert_from_pickle);
-  EXPECT_TRUE(x509_util::CryptoBufferEqual(cert->cert_buffer(),
-                                           cert_from_pickle->cert_buffer()));
-  const auto& cert_intermediates = cert->intermediate_buffers();
-  const auto& pickle_intermediates = cert_from_pickle->intermediate_buffers();
-  ASSERT_EQ(cert_intermediates.size(), pickle_intermediates.size());
-  for (size_t i = 0; i < cert_intermediates.size(); ++i) {
-    EXPECT_TRUE(x509_util::CryptoBufferEqual(cert_intermediates[i].get(),
-                                             pickle_intermediates[i].get()));
+  const auto& cert_buffers = cert->cert_buffers();
+  const auto& pickle_buffers = cert_from_pickle->cert_buffers();
+  ASSERT_EQ(cert_buffers.size(), pickle_buffers.size());
+  for (size_t i = 0; i < cert_buffers.size(); ++i) {
+    EXPECT_TRUE(x509_util::CryptoBufferEqual(cert_buffers[i].get(),
+                                             pickle_buffers[i].get()));
   }
 }
 

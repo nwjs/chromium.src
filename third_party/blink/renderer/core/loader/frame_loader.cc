@@ -422,6 +422,7 @@ void FrameLoader::DispatchUnloadEventAndFillOldDocumentInfoIfNeeded(
   }
   old_document_info->was_focused_frame =
       (frame_->GetPage()->GetFocusController().FocusedFrame() == frame_);
+  old_document_info->overlay_color = frame_->GetFrameOverlayColor();
 
   frame_->GetDocument()->DispatchUnloadEvents(
       &old_document_info->unload_timing_info);
@@ -560,6 +561,12 @@ bool FrameLoader::AllowRequestForThisFrame(const FrameLoadRequest& request) {
             ->CheckAndGetJavascriptUrl(request.JavascriptWorld(), url,
                                        frame_->DeprecatedLocalOwner())
             .empty()) {
+      return false;
+    }
+    // `CheckAndGetJavascriptUrl` function above contains Trusted Types check,
+    // which might trigger JS callback that can remove the frame altogether.
+    // Therefore, check if the frame is still attached here.
+    if (!frame_->IsAttached()) {
       return false;
     }
 

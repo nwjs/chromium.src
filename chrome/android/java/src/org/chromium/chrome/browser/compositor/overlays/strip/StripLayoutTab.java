@@ -33,6 +33,7 @@ import org.chromium.chrome.browser.compositor.layouts.components.CompositorButto
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTabDelegate.VisualState;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabLoadTracker.TabLoadTrackerCallback;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimator;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.tab.Tab;
@@ -137,7 +138,11 @@ public class StripLayoutTab extends StripLayoutView {
     private static final float FAVICON_WIDTH = 16.f;
     private static final float FAVICON_PADDING = 26.f;
     protected static final float MIN_WIDTH = FAVICON_WIDTH + (FOLIO_FOOT_LENGTH_DP * 2);
-    private static final float WIDTH_TO_HIDE_FAVICON = 86.f;
+    // TODO(crbug.com/430072416): Check media indicator constants with UX.
+    private static final float MEDIA_INDICATOR_WIDTH = 16.f;
+    private static final float WIDTH_TO_HIDE_ICON = 86.f;
+    private static final float WIDTH_TO_HIDE_FAVICON_FOR_MEDIA_INDICATOR =
+            WIDTH_TO_HIDE_ICON + MEDIA_INDICATOR_WIDTH;
 
     // Divider Constants
     private static final int DIVIDER_OFFSET_X = 13;
@@ -157,6 +162,7 @@ public class StripLayoutTab extends StripLayoutView {
     private boolean mIsDying;
     private boolean mIsClosed;
     private boolean mIsSelected;
+    private boolean mIsPinned;
     private boolean mIsHovered;
     private boolean mIsMultiSelected;
     private boolean mCanShowCloseButton = true;
@@ -207,9 +213,11 @@ public class StripLayoutTab extends StripLayoutView {
             StripLayoutViewOnKeyboardFocusHandler keyboardFocusHandler,
             TabLoadTrackerCallback loadTrackerCallback,
             LayoutUpdateHost updateHost,
-            boolean incognito) {
+            boolean incognito,
+            boolean isPinned) {
         super(incognito, clickHandler, keyboardFocusHandler, context);
         mTabId = id;
+        mIsPinned = isPinned;
         mLoadTracker = new TabLoadTracker(id, loadTrackerCallback);
         mUpdateHost = updateHost;
         mCloseButton =
@@ -319,6 +327,20 @@ public class StripLayoutTab extends StripLayoutView {
     /** gets the multi-selected state of this tab */
     public boolean getIsMultiSelected() {
         return mIsMultiSelected;
+    }
+
+    /**
+     * Sets whether this tab has been pinned.
+     *
+     * @param isPinned whether this tab has been pinned.
+     */
+    public void setIsPinned(boolean isPinned) {
+        mIsPinned = isPinned;
+    }
+
+    /** Gets whether this tab has been pinned */
+    public boolean getIsPinned() {
+        return mIsPinned;
     }
 
     /**
@@ -466,6 +488,8 @@ public class StripLayoutTab extends StripLayoutView {
                 return TabUiThemeUtil.getTabStripSelectedTabColor(mContext, isIncognito());
             case VisualState.SELECTED:
                 return TabUiThemeUtil.getTabStripSelectedTabColor(mContext, isIncognito());
+            case VisualState.NON_DRAG_REORDERING:
+                return TabUiThemeUtil.getTabStripBackgroundColor(mContext, isIncognito());
             case VisualState.MULTISELECT_HOVERED:
                 return TabUiThemeUtil.getTabStripMultiSelectedHoveredTabColor(
                         mContext, isIncognito());
@@ -616,6 +640,11 @@ public class StripLayoutTab extends StripLayoutView {
         mLoadTracker.loadingFinished();
     }
 
+    /** Returns {@code true} if the tab should be visible. */
+    public boolean shouldBeVisible() {
+        return mIsSelected || mIsPlaceholder || mIsMultiSelected || getIsNonDragReordering();
+    }
+
     /**
      * @param opacity The fraction (from 0.f to 1.f) of how opaque the tab container should be.
      */
@@ -686,6 +715,11 @@ public class StripLayoutTab extends StripLayoutView {
     public void setCanShowCloseButton(boolean show, boolean animate) {
         mCanShowCloseButton = show;
         checkCloseButtonVisibility(animate);
+    }
+
+    /** Returns whether the close button is allowed to be shown. */
+    public boolean canShowCloseButton() {
+        return mCanShowCloseButton;
     }
 
     /** {@link StripLayoutView} Implementation */
@@ -878,8 +912,29 @@ public class StripLayoutTab extends StripLayoutView {
                 : getTabTouchTargetEndOffsetX();
     }
 
-    public boolean shouldHideFavicon() {
-        return mIsSelected && getWidth() <= WIDTH_TO_HIDE_FAVICON;
+    public boolean shouldHideFavicon(boolean mediaIndicatorIsPresent) {
+        if (mIsPinned) return mediaIndicatorIsPresent;
+
+        // TODO(crbug.com/439931221): Toggle the favicon visibility based on the close button's
+        // opacity.
+        final float width = getWidth();
+
+        if (mediaIndicatorIsPresent) {
+            float widthThreshold =
+                    mIsSelected ? WIDTH_TO_HIDE_FAVICON_FOR_MEDIA_INDICATOR : WIDTH_TO_HIDE_ICON;
+            return width <= widthThreshold;
+        }
+        return mIsSelected && width <= WIDTH_TO_HIDE_ICON;
+    }
+
+    public boolean shouldHideMediaIndicator() {
+        if (!ChromeFeatureList.sMediaIndicatorsAndroid.isEnabled()) return true;
+
+        return mIsSelected && getWidth() <= WIDTH_TO_HIDE_ICON;
+    }
+
+    public float getMediaIndicatorWidth() {
+        return MEDIA_INDICATOR_WIDTH;
     }
 
     @Override

@@ -49,7 +49,6 @@ import org.chromium.base.Token;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplierImpl;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -68,7 +67,6 @@ import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.share.ShareDelegateSupplier;
-import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabId;
@@ -95,7 +93,6 @@ import org.chromium.components.collaboration.ServiceStatus;
 import org.chromium.components.collaboration.messaging.MessagingBackendService;
 import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.feature_engagement.Tracker;
-import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -103,6 +100,8 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.widget.ViewRectProvider;
 
 import java.util.Collections;
+import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Unit tests for {@link TabSwitcherPaneCoordinator}. These are mostly for coverage and to confirm
@@ -135,8 +134,6 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     @Mock private Tracker mTracker;
     @Mock private BottomSheetController mBottomSheetController;
     @Mock private DataSharingTabManager mDataSharingTabManager;
-    @Mock private IdentityServicesProvider mIdentityServicesProvider;
-    @Mock private IdentityManager mIdentityManager;
     @Mock private TabGroupSyncService mTabGroupSyncService;
     @Mock private CollaborationService mCollaborationService;
     @Mock private MessagingBackendService mMessagingBackendService;
@@ -279,8 +276,11 @@ public class TabSwitcherPaneCoordinatorUnitTest {
         int index = 0;
         mTabModel.addTab(
                 tab, index, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        Token tabGroupId = new Token(1L, 2L);
+        tab.setTabGroupId(tabGroupId);
         when(mTabGroupModelFilter.representativeIndexOf(tab)).thenReturn(index);
         when(mTabGroupModelFilter.getRepresentativeTabAt(index)).thenReturn(tab);
+        when(mTabGroupModelFilter.getTabsInGroup(tabGroupId)).thenReturn(List.of(tab));
         controller.resetWithListOfTabs(Collections.singletonList(tab));
 
         return controller;

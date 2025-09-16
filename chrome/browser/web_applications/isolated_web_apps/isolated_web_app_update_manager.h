@@ -33,6 +33,7 @@
 #include "chrome/browser/web_applications/web_app_install_manager_observer.h"
 #include "components/webapps/common/web_app_id.h"
 #include "components/webapps/isolated_web_apps/iwa_key_distribution_info_provider.h"
+#include "components/webapps/isolated_web_apps/types/iwa_version.h"
 #include "components/webapps/isolated_web_apps/types/storage_location.h"
 #include "components/webapps/isolated_web_apps/types/update_channel.h"
 #include "net/base/backoff_entry.h"
@@ -79,11 +80,10 @@ enum class IsolatedWebAppUpdateError {
 };
 
 struct IsolatedWebAppUpdateOptions {
-  IsolatedWebAppUpdateOptions(
-      const GURL& update_manifest_url,
-      UpdateChannel update_channel,
-      bool allow_downgrades,
-      const std::optional<base::Version>& pinned_version);
+  IsolatedWebAppUpdateOptions(const GURL& update_manifest_url,
+                              UpdateChannel update_channel,
+                              bool allow_downgrades,
+                              const std::optional<IwaVersion>& pinned_version);
 
   IsolatedWebAppUpdateOptions(const IsolatedWebAppUpdateOptions& other);
   IsolatedWebAppUpdateOptions& operator=(IsolatedWebAppUpdateOptions&& other);
@@ -92,7 +92,7 @@ struct IsolatedWebAppUpdateOptions {
   GURL update_manifest_url;
   UpdateChannel update_channel;
   bool allow_downgrades;
-  std::optional<base::Version> pinned_version;
+  std::optional<IwaVersion> pinned_version;
 };
 
 // The `IsolatedWebAppUpdateManager` is responsible for discovery, download, and
@@ -180,7 +180,7 @@ class IsolatedWebAppUpdateManager
                              const GURL& update_manifest_url,
                              const UpdateChannel& update_channel,
                              bool allow_downgrades,
-                             const std::optional<base::Version>& pinned_version,
+                             const std::optional<IwaVersion>& pinned_version,
                              bool dev_mode);
 
   // Used to queue update discovery tasks manually from the
@@ -193,7 +193,7 @@ class IsolatedWebAppUpdateManager
   void DiscoverApplyAndPrioritizeLocalDevModeUpdate(
       const IwaSourceDevModeWithFileOp& location,
       const IsolatedWebAppUrlInfo& url_info,
-      base::OnceCallback<void(base::expected<base::Version, std::string>)>
+      base::OnceCallback<void(base::expected<IwaVersion, std::string>)>
           callback);
 
   std::optional<base::TimeTicks> GetNextUpdateDiscoveryTimeForTesting() const {
@@ -292,8 +292,7 @@ class IsolatedWebAppUpdateManager
   };
 
   // IwaKeyDistributionInfoProvider::Observer:
-  void OnComponentUpdateSuccess(const base::Version& version,
-                                bool is_preloaded) override;
+  void OnComponentUpdateSuccess(bool is_preloaded) override;
 
   void QueueUpdatesForIwasAffectedByKeyRotation();
 
@@ -340,14 +339,14 @@ class IsolatedWebAppUpdateManager
 
   void OnLocalUpdateDiscovered(
       IsolatedWebAppUrlInfo url_info,
-      base::OnceCallback<void(base::expected<base::Version, std::string>)>
+      base::OnceCallback<void(base::expected<IwaVersion, std::string>)>
           callback,
-      base::expected<base::Version, std::string> update_discovery_result);
+      base::expected<IwaVersion, std::string> update_discovery_result);
 
   void OnLocalUpdateApplyTaskCreated(
       IsolatedWebAppUrlInfo url_info,
-      base::Version update_version,
-      base::OnceCallback<void(base::expected<base::Version, std::string>)>
+      IwaVersion update_version,
+      base::OnceCallback<void(base::expected<IwaVersion, std::string>)>
           callback);
 
   raw_ref<Profile> profile_;

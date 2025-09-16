@@ -11,8 +11,10 @@
 #include "base/containers/contains.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -60,9 +62,21 @@ const uint32_t kIncludeBrowsersScheduledForDeletion = 1 << 6;
 bool DoesBrowserMatchProfile(Browser& browser,
                              Profile* profile,
                              uint32_t match_types) {
+  if (match_types & kMatchOriginalProfile) {
+    if (browser.profile()->GetOriginalProfile() !=
+        profile->GetOriginalProfile()) {
+      return false;
+    }
+  } else {
+    if (browser.profile() != profile) {
+      return false;
+    }
+  }
+
 #if BUILDFLAG(IS_CHROMEOS)
   // Get the profile on which the window is currently shown.
   // MultiUserWindowManagerHelper might be NULL under test scenario.
+  // TODO(crbug.com/427889779): Consider to drop this check.
   ash::MultiUserWindowManager* const multi_user_window_manager =
       MultiUserWindowManagerHelper::GetWindowManager();
   Profile* shown_profile = nullptr;
@@ -74,30 +88,14 @@ bool DoesBrowserMatchProfile(Browser& browser,
         shown_account_id.is_valid()
             ? multi_user_util::GetProfileFromAccountId(shown_account_id)
             : nullptr;
-  }
-#endif
 
-  if (match_types & kMatchOriginalProfile) {
-    if (browser.profile()->GetOriginalProfile() !=
-        profile->GetOriginalProfile()) {
-      return false;
-    }
-#if BUILDFLAG(IS_CHROMEOS)
     if (shown_profile &&
         shown_profile->GetOriginalProfile() != profile->GetOriginalProfile()) {
       return false;
     }
-#endif
-  } else {
-    if (browser.profile() != profile) {
-      return false;
-    }
-#if BUILDFLAG(IS_CHROMEOS)
-    if (shown_profile && shown_profile != profile) {
-      return false;
-    }
-#endif
   }
+#endif
+
   return true;
 }
 
@@ -138,7 +136,7 @@ bool BrowserMatches(Browser* browser,
 #endif
 
   if (match_types & kMatchDisplayId &&
-      display::Screen::GetScreen()
+      display::Screen::Get()
               ->GetDisplayNearestWindow(browser->window()->GetNativeWindow())
               .id() != display_id) {
     return false;
@@ -333,7 +331,7 @@ Browser* FindBrowserWithGroup(tab_groups::TabGroupId group, Profile* profile) {
 
 Browser* FindBrowserWithUiElementContext(ui::ElementContext context) {
   for (Browser* browser : *BrowserList::GetInstance()) {
-    if (browser->window()->GetElementContext() == context) {
+    if (BrowserElements::From(browser)->GetContext() == context) {
       return browser;
     }
   }

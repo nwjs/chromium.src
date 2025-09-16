@@ -14,7 +14,6 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.offlinepages.OfflinePageItem;
@@ -144,6 +143,13 @@ public class TileGroup implements MostVisitedSites.Observer {
          */
         void onCustomTileCreation(Tile tile);
 
+        /**
+         * Called on Custom Tile reorder.
+         *
+         * @param newPos The new position of the selected tile that was moved.
+         */
+        void onCustomTileReorder(int newPos);
+
         /** Called on Custom Tile add, pin, unpin, unpin-undo, update. */
         void onCustomTileNonReorderChange();
     }
@@ -270,8 +276,6 @@ public class TileGroup implements MostVisitedSites.Observer {
     private final Observer mObserver;
     private final TileRenderer mTileRenderer;
     private final CustomTileModificationDelegate mCustomTileModificationDelegate;
-    // Used for TileInteractionDelegateImpl.
-    private final int mPrerenderDelay;
 
     /**
      * Tracks the tasks currently in flight.
@@ -310,7 +314,6 @@ public class TileGroup implements MostVisitedSites.Observer {
                             mTileGroupDelegate,
                             mTileDragDelegate,
                             mCustomTileModificationDelegate,
-                            mPrerenderDelay,
                             tile,
                             view);
                 }
@@ -360,12 +363,6 @@ public class TileGroup implements MostVisitedSites.Observer {
         mOfflineModelObserver = new OfflineModelObserver(offlinePageBridge);
         mUiDelegate.addDestructionObserver(mOfflineModelObserver);
         mCustomTileModificationDelegate = new CustomTileModificationDelegateImpl();
-
-        mPrerenderDelay =
-                ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
-                        ChromeFeatureList.NEW_TAB_PAGE_ANDROID_TRIGGER_FOR_PRERENDER2,
-                        "prerender_new_tab_page_on_touch_trigger",
-                        0);
     }
 
     @Override
@@ -763,10 +760,15 @@ public class TileGroup implements MostVisitedSites.Observer {
         private boolean reorderCustomLinkAndUpdateOnSuccess(
                 GURL url, int newPos, Runnable onSuccessCallback) {
             // On success, onSiteSuggestionsAvailable() triggers.
+            Runnable newOnSuccessCallback =
+                    () -> {
+                        onSuccessCallback.run();
+                        mObserver.onCustomTileReorder(newPos);
+                    };
+            mPendingChanges.taskToRunAfterTileReload.add(newOnSuccessCallback);
             boolean success = mTileGroupDelegate.reorderCustomLink(url, newPos);
-            mPendingChanges.taskToRunAfterTileReload.add(onSuccessCallback);
             if (!success) {
-                mPendingChanges.taskToRunAfterTileReload.removeLastOccurrence(onSuccessCallback);
+                mPendingChanges.taskToRunAfterTileReload.removeLastOccurrence(newOnSuccessCallback);
             }
             return success;
         }

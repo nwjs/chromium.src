@@ -99,7 +99,7 @@ RenderWidgetHostViewIOS::RenderWidgetHostViewIOS(RenderWidgetHost* widget)
   ui_view_->view_ =
       [[RenderWidgetUIView alloc] initWithWidget:weak_factory_.GetWeakPtr()];
 
-  auto* screen = display::Screen::GetScreen();
+  auto* screen = display::Screen::Get();
   screen_infos_ =
       screen->GetScreenInfosNearestDisplay(screen->GetPrimaryDisplay().id());
 
@@ -419,7 +419,7 @@ void RenderWidgetHostViewIOS::UpdateScreenInfo() {
     host()->delegate()->SendScreenRects();
   }
 
-  auto* display_screen = display::Screen::GetScreen();
+  auto* display_screen = display::Screen::Get();
   display::ScreenInfos new_screen_infos =
       display_screen->GetScreenInfosNearestDisplay(
           display_screen->GetPrimaryDisplay().id());
@@ -955,16 +955,6 @@ void RenderWidgetHostViewIOS::ExtendSelectionAndReplace(
     return;
   }
   input_handler->ExtendSelectionAndReplace(before, after, replacement_text);
-}
-
-void RenderWidgetHostViewIOS::DeleteSurroundingText(int before, int after) {
-  if (auto* widget_host = GetActiveWidget()) {
-    auto* input_handler = widget_host->GetFrameWidgetInputHandler();
-    if (!input_handler) {
-      return;
-    }
-    input_handler->DeleteSurroundingTextInCodePoints(before, after);
-  }
 }
 
 void RenderWidgetHostViewIOS::ExecuteEditCommand(const std::string& command) {

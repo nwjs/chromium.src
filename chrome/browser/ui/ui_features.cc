@@ -60,13 +60,16 @@ BASE_FEATURE(kOfferPinToTaskbarWhenSettingToDefault,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kOfferPinToTaskbarInFirstRunExperience,
              "OfferPinToTaskbarInFirstRunExperience",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kOfferPinToTaskbarInfoBar,
-             "OfferPinToTaskbarInfoBar",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(OfferPinToTaskbarInSettings, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+// Shows an infobar at startup offering to pin Chrome to the taskbar (on
+// Windows) or the Dock (on MacOS).
+BASE_FEATURE(kOfferPinToTaskbarInfoBar,
+             "OfferPinToTaskbarInfoBar",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 // Shows an infobar on PDFs offering to become the default PDF viewer if Chrome
 // isn't the default already.
 BASE_FEATURE(kPdfInfoBar, "PdfInfoBar", base::FEATURE_DISABLED_BY_DEFAULT);
@@ -120,6 +123,13 @@ BASE_FEATURE(KScrimForTabModal,
              "ScrimForTabModal",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_MAC)
+// Add tab group colours when viewing tab groups using the top mac OS menu bar.
+BASE_FEATURE(kShowTabGroupsMacSystemMenu,
+             "ShowTabGroupsMacSystemMenu",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_MAC)
+
 BASE_FEATURE(kSideBySide, "SideBySide", base::FEATURE_DISABLED_BY_DEFAULT);
 
 // The delay before showing the drop target for the side-by-side drag-and-drop
@@ -129,6 +139,11 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kSideBySide,
                    "drop_target_show_delay",
                    base::Milliseconds(500));
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kSideBySideHideDropTargetDelay,
+                   &kSideBySide,
+                   "drop_target_hide_delay",
+                   base::Milliseconds(100));
 BASE_FEATURE_PARAM(int,
                    kSideBySideDropTargetMinWidth,
                    &kSideBySide,
@@ -144,6 +159,69 @@ BASE_FEATURE_PARAM(int,
                    &kSideBySide,
                    "drop_target_width_percentage",
                    30);
+BASE_FEATURE_PARAM(int,
+                   kSideBySideDropTargetHideForOSWidth,
+                   &kSideBySide,
+                   "drop_target_hide_for_os_width",
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
+                   32
+#elif BUILDFLAG(IS_LINUX)
+                   50
+#else
+                   0
+#endif
+);
+
+BASE_FEATURE_PARAM(double,
+                   kSideBySideDropTargetHideForOSPercentage,
+                   &kSideBySide,
+                   "drop_target_hide_for_os_percentage",
+#if BUILDFLAG(IS_WIN)
+                   1.4
+#else
+                   0
+#endif
+);
+
+BASE_FEATURE(kSideBySideDropTargetNudge,
+             "SideBySideDropTargetNudge",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(int,
+                   kSideBySideDropTargetNudgeMinWidth,
+                   &kSideBySideDropTargetNudge,
+                   "drop_target_nudge_min_width",
+                   80);
+BASE_FEATURE_PARAM(int,
+                   kSideBySideDropTargetNudgeMaxWidth,
+                   &kSideBySideDropTargetNudge,
+                   "drop_target_nudge_max_width",
+                   200);
+BASE_FEATURE_PARAM(int,
+                   kSideBySideDropTargetNudgeTargetWidthPercentage,
+                   &kSideBySideDropTargetNudge,
+                   "drop_target_nudge_width_percentage",
+                   5);
+BASE_FEATURE_PARAM(int,
+                   kSideBySideDropTargetNudgeToFullMinWidth,
+                   &kSideBySideDropTargetNudge,
+                   "drop_target_nudge_to_full_min_width",
+                   80);
+BASE_FEATURE_PARAM(int,
+                   kSideBySideDropTargetNudgeToFullMaxWidth,
+                   &kSideBySideDropTargetNudge,
+                   "drop_target_nudge_to_full_max_width",
+                   600);
+BASE_FEATURE_PARAM(int,
+                   kSideBySideDropTargetNudgeToFullTargetWidthPercentage,
+                   &kSideBySideDropTargetNudge,
+                   "drop_target_nudge_to_full_width_percentage",
+                   20);
+BASE_FEATURE_PARAM(double,
+                   kSideBySideDropTargetNudgeShowRatio,
+                   &kSideBySideDropTargetNudge,
+                   "drop_target_nudge_show_ratio",
+                   0.4f);
 
 constexpr base::FeatureParam<MiniToolbarActiveConfiguration>::Option
     kMiniToolbarActiveConfigurationOptions[] = {
@@ -163,7 +241,7 @@ BASE_FEATURE_PARAM(int,
                    kSideBySideSnapDistance,
                    &kSideBySide,
                    "snap_distance",
-                   5);
+                   15);
 
 // When enabled along with SideBySide flag, split tabs will be restored on
 // startup.
@@ -198,6 +276,19 @@ BASE_FEATURE(kTabScrollingButtonPosition,
 BASE_FEATURE(kTabGroupsCollapseFreezing,
              "TabGroupsCollapseFreezing",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if !BUILDFLAG(IS_ANDROID)
+// General improvements to tab group menus
+BASE_FEATURE(kTabGroupMenuImprovements,
+             "TabGroupMenuImprovements",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Update menus to use tab group menus in the action menu
+BASE_FEATURE(kTabGroupMenuMoreEntryPoints,
+             "TabGroupMenuMoreEntryPoints",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Enables preview images in tab-hover cards.
 // https://crbug.com/928954
@@ -410,7 +501,7 @@ BASE_FEATURE(kPageSpecificDataDialogRelatedInstalledAppsSection,
 
 BASE_FEATURE(kEnableManagementPromotionBanner,
              "EnableManagementPromotionBanner",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kEnablePolicyPromotionBanner,
@@ -497,12 +588,6 @@ BASE_FEATURE_PARAM(bool,
                    false);
 
 BASE_FEATURE_PARAM(bool,
-                   kPageActionsMigrationProductSpecifications,
-                   &kPageActionsMigration,
-                   "product_specifications",
-                   false);
-
-BASE_FEATURE_PARAM(bool,
                    kPageActionsMigrationManagePasswords,
                    &kPageActionsMigration,
                    "manage_passwords",
@@ -542,6 +627,12 @@ BASE_FEATURE_PARAM(bool,
                    kPageActionsMigrationAutofillMandatoryReauth,
                    &kPageActionsMigration,
                    "mandatory_reauth",
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kPageActionsMigrationClickToCall,
+                   &kPageActionsMigration,
+                   "click_to_call",
                    false);
 
 BASE_FEATURE(kSavePasswordsContextualUi,
@@ -609,7 +700,7 @@ bool HasTabSearchToolbarButton() {
 
 BASE_FEATURE(kNonMilestoneUpdateToast,
              "NonMilestoneUpdateToast",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBookmarkTabGroupConversion,
              "BookmarkTabGroupConversion",
@@ -618,5 +709,21 @@ BASE_FEATURE(kBookmarkTabGroupConversion,
 bool IsBookmarkTabGroupConversionEnabled() {
   return base::FeatureList::IsEnabled(kBookmarkTabGroupConversion);
 }
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+BASE_FEATURE(kSessionRestoreInfobar,
+             "SessionRestoreInfobar",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kNewTabAddsToActiveGroup,
+             "NewTabAddsToActiveGroup",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsNewTabAddsToActiveGroupEnabled() {
+  return base::FeatureList::IsEnabled(kNewTabAddsToActiveGroup);
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace features

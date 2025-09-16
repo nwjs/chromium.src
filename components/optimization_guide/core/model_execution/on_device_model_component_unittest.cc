@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/byte_count.h"
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/functional/callback_helpers.h"
@@ -276,7 +277,7 @@ TEST_F(OnDeviceModelComponentTest, DynamicEnterprisePolicyChange) {
 
 TEST_F(OnDeviceModelComponentTest, NotEnoughDiskSpaceToInstall) {
   // 20gb is the default in `IsFreeDiskSpaceSufficientForOnDeviceModelInstall`.
-  test_component_state_.SetFreeDiskSpace(20ll * 1024 * 1024 * 1024 - 1);
+  test_component_state_.SetFreeDiskSpace(base::GiB(20) - base::ByteCount(1));
   DoStartup();
   EnsurePerformanceClassAvailable();
   ASSERT_FALSE(WaitForUnexpectedInstallerRegistered());
@@ -359,7 +360,7 @@ TEST_F(OnDeviceModelComponentTest, UninstallNeededDueToDiskSpace) {
                        base::Time::Now());
 
   // 10gb is the default in `IsFreeDiskSpaceTooLowForOnDeviceModelInstall`.
-  test_component_state_.SetFreeDiskSpace(10ll * 1024 * 1024 * 1024 - 1);
+  test_component_state_.SetFreeDiskSpace(base::GiB(10) - base::ByteCount(1));
 
   // Should uninstall right away. Unlike most install requirements, the disk
   // space requirement is not subject to `GetOnDeviceModelRetentionTime()`.
@@ -499,7 +500,8 @@ TEST_F(OnDeviceModelComponentTest, InstallAfterEligibleFeatureWasUsed) {
   EnsurePerformanceClassAvailable();
   ASSERT_FALSE(WaitForUnexpectedInstallerRegistered());
 
-  manager().OnDeviceEligibleFeatureUsed(ModelBasedCapabilityKey::kCompose);
+  model_broker_state_->usage_tracker().OnDeviceEligibleFeatureUsed(
+      ModelBasedCapabilityKey::kCompose);
   EXPECT_TRUE(WaitUntilInstallerRegistered());
 }
 
@@ -510,7 +512,8 @@ TEST_F(OnDeviceModelComponentTest, LogsStatusOnUse) {
   EnsurePerformanceClassAvailable();
   EXPECT_TRUE(WaitUntilInstallerRegistered());
 
-  manager().OnDeviceEligibleFeatureUsed(ModelBasedCapabilityKey::kCompose);
+  model_broker_state_->usage_tracker().OnDeviceEligibleFeatureUsed(
+      ModelBasedCapabilityKey::kCompose);
 
   histograms_.ExpectBucketCount(
       "OptimizationGuide.ModelExecution.OnDeviceModelStatusAtUseTime",

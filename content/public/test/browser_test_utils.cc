@@ -2077,7 +2077,8 @@ bool HasOriginKeyedProcess(RenderFrameHost* frame) {
   return static_cast<RenderFrameHostImpl*>(frame)
       ->GetSiteInstance()
       ->GetSiteInfo()
-      .requires_origin_keyed_process();
+      .agent_cluster_key()
+      .IsOriginKeyed();
 }
 
 bool HasSandboxedSiteInstance(RenderFrameHost* frame) {
@@ -2341,6 +2342,12 @@ bool AccessibilityTreeContainsNodeWithName(ui::BrowserAccessibility* node,
 void WaitForAccessibilityTreeToChange(WebContents* web_contents) {
   AccessibilityNotificationWaiter accessibility_waiter(web_contents);
   ASSERT_TRUE(accessibility_waiter.WaitForNotification());
+}
+
+bool WaitForAccessibilityTreeToChange(WebContents* web_contents,
+                                      base::TimeDelta timeout) {
+  AccessibilityNotificationWaiter accessibility_waiter(web_contents);
+  return accessibility_waiter.WaitForNotificationWithTimeout(timeout);
 }
 
 void WaitForAccessibilityTreeToContainNodeWithName(WebContents* web_contents,
@@ -4903,6 +4910,18 @@ bool WaitForDOMContentLoaded(RenderFrameHost* rfh) {
   return observer.Wait();
 }
 
+std::vector<RenderWidgetHost*> GetPopupWidgets(WebContents* web_contents) {
+  std::vector<RenderWidgetHost*> popup_widgets;
+  for (RenderWidgetHostView* view : static_cast<WebContentsImpl*>(web_contents)
+                                        ->GetRenderWidgetHostViewsForTests()) {
+    if (static_cast<RenderWidgetHostViewBase*>(view)->GetWidgetType() ==
+        WidgetType::kPopup) {
+      popup_widgets.push_back(view->GetRenderWidgetHost());
+    }
+  }
+  return popup_widgets;
+}
+
 CreateNewPopupWidgetInterceptor::CreateNewPopupWidgetInterceptor(
     RenderFrameHost* rfh,
     base::OnceCallback<void(RenderWidgetHost*)> did_create_callback)
@@ -5062,5 +5081,20 @@ void ShowPopupWidgetWaiter::DidShowPopupMenu(const gfx::Rect& bounds) {
   run_loop_.Quit();
 }
 #endif
+
+RequestCloseWidgetInterceptor::RequestCloseWidgetInterceptor(
+    RenderWidgetHost* render_widget_host)
+    : swapped_impl_(static_cast<RenderWidgetHostImpl*>(render_widget_host)
+                        ->popup_widget_host_receiver_for_testing(),
+                    this) {}
+
+RequestCloseWidgetInterceptor::~RequestCloseWidgetInterceptor() = default;
+
+blink::mojom::PopupWidgetHost*
+RequestCloseWidgetInterceptor::GetForwardingInterface() {
+  return swapped_impl_.old_impl();
+}
+
+void RequestCloseWidgetInterceptor::RequestClosePopup() {}
 
 }  // namespace content

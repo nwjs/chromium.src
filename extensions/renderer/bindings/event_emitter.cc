@@ -85,7 +85,7 @@ void EventEmitter::GetListeners(gin::Arguments* arguments) {
   v8::Local<v8::Context> context = arguments->GetHolderCreationContext();
   v8::LocalVector<v8::Function> listeners =
       listeners_->GetListeners(nullptr, context);
-  v8::Isolate* isolate = context->GetIsolate();
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
   v8::Local<v8::Value> results = gin::ConvertToV8(isolate, listeners);
   arguments->Return(results);
 }

@@ -18,6 +18,7 @@
 #include "base/check.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback_forward.h"
+#include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -51,7 +52,6 @@
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
 #include "net/base/proxy_string_util.h"
-#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/base/request_priority.h"
 #include "net/base/schemeful_site.h"
 #include "net/http/http_response_headers.h"
@@ -72,6 +72,7 @@
 #include "services/network/test/test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 using net::test::IsError;
 using net::test::IsOk;
@@ -132,13 +133,6 @@ class MockIpProtectionCore : public IpProtectionCore {
 
   bool AreAuthTokensAvailable() override { return auth_token_.has_value(); }
 
-  bool IsProbabilisticRevealTokenAvailable() override {
-    if (prt_) {
-      return true;
-    }
-    return (prt_manager_ && prt_manager_->IsTokenAvailable());
-  }
-
   bool WereTokenCachesEverFilled() override {
     return were_token_caches_ever_filled_;
   }
@@ -149,12 +143,12 @@ class MockIpProtectionCore : public IpProtectionCore {
   }
 
   std::optional<std::string> GetProbabilisticRevealToken(
-      const std::string& top_level,
-      const std::string& third_party) override {
+      const GURL& url,
+      const net::SchemefulSite& top_frame_site) override {
     if (prt_) {
       return prt_;
     }
-    return prt_manager_ ? prt_manager_->GetToken(top_level, third_party)
+    return prt_manager_ ? prt_manager_->GetToken(url, top_frame_site)
                         : std::nullopt;
   }
 
@@ -214,6 +208,10 @@ class MockIpProtectionCore : public IpProtectionCore {
   bool ShouldRequestIncludeProbabilisticRevealToken(
       const GURL& request_url) override {
     return (prt_registry_ && prt_registry_->IsRegistered(request_url));
+  }
+
+  IpProxyStatus GetIpProxyStatus() override {
+    return IpProxyStatus::kUnavailable;
   }
 
   void SetIpProtectionEnabled(bool value) { is_ip_protection_enabled_ = value; }
@@ -381,6 +379,14 @@ class IpProtectionProxyDelegateTest : public testing::Test {
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 };
 
+void DoNotCallCallback(
+    base::expected<net::HttpRequestHeaders, net::Error> result) {
+  // This should never be called since
+  // IpProtectionProxyDelegate::OnBeforeTunnelRequest never returns
+  // net::ERR_IO_PENDING.
+  NOTREACHED();
+}
+
 TEST_F(IpProtectionProxyDelegateTest, AddsTokenToTunnelRequest) {
   MaskedDomainListManager mdl_manager = CreateMdlManager(
       /*first_party_map=*/{});
@@ -389,17 +395,16 @@ TEST_F(IpProtectionProxyDelegateTest, AddsTokenToTunnelRequest) {
   ipp_core->SetProxyList({MakeChain({"proxya", "proxyb"})});
   auto delegate = CreateDelegate(ipp_core.get());
 
-  net::HttpRequestHeaders headers;
   auto ip_protection_proxy_chain = net::ProxyChain::ForIpProtection(
       {net::ProxyServer::FromSchemeHostAndPort(net::ProxyServer::SCHEME_HTTPS,
                                                "proxya", std::nullopt),
        net::ProxyServer::FromSchemeHostAndPort(net::ProxyServer::SCHEME_HTTPS,
                                                "proxyb", std::nullopt)});
-  EXPECT_THAT(delegate->OnBeforeTunnelRequest(ip_protection_proxy_chain,
-                                              /*chain_index=*/0, &headers),
-              IsOk());
-
-  EXPECT_THAT(headers, Contain("Authorization", "Bearer: a-token"));
+  auto result = delegate->OnBeforeTunnelRequest(
+      ip_protection_proxy_chain,
+      /*chain_index=*/0, base::BindOnce(DoNotCallCallback));
+  ASSERT_TRUE(result.has_value());
+  EXPECT_THAT(result.value(), Contain("Authorization", "Bearer: a-token"));
 }
 
 TEST_F(IpProtectionProxyDelegateTest, ErrorIfConnectionWithNoTokens) {
@@ -410,18 +415,21 @@ TEST_F(IpProtectionProxyDelegateTest, ErrorIfConnectionWithNoTokens) {
   ipp_core->SetProxyList({MakeChain({"proxya", "proxyb"})});
   auto delegate = CreateDelegate(ipp_core.get());
 
-  net::HttpRequestHeaders headers;
   auto ip_protection_proxy_chain = net::ProxyChain::ForIpProtection(
       {net::ProxyServer::FromSchemeHostAndPort(net::ProxyServer::SCHEME_HTTPS,
                                                "proxya", std::nullopt),
        net::ProxyServer::FromSchemeHostAndPort(net::ProxyServer::SCHEME_HTTPS,
                                                "proxyb", std::nullopt)});
-  EXPECT_THAT(delegate->OnBeforeTunnelRequest(ip_protection_proxy_chain,
-                                              /*chain_index=*/0, &headers),
-              IsError(net::ERR_TUNNEL_CONNECTION_FAILED));
-  EXPECT_THAT(delegate->OnBeforeTunnelRequest(ip_protection_proxy_chain,
-                                              /*chain_index=*/1, &headers),
-              IsError(net::ERR_TUNNEL_CONNECTION_FAILED));
+  auto result = delegate->OnBeforeTunnelRequest(
+      ip_protection_proxy_chain,
+      /*chain_index=*/0, base::BindOnce(DoNotCallCallback));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_THAT(result.error(), IsError(net::ERR_TUNNEL_CONNECTION_FAILED));
+  result = delegate->OnBeforeTunnelRequest(ip_protection_proxy_chain,
+                                           /*chain_index=*/1,
+                                           base::BindOnce(DoNotCallCallback));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_THAT(result.error(), IsError(net::ERR_TUNNEL_CONNECTION_FAILED));
 }
 
 TEST_F(IpProtectionProxyDelegateTest, AddsDebugExperimentArm) {
@@ -439,16 +447,17 @@ TEST_F(IpProtectionProxyDelegateTest, AddsDebugExperimentArm) {
     ipp_core->SetProxyList({MakeChain({"proxya", "proxyb"})});
     auto delegate = CreateDelegate(ipp_core.get());
 
-    net::HttpRequestHeaders headers;
     auto ip_protection_proxy_chain = net::ProxyChain::ForIpProtection(
         {net::ProxyServer::FromSchemeHostAndPort(net::ProxyServer::SCHEME_HTTPS,
                                                  "proxya", std::nullopt),
          net::ProxyServer::FromSchemeHostAndPort(net::ProxyServer::SCHEME_HTTPS,
                                                  "proxyb", std::nullopt)});
-    EXPECT_THAT(delegate->OnBeforeTunnelRequest(ip_protection_proxy_chain,
-                                                chain_index, &headers),
-                IsOk());
-    EXPECT_THAT(headers, Contain("Ip-Protection-Debug-Experiment-Arm", "13"));
+    auto result =
+        delegate->OnBeforeTunnelRequest(ip_protection_proxy_chain, chain_index,
+                                        base::BindOnce(DoNotCallCallback));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_THAT(result.value(),
+                Contain("Ip-Protection-Debug-Experiment-Arm", "13"));
   }
 }
 
@@ -470,13 +479,13 @@ TEST_F(IpProtectionProxyDelegateTest,
   ipp_core->SetProxyList({MakeChain({"proxya", "proxyb"})});
   auto delegate = CreateDelegate(ipp_core.get());
 
-  net::HttpRequestHeaders headers;
   auto non_ipp_chain = net::ProxyChain(net::ProxyServer::FromSchemeHostAndPort(
       net::ProxyServer::SCHEME_HTTPS, "proxy.com", std::nullopt));
-  EXPECT_THAT(delegate->OnBeforeTunnelRequest(non_ipp_chain,
-                                              /*chain_index=*/0, &headers),
-              IsOk());
-  EXPECT_TRUE(headers.IsEmpty());
+  auto headers = delegate->OnBeforeTunnelRequest(
+      non_ipp_chain,
+      /*chain_index=*/0, base::BindOnce(DoNotCallCallback));
+  ASSERT_TRUE(headers.has_value());
+  EXPECT_TRUE(headers->IsEmpty());
 }
 
 TEST_F(IpProtectionProxyDelegateTest, OnResolveProxyDeprioritizesBadProxies) {
@@ -1399,13 +1408,9 @@ TEST_F(IpProtectionProxyDelegateTest, OnResolveProxyPRTIntegration) {
   std::optional<std::string> maybe_header_value = result.prt_header_value();
   ASSERT_TRUE(maybe_header_value.has_value());
 
-  auto const get_etld_plus_one = [](const GURL& url) -> std::string {
-    return net::registry_controlled_domains::GetDomainAndRegistry(
-        url, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
-  };
   std::optional<std::string> maybe_serialized_token =
-      ipp_core->GetProbabilisticRevealToken(get_etld_plus_one(top_level_url),
-                                            get_etld_plus_one(destination_url));
+      ipp_core->GetProbabilisticRevealToken(destination_url,
+                                            net::SchemefulSite(top_level_url));
   ASSERT_TRUE(maybe_serialized_token)
       << "core is expected to return the token in the header";
 
@@ -1571,7 +1576,8 @@ TEST_F(IpProtectionProxyDelegateTest,
       base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 200 OK");
 
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsOk());
 }
 
@@ -1591,7 +1597,8 @@ TEST_F(IpProtectionProxyDelegateTest,
   // For non-IPP chains, the delegate should return `net::OK` to allow the
   // default network stack handling to process the response.
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(non_ipp_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsOk());
 }
 
@@ -1616,7 +1623,8 @@ TEST_F(IpProtectionProxyDelegateTest,
   // in the presence of a Proxy-Status header that would otherwise result in the
   // request not falling back).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsOk());
 }
 
@@ -1637,7 +1645,8 @@ TEST_F(
   // fallback (by returning OK so that the standard proxy fallback logic is
   // used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsOk());
 }
 
@@ -1658,7 +1667,8 @@ TEST_F(
   // fallback (by returning OK so that the standard proxy fallback logic is
   // used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsOk());
 }
 
@@ -1676,7 +1686,8 @@ TEST_F(IpProtectionProxyDelegateTest,
 
   // An NXDOMAIN rcode should not trigger fallback.
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsError(net::ERR_PROXY_UNABLE_TO_CONNECT_TO_DESTINATION));
 }
 
@@ -1699,7 +1710,8 @@ TEST_F(
   // instead of a string (by returning OK so that the standard proxy fallback
   // logic is used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsError(net::ERR_PROXY_UNABLE_TO_CONNECT_TO_DESTINATION));
 }
 
@@ -1717,7 +1729,8 @@ TEST_F(IpProtectionProxyDelegateTest,
 
   // An NODATA rcode should not trigger fallback.
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsError(net::ERR_PROXY_UNABLE_TO_CONNECT_TO_DESTINATION));
 }
 
@@ -1736,7 +1749,8 @@ TEST_F(
   // proxy failure, warranting fallback (by returning OK so that the standard
   // proxy fallback logic is used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsOk());
 }
 
@@ -1754,7 +1768,8 @@ TEST_F(
 
   // A malformed header is ambiguous, so we assume a proxy failure and fallback.
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsOk());
 }
 
@@ -1775,7 +1790,8 @@ TEST_F(
   // error is treated as a proxy failure (by returning OK so that the standard
   // proxy fallback logic is used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsOk());
 }
 
@@ -1796,7 +1812,8 @@ TEST_F(
   // failure, so we should fall back (by returning OK so that the standard proxy
   // fallback logic is used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsOk());
 }
 
@@ -1821,7 +1838,8 @@ TEST_P(IpProtectionProxyDelegateOnTunnelHeadersReceivedTest,
 
   // Destination-side errors should prevent fallback.
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsError(net::ERR_PROXY_UNABLE_TO_CONNECT_TO_DESTINATION));
 }
 
@@ -1855,7 +1873,8 @@ TEST_F(
   // connection, so treat multiple entities in the Proxy-Status line as invalid
   // (and return OK so that the standard proxy fallback logic is used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
-                                                /*chain_index=*/0, *headers),
+                                                /*chain_index=*/0, *headers,
+                                                base::DoNothing()),
               IsOk());
 }
 

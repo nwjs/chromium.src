@@ -119,6 +119,7 @@ class CORE_EXPORT StyleResolverState {
   ComputedStyleBuilder& StyleBuilder() { return *style_builder_; }
   const ComputedStyleBuilder& StyleBuilder() const { return *style_builder_; }
   const ComputedStyle* TakeStyle();
+  const ComputedStyle* CloneStyle() const;
 
   const CSSToLengthConversionData& CssToLengthConversionData() const {
     return css_to_length_conversion_data_;
@@ -200,6 +201,9 @@ class CORE_EXPORT StyleResolverState {
   // CSSValue based on the UsedColorScheme. For all other values, just return a
   // reference to the passed value.
   const CSSValue& ResolveLightDarkPair(const CSSValue&);
+
+  // If the input CSSValue is a CSSGradientValue, resolve its "calc" functions.
+  const CSSValue& ResolveGradient(const CSSValue&);
 
   const ComputedStyle* OriginatingElementStyle() const {
     return originating_element_style_;

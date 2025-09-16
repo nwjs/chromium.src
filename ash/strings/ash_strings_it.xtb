@@ -332,10 +332,12 @@ Ecco alcune cose che puoi provare per iniziare.</translation>
 <translation id="2083190527011054446">Buonanotte <ph name="GIVEN_NAME" />,</translation>
 <translation id="2086334242442703436">Aprire il selettore di emoji</translation>
 <translation id="2088116547584365419">giochi</translation>
+<translation id="2093792000875799555">Notizie su Steam per Chromebook</translation>
 <translation id="209965399369889474">Nessuna connessione alla rete</translation>
 <translation id="2107581415810719320">Pulsante Altro <ph name="BUTTON_NUMBER" /></translation>
 <translation id="2107914222138020205">Il cavo USB-C non supporta Thunderbolt. Le prestazioni del dispositivo potrebbero essere limitate.</translation>
 <translation id="2108303511227308752">La scorciatoia da tastiera Alt + Backspace è cambiata. Per usare il tasto Canc, premi il tasto <ph name="LAUNCHER_KEY_NAME" /> + Backspace.</translation>
+<translation id="2115680839221566783">Batteria: <ph name="PERCENTAGE" />%. Ricarica in sospeso.</translation>
 <translation id="2126242104232412123">Nuova scrivania</translation>
 <translation id="2132302418721800944">Registra schermo intero</translation>
 <translation id="2135456203358955318">Lente d'ingrandimento ancorata</translation>
@@ -1367,6 +1369,7 @@ Nessun dispositivo connesso.</translation>
 <translation id="5429993543155113935">Al momento le finestre di navigazione in incognito non sono supportate</translation>
 <translation id="5431318178759467895">A colori</translation>
 <translation id="5433020815079095860">Ingresso audio</translation>
+<translation id="543584294741034249">Puoi collegare fino a <ph name="DISPLAY_LIMIT" /> display esterni.</translation>
 <translation id="544691375626129091">A questa sessione sono già stati aggiunti tutti gli utenti disponibili.</translation>
 <translation id="54609108002486618">Gestito</translation>
 <translation id="5460938382730614333">Evidenziatore ON.</translation>
@@ -1584,6 +1587,7 @@ Nessun dispositivo connesso.</translation>
 <translation id="612734058257491180">L'Assistente Google non è disponibile in una sessione Ospite.</translation>
 <translation id="6127395413317891856">Sei offline. Controlla la connessione e riprova.</translation>
 <translation id="6129953537138746214">BARRA SPAZIATRICE</translation>
+<translation id="6136872094979134163">Impossibile recuperare le notizie su Steam per Chromebook.</translation>
 <translation id="6137566720514957455">Apri la finestra di dialogo di rimozione per <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6141205840878048728">Su cosa ti piacerebbe concentrati?</translation>
 <translation id="6141988275892716286">Conferma download</translation>
@@ -1673,6 +1677,7 @@ Nessun dispositivo connesso.</translation>
 <translation id="6445835306623867477"><ph name="ROUTE_TITLE" /> su <ph name="RECEIVER_NAME" /></translation>
 <translation id="6445915701151710649">cpu</translation>
 <translation id="6447111710783417522"><ph name="DATE" />, <ph name="NUMBER" /> evento</translation>
+<translation id="6448529022565414427">Ricarica in sospeso</translation>
 <translation id="6449483711453944360">Al momento le app Linux e le finestre di navigazione in incognito non sono supportate</translation>
 <translation id="6450245544201845082">La scorciatoia per fare clic con il tasto destro del mouse è attualmente disattivata</translation>
 <translation id="6452181791372256707">Rifiuto</translation>

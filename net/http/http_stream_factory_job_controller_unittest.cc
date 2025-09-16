@@ -231,7 +231,8 @@ class TestProxyDelegateForIpProtection : public TestProxyDelegate {
   net::Error OnTunnelHeadersReceived(
       const net::ProxyChain& proxy_chain,
       size_t chain_index,
-      const net::HttpResponseHeaders& response_headers) override {
+      const net::HttpResponseHeaders& response_headers,
+      net::CompletionOnceCallback callback) override {
     if (response_headers.response_code() == 502) {
       return net::ERR_PROXY_UNABLE_TO_CONNECT_TO_DESTINATION;
     }
@@ -292,8 +293,8 @@ class JobControllerPeer {
       HttpStreamRequest::Delegate* delegate,
       HttpStreamRequest::StreamType stream_type) {
     return job_controller->GetAlternativeServiceInfoFor(
-        request_info.url, HttpStreamFactory::StreamRequestInfo(request_info),
-        delegate, stream_type);
+        HttpStreamFactory::StreamRequestInfo(request_info), delegate,
+        stream_type);
   }
 
   static quic::ParsedQuicVersion SelectQuicVersion(
@@ -752,7 +753,8 @@ class JobControllerReconsiderProxyAfterErrorTest
         server.host(), server.port(), PRIVACY_MODE_DISABLED,
         ProxyChain::ForIpProtection({}, 0), SessionUsage::kProxy, SocketTag(),
         NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
-        /*require_dns_https_alpn=*/false);
+        /*require_dns_https_alpn=*/false,
+        /*disable_cert_verification_network_fetches=*/true);
     auto new_session = std::make_unique<MockQuicChromiumClientSession>(
         connection, std::move(socket), session_->quic_session_pool(),
         &crypto_client_stream_factory_, &clock, &transport_security_state,
@@ -3896,7 +3898,7 @@ TEST_F(HttpStreamFactoryJobControllerTest, ResumeMainJobLaterCanceled) {
   // The main job should be resumed without delay when alt job fails.
   EXPECT_CALL(*job_factory_.main_job(), Resume())
       .Times(1)
-      .WillOnce(Invoke([&run_loop]() { run_loop.Quit(); }));
+      .WillOnce([&run_loop]() { run_loop.Quit(); });
   job_controller_->OnStreamFailed(job_factory_.alternative_job(),
                                   ERR_QUIC_PROTOCOL_ERROR);
   FastForwardBy(base::Microseconds(0));
@@ -5468,7 +5470,7 @@ class HttpStreamFactoryJobControllerDnsHttpsAlpnTest
       base::RunLoop run_loop;
       EXPECT_CALL(request_delegate_, OnStreamReadyImpl(_, _))
           .Times(1)
-          .WillOnce(Invoke([&run_loop]() { run_loop.Quit(); }));
+          .WillOnce([&run_loop]() { run_loop.Quit(); });
       stream->NotifySessionOneRttKeyAvailable();
       run_loop.Run();
     } else {
@@ -5622,7 +5624,7 @@ class HttpStreamFactoryJobControllerDnsHttpsAlpnTest
       base::RunLoop run_loop;
       EXPECT_CALL(request_delegate, OnStreamReadyImpl(_, _))
           .Times(1)
-          .WillOnce(Invoke([&run_loop]() { run_loop.Quit(); }));
+          .WillOnce([&run_loop]() { run_loop.Quit(); });
       tcp_data->socket()->OnConnectComplete(MockConnect());
       run_loop.Run();
     } else {
@@ -6006,7 +6008,7 @@ TEST_F(HttpStreamFactoryJobControllerDnsHttpsAlpnTest,
     base::RunLoop run_loop;
     EXPECT_CALL(request_delegate_, OnStreamReadyImpl(_, _))
         .Times(1)
-        .WillOnce(Invoke([&run_loop]() { run_loop.Quit(); }));
+        .WillOnce([&run_loop]() { run_loop.Quit(); });
     run_loop.Run();
   }
   histogram_tester.ExpectUniqueSample(
@@ -6169,7 +6171,7 @@ TEST_F(HttpStreamFactoryJobControllerDnsHttpsAlpnTest,
     base::RunLoop run_loop;
     EXPECT_CALL(request_delegate_, OnStreamReadyImpl(_, _))
         .Times(1)
-        .WillOnce(Invoke([&run_loop]() { run_loop.Quit(); }));
+        .WillOnce([&run_loop]() { run_loop.Quit(); });
     run_loop.Run();
   }
   histogram_tester.ExpectUniqueSample("Net.AlternateProtocolUsage",
@@ -6206,7 +6208,7 @@ TEST_F(HttpStreamFactoryJobControllerDnsHttpsAlpnTest,
     base::RunLoop run_loop;
     EXPECT_CALL(request_delegate_, OnStreamReadyImpl(_, _))
         .Times(1)
-        .WillOnce(Invoke([&run_loop]() { run_loop.Quit(); }));
+        .WillOnce([&run_loop]() { run_loop.Quit(); });
     run_loop.Run();
   }
   histogram_tester.ExpectUniqueSample(
@@ -6253,7 +6255,7 @@ TEST_F(HttpStreamFactoryJobControllerDnsHttpsAlpnTest,
     base::RunLoop run_loop;
     EXPECT_CALL(request_delegate_, OnStreamReadyImpl(_, _))
         .Times(1)
-        .WillOnce(Invoke([&run_loop]() { run_loop.Quit(); }));
+        .WillOnce([&run_loop]() { run_loop.Quit(); });
     run_loop.Run();
   }
   histogram_tester.ExpectUniqueSample(

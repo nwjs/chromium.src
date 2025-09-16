@@ -27,6 +27,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/to_string.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gmock_expected_support.h"
@@ -104,7 +105,6 @@ using testing::Eq;
 using testing::Field;
 using testing::Gt;
 using testing::InSequence;
-using testing::Invoke;
 using testing::IsEmpty;
 using testing::MockFunction;
 using testing::NotNull;
@@ -620,10 +620,10 @@ void Verify206Response(const std::string& response, int start, int end) {
   int64_t range_start, range_end, object_size;
   ASSERT_TRUE(
       headers->GetContentRangeFor206(&range_start, &range_end, &object_size));
-  int64_t content_length = headers->GetContentLength();
+  std::optional<base::ByteCount> content_length = headers->GetContentLength();
 
   int length = end - start + 1;
-  ASSERT_EQ(length, content_length);
+  ASSERT_EQ(length, content_length->InBytes());
   ASSERT_EQ(start, range_start);
   ASSERT_EQ(end, range_end);
 }
@@ -11922,55 +11922,6 @@ TEST_F(HttpCacheTest, NonSplitCache) {
   EXPECT_TRUE(response.was_cached);
 }
 
-TEST_F(HttpCacheTest, SkipVaryCheck) {
-  MockHttpCache cache;
-
-  // Write a simple vary transaction to the cache.
-  HttpResponseInfo response;
-  ScopedMockTransaction transaction(kSimpleGET_Transaction);
-  transaction.request_headers = "accept-encoding: gzip\r\n";
-  transaction.response_headers =
-      "Vary: accept-encoding\n"
-      "Cache-Control: max-age=10000\n";
-  RunTransactionTest(cache.http_cache(), transaction);
-
-  // Change the request headers so that the request doesn't match due to vary.
-  // The request should fail.
-  transaction.load_flags = LOAD_ONLY_FROM_CACHE;
-  transaction.request_headers = "accept-encoding: foo\r\n";
-  transaction.start_return_code = ERR_CACHE_MISS;
-  RunTransactionTest(cache.http_cache(), transaction);
-
-  // Change the load flags to ignore vary checks, the request should now hit.
-  transaction.load_flags = LOAD_ONLY_FROM_CACHE | LOAD_SKIP_VARY_CHECK;
-  transaction.start_return_code = OK;
-  RunTransactionTest(cache.http_cache(), transaction);
-}
-
-TEST_F(HttpCacheTest, SkipVaryCheckStar) {
-  MockHttpCache cache;
-
-  // Write a simple vary:* transaction to the cache.
-  HttpResponseInfo response;
-  ScopedMockTransaction transaction(kSimpleGET_Transaction);
-  transaction.request_headers = "accept-encoding: gzip\r\n";
-  transaction.response_headers =
-      "Vary: *\n"
-      "Cache-Control: max-age=10000\n";
-  RunTransactionTest(cache.http_cache(), transaction);
-
-  // The request shouldn't match even with the same request headers due to the
-  // Vary: *. The request should fail.
-  transaction.load_flags = LOAD_ONLY_FROM_CACHE;
-  transaction.start_return_code = ERR_CACHE_MISS;
-  RunTransactionTest(cache.http_cache(), transaction);
-
-  // Change the load flags to ignore vary checks, the request should now hit.
-  transaction.load_flags = LOAD_ONLY_FROM_CACHE | LOAD_SKIP_VARY_CHECK;
-  transaction.start_return_code = OK;
-  RunTransactionTest(cache.http_cache(), transaction);
-}
-
 // Tests that we only return valid entries with LOAD_ONLY_FROM_CACHE
 // transactions unless LOAD_SKIP_CACHE_VALIDATION is set.
 TEST_F(HttpCacheTest, ValidLoadOnlyFromCache) {
@@ -12499,8 +12450,9 @@ TEST_P(HttpCacheHugeResourceTest,
 
   int64_t total_bytes_received = 0;
 
-  EXPECT_EQ(kTotalSize,
-            http_transaction->GetResponseInfo()->headers->GetContentLength());
+  EXPECT_EQ(kTotalSize, http_transaction->GetResponseInfo()
+                            ->headers->GetContentLength()
+                            ->InBytes());
   do {
     // This test simulates reading gigabytes of data. Buffer size is set to 10MB
     // to reduce the number of reads and speed up the test.
@@ -14193,6 +14145,11 @@ class HttpCacheNoVarySearchTestBase
     RunUntilIdle();
   }
 
+  enum ETagUsage {
+    kNoEtagHeader,
+    kIncludeETagHeader,
+  };
+
   void SetUp() override { ConstructCache(http_cache_); }
 
   // This can be overloaded by subclasses to construct the cache with different
@@ -14206,10 +14163,12 @@ class HttpCacheNoVarySearchTestBase
   MockDiskCache* mock_disk_cache() { return http_cache_->disk_cache(); }
 
   // Callers can safely modify the return value, except for the `url` field.
-  MockTransaction& CreateMockTransaction(std::string_view query,
-                                         std::string_view no_vary_search,
-                                         int max_age = kMaxAgeOneDay) {
-    auto iterator = CreateData(query, no_vary_search, max_age);
+  MockTransaction& CreateMockTransaction(
+      std::string_view query,
+      std::string_view no_vary_search,
+      int max_age = kMaxAgeOneDay,
+      ETagUsage use_etag = kIncludeETagHeader) {
+    auto iterator = CreateData(query, no_vary_search, max_age, use_etag);
     MockTransaction transaction = kTypicalGET_Transaction;
     transaction.url = iterator->first.possibly_invalid_spec().c_str();
     transaction.response_headers = iterator->second.c_str();
@@ -14219,9 +14178,10 @@ class HttpCacheNoVarySearchTestBase
 
   void FetchIntoCache(std::string_view query,
                       std::string_view no_vary_search,
-                      int max_age = kMaxAgeOneDay) {
+                      int max_age = kMaxAgeOneDay,
+                      ETagUsage use_etag = kIncludeETagHeader) {
     MockTransaction& transaction =
-        CreateMockTransaction(query, no_vary_search, max_age);
+        CreateMockTransaction(query, no_vary_search, max_age, use_etag);
     MockHttpRequest network_request(transaction);
 
     HttpResponseInfo info;
@@ -14238,14 +14198,16 @@ class HttpCacheNoVarySearchTestBase
   std::map<GURL, std::string>::iterator CreateData(
       std::string_view query,
       std::string_view no_vary_search,
-      int max_age) {
+      int max_age,
+      ETagUsage use_etag) {
     GURL url(base::StrCat({kBaseURL, query}));
     std::string no_vary_search_string(no_vary_search);
     std::string response_headers = base::StringPrintf(
-        "ETag: \"foo\"\n"
+        "%s"
         "Cache-Control: max-age=%d\n"
         "No-Vary-Search: %s\n",
-        max_age, no_vary_search_string.c_str());
+        use_etag == kIncludeETagHeader ? "ETag: \"foo\"\n" : "", max_age,
+        no_vary_search_string.c_str());
     auto [data_iterator, data_inserted] =
         mock_transaction_data_.emplace(url, response_headers);
     CHECK(data_inserted)
@@ -14270,6 +14232,15 @@ class HttpCacheNoVarySearchTestBase
 };
 
 using HttpCacheNoVarySearchTest = HttpCacheNoVarySearchTestBase;
+
+constexpr auto split_cache_parameter_name = [](const auto& info) {
+  return info.param ? "NotSplitCache" : "SplitCache";
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         HttpCacheNoVarySearchTest,
+                         ::testing::Bool(),
+                         split_cache_parameter_name);
 
 TEST_P(HttpCacheNoVarySearchTest, SimpleSuccess) {
   FetchIntoCache("q=fred&a=1", "params=(\"a\")");
@@ -14470,12 +14441,90 @@ TEST_P(HttpCacheNoVarySearchTest, ExternalHitWithFeatureParamTrue) {
               ElementsAre(new_url_cache_key, nvs_url_cache_key));
 }
 
+class HttpCacheNoVarySearchKeepNotSuitableTest
+    : public HttpCacheNoVarySearchTestBase {
+ public:
+  static constexpr int kMaxAgeZero = 0;
+
+  void SetKeepNotSuitable(bool keep) {
+    keep_not_suitable_feature_list_.InitAndEnableFeatureWithParameters(
+        features::kHttpCacheNoVarySearch,
+        {{features::kHttpCacheNoVarySearchKeepNotSuitable.name,
+          base::ToString(keep)}});
+  }
+
+  void InsertStaleNonRevalidatableEntry(std::string_view params) {
+    // Insert a No-Vary-Search entry that will match and is not capable of being
+    // revalidated.
+    FetchIntoCache(params, "params=(\"a\")", kMaxAgeZero, kNoEtagHeader);
+  }
+
+  HttpResponseInfo RunTransactionTestWithMaxAgeZeroNoEtag(
+      std::string_view params,
+      int load_flags) {
+    MockTransaction& transaction =
+        CreateMockTransaction(params, "", kMaxAgeZero, kNoEtagHeader);
+    transaction.load_flags = load_flags;
+    HttpResponseInfo info;
+    RunTransactionTestWithResponseInfo(cache(), transaction, &info);
+    return info;
+  }
+
+ private:
+  base::test::ScopedFeatureList keep_not_suitable_feature_list_;
+};
+
 INSTANTIATE_TEST_SUITE_P(All,
-                         HttpCacheNoVarySearchTest,
+                         HttpCacheNoVarySearchKeepNotSuitableTest,
                          ::testing::Bool(),
-                         [](const auto& info) {
-                           return info.param ? "NotSplitCache" : "SplitCache";
-                         });
+                         split_cache_parameter_name);
+
+// With the default behavior, an in-memory hint that the response is stale and
+// not validatable triggers erasing the entry from the NoVarySearchCache.
+TEST_P(HttpCacheNoVarySearchKeepNotSuitableTest, InMemoryHintTriggersErase) {
+  SetKeepNotSuitable(false);
+
+  InsertStaleNonRevalidatableEntry("q=fred&a=1");
+
+  // The first transaction doesn't permit a stale response. The response has an
+  // empty No-Vary-Search header so it will not result in an entry in the
+  // NoVarySearchCache.
+  const HttpResponseInfo info1 =
+      RunTransactionTestWithMaxAgeZeroNoEtag("q=fred", LOAD_NORMAL);
+  EXPECT_FALSE(info1.was_cached);
+  EXPECT_TRUE(info1.network_accessed);
+
+  // The second transaction permits a stale response, but doesn't get one
+  // because it has already been deleted.
+  HttpResponseInfo info2 = RunTransactionTestWithMaxAgeZeroNoEtag(
+      "q=fred&a=77", LOAD_SKIP_CACHE_VALIDATION);
+  EXPECT_FALSE(info2.was_cached);
+  EXPECT_TRUE(info2.network_accessed);
+}
+
+// This test is almost identical to the previous one, except that the feature
+// parameter is set which changes the behavior to not delete the
+// NoVarySearchCache entry.
+TEST_P(HttpCacheNoVarySearchKeepNotSuitableTest,
+       InMemoryHintDoesNotTriggerErase) {
+  SetKeepNotSuitable(true);
+
+  InsertStaleNonRevalidatableEntry("q=fred&a=1");
+
+  // The first transaction doesn't permit a stale response. The response has an
+  // empty No-Vary-Search header so it will not result in an entry in the
+  // NoVarySearchCache.
+  const HttpResponseInfo info1 =
+      RunTransactionTestWithMaxAgeZeroNoEtag("q=fred", LOAD_NORMAL);
+  EXPECT_FALSE(info1.was_cached);
+  EXPECT_TRUE(info1.network_accessed);
+
+  // The second transaction permits a stale response, and receives one.
+  HttpResponseInfo info2 = RunTransactionTestWithMaxAgeZeroNoEtag(
+      "q=fred&a=77", LOAD_SKIP_CACHE_VALIDATION);
+  EXPECT_TRUE(info2.was_cached);
+  EXPECT_FALSE(info2.network_accessed);
+}
 
 // A GoogleMock action to quit a base::RunLoop. This is not defined using the
 // ACTION_P macro because to be thread-safe QuitClosure() needs to be called
@@ -14516,9 +14565,9 @@ class HttpCacheNoVarySearchMockFileOperationsTest
       if (expect_load_) {
         load_expectations_ +=
             EXPECT_CALL(*file_operations, Load)
-                .WillOnce(DoAll(Invoke(maybe_block),
-                                Return(base::unexpected(
-                                    base::File::FILE_ERROR_NOT_FOUND))));
+                .WillOnce(
+                    DoAll(maybe_block, Return(base::unexpected(
+                                           base::File::FILE_ERROR_NOT_FOUND))));
       }
       load_expectations_ += EXPECT_CALL(*file_operations, AtomicSave)
                                 .WillOnce(Return(base::ok()));
@@ -14611,9 +14660,7 @@ class HttpCacheNoVarySearchMockFileOperationsTest
 INSTANTIATE_TEST_SUITE_P(All,
                          HttpCacheNoVarySearchMockFileOperationsTest,
                          ::testing::Bool(),
-                         [](const auto& info) {
-                           return info.param ? "NotSplitCache" : "SplitCache";
-                         });
+                         split_cache_parameter_name);
 
 TEST_P(HttpCacheNoVarySearchMockFileOperationsTest, CacheStorageIsCreated) {
   InitializeBackend();
@@ -14778,9 +14825,7 @@ class HttpCacheNoVarySearchFakePersistenceTest
 INSTANTIATE_TEST_SUITE_P(All,
                          HttpCacheNoVarySearchFakePersistenceTest,
                          ::testing::Bool(),
-                         [](const auto& info) {
-                           return info.param ? "NotSplitCache" : "SplitCache";
-                         });
+                         split_cache_parameter_name);
 
 TEST_P(HttpCacheNoVarySearchFakePersistenceTest, FakePersistenceWorks) {
   // Nothing is persisted once load is complete.

@@ -20,7 +20,6 @@ import androidx.annotation.StringRes;
 
 import org.jni_zero.CalledByNative;
 
-import org.chromium.base.DeviceInfo;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.R;
@@ -35,11 +34,15 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
+import org.chromium.content_public.browser.ContentFeatureList;
+import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.device.gamepad.GamepadList;
 import org.chromium.ui.KeyboardUtils;
 import org.chromium.ui.accessibility.AccessibilityState;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -85,8 +88,8 @@ public class KeyboardShortcuts {
         KeyboardShortcutsSemanticMeaning.KEYBOARD_FOCUS_BOOKMARKS,
         KeyboardShortcutsSemanticMeaning.KEYBOARD_FOCUS_SWITCH_ROW_OF_TOP_ELEMENTS,
         KeyboardShortcutsSemanticMeaning.FOCUSED_TAB_STRIP_ITEM_OPEN_CONTEXT_MENU,
-        KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_FOCUSED_TAB_STRIP_ITEM_REORDER_LEFT,
-        KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_FOCUSED_TAB_STRIP_ITEM_REORDER_RIGHT,
+        KeyboardShortcutsSemanticMeaning.FOCUSED_TAB_STRIP_ITEM_REORDER_LEFT,
+        KeyboardShortcutsSemanticMeaning.FOCUSED_TAB_STRIP_ITEM_REORDER_RIGHT,
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_CURRENT_OPEN_TAB_REORDER_LEFT,
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_CURRENT_OPEN_TAB_REORDER_RIGHT,
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_TOGGLE_CARET_BROWSING,
@@ -123,6 +126,7 @@ public class KeyboardShortcuts {
         KeyboardShortcutsSemanticMeaning.CUSTOM_EXTENSION_SHORTCUT,
         KeyboardShortcutsSemanticMeaning.MAX_VALUE
     })
+    @Retention(RetentionPolicy.SOURCE)
     public @interface KeyboardShortcutsSemanticMeaning {
         // TODO(crbug.com/402775002): Implement more of these!
         // Unrecognized key combination.
@@ -161,8 +165,8 @@ public class KeyboardShortcuts {
         int KEYBOARD_FOCUS_BOOKMARKS = 22;
         int KEYBOARD_FOCUS_SWITCH_ROW_OF_TOP_ELEMENTS = 23;
         int FOCUSED_TAB_STRIP_ITEM_OPEN_CONTEXT_MENU = 24;
-        int NOT_IMPLEMENTED_FOCUSED_TAB_STRIP_ITEM_REORDER_LEFT = 25;
-        int NOT_IMPLEMENTED_FOCUSED_TAB_STRIP_ITEM_REORDER_RIGHT = 26;
+        int FOCUSED_TAB_STRIP_ITEM_REORDER_LEFT = 25;
+        int FOCUSED_TAB_STRIP_ITEM_REORDER_RIGHT = 26;
         int NOT_IMPLEMENTED_CURRENT_OPEN_TAB_REORDER_LEFT = 27;
         int NOT_IMPLEMENTED_CURRENT_OPEN_TAB_REORDER_RIGHT = 28;
 
@@ -592,9 +596,14 @@ public class KeyboardShortcuts {
                 KeyboardShortcutsSemanticMeaning.KEYBOARD_FOCUS_SWITCH_ROW_OF_TOP_ELEMENTS,
                 new KeyCombo(KeyEvent.KEYCODE_F6, NO_MODIFIER));
         new KeyboardShortcutDefinition(
-                KeyboardShortcutsSemanticMeaning
-                        .FOCUSED_TAB_STRIP_ITEM_OPEN_CONTEXT_MENU,
+                KeyboardShortcutsSemanticMeaning.FOCUSED_TAB_STRIP_ITEM_OPEN_CONTEXT_MENU,
                 new KeyCombo(KeyEvent.KEYCODE_F10, KeyEvent.META_SHIFT_ON));
+        new KeyboardShortcutDefinition(
+                KeyboardShortcutsSemanticMeaning.FOCUSED_TAB_STRIP_ITEM_REORDER_LEFT,
+                new KeyCombo(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.META_CTRL_ON));
+        new KeyboardShortcutDefinition(
+                KeyboardShortcutsSemanticMeaning.FOCUSED_TAB_STRIP_ITEM_REORDER_RIGHT,
+                new KeyCombo(KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.META_CTRL_ON));
 
         // Bookmark shortcuts.
         new KeyboardShortcutDefinition(
@@ -615,22 +624,12 @@ public class KeyboardShortcuts {
                 R.string.keyboard_shortcut_chrome_feature_group_header);
 
         // Developer tools.
-        if (DeviceInfo.isDesktop()) {
-            new KeyboardShortcutDefinition(
-                    KeyboardShortcutsSemanticMeaning.DEV_TOOLS,
-                    new KeyCombo(
-                            KeyEvent.KEYCODE_I, (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON)),
-                    R.string.keyboard_shortcut_developer_tools,
-                    R.string.keyboard_shortcut_developer_group_header);
-
-            if (ChromeFeatureList.isEnabled(ChromeFeatureList.TASK_MANAGER_CLANK)) {
-                new KeyboardShortcutDefinition(
-                        KeyboardShortcutsSemanticMeaning.TASK_MANAGER,
-                        new KeyCombo(KeyEvent.KEYCODE_ESCAPE, KeyEvent.META_CTRL_ON),
-                        R.string.keyboard_shortcut_task_manager,
-                        R.string.keyboard_shortcut_developer_group_header);
-            }
-        }
+        new KeyboardShortcutDefinition(
+                KeyboardShortcutsSemanticMeaning.DEV_TOOLS,
+                new KeyCombo(KeyEvent.KEYCODE_I, (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON)));
+        new KeyboardShortcutDefinition(
+                KeyboardShortcutsSemanticMeaning.TASK_MANAGER,
+                new KeyCombo(KeyEvent.KEYCODE_ESCAPE, KeyEvent.META_CTRL_ON));
 
         // Webpage shortcuts (keyboard_shortcut_webpage_group_header).
         new KeyboardShortcutDefinition(
@@ -700,14 +699,6 @@ public class KeyboardShortcuts {
         new KeyboardShortcutDefinition(
                 KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_SCROLL_UP,
                 new KeyCombo(KeyEvent.KEYCODE_SPACE, KeyEvent.META_SHIFT_ON));
-        new KeyboardShortcutDefinition(
-                KeyboardShortcutsSemanticMeaning
-                        .NOT_IMPLEMENTED_FOCUSED_TAB_STRIP_ITEM_REORDER_LEFT,
-                new KeyCombo(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.META_CTRL_ON));
-        new KeyboardShortcutDefinition(
-                KeyboardShortcutsSemanticMeaning
-                        .NOT_IMPLEMENTED_FOCUSED_TAB_STRIP_ITEM_REORDER_RIGHT,
-                new KeyCombo(KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.META_CTRL_ON));
         // TODO(crbug.com/402775002): Change fn signature to allow CTRL+SHIFT+FN+UpArrow.
         new KeyboardShortcutDefinition(
                 KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_CURRENT_OPEN_TAB_REORDER_LEFT,
@@ -868,15 +859,10 @@ public class KeyboardShortcuts {
             if (shortcutDefinition.mGroupId == Resources.ID_NULL) {
                 continue;
             }
-            int groupId = shortcutDefinition.mGroupId;
-            if (!shortcutGroupsById.containsKey(groupId)) {
-                shortcutGroupsById.put(
-                        groupId, new KeyboardShortcutGroup(context.getString(groupId)));
-            }
-            KeyboardShortcutGroup shortcutGroup = shortcutGroupsById.get(groupId);
             addShortcut(
                     context,
-                    shortcutGroup,
+                    shortcutGroupsById,
+                    shortcutDefinition.mGroupId,
                     shortcutDefinition.mResId,
                     shortcutDefinition.mPrimaryShortcut.mKeyCode,
                     shortcutDefinition.mPrimaryShortcut.mModifier);
@@ -885,20 +871,44 @@ public class KeyboardShortcuts {
         if (BookmarkBarUtils.isDeviceBookmarkBarCompatible(context)) {
             addShortcut(
                     context,
-                    shortcutGroupsById.get(R.string.keyboard_shortcut_chrome_feature_group_header),
+                    shortcutGroupsById,
+                    R.string.keyboard_shortcut_chrome_feature_group_header,
                     R.string.keyboard_shortcut_toggle_bookmark_bar,
                     KeyEvent.KEYCODE_B,
                     (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON));
+        }
+        if (ContentFeatureMap.isEnabled(ContentFeatureList.ANDROID_DEV_TOOLS_FRONTEND)) {
+            addShortcut(
+                    context,
+                    shortcutGroupsById,
+                    R.string.keyboard_shortcut_developer_group_header,
+                    R.string.keyboard_shortcut_developer_tools,
+                    KeyEvent.KEYCODE_I,
+                    (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON));
+        }
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TASK_MANAGER_CLANK)) {
+            addShortcut(
+                    context,
+                    shortcutGroupsById,
+                    R.string.keyboard_shortcut_developer_group_header,
+                    R.string.keyboard_shortcut_task_manager,
+                    KeyEvent.KEYCODE_ESCAPE,
+                    KeyEvent.META_CTRL_ON);
         }
         return new ArrayList<>(shortcutGroupsById.values());
     }
 
     private static void addShortcut(
             Context context,
-            KeyboardShortcutGroup shortcutGroup,
+            LinkedHashMap<Integer, KeyboardShortcutGroup> shortcutGroupsById,
+            int groupId,
             int resId,
             int keyCode,
             int keyModifier) {
+        if (!shortcutGroupsById.containsKey(groupId)) {
+            shortcutGroupsById.put(groupId, new KeyboardShortcutGroup(context.getString(groupId)));
+        }
+        KeyboardShortcutGroup shortcutGroup = shortcutGroupsById.get(groupId);
         shortcutGroup.addItem(
                 new KeyboardShortcutInfo(context.getString(resId), keyCode, keyModifier));
     }
@@ -1129,12 +1139,16 @@ public class KeyboardShortcuts {
                         .FOCUSED_TAB_STRIP_ITEM_OPEN_CONTEXT_MENU:
                     return menuOrKeyboardActionController.onMenuOrKeyboardAction(
                             R.id.open_tab_strip_context_menu, /* fromMenu= */ false);
+                case KeyboardShortcutsSemanticMeaning.FOCUSED_TAB_STRIP_ITEM_REORDER_LEFT:
+                    return toolbarManager.reorderKeyboardFocusedItem(/* toLeft= */ true);
+                case KeyboardShortcutsSemanticMeaning.FOCUSED_TAB_STRIP_ITEM_REORDER_RIGHT:
+                    return toolbarManager.reorderKeyboardFocusedItem(/* toLeft= */ false);
                 case KeyboardShortcutsSemanticMeaning.KEYBOARD_FOCUS_TOOLBAR:
-                        toolbarManager.requestFocus();
-                        return true;
+                    toolbarManager.requestFocus();
+                    return true;
                 case KeyboardShortcutsSemanticMeaning.KEYBOARD_FOCUS_BOOKMARKS:
-                        return menuOrKeyboardActionController.onMenuOrKeyboardAction(
-                                R.id.focus_bookmarks, /* fromMenu= */ false);
+                    return menuOrKeyboardActionController.onMenuOrKeyboardAction(
+                            R.id.focus_bookmarks, /* fromMenu= */ false);
             }
         }
 

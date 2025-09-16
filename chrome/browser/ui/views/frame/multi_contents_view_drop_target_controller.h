@@ -22,10 +22,27 @@ struct DropData;
 // links,  bookmarks, or tab headers to create a split view.
 // There exists one `MultiContentsViewDropTargetController` per
 // `MultiContentesView`.
-class MultiContentsViewDropTargetController final : public TabDragDelegate {
+class MultiContentsViewDropTargetController final
+    : public TabDragDelegate,
+      public MultiContentsDropTargetView::DragDelegate {
  public:
-  explicit MultiContentsViewDropTargetController(
-      MultiContentsDropTargetView& drop_target_view);
+  // Delegate for handling the drop callback.
+  class DropDelegate {
+   public:
+    virtual ~DropDelegate() = default;
+
+    // Handles links that are dropped on the view.
+    virtual void HandleLinkDrop(MultiContentsDropTargetView::DropSide side,
+                                const ui::DropTargetEvent& event) = 0;
+
+    // Handles tabs that are dropped on the view.
+    virtual void HandleTabDrop(MultiContentsDropTargetView::DropSide side,
+                               TabDragDelegate::DragController& controller) = 0;
+  };
+
+  MultiContentsViewDropTargetController(
+      MultiContentsDropTargetView& drop_target_view,
+      DropDelegate& drop_delegate);
   ~MultiContentsViewDropTargetController() override;
   MultiContentsViewDropTargetController(
       const MultiContentsViewDropTargetController&) = delete;
@@ -46,12 +63,29 @@ class MultiContentsViewDropTargetController final : public TabDragDelegate {
   // Handles a drag within the web contents area.
   // `point` should be relative to the multi contents view.
   void OnWebContentsDragUpdate(const content::DropData& data,
-                               const gfx::PointF& point,
+                               const gfx::Point& point,
                                bool is_in_split_view);
   void OnWebContentsDragExit();
   void OnWebContentsDragEnded();
 
+  // MultiContentsDropTargetView::DragDelegate:
+  bool GetDropFormats(int* formats,
+                      std::set<ui::ClipboardFormatType>* format_types) override;
+  bool CanDrop(const ui::OSExchangeData& data) override;
+  void OnDragExited() override;
+  void OnDragDone() override;
+  void OnDragEntered(const ui::DropTargetEvent& event) override;
+  int OnDragUpdated(const ui::DropTargetEvent& event) override;
+  views::View::DropCallback GetDropCallback(
+      const ui::DropTargetEvent& event) override;
+
+  bool IsDropTimerRunningForTesting();
+
  private:
+  void DoDrop(const ui::DropTargetEvent& event,
+              ui::mojom::DragOperation& output_drag_op,
+              std::unique_ptr<ui::LayerTreeOwner> drag_image_layer_owner);
+
   // Represents a timer for delaying when a specific drop target view is shown.
   struct DropTargetShowTimer {
     explicit DropTargetShowTimer(
@@ -62,7 +96,8 @@ class MultiContentsViewDropTargetController final : public TabDragDelegate {
 
   // Updates the timers for a drag at the given point.
   // Assumes the dragged data is droppable (e.g. tab or link).
-  void HandleDragUpdate(const gfx::PointF& point_in_view);
+  void HandleDragUpdate(const gfx::Point& point_in_view);
+  void HandleDragUpdateForNudge(const gfx::Point& point_in_view);
 
   // Starts or updates a running timer to show `target_to_show`.
   void StartOrUpdateDropTargetTimer(
@@ -72,14 +107,26 @@ class MultiContentsViewDropTargetController final : public TabDragDelegate {
   // Shows the drop target that should be displayed at the end of the delay.
   void ShowTimerDelayedDropTarget();
 
+  // Timer to hides the drop target if the drag isn't over web contents or
+  // drop target.
+  void StartDropTargetHideTimer();
+
+  // Used to determine if the drop target should be hidden because the OS drop
+  // target would be visible. Estimation based on when OS drop targets typically
+  // show. Only returns true if the browser is maximized.
+  bool PointOverlapsWithOSDropTarget(const gfx::Point& point_in_view);
+
   // This timer is used for showing the drop target a delay, and may be
   // canceled in case a drag exits the drop area before the target is shown.
   std::optional<DropTargetShowTimer> show_drop_target_timer_ = std::nullopt;
+
+  base::OneShotTimer hide_drop_target_timer_;
 
   // The view that is displayed when drags hover over the "drop" region of
   // the content area.
   const raw_ref<MultiContentsDropTargetView> drop_target_view_;
   const raw_ref<views::View> drop_target_parent_view_;
+  const raw_ref<DropDelegate> drop_delegate_;
 
   base::OnceClosureList on_will_destroy_callback_list_;
 };

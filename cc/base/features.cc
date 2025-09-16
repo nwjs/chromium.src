@@ -40,10 +40,6 @@ BASE_FEATURE(kSynchronizedScrolling,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kMainRepaintScrollPrefersNewContent,
-             "MainRepaintScrollPrefersNewContent",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kDeferImplInvalidation,
              "DeferImplInvalidation",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -86,10 +82,6 @@ BASE_FEATURE(kReclaimOldPrepaintTiles,
 
 const base::FeatureParam<int> kReclaimDelayInSeconds{&kSmallerInterestArea,
                                                      "reclaim_delay_s", 30};
-
-BASE_FEATURE(kEvictionThrottlesDraw,
-             "EvictionThrottlesDraw",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClearCanvasResourcesInBackground,
              "ClearCanvasResourcesInBackground",
@@ -157,10 +149,6 @@ BASE_FEATURE(kAllowLCDTextWithFilter,
              "AllowLCDTextWithFilter",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kRenderSurfacePixelAlignment,
-             "RenderSurfacePixelAlignment",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPreventDuplicateImageDecodes,
              "PreventDuplicateImageDecodes",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -205,10 +193,6 @@ const base::FeatureParam<int> kRenderThrottledFrameIntervalHz{
 BASE_FEATURE(kFastPathNoRaster,
              "FastPathNoRaster",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kExportFrameTimingAfterFrameDone,
-             "ExportFrameTimingAfterFrameDone",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kInternalBeginFrameSourceOnManyDidNotProduceFrame,
              "InternalBeginFrameSourceOnManyDidNotProduceFrame",
@@ -269,4 +253,32 @@ BASE_FEATURE(kOverscrollBehaviorRespectedOnAllScrollContainers,
 BASE_FEATURE(kSkipFinishDuringReleaseLayerTreeFrameSink,
              "SkipFinishDuringReleaseLayerTreeFrameSink",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kScrollJankV4Metric,
+             "ScrollJankV4Metric",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(double,
+                   kScrollJankV4MetricStabilityCorrection,
+                   &kScrollJankV4Metric,
+                   "stability_correction",
+                   0.05);
+
+BASE_FEATURE_PARAM(double,
+                   kScrollJankV4MetricDiscountFactor,
+                   &kScrollJankV4Metric,
+                   "discount_factor",
+                   0.01);
+
+BASE_FEATURE_PARAM(double,
+                   kScrollJankV4MetricFastScrollContinuityThreshold,
+                   &kScrollJankV4Metric,
+                   "fast_scroll_continuity_threshold_pixels",
+                   3.0);
+
+BASE_FEATURE_PARAM(double,
+                   kScrollJankV4MetricFlingContinuityThreshold,
+                   &kScrollJankV4Metric,
+                   "fling_continuity_threshold_pixels",
+                   0.2);
 }  // namespace features

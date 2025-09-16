@@ -18,8 +18,6 @@ import com.airbnb.lottie.LottieAnimationView;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.R;
-import org.chromium.components.omnibox.OmniboxFeatures;
-import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -41,14 +39,6 @@ class SearchBoxViewBinder
                     model.get(SearchBoxProperties.VISIBILITY) ? View.VISIBLE : View.GONE);
         } else if (SearchBoxProperties.ALPHA == propertyKey) {
             searchBoxContainer.setAlpha(model.get(SearchBoxProperties.ALPHA));
-            // Disable the search box contents if it is the process of being animated away.
-            // If the DSE icon is always visible on the NTP, we need to leave the container enabled
-            // (even though it will have alpha 0) because it, not the omnibox, will handle click
-            // events until the omnibox is "pinned" to the top.
-            if (!OmniboxFeatures.sOmniboxMobileParityUpdate.isEnabled()) {
-                ViewUtils.setEnabledRecursive(
-                        searchBoxContainer, searchBoxContainer.getAlpha() == 1.0f);
-            }
         } else if (SearchBoxProperties.VOICE_SEARCH_COLOR_STATE_LIST == propertyKey) {
             ImageViewCompat.setImageTintList(
                     voiceSearchButton,
@@ -73,13 +63,17 @@ class SearchBoxViewBinder
         } else if (SearchBoxProperties.LENS_CLICK_CALLBACK == propertyKey) {
             lensButton.setOnClickListener(model.get(SearchBoxProperties.LENS_CLICK_CALLBACK));
         } else if (SearchBoxProperties.SEARCH_BOX_CLICK_CALLBACK == propertyKey) {
-            searchBoxTextView.setOnClickListener(
-                    model.get(SearchBoxProperties.SEARCH_BOX_CLICK_CALLBACK));
+            var searchBoxClickListener = model.get(SearchBoxProperties.SEARCH_BOX_CLICK_CALLBACK);
+            searchBoxTextView.setOnClickListener(searchBoxClickListener);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                searchBoxTextView.setHandwritingDelegatorCallback(
-                        () ->
-                                model.get(SearchBoxProperties.SEARCH_BOX_CLICK_CALLBACK)
-                                        .onClick(searchBoxTextView));
+                if (searchBoxClickListener != null) {
+                    searchBoxTextView.setHandwritingDelegatorCallback(
+                            () ->
+                                    model.get(SearchBoxProperties.SEARCH_BOX_CLICK_CALLBACK)
+                                            .onClick(searchBoxTextView));
+                } else {
+                    searchBoxTextView.setHandwritingDelegatorCallback(null);
+                }
             }
         } else if (SearchBoxProperties.SEARCH_BOX_DRAG_CALLBACK == propertyKey) {
             searchBoxTextView.setOnDragListener(

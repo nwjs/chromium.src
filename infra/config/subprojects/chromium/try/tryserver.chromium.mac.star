@@ -732,6 +732,26 @@ ios_builder(
 )
 
 ios_builder(
+    name = "ios-structured-test-ids-simulator-fyi",
+    mirrors = [
+        "ci/ios-structured-test-ids-simulator-fyi",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/ios-structured-test-ids-simulator-fyi",
+        ],
+    ),
+    builderless = True,
+    cpu = cpu.ARM64,
+    contact_team_email = "chrome-browser-infra-team@google.com",
+    experiments = {
+        "chromium_tests.resultdb_module": 100,
+    },
+    main_list_view = "try",
+    xcode = xcode.xcode_default,
+)
+
+ios_builder(
     name = "ios-vm",
     mirrors = ["ci/ios-vm"],
     gn_args = "ci/ios-vm",
@@ -781,7 +801,6 @@ ios_builder(
     gn_args = gn_args.config(
         configs = [
             "ci/ios-simulator-code-coverage",
-            "ios_simulator",
         ],
     ),
     builderless = True,
@@ -808,7 +827,6 @@ gpu.try_.optional_tests_builder(
             target_bits = 64,
             target_platform = builder_config.target_platform.MAC,
         ),
-        build_gs_bucket = "chromium-gpu-fyi-archive",
     ),
     gn_args = gn_args.config(
         configs = [

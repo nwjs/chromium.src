@@ -121,11 +121,6 @@ interface AnimationTimeline
 interface AnimationTrigger
     attribute @@toStringTag
     getter behavior
-    getter exitRangeEnd
-    getter exitRangeStart
-    getter rangeEnd
-    getter rangeStart
-    getter timeline
     method addAnimation
     method constructor
     method removeAnimation
@@ -495,6 +490,7 @@ interface Blob
     getter size
     getter type
     method arrayBuffer
+    method bytes
     method constructor
     method slice
     method stream
@@ -587,6 +583,10 @@ interface CSSAnimation : Animation
     attribute @@toStringTag
     getter animationName
     method constructor
+interface CSSApplyMixinRule : CSSRule
+    attribute @@toStringTag
+    getter name
+    method constructor
 interface CSSColorValue
     static method parse
     attribute @@toStringTag
@@ -602,6 +602,9 @@ interface CSSContainerRule : CSSConditionRule
     attribute @@toStringTag
     getter containerName
     getter containerQuery
+    method constructor
+interface CSSContentsMixinRule : CSSRule
+    attribute @@toStringTag
     method constructor
 interface CSSCounterStyleRule : CSSRule
     attribute @@toStringTag
@@ -792,6 +795,10 @@ interface CSSMediaRule : CSSConditionRule
     getter media
     method constructor
     setter media
+interface CSSMixinRule : CSSGroupingRule
+    attribute @@toStringTag
+    getter name
+    method constructor
 interface CSSNamespaceRule : CSSRule
     attribute @@toStringTag
     getter namespaceURI
@@ -1283,6 +1290,7 @@ interface CanvasRenderingContext2D
     method createRadialGradient
     method drawElement
     method drawFocusIfNeeded
+    method drawHTMLElement
     method drawImage
     method drawMesh
     method ellipse
@@ -1949,6 +1957,7 @@ interface Document : Node
     attribute @@unscopables
     getter URL
     getter activeElement
+    getter activeViewTransition
     getter adoptedStyleSheets
     getter alinkColor
     getter all
@@ -2121,7 +2130,6 @@ interface Document : Node
     getter rootElement
     getter scripts
     getter scrollingElement
-    getter softNavigations
     getter styleSheets
     getter timeline
     getter title
@@ -2505,6 +2513,7 @@ interface Element : Node
     getter computedRole
     getter containerTiming
     getter containerTimingIgnore
+    getter containerTimingNesting
     getter currentCSSZoom
     getter currentPatch
     getter elementTiming
@@ -2660,6 +2669,7 @@ interface Element : Node
     setter className
     setter containerTiming
     setter containerTimingIgnore
+    setter containerTimingNesting
     setter elementTiming
     setter headingOffset
     setter headingReset
@@ -3056,6 +3066,9 @@ interface FontFace
 interface FontFaceSetLoadEvent : Event
     attribute @@toStringTag
     getter fontfaces
+    method constructor
+interface FormControlRange : AbstractRange
+    attribute @@toStringTag
     method constructor
 interface FormData
     attribute @@toStringTag
@@ -7239,14 +7252,14 @@ interface PasswordCredential : Credential
     getter name
     getter password
     method constructor
-interface PatchEvent : Event
-    attribute @@toStringTag
-    getter patch
-    method constructor
-interface PatchStatus
+interface Patch
     attribute @@toStringTag
     getter finished
     getter source
+    method constructor
+interface PatchEvent : Event
+    attribute @@toStringTag
+    getter patch
     method constructor
 interface Path2D
     attribute @@toStringTag
@@ -7716,11 +7729,6 @@ interface PressureRecord
     getter time
     method constructor
     method toJSON
-interface PrivateAttribution
-    attribute @@toStringTag
-    method constructor
-    method getEncryptedMatchKey
-    method getHelperNetworks
 interface ProcessingInstruction : CharacterData
     attribute @@toStringTag
     getter sheet
@@ -8322,12 +8330,14 @@ interface Rewriter
     method rewriteStreaming
 interface SVGAElement : SVGGraphicsElement
     attribute @@toStringTag
+    getter download
     getter href
     getter interestForElement
     getter rel
     getter relList
     getter target
     method constructor
+    setter download
     setter interestForElement
     setter rel
     setter relList
@@ -10294,6 +10304,14 @@ interface TimeRanges
     method constructor
     method end
     method start
+interface TimelineTrigger : AnimationTrigger
+    attribute @@toStringTag
+    getter exitRangeEnd
+    getter exitRangeStart
+    getter rangeEnd
+    getter rangeStart
+    getter timeline
+    method constructor
 interface TimestampTrigger
     attribute @@toStringTag
     getter timestamp
@@ -11596,6 +11614,7 @@ interface WebGL2RenderingContext
     method stencilOp
     method stencilOpSeparate
     method texElement2D
+    method texHTMLElement2D
     method texImage2D
     method texImage3D
     method texParameterf
@@ -12100,6 +12119,7 @@ interface WebGLRenderingContext
     method stencilOp
     method stencilOpSeparate
     method texElement2D
+    method texHTMLElement2D
     method texImage2D
     method texParameterf
     method texParameteri
@@ -12271,6 +12291,7 @@ interface WebTransport
     getter datagrams
     getter incomingBidirectionalStreams
     getter incomingUnidirectionalStreams
+    getter protocol
     getter ready
     method close
     method constructor
@@ -13356,7 +13377,6 @@ namespace console
     getter parent
     getter performance
     getter personalbar
-    getter privateAttribution
     getter scheduler
     getter screen
     getter screenLeft
@@ -13589,7 +13609,6 @@ namespace console
     setter parent
     setter performance
     setter personalbar
-    setter privateAttribution
     setter scheduler
     setter screen
     setter screenLeft

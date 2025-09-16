@@ -14,21 +14,26 @@
 #import "base/time/time.h"
 #import "components/dom_distiller/core/extraction_utils.h"
 #import "components/google/core/common/google_util.h"
+#import "components/translate/core/browser/translate_manager.h"
 #import "components/ukm/ios/ukm_url_recorder.h"
 #import "ios/chrome/browser/dom_distiller/model/offline_page_distiller_viewer.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
+#import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_content_tab_helper.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_distiller_page.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_distiller_viewer.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_java_script_feature.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_metrics_helper.h"
+#import "ios/chrome/browser/reader_mode/model/reader_mode_scroll_anchor_java_script_feature.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/url_util.h"
 #import "ios/chrome/browser/shared/public/commands/reader_mode_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/snapshots/model/snapshot_source_tab_helper.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
+#import "ios/chrome/browser/translate/model/chrome_ios_translate_client.h"
 #import "ios/chrome/browser/web/model/web_view_proxy/web_view_proxy_tab_helper.h"
 #import "ios/web/navigation/wk_navigation_util.h"
 #import "ios/web/public/js_messaging/web_frame.h"
@@ -68,6 +73,12 @@ ReaderModeHeuristicResult GetReaderModeHeuristicResult(
                      kReaderModeNotEligibleContentAndLength;
   }
   return ReaderModeHeuristicResult::kMalformedResponse;
+}
+
+bool IsTranslateEnabled(ChromeIOSTranslateClient* translate_client) {
+  return translate_client && translate_client->GetTranslateManager()
+                                 ->GetLanguageState()
+                                 ->IsPageTranslated();
 }
 
 }  // namespace
@@ -228,6 +239,12 @@ void ReaderModeTabHelper::DidStartNavigation(
 void ReaderModeTabHelper::DidFinishNavigation(
     web::WebState* web_state,
     web::NavigationContext* navigation_context) {
+  // PageLoaded may not be called for fragment navigations or
+  // pushState/replaceState. Do not reset eligibility state pre-emptively.
+  if (navigation_context->IsSameDocument()) {
+    return;
+  }
+
   if (!navigation_context->IsSameDocument() ||
       navigation_context->HasUserGesture()) {
     DeactivateReader(ReaderModeDeactivationReason::kNavigationDeactivated);
@@ -268,6 +285,24 @@ void ReaderModeTabHelper::ReaderModeContentDidLoadData(
   for (auto& observer : observers_) {
     observer.ReaderModeWebStateDidLoadContent(this);
   }
+
+  // Apply translation to the page if it was applied on the original page.
+  if (base::FeatureList::IsEnabled(kEnableReaderModeTranslation)) {
+    ChromeIOSTranslateClient* translate_client =
+        ChromeIOSTranslateClient::FromWebState(web_state_.get());
+    if (translate_client && translate_client->GetTranslateManager()
+                                ->GetLanguageState()
+                                ->IsPageTranslated()) {
+      reader_mode_content_tab_helper->ActivateTranslateOnPage();
+    }
+  }
+
+  infobars::InfoBarManager* manager =
+      InfoBarManagerImpl::FromWebState(web_state_.get());
+  if (manager) {
+    manager->RemoveAllInfoBars(/*animate=*/false);
+  }
+
   WebViewProxyTabHelper* tab_helper =
       WebViewProxyTabHelper::FromWebState(web_state_);
   if (tab_helper) {
@@ -275,6 +310,9 @@ void ReaderModeTabHelper::ReaderModeContentDidLoadData(
         reader_mode_web_state_->GetWebViewProxy());
   }
   metrics_helper_.RecordReaderShown();
+
+  SnapshotSourceTabHelper::FromWebState(web_state_)
+      ->SetOverridingSourceWebState(reader_mode_web_state_.get());
   // Generic snapshot image generation on side-swipe has a long tail latency.
   // Force update the snapshot storage to ensure that the latest snapshot is
   // presented before a transition.
@@ -282,6 +320,11 @@ void ReaderModeTabHelper::ReaderModeContentDidLoadData(
       SnapshotTabHelper::FromWebState(web_state_);
   if (snapshot_tab_helper) {
     snapshot_tab_helper->UpdateSnapshotWithCallback(nil);
+  }
+
+  // If a scroll anchor was found in the original page, scroll to it.
+  if (!scroll_anchor_script_.empty() && distiller_viewer_) {
+    distiller_viewer_->SendJavaScript(scroll_anchor_script_);
   }
 }
 
@@ -382,6 +425,10 @@ void ReaderModeTabHelper::TriggerReaderModeHeuristic(const GURL& url) {
   }
 }
 
+void ReaderModeTabHelper::SetScrollAnchorScript(std::string script) {
+  scroll_anchor_script_ = std::move(script);
+}
+
 void ReaderModeTabHelper::PageDistillationCompleted(
     ReaderModeAccessPoint access_point,
     const GURL& page_url,
@@ -445,6 +492,17 @@ void ReaderModeTabHelper::CreateReaderModeContent(
     content_tab_helper->AttachSupportedTabHelpers(web_state_.get());
   }
 
+  web::WebFramesManager* web_frames_manager =
+      ReaderModeScrollAnchorJavaScriptFeature::GetInstance()
+          ->GetWebFramesManager(web_state_);
+  if (web_frames_manager) {
+    web::WebFrame* main_frame = web_frames_manager->GetMainWebFrame();
+    if (main_frame) {
+      ReaderModeScrollAnchorJavaScriptFeature::GetInstance()->FindScrollAnchor(
+          main_frame);
+    }
+  }
+
   std::unique_ptr<ReaderModeDistillerPage> distiller_page =
       std::make_unique<ReaderModeDistillerPage>(web_state_);
   distiller_viewer_ = std::make_unique<ReaderModeDistillerViewer>(
@@ -475,6 +533,24 @@ void ReaderModeTabHelper::DestroyReaderModeContent(
 
   // Cancel any ongoing distillation task.
   distiller_viewer_.reset();
+
+  // Display translation badge if a translation was applied before or during
+  // Reading Mode activation.
+  if (base::FeatureList::IsEnabled(kEnableReaderModeTranslation)) {
+    ChromeIOSTranslateClient* translate_client =
+        ChromeIOSTranslateClient::FromWebState(web_state_.get());
+    ChromeIOSTranslateClient* content_translate_client =
+        ChromeIOSTranslateClient::FromWebState(reader_mode_web_state_.get());
+    if (IsTranslateEnabled(translate_client) ||
+        IsTranslateEnabled(content_translate_client)) {
+      translate_client->GetTranslateManager()->ShowTranslateUI(
+          /*auto_translate=*/true,
+          /*triggered_from_menu=*/true);
+    }
+  }
+
+  SnapshotSourceTabHelper::FromWebState(web_state_)
+      ->SetOverridingSourceWebState(nullptr);
   // Update the snapshot with the original web page.
   SnapshotTabHelper* snapshot_tab_helper =
       SnapshotTabHelper::FromWebState(web_state_);

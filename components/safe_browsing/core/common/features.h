@@ -41,7 +41,10 @@ BASE_DECLARE_FEATURE(kClientSideDetectionBrandAndIntentForScamDetection);
 // the page.
 BASE_DECLARE_FEATURE(kClientSideDetectionClipboardCopyApi);
 
-extern const base::FeatureParam<double> kCSDClipboardCopyApiHCAcceptanceRate;
+extern const base::FeatureParam<double> kCsdClipboardCopyApiHCAcceptanceRate;
+extern const base::FeatureParam<double> kCsdClipboardCopyApiSampleRate;
+extern const base::FeatureParam<int> kCsdClipboardCopyApiMaxLength;
+extern const base::FeatureParam<int> kCsdClipboardCopyApiMinLength;
 
 BASE_DECLARE_FEATURE(kClientSideDetectionDebuggingMetadataCache);
 
@@ -87,6 +90,11 @@ BASE_DECLARE_FEATURE(kClientSideDetectionRedirectChainKillswitch);
 // preclassification check conditions pass.
 BASE_DECLARE_FEATURE(kClientSideDetectionSamplePing);
 
+#if BUILDFLAG(IS_ANDROID)
+// Send IntelligentScanInfo in CSD pings on Android.
+BASE_DECLARE_FEATURE(kClientSideDetectionSendIntelligentScanInfoAndroid);
+#endif
+
 // Show a warning to the user based on the
 // IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_2.
 BASE_DECLARE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning);
@@ -94,6 +102,12 @@ BASE_DECLARE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning);
 // Show a warning to the user that factors in the IntelligentScanVerdict from
 // ClientPhishingResponse.
 BASE_DECLARE_FEATURE(kClientSideDetectionShowScamVerdictWarning);
+
+#if BUILDFLAG(IS_ANDROID)
+// Show a warning to the user that factors in the IntelligentScanVerdict from
+// ClientPhishingResponse on Android.
+BASE_DECLARE_FEATURE(kClientSideDetectionShowScamVerdictWarningAndroid);
+#endif
 
 // Expand CSPP beyond phishing and trigger when vibration API is called on the
 // web page.
@@ -176,6 +190,17 @@ BASE_DECLARE_FEATURE(kExtensionTelemetryDeclarativeNetRequestActionSignal);
 // specified in the --load-extension commandline switch in telemetry reports.
 BASE_DECLARE_FEATURE(kExtensionTelemetryFileDataForCommandLineExtensions);
 
+// Enables the search hijacking signal in extension telemetry.
+BASE_DECLARE_FEATURE(kExtensionTelemetrySearchHijackingSignal);
+
+// The default interval between heuristic checks.
+extern const base::FeatureParam<int>
+    kExtensionTelemetrySearchHijackingSignalHeuristicCheckIntervalSeconds;
+// The default threshold value (omnibox searches - SERP landings) that
+// results in a heuristic match.
+extern const base::FeatureParam<int>
+    kExtensionTelemetrySearchHijackingSignalHeuristicThreshold;
+
 // Enables reporting of external app redirects
 BASE_DECLARE_FEATURE(kExternalAppRedirectTelemetry);
 
@@ -251,6 +276,16 @@ extern const base::FeatureParam<std::string>
 // notifications.
 BASE_DECLARE_FEATURE(kNotificationTelemetry);
 
+// Enable the collection of ServiceWorkerBehaviors via the
+// NotificationTelemetryService.
+BASE_DECLARE_FEATURE(kNotificationTelemetrySwb);
+
+// Determines whether CSBRRs are sent to Safe Browsing.
+extern const base::FeatureParam<bool> kNotificationTelemetrySwbSendReports;
+
+// Specifies the polling interval in minutes.
+extern const base::FeatureParam<int> kNotificationTelemetrySwbPollingInterval;
+
 // Enables HaTS surveys for users encountering red warnings.
 BASE_DECLARE_FEATURE(kRedWarningSurvey);
 
@@ -292,6 +327,10 @@ BASE_DECLARE_FEATURE(kSafeBrowsingSyncCheckerCheckAllowlist);
 
 // Enables saving gaia password hash from the Profile Picker sign-in flow.
 BASE_DECLARE_FEATURE(kSavePasswordHashFromProfilePicker);
+
+// Enables showing manual notification auto-revocations in Safety Hub, allowing
+// users to review and manage the revoked permissions.
+BASE_DECLARE_FEATURE(kShowManualNotificationRevocationsSafetyHub);
 
 // Enables replacing notification contents with a Chrome warning when the
 // on-device model returns a sufficiently suspicious verdict.

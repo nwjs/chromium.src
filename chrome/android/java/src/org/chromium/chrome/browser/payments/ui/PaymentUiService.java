@@ -73,6 +73,8 @@ import org.chromium.payments.mojom.PaymentShippingOption;
 import org.chromium.payments.mojom.PaymentValidationErrors;
 import org.chromium.url.GURL;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -106,6 +108,7 @@ public class PaymentUiService
         PaymentRequestAddressEditorMode.EDIT_EXISTING_ADDRESS,
         PaymentRequestAddressEditorMode.COUNT,
     })
+    @Retention(RetentionPolicy.SOURCE)
     private @interface PaymentRequestAddressEditorMode {
         int ADD_NEW_ADDRESS = 0;
         int EDIT_EXISTING_ADDRESS = 1;
@@ -174,12 +177,13 @@ public class PaymentUiService
          *     spinner is hidden in that case. Other payment apps typically show a spinner.
          */
         boolean invokePaymentApp(
-                EditableOption selectedShippingAddress,
-                EditableOption selectedShippingOption,
-                PaymentApp selectedPaymentApp);
+                @Nullable EditableOption selectedShippingAddress,
+                @Nullable EditableOption selectedShippingOption,
+                @Nullable PaymentApp selectedPaymentApp);
 
         /**
          * Invoked when the UI service has been aborted.
+         *
          * @param reason The reason for the aborting, as defined by {@link AbortReason}.
          * @param debugMessage The debug message for the aborting.
          */
@@ -930,7 +934,7 @@ public class PaymentUiService
                 toEdit,
                 new Callback<>() {
                     @Override
-                    public void onResult(AutofillContact editedContact) {
+                    public void onResult(@Nullable AutofillContact editedContact) {
                         if (mPaymentRequestUi == null) return;
 
                         if (editedContact != null) {
@@ -1188,6 +1192,11 @@ public class PaymentUiService
                 PersonalDataManagerFactory.getForProfile(Profile.fromWebContents(mWebContents));
         for (int i = 0; i < mAutofillProfiles.size(); i++) {
             AutofillProfile profile = mAutofillProfiles.get(i);
+            // We intentionally hide Home, Work and Name+Email profiles to prevent their potential
+            // editing.
+            if (profile.isHomeOrWorkProfile() || profile.isNameEmailProfile()) {
+                continue;
+            }
             mAddressEditor.addPhoneNumberIfValid(
                     profile.getInfo(FieldType.PHONE_HOME_WHOLE_NUMBER));
 

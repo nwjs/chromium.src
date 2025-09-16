@@ -104,7 +104,11 @@ const float kMaxModuleEngagementIndex = 50;
           kMagicStackModuleEngagementShopCardIndexHistogram, index,
           kMaxModuleEngagementIndex);
       break;
-    case ContentSuggestionsModuleType::kParcelTracking:
+    case ContentSuggestionsModuleType::kAppBundlePromo:
+      UMA_HISTOGRAM_EXACT_LINEAR(
+          kMagicStackModuleEngagementAppBundlePromoIndexHistogram, index,
+          kMaxModuleEngagementIndex);
+      break;
     case ContentSuggestionsModuleType::kPlaceholder:
     case ContentSuggestionsModuleType::kInvalid:
       break;

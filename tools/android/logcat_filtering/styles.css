@@ -105,8 +105,12 @@ body {
   gap: 20px;
   /* Align items to the top */
   align-items: flex-start;
-  /* Allow controls to wrap on smaller screens */
-  flex-wrap: wrap;
+  /* Do not allow controls to wrap on smaller screens */
+  flex-wrap: nowrap;
+  /* Show a horizontal scrollbar on smaller screens */
+  overflow-x: auto;
+  /* Add a visual distinction between the controls and the text display area */
+  border-bottom: 1px solid var(--dropdown-border-color);
 }
 
 .google-button {
@@ -123,6 +127,10 @@ body {
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
   transition: background-color 0.3s ease;
+  /* Do not allow text wrapping */
+  white-space: nowrap;
+  /* Do not allow the user to highlight the text inside the button */
+  user-select: none;
 }
 
 .google-button:hover {
@@ -134,12 +142,29 @@ body {
   margin-right: 8px;
 }
 
+.button-with-feedback {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.feedback-text {
+  position: absolute;
+  bottom: -20px;
+  left: 10px;
+  color: red;
+  font-size: 12px;
+  /* Prevents the text from wrapping, keeping height consistent */
+  white-space: nowrap;
+}
+
 .dropdown {
   position: relative;
   border: 1px solid var(--dropdown-border-color);
   border-radius: 4px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
 }
 
 .dropdown-header {
@@ -152,6 +177,10 @@ body {
   align-items: center;
   font-size: 15px;
   font-weight: 500;
+  /* Do not allow text wrapping */
+  white-space: nowrap;
+  /* Do not allow the user to highlight the text inside the dropdown header */
+  user-select: none;
 }
 
 .dropdown-header i {
@@ -171,6 +200,18 @@ body {
   max-height: 300px;
   overflow-y: auto;
   background-color: var(--dropdown-header-bg-color);
+}
+
+.dropdown-search-input {
+  /* Full width minus padding */
+  width: calc(100% - 32px);
+  padding: 10px 16px;
+  margin: 0;
+  border: none;
+  border-bottom: 1px solid var(--dropdown-list-border-color);
+  background-color: var(--dropdown-header-bg-color);
+  color: var(--dropdown-item-text-color);
+  outline: none;
 }
 
 .dropdown-item {
@@ -225,6 +266,8 @@ body {
   cursor: pointer;
   margin-bottom: 6px;
   margin-right: 12px;
+  /* Do not allow text wrapping */
+  white-space: nowrap;
 }
 
 #checkbox-controls input[type="checkbox"] {

@@ -1031,6 +1031,11 @@ void InputHandlerProxy::RecordScrollBegin(
 
 InputHandlerProxy::EventDisposition InputHandlerProxy::HandleMouseWheel(
     const WebMouseWheelEvent& wheel_event) {
+  if (wheel_event.phase == WebMouseWheelEvent::kPhaseMayBegin) {
+    mouse_wheel_result_ = DID_NOT_HANDLE;
+    return *mouse_wheel_result_;
+  }
+
   InputHandlerProxy::EventDisposition result = DROP_EVENT;
 
   if (wheel_event.dispatch_type ==

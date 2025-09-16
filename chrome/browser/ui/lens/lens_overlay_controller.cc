@@ -328,9 +328,7 @@ void LensOverlayController::CloseUI(
   fullscreen_observation_.Reset();
   immersive_mode_observer_.Reset();
   lens_overlay_blur_layer_delegate_.reset();
-#if BUILDFLAG(IS_MAC)
   pref_change_registrar_.Reset();
-#endif  // BUILDFLAG(IS_MAC)
 
   // Notify the searchbox controller to reset its handlers before the overlay
   // is cleaned up. This is needed to prevent a dangling ptr.
@@ -401,6 +399,14 @@ void LensOverlayController::SendText(lens::mojom::TextPtr text) {
     return;
   }
   page_->TextReceived(std::move(text));
+}
+
+void LensOverlayController::SendRegionText(lens::mojom::TextPtr text,
+                                           bool is_injected_image) {
+  if (!page_) {
+    return;
+  }
+  page_->RegionTextReceived(std::move(text), is_injected_image);
 }
 
 lens::mojom::OverlayThemePtr LensOverlayController::CreateTheme(
@@ -855,16 +861,20 @@ void LensOverlayController::ShowUI(
   immersive_mode_observer_.Observe(
       tab_->GetBrowserWindowInterface()->GetImmersiveModeController());
 
+  pref_change_registrar_.Init(pref_service_);
 #if BUILDFLAG(IS_MAC)
   // Add observer to listen for changes in the always show toolbar state,
   // since that requires the preselection bubble to rerender to show properly.
-  pref_change_registrar_.Init(pref_service_);
   pref_change_registrar_.Add(
       prefs::kShowFullscreenToolbar,
       base::BindRepeating(
           &LensOverlayController::CloseAndReshowPreselectionBubble,
           base::Unretained(this)));
 #endif  // BUILDFLAG(IS_MAC)
+  pref_change_registrar_.Add(
+      prefs::kSidePanelHorizontalAlignment,
+      base::BindRepeating(&LensOverlayController::OnSidePanelAlignmentChanged,
+                          base::Unretained(this)));
 
   NotifyUserEducationAboutOverlayUsed();
 
@@ -1596,9 +1606,10 @@ void LensOverlayController::ShowOverlay() {
     overlay_view_->SetVisible(true);
     preselection_widget_anchor_->SetVisible(true);
     overlay_web_view_->SetVisible(true);
+    SetOverlayRoundedCorner();
 
     // Restart the live blur since the view is visible again.
-    SetLiveBlur(true);
+    SetLiveBlur(should_enable_live_blur_on_show_);
 
     // The overlay needs to be focused on show to immediately begin
     // receiving key events.
@@ -1615,6 +1626,7 @@ void LensOverlayController::ShowOverlay() {
   // Create the views that will house our UI.
   overlay_view_ = CreateViewForOverlay();
   overlay_view_->SetVisible(true);
+  SetOverlayRoundedCorner();
 
   // Sanity check that the overlay view is above the contents web view.
   auto* parent_view = overlay_view_->parent();
@@ -1927,12 +1939,6 @@ void LensOverlayController::OnFullscreenStateChanged() {
 void LensOverlayController::OnViewBoundsChanged(views::View* observed_view) {
   CHECK(observed_view == overlay_view_);
 
-  // We now want to start the live blur since the screenshot has resized to
-  // allow the blur to peek through.
-  if (IsOverlayShowing()) {
-    SetLiveBlur(true);
-  }
-
   // Set our view to the same bounds as the contents web view so it always
   // covers the tab contents.
   if (lens_overlay_blur_layer_delegate_) {
@@ -2056,12 +2062,46 @@ float LensOverlayController::GetUiScaleFactor() {
 }
 
 void LensOverlayController::OnSidePanelDidOpen() {
-  // If a side panel opens that is not ours, we must close the overlay.
-  if (side_panel_coordinator_->GetCurrentEntryId() !=
+  if (side_panel_coordinator_->GetCurrentEntryId() ==
       SidePanelEntry::Id::kLensOverlayResults) {
+    SetOverlayRoundedCorner();
+  } else {
+    // If a side panel opens that is not ours, we must close the overlay.
     lens_search_controller_->CloseLensSync(
         lens::LensOverlayDismissalSource::kUnexpectedSidePanelOpen);
   }
+}
+
+void LensOverlayController::SetOverlayRoundedCorner() {
+  CHECK(overlay_view_ && overlay_web_view_);
+
+  const bool should_round_corner =
+      results_side_panel_coordinator_->IsEntryShowing() && tab_->IsSplit();
+  const float radius =
+      should_round_corner
+          ? overlay_web_view_->GetLayoutProvider()->GetCornerRadiusMetric(
+                views::ShapeContextTokens::kContentSeparatorRadius)
+          : 0;
+  const bool right_aligned =
+      pref_service_->GetBoolean(prefs::kSidePanelHorizontalAlignment);
+  const gfx::RoundedCornersF radii = gfx::RoundedCornersF{
+      right_aligned ? 0 : radius, right_aligned ? radius : 0, 0, 0};
+
+  overlay_web_view_->holder()->SetCornerRadii(radii);
+
+  // If we show the overlay with overlay_view_ being painted to a layer,
+  // there is a visual bug where the background is momentarily transparent,
+  // causing flickering. When we don't want the corner to be rounded,
+  // instead of setting the corner radii to 0, destroy the layer instead.
+  // See crbug.com/437355402.
+  if (!should_round_corner) {
+    overlay_view_->DestroyLayer();
+    return;
+  }
+
+  overlay_view_->SetPaintToLayer();
+  overlay_view_->layer()->SetIsFastRoundedCorner(true);
+  overlay_view_->layer()->SetRoundedCornerRadius(radii);
 }
 
 void LensOverlayController::FinishedWaitingForReflow() {
@@ -2179,6 +2219,8 @@ void LensOverlayController::AddBackgroundBlur() {
       lens_overlay_blur_layer_delegate_->layer());
   lens_overlay_blur_layer_delegate_->layer()->SetBounds(
       overlay_web_view_->GetLocalBounds());
+
+  lens_overlay_blur_layer_delegate_->FetchBackgroundImage();
 }
 
 void LensOverlayController::CloseRequestedByOverlayCloseButton() {
@@ -2567,7 +2609,8 @@ void LensOverlayController::HandleInteractionURLResponse(
 
 void LensOverlayController::HandleInteractionResponse(
     lens::mojom::TextPtr text) {
-  SendText(std::move(text));
+  const bool is_injected_image = lens_selection_type_ == lens::INJECTED_IMAGE;
+  SendRegionText(std::move(text), is_injected_image);
 }
 
 void LensOverlayController::HandlePageContentUploadProgress(uint64_t position,
@@ -2613,12 +2656,21 @@ void LensOverlayController::HideOverlay() {
   overlay_web_view_->SetVisible(false);
   MaybeHideSharedOverlayView();
 
+  // Save the current value of whether live blur is enabled so that it can be
+  // restored when the overlay is shown again.
+  if (lens_overlay_blur_layer_delegate_) {
+    should_enable_live_blur_on_show_ =
+        lens_overlay_blur_layer_delegate_->IsLiveBlurActive();
+  }
   SetLiveBlur(false);
   HidePreselectionBubble();
 }
 
 void LensOverlayController::HideOverlayAndMaybeSetLivePageState() {
-  HideOverlay();
+  // If the overlay is not showing, there is nothing to hide.
+  if (IsOverlayShowing()) {
+    HideOverlay();
+  }
 
   // If the side panel is open, set the overlay state to kLivePageAndResults.
   if (results_side_panel_coordinator_->IsSidePanelBound()) {
@@ -2743,6 +2795,12 @@ void LensOverlayController::HandleRegionBitmapCreated(
   }
 
   initialization_data_->selected_region_bitmap_ = region_bitmap;
+}
+
+void LensOverlayController::OnSidePanelAlignmentChanged() {
+  if (IsOverlayShowing()) {
+    SetOverlayRoundedCorner();
+  }
 }
 
 bool LensOverlayController::IsUrlEligibleForTutorialIPH(const GURL& url) {

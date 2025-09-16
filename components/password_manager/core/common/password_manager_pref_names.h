@@ -69,11 +69,6 @@ inline constexpr char kDeletingUndecryptablePasswordsEnabled[] =
 
 #if BUILDFLAG(IS_ANDROID)
 
-// Boolean pref indicating if the one-time notice for account storage was shown.
-// The notice informs passwords will start being saved to the signed-in account.
-inline constexpr char kAccountStorageNoticeShown[] =
-    "password_manager.account_storage_notice_shown";
-
 // Boolean controlling whether the password manager allows automatic signing in
 // through Credential Management API. This pref is not synced. Its value is set
 // by fetching the latest value from Google Mobile Services. Except for
@@ -270,14 +265,6 @@ inline constexpr char kBiometricAuthenticationBeforeFilling[] =
 // in the Password Manager UI.
 inline constexpr char kPasswordManagerPromoCardsList[] =
     "password_manager.password_promo_cards_list";
-
-// A cache of whether the profile LoginDatabase has autofillable credentials.
-inline constexpr char kAutofillableCredentialsProfileStoreLoginDatabase[] =
-    "password_manager.autofillable_credentials_profile_store_login_database";
-
-// A cache of whether the account LoginDatabase has autofillable credentials.
-inline constexpr char kAutofillableCredentialsAccountStoreLoginDatabase[] =
-    "password_manager.autofillable_credentials_account_store_login_database";
 #endif
 
 // Boolean pref indicating whether password sharing is enabled. Enables both

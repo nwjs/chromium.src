@@ -235,6 +235,16 @@
                     completionIdentity:completionIdentity];
 }
 
+#pragma mark - BuggyAuthenticationViewOwner
+
+- (BOOL)viewWillPersist {
+  // This coordinator has no view of its own. So we only need to check whether
+  // the coordinator currently started’s view may have disappeared silently.
+  return (!self.addAccountCoordinator ||
+          self.addAccountCoordinator.viewWillPersist) &&
+         (!self.reauthCoordinator || self.reauthCoordinator.viewWillPersist);
+}
+
 #pragma mark - AnimatedCoordinator
 
 - (void)stopAnimated:(BOOL)animated {
@@ -284,6 +294,14 @@
   CoreAccountInfo account;
   account.gaia = GaiaId(identity.gaiaID);
   account.email = base::SysNSStringToUTF8(identity.userEmail);
+  if (self.reauthCoordinator) {
+    if (self.reauthCoordinator.viewWillPersist) {
+      [self.reauthCoordinator stop];
+    } else {
+      // In case of double tap, let the first reauth proceed.
+      return;
+    }
+  }
   self.reauthCoordinator = [[ReauthCoordinator alloc]
       initWithBaseViewController:self.navigationController
                          browser:self.browser
@@ -362,9 +380,9 @@
 // If `hasAccounts == NO`, the added account will be used to sign in to Chrome
 // directly after the AddAccountSigninCoordinator finishes.
 - (void)openAddAccountCoordinatorWithHasAccounts:(BOOL)hasAccounts {
-  // In case of double-tap, we must stop the first coordinator. This may occur
-  // because, up to iOS 18, the view may have disappeared without calling the
-  // signin completion. See crbug.com/395959814
+  // In case of double-tap, we must stop the already started coordinator. This
+  // may occur because, up to iOS 18, the view may have disappeared without
+  // calling the signin completion. See crbug.com/395959814
   [self.addAccountCoordinator stop];
   if (hasAccounts) {
     RecordConsistencyPromoUserAction(
@@ -381,6 +399,7 @@
                                           browser:self.browser
                                      contextStyle:self.contextStyle
                                       accessPoint:self.accessPoint
+                                   prefilledEmail:nil
                              continuationProvider:_continuationProvider];
   __weak ConsistencyPromoSigninCoordinator* weakSelf = self;
   self.addAccountCoordinator.signinCompletion =
@@ -395,15 +414,16 @@
 
 // Starts the sign-in flow.
 - (void)startSignIn {
-  AuthenticationFlow* authenticationFlow =
-      [[AuthenticationFlow alloc] initWithBrowser:self.browser
-                                         identity:self.selectedIdentity
-                                      accessPoint:self.accessPoint
-                             precedingHistorySync:YES
-                                postSignInActions:PostSignInActionSet()
-                         presentingViewController:self.navigationController
-                                       anchorView:nil
-                                       anchorRect:CGRectNull];
+  AuthenticationFlow* authenticationFlow = [[AuthenticationFlow alloc]
+               initWithBrowser:self.browser
+                      identity:self.selectedIdentity
+                   accessPoint:self.accessPoint
+          precedingHistorySync:YES
+             postSignInActions:
+                 {PostSignInAction::kShowIdentityConfirmationSnackbar}
+      presentingViewController:self.navigationController
+                    anchorView:nil
+                    anchorRect:CGRectNull];
   [self.consistencyPromoSigninMediator
       signinWithAuthenticationFlow:authenticationFlow];
 }
@@ -451,6 +471,10 @@
 
 - (void)consistencyDefaultAccountCoordinatorOpenIdentityChooser:
     (ConsistencyDefaultAccountCoordinator*)coordinator {
+  if (self.accountChooserCoordinator) {
+    // This can occur if the user double tap on the button.
+    return;
+  }
   self.accountChooserCoordinator = [[ConsistencyAccountChooserCoordinator alloc]
       initWithBaseViewController:self.navigationController
                          browser:self.browser

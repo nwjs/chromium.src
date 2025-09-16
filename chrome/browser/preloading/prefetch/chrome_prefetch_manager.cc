@@ -5,8 +5,10 @@
 #include "chrome/browser/preloading/prefetch/chrome_prefetch_manager.h"
 
 #include "chrome/browser/preloading/chrome_preloading.h"
+#include "content/public/browser/preload_pipeline_info.h"
 #include "content/public/browser/preloading_data.h"
 #include "content/public/common/content_features.h"
+#include "net/http/http_no_vary_search_data.h"
 #include "third_party/blink/public/mojom/loader/referrer.mojom.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -21,9 +23,7 @@ void ChromePrefetchManager::StartPrefetchFromCCT(
     bool use_prefetch_proxy,
     const std::optional<url::Origin>& referring_origin) {
   if (!base::FeatureList::IsEnabled(
-          chrome::android::kCCTNavigationalPrefetch) ||
-      !base::FeatureList::IsEnabled(
-          features::kPrefetchBrowserInitiatedTriggers)) {
+          chrome::android::kCCTNavigationalPrefetch)) {
     return;
   }
   auto* preloading_data =

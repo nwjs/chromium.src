@@ -5,6 +5,7 @@
 #include "chrome/browser/optimization_guide/model_execution/optimization_guide_global_state.h"
 
 #include <memory>
+#include <optional>
 
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
@@ -17,12 +18,14 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/component_updater/optimization_guide_on_device_model_installer.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
+#include "chrome/common/chrome_paths.h"
 #include "components/component_updater/component_updater_paths.h"
 #include "components/component_updater/pref_names.h"
 #include "components/optimization_guide/core/delivery/optimization_guide_model_provider.h"
 #include "components/optimization_guide/core/model_execution/on_device_asset_manager.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_access_controller.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
+#include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/on_device_base_model_metadata.pb.h"
 #include "content/public/browser/service_process_host.h"
@@ -45,7 +48,8 @@ class OnDeviceModelComponentStateManagerDelegate
   }
 
   void GetFreeDiskSpace(const base::FilePath& path,
-                        base::OnceCallback<void(int64_t)> callback) override {
+                        base::OnceCallback<void(std::optional<base::ByteCount>)>
+                            callback) override {
     base::TaskTraits traits = {base::MayBlock(),
                                base::TaskPriority::BEST_EFFORT};
     if (optimization_guide::switches::
@@ -53,9 +57,22 @@ class OnDeviceModelComponentStateManagerDelegate
       traits.UpdatePriority(base::TaskPriority::USER_VISIBLE);
     }
 
+    // TODO(https://crbug.com/429140103): Convert
+    // base::SysInfo::AmountOfFreeDiskSpace to return
+    // std::optional<base::ByteCount> and remove this wrapper.
+    auto amount_of_free_disk_space_wrapper = base::BindOnce(
+        [](const base::FilePath& path) -> std::optional<base::ByteCount> {
+          int64_t amount_of_free_disk_space =
+              base::SysInfo::AmountOfFreeDiskSpace(path);
+          if (amount_of_free_disk_space < 0) {
+            return std::nullopt;
+          }
+          return base::ByteCount(amount_of_free_disk_space);
+        },
+        path);
+
     base::ThreadPool::PostTaskAndReplyWithResult(
-        FROM_HERE, traits,
-        base::BindOnce(&base::SysInfo::AmountOfFreeDiskSpace, path),
+        FROM_HERE, traits, std::move(amount_of_free_disk_space_wrapper),
         std::move(callback));
   }
 
@@ -92,6 +109,14 @@ void LaunchService(
       content::ServiceProcessHost::Options()
           .WithDisplayName("On-Device Model Service")
           .Pass());
+}
+
+base::FilePath GetBaseStoreDir() {
+  base::FilePath model_downloads_dir;
+  base::PathService::Get(chrome::DIR_USER_DATA, &model_downloads_dir);
+  model_downloads_dir = model_downloads_dir.Append(
+      optimization_guide::kOptimizationGuideModelStoreDirPrefix);
+  return model_downloads_dir;
 }
 
 }  // namespace
@@ -149,7 +174,9 @@ OptimizationGuideGlobalState::OptimizationGuideGlobalState()
     : model_broker_state_(
           g_browser_process->local_state(),
           std::make_unique<OnDeviceModelComponentStateManagerDelegate>(),
-          base::BindRepeating(&LaunchService)) {
+          base::BindRepeating(&LaunchService)),
+      prediction_model_store_(*g_browser_process->local_state()) {
+  prediction_model_store_.Initialize(GetBaseStoreDir());
   // Register an observer on the component state manager after it is created but
   // before it has start up.
   component_state_manager_observer_ =

@@ -20,7 +20,6 @@ import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -49,7 +48,6 @@ import org.chromium.base.LocaleUtils;
 import org.chromium.base.jank_tracker.PlaceholderJankTracker;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -57,11 +55,9 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.feed.componentinterfaces.SurfaceCoordinator;
 import org.chromium.chrome.browser.feed.sections.SectionHeaderListProperties;
-import org.chromium.chrome.browser.feed.sections.SectionHeaderView;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridgeJni;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.native_page.NativePageNavigationDelegate;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
 import org.chromium.chrome.browser.ntp.cards.SignInPromo;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -84,7 +80,6 @@ import org.chromium.chrome.browser.xsurface.feed.FeedSurfaceScope;
 import org.chromium.chrome.browser.xsurface.feed.FeedSurfaceScopeDependencyProvider;
 import org.chromium.chrome.browser.xsurface_provider.XSurfaceProcessScopeProvider;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
-import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.feed.proto.wire.ReliabilityLoggingEnums.DiscoverLaunchResult;
 import org.chromium.components.prefs.PrefChangeRegistrar;
@@ -94,10 +89,12 @@ import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.function.Supplier;
 
 /** Tests for {@link FeedSurfaceCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -162,13 +159,11 @@ public class FeedSurfaceCoordinatorTest {
 
     // Mocked Direct dependencies.
     @Mock private SnackbarManager mSnackbarManager;
-    @Mock private NativePageNavigationDelegate mPageNavigationDelegate;
     @Mock private BottomSheetController mBottomSheetController;
     @Mock private SnapScrollHelper mSnapHelper;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private ModalDialogManager mModalDialogManager;
     @Mock private Supplier<ShareDelegate> mShareDelegateSupplier;
-    @Mock private SectionHeaderView mSectionHeaderView;
     @Mock private FeedActionDelegate mFeedActionDelegate;
 
     // Mocked JNI.
@@ -193,7 +188,6 @@ public class FeedSurfaceCoordinatorTest {
     @Mock private PrefChangeRegistrar mPrefChangeRegistrar;
     @Mock private PrefService mPrefService;
     @Mock private TemplateUrlService mUrlService;
-    @Mock private Resources mResources;
     @Mock private RecyclerView.Adapter mAdapter;
     @Mock private FeedLaunchReliabilityLogger mLaunchReliabilityLogger;
     @Mock private PrivacyPreferencesManagerImpl mPrivacyPreferencesManager;
@@ -211,6 +205,7 @@ public class FeedSurfaceCoordinatorTest {
             new ObservableSupplierImpl<>();
 
     @Before
+    @SuppressWarnings("DirectInvocationOnMock")
     public void setUp() {
         Configuration config = new Configuration();
         config.setLocale(new Locale("en", "US"));
@@ -249,8 +244,6 @@ public class FeedSurfaceCoordinatorTest {
         when(mUserPrefsJniMock.get(any(Profile.class))).thenReturn(mPrefService);
 
         // Resources set up.
-        when(mSectionHeaderView.getResources()).thenReturn(mResources);
-        when(mResources.getString(anyInt())).thenReturn("Test");
 
         mRecyclerView = new RecyclerView(mActivity);
         mRecyclerView.setAdapter(mAdapter);

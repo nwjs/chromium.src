@@ -151,7 +151,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.GwpAsan.Activated.{Allocator}.{Process}"
-    enum="Boolean" expires_after="2025-12-14">
+    enum="Boolean" expires_after="2026-02-15">
   <owner>mpdenton@chromium.org</owner>
   <owner>kdlee@chromium.org</owner>
   <owner>memory-safety-dev@chromium.org</owner>
@@ -174,7 +174,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.GwpAsan.AllocatorOom.{Allocator}.{Process}"
-    units="allocations" expires_after="2025-12-14">
+    units="allocations" expires_after="2026-02-15">
   <owner>mpdenton@chromium.org</owner>
   <owner>kdlee@chromium.org</owner>
   <owner>memory-safety-dev@chromium.org</owner>
@@ -214,7 +214,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.HttpsFirstMode.InterstitialReason"
-    enum="HttpsFirstModeInterstitialReason" expires_after="2025-12-21">
+    enum="HttpsFirstModeInterstitialReason" expires_after="2026-02-22">
   <owner>meacer@chromium.org</owner>
   <owner>trusty-transport@chromium.org</owner>
   <summary>
@@ -418,7 +418,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PageInfo.AdPersonalizationRowShown" enum="Boolean"
-    expires_after="2025-12-14">
+    expires_after="2026-02-22">
   <owner>dullweber@chromium.org</owner>
   <owner>sauski@google.com</owner>
   <summary>
@@ -528,7 +528,7 @@ chromium-metrics-reviews@google.com.
   <owner>lyf@chromium.org</owner>
   <owner>estark@chromium.org</owner>
   <owner>jdeblasio@chromium.org</owner>
-  <owner>src/chrome/browser/private_network_access/OWNERS</owner>
+  <owner>src/chrome/browser/local_network_access/OWNERS</owner>
   <summary>
     Result of the Private Network Access Check on a new connection. Recorded
     once per call to network::URLLoader::OnConnected(), which may be more than
@@ -543,7 +543,7 @@ chromium-metrics-reviews@google.com.
   <owner>clamy@chromium.org</owner>
   <owner>estark@chromium.org</owner>
   <owner>jdeblasio@chromium.org</owner>
-  <owner>src/chrome/browser/private_network_access/OWNERS</owner>
+  <owner>src/chrome/browser/local_network_access/OWNERS</owner>
   <summary>
     The device validity when calling Private Network Permission Prompt. Recorded
     once per call for Private Network Access device chooser, which may be more
@@ -558,7 +558,7 @@ chromium-metrics-reviews@google.com.
   <owner>clamy@chromium.org</owner>
   <owner>estark@chromium.org</owner>
   <owner>jdeblasio@chromium.org</owner>
-  <owner>src/chrome/browser/private_network_access/OWNERS</owner>
+  <owner>src/chrome/browser/local_network_access/OWNERS</owner>
   <summary>
     The device type of a user accepted request to Private Network device. The
     device is stored permenantly when it has valid name and ID. Otherwise, the
@@ -573,7 +573,7 @@ chromium-metrics-reviews@google.com.
   <owner>clamy@chromium.org</owner>
   <owner>estark@chromium.org</owner>
   <owner>jdeblasio@chromium.org</owner>
-  <owner>src/chrome/browser/private_network_access/OWNERS</owner>
+  <owner>src/chrome/browser/local_network_access/OWNERS</owner>
   <summary>
     Records whether a failed PNA check could have been avoided by inferring the
     request's target IP address space by recognizing that the request URL's host
@@ -588,7 +588,7 @@ chromium-metrics-reviews@google.com.
   <owner>clamy@chromium.org</owner>
   <owner>estark@chromium.org</owner>
   <owner>jdeblasio@chromium.org</owner>
-  <owner>src/chrome/browser/private_network_access/OWNERS</owner>
+  <owner>src/chrome/browser/local_network_access/OWNERS</owner>
   <summary>
     Records whether a request to a literal private IP address resolved to that
     private IP address. Recorded at most once per call to
@@ -827,7 +827,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.SecurityLevel.OnComplete" enum="SecurityLevel"
-    expires_after="2025-11-30">
+    expires_after="2026-02-01">
   <owner>cthomp@chromium.org</owner>
   <owner>security-enamel@chromium.org</owner>
   <summary>
@@ -928,7 +928,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.IsolatableSandboxedIframes" units="processes"
-    expires_after="2025-11-30">
+    expires_after="2026-02-01">
   <owner>wjmaclean@chromium.org</owner>
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
@@ -947,7 +947,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.IsolatableSandboxedIframes.UniqueOrigins"
-    units="processes" expires_after="2025-11-30">
+    units="processes" expires_after="2026-02-01">
   <owner>wjmaclean@chromium.org</owner>
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
@@ -994,6 +994,21 @@ chromium-metrics-reviews@google.com.
     Whether the site isolation mode is site-per-process or more strict. Recorded
     once shortly after browser startup, because the value does not change at
     runtime.
+  </summary>
+</histogram>
+
+<histogram name="SiteIsolation.MainFrameProcessReuse.BlockReason"
+    enum="MainFrameProcessReuseBlockReason" expires_after="2025-12-31">
+  <owner>bashi@chromium.org</owner>
+  <owner>gjc@google.com</owner>
+  <owner>blink-network-stack@google.com</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    The reason why process sharing is disallowed for main frame navigation. The
+    UMA is only reported when the feature flag
+    ProcessPerSiteWithMainFrameThreshold or
+    ReusePrerenderingProcessForMainFrames is enabled. The UMA is recorded when
+    initializing a frame tree or getting a site instance for navigation.
   </summary>
 </histogram>
 
@@ -1045,19 +1060,6 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
-    name="SiteIsolation.ProcessPerSiteWithMainFrameThreshold.BlockReason"
-    enum="ProcessPerSiteWithMainFrameThresholdBlockReason"
-    expires_after="2025-06-07">
-  <owner>bashi@chromium.org</owner>
-  <owner>blink-network-stack@google.com</owner>
-  <summary>
-    The reason why process sharing is disallowed when
-    ProcessPerSiteUpToMainFrameThreshold feature is enabled. Recorded when
-    initializing a frame tree or getting a site instance for navigation.
-  </summary>
-</histogram>
-
-<histogram
     name="SiteIsolation.ProcessPerSiteWithMainFrameThreshold.IsDevToolsUser"
     enum="Boolean" expires_after="M135">
   <owner>dtapuska@chromium.org</owner>
@@ -1070,7 +1072,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.ProxyCount" units="proxies"
-    expires_after="2025-12-07">
+    expires_after="2026-02-09">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -1095,7 +1097,7 @@ chromium-metrics-reviews@google.com.
   <owner>clamy@chromium.org</owner>
   <summary>
     Whether SiteInstances with a ProcessReusePolicy of
-    REUSE_PENDING_OR_COMMITTED_SITE could reuse an existing RenderProcessHost or
+    kReusePendingOrCommittedSite could reuse an existing RenderProcessHost or
     they had to create a new one. True when they reused an existing process,
     false when they created a new one.
 

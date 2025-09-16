@@ -266,7 +266,7 @@ PrerenderHost& PrerenderHost::GetFromFrameTree(FrameTree* frame_tree) {
 bool PrerenderHost::AreHttpRequestHeadersCompatible(
     const std::string& potential_activation_headers_str,
 #if BUILDFLAG(IS_ANDROID)
-    const std::string& potential_activation_additional_headers_str,
+    const net::HttpRequestHeaders& potential_activation_additional_headers,
 #endif  // BUILDFLAG(IS_ANDROID)
     const std::string& prerender_headers_str,
     PreloadingTriggerType trigger_type,
@@ -280,8 +280,9 @@ bool PrerenderHost::AreHttpRequestHeadersCompatible(
   potential_activation_headers.AddHeadersFromString(
       potential_activation_headers_str);
 #if BUILDFLAG(IS_ANDROID)
-  potential_activation_headers.AddHeadersFromString(
-      potential_activation_additional_headers_str);
+  potential_activation_headers.MergeFrom(
+      potential_activation_additional_headers);
+
 #endif  // BUILDFLAG(IS_ANDROID)
 
   // `prerender_headers` contains the "Purpose: prefetch" and "Sec-Purpose:
@@ -676,6 +677,19 @@ void PrerenderHost::DidFinishNavigation(NavigationHandle* navigation_handle) {
     return;
   }
 
+  if (PreloadServingMetrics::IsEnabled()) {
+    // If `DidFinishNavigation()` is called multiple times, ignore
+    // `PreloadServingMetrics` of that navigation and keep the first one.
+    if (!prerender_initial_preload_serving_metrics_) {
+      // Take `PreloadServingMetrics` of prerender initial navigation.
+      auto& initial_preload_serving_metrics_holder =
+          *PreloadServingMetricsHolder::GetOrCreateForNavigationHandle(
+              *navigation_handle);
+      prerender_initial_preload_serving_metrics_ =
+          initial_preload_serving_metrics_holder.Take();
+    }
+  }
+
   const bool is_prerender_main_frame =
       navigation_request->GetFrameTreeNodeId() == frame_tree_node_id_;
 
@@ -839,6 +853,17 @@ std::unique_ptr<StoredPage> PrerenderHost::Activate(
     }
   }
 
+  // Associate `PreloadServingMetrics` of prerender initial navigation to ones
+  // of activation.
+  if (PreloadServingMetrics::IsEnabled()) {
+    auto& activation_preload_serving_metrics_holder =
+        *PreloadServingMetricsHolder::GetOrCreateForNavigationHandle(
+            navigation_request);
+    activation_preload_serving_metrics_holder
+        .SetPrerenderInitialPreloadServingMetrics(
+            std::move(prerender_initial_preload_serving_metrics_));
+  }
+
   RecordActivation(navigation_request);
 
   // Prerender is activated. Set the status to kSuccess.
@@ -944,8 +969,7 @@ bool PrerenderHost::AreInitialPrerenderNavigationParamsCompatibleWithNavigation(
 // The flag below is provided in case the workaround had a bug. Use the flag to
 // revert back to the previous behavior.
 // TODO(crbug.com/399478939): Remove the workaround and this flag.
-BASE_FEATURE(kPrerenderActivationMismatchWebViewWorkaround,
-             "PrerenderActivationMismatchWebViewWorkaround",
+BASE_FEATURE(PrerenderActivationMismatchWebViewWorkaround,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
@@ -966,18 +990,18 @@ PrerenderHost::AreBeginNavigationParamsCompatibleWithNavigation(
   }
 
 #if BUILDFLAG(IS_ANDROID)
-  std::string activation_additional_headers_str;
+  net::HttpRequestHeaders activation_additional_headers;
   bool workaround_enabled = base::FeatureList::IsEnabled(
       kPrerenderActivationMismatchWebViewWorkaround);
   if (!workaround_enabled || !IsSpeculationRuleType(trigger_type())) {
-    activation_additional_headers_str =
+    activation_additional_headers =
         web_contents_->GetBrowserContext()->GetExtraHeadersForUrl(
             potential_activation_url);
   }
 #endif  // BUILDFLAG(IS_ANDROID)
   if (!AreHttpRequestHeadersCompatible(potential_activation.headers,
 #if BUILDFLAG(IS_ANDROID)
-                                       activation_additional_headers_str,
+                                       activation_additional_headers,
 #endif  // BUILDFLAG(IS_ANDROID)
                                        begin_params_->headers, trigger_type(),
                                        GetHistogramSuffix(),
@@ -1747,6 +1771,68 @@ void PrerenderHost::AddAdditionalRequestHeaders(
 void PrerenderHost::NotifyReused() {
   for (auto& observer : observers_) {
     observer.OnHostReused();
+  }
+}
+
+void PrerenderHost::OnWillBeCancelled(
+    const PrerenderCancellationReason& reason) {
+  if (!PreloadServingMetrics::IsEnabled()) {
+    return;
+  }
+
+  [&]() {
+    // There are two cases:
+    //
+    // 1. `DidFinishNavigation()` is already called and then prerender is
+    //    cancelled.
+    // 2. Cancelled before `DidFinishNavigation()`. (E.g.
+    //    `PrerenderURLLoaderThrottle`.)
+    //
+    // In the case 1, `prerender_initial_preload_serving_metrics_` is already
+    // set. So, nothing to do and return.
+    if (prerender_initial_preload_serving_metrics_) {
+      return;
+    }
+
+    // We believe that `NavigationRequest` exist in this case, but some tests
+    // fails If we use `CHECK` for `frame_tree_node` and `navigation_request`.
+    // (We don't check which causes the failure.) Give up to record metrics in
+    // such case.
+    //
+    // TODO(crbug.com/360094997): Investigate why and Use `CHECK` instead if
+    // possible.
+    auto* frame_tree_node =
+        FrameTreeNode::GloballyFindByID(frame_tree_node_id_);
+    if (!frame_tree_node) {
+      return;
+    }
+
+    NavigationRequest* navigation_request =
+        frame_tree_node->navigation_request();
+    if (!navigation_request) {
+      // Cancellation can be occur in prerender initial navigation or after
+      // `DidFinishNavigation()`. `!navigation_request` implies that the latter
+      // case, but it is handled in `DidFinishNavigation()` and already taken
+      // the log.
+      //
+      // TODO(crbug.com/360094997): Ditto. Investigate test failure. Use
+      // `DUMP_WILL_BE_NOTREACHED` instead.
+      // TODO(crbug.com/360094997): Use `CHECK` instead once we checked the
+      // safety by `DUMP_WILL_BE_NOTREACHED`.
+      return;
+    }
+
+    // Take `PreloadServingMetrics` of prerender initial navigation.
+    auto& initial_preload_serving_metrics_holder =
+        *PreloadServingMetricsHolder::GetOrCreateForNavigationHandle(
+            *navigation_request);
+    prerender_initial_preload_serving_metrics_ =
+        initial_preload_serving_metrics_holder.Take();
+  }();
+
+  if (prerender_initial_preload_serving_metrics_) {
+    prerender_initial_preload_serving_metrics_
+        ->RecordMetricsForPrerenderInitialNavigationFailed();
   }
 }
 

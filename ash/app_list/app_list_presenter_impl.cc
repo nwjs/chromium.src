@@ -478,21 +478,6 @@ void AppListPresenterImpl::UpdateScaleAndOpacityForHomeLauncher(
   layer->SetTransform(transform);
 }
 
-void AppListPresenterImpl::ShowEmbeddedAssistantUI(bool show) {
-  if (view_)
-    view_->app_list_main_view()->contents_view()->ShowEmbeddedAssistantUI(show);
-}
-
-bool AppListPresenterImpl::IsShowingEmbeddedAssistantUI() const {
-  if (view_) {
-    return view_->app_list_main_view()
-        ->contents_view()
-        ->IsShowingEmbeddedAssistantUI();
-  }
-
-  return false;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // AppListPresenterImpl, private:
 
@@ -525,7 +510,7 @@ int64_t AppListPresenterImpl::GetDisplayId() const {
   views::Widget* widget = view_ ? view_->GetWidget() : nullptr;
   if (!widget)
     return display::kInvalidDisplayId;
-  return display::Screen::GetScreen()
+  return display::Screen::Get()
       ->GetDisplayNearestView(widget->GetNativeView())
       .id();
 }
@@ -592,11 +577,6 @@ void AppListPresenterImpl::OnWindowFocused(aura::Window* gained_focus,
       view_->OnHomeLauncherGainingFocusWithoutAnimation();
 
     OnVisibilityChanged(visible, GetDisplayId());
-  } else {
-    // In tablet mode, when Assistant UI lost focus after other new App window
-    // opened, we should reset the view.
-    if (app_list_lost_focus && IsShowingEmbeddedAssistantUI())
-      view_->Back();
   }
 
   if (app_list_gained_focus)

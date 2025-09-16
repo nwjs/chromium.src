@@ -8,6 +8,8 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
+#include <string_view>
 
 #include "base/check_op.h"
 #include "base/containers/contains.h"
@@ -19,8 +21,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_type.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_utils.h"
 #include "components/autofill/core/browser/data_quality/autofill_data_util.h"
@@ -167,17 +169,15 @@ void Address::GetMatchingTypes(const std::u16string& text,
   l10n::CaseInsensitiveCompare compare;
   // Check to see if the |text| could be the full name or abbreviation of a
   // state.
-  std::u16string canon_text =
-      AutofillProfileComparator::NormalizeForComparison(text);
+  std::u16string canon_text = normalization::NormalizeForComparison(text);
   std::u16string state_name;
   std::u16string state_abbreviation;
   state_names::GetNameAndAbbreviation(canon_text, &state_name,
                                       &state_abbreviation);
 
   if (!state_name.empty() || !state_abbreviation.empty()) {
-    std::u16string canon_profile_state =
-        AutofillProfileComparator::NormalizeForComparison(
-            GetInfo(ADDRESS_HOME_STATE, app_locale));
+    std::u16string canon_profile_state = normalization::NormalizeForComparison(
+        GetInfo(ADDRESS_HOME_STATE, app_locale));
     if ((!state_name.empty() &&
          compare.StringsEqual(state_name, canon_profile_state)) ||
         (!state_abbreviation.empty() &&
@@ -192,15 +192,15 @@ FieldTypeSet Address::GetSupportedTypes() const {
 }
 
 std::u16string Address::GetInfo(const AutofillType& type,
-                                const std::string& locale) const {
+                                std::string_view locale) const {
   std::string country_code =
       base::UTF16ToUTF8(GetRoot().GetValueForType(ADDRESS_HOME_COUNTRY));
+  FieldType storable_type = type.GetAddressType();
 
-  if (type.html_type() == HtmlFieldType::kCountryCode) {
+  if (storable_type == ADDRESS_HOME_COUNTRY && type.is_country_code()) {
     return base::ASCIIToUTF16(country_code);
   }
 
-  FieldType storable_type = type.GetAddressType();
   if (storable_type == ADDRESS_HOME_COUNTRY && !country_code.empty())
     return AutofillCountry(country_code, locale).name();
 
@@ -211,7 +211,8 @@ bool Address::SetInfoWithVerificationStatus(const AutofillType& type,
                                             const std::u16string& value,
                                             const std::string& locale,
                                             VerificationStatus status) {
-  if (type.html_type() == HtmlFieldType::kCountryCode) {
+  FieldType storable_type = type.GetAddressType();
+  if (storable_type == ADDRESS_HOME_COUNTRY && type.is_country_code()) {
     std::string country_code =
         base::IsStringASCII(value)
             ? base::ToUpperASCII(base::UTF16ToASCII(value))
@@ -235,7 +236,6 @@ bool Address::SetInfoWithVerificationStatus(const AutofillType& type,
     return !country_code.empty();
   }
 
-  FieldType storable_type = type.GetAddressType();
   if (storable_type == ADDRESS_HOME_COUNTRY && !value.empty()) {
     std::string country_code =
         CountryNames::GetInstance()->GetCountryCodeForLocalizedCountryName(

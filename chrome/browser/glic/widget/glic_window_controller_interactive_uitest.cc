@@ -20,6 +20,7 @@
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/glic/test_support/interactive_glic_test.h"
+#include "chrome/browser/glic/test_support/interactive_test_util.h"
 #include "chrome/browser/glic/widget/glic_view.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
@@ -69,6 +70,12 @@ class GlicWindowControllerUiTest : public test::InteractiveGlicTest {
   GlicWindowControllerUiTest() {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
         ::switches::kGlicHostLogging);
+    features_.InitWithFeaturesAndParameters(
+        {{features::kTabstripComboButton, {}},
+         {features::kGlicActor, {}},
+         {features::kGlicActorUi,
+          {{features::kGlicActorUiTaskIconName, "true"}}}},
+        {});
   }
   ~GlicWindowControllerUiTest() override = default;
 
@@ -102,7 +109,7 @@ class GlicWindowControllerUiTest : public test::InteractiveGlicTest {
 
   bool IsWorkAreaTooSmallForTest() {
     gfx::Rect work_area_bounds =
-        display::Screen::GetScreen()->GetPrimaryDisplay().work_area();
+        display::Screen::Get()->GetPrimaryDisplay().work_area();
     gfx::Size glic_expected_size = GlicWidget::GetInitialSize();
     gfx::Size cell_size = {work_area_bounds.width() / 3,
                            work_area_bounds.height() / 3};
@@ -129,6 +136,8 @@ class GlicWindowControllerUiTest : public test::InteractiveGlicTest {
  private:
   std::unique_ptr<GlicController> glic_controller_ =
       std::make_unique<GlicController>();
+
+  base::test::ScopedFeatureList features_;
 };
 
 IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, ShowAndCloseDetachedWidget) {
@@ -155,6 +164,43 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, ButtonTogglesGlicWindow) {
                   InAnyContext(WaitForHide(kGlicViewElementId)),
                   CheckControllerHasWidget(false),
                   PressButton(kGlicButtonElementId),
+                  CheckControllerHasWidget(true),
+                  CheckControllerWidgetMode(GlicWindowMode::kDetached));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, TaskIconTogglesGlicWindow) {
+  StartTaskAndShowActorTaskIcon();
+  RunTestSequence(ObserveState(test::internal::kFloatyViewState, &host()),
+                  OpenGlicWindow(GlicWindowMode::kDetached),
+                  PressButton(kGlicActorTaskIconElementId),
+                  WaitForState(test::internal::kFloatyViewState,
+                               mojom::CurrentView::kActuation),
+                  CheckControllerHasWidget(true),
+                  CheckControllerWidgetMode(GlicWindowMode::kDetached),
+                  PressButton(kGlicActorTaskIconElementId),
+                  InAnyContext(WaitForHide(kGlicViewElementId)),
+                  CheckControllerHasWidget(false));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    GlicWindowControllerUiTest,
+    GlicButtonAndTaskIconButtonTogglesConversationAndActuationView) {
+  StartTaskAndShowActorTaskIcon();
+  RunTestSequence(ObserveState(test::internal::kFloatyViewState, &host()),
+                  OpenGlicWindow(GlicWindowMode::kDetached),
+                  PressButton(kGlicActorTaskIconElementId),
+                  WaitForState(test::internal::kFloatyViewState,
+                               mojom::CurrentView::kActuation),
+                  CheckControllerHasWidget(true),
+                  CheckControllerWidgetMode(GlicWindowMode::kDetached),
+                  PressButton(kGlicButtonElementId),
+                  WaitForState(test::internal::kFloatyViewState,
+                               mojom::CurrentView::kConversation),
+                  CheckControllerHasWidget(true),
+                  CheckControllerWidgetMode(GlicWindowMode::kDetached),
+                  PressButton(kGlicActorTaskIconElementId),
+                  WaitForState(test::internal::kFloatyViewState,
+                               mojom::CurrentView::kActuation),
                   CheckControllerHasWidget(true),
                   CheckControllerWidgetMode(GlicWindowMode::kDetached));
 }
@@ -475,7 +521,7 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, TestInitialBounds) {
   chrome::AddTabAt(browser(), GURL("about:blank"), 0, true);
   // Calculate default location offset from work area.
   gfx::Point top_right =
-      display::Screen::GetScreen()->GetPrimaryDisplay().work_area().top_right();
+      display::Screen::Get()->GetPrimaryDisplay().work_area().top_right();
   int expected_x = top_right.x() - GlicWidget::GetInitialSize().width() -
                    glic::kDefaultDetachedTopRightDistance;
   int expected_y = top_right.y() + glic::kDefaultDetachedTopRightDistance;
@@ -498,7 +544,7 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, TestInitialBounds) {
   EXPECT_EQ(initial_bounds.origin(), default_origin);
 
   gfx::Rect screen_bounds =
-      display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
+      display::Screen::Get()->GetPrimaryDisplay().bounds();
 
   struct TestPair {
     gfx::Point test;
@@ -539,7 +585,23 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, TestInitialBounds) {
 
 // TODO(b/426542319): Fix and enable tests on non-mac platforms.
 #if BUILDFLAG(IS_MAC)
-IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, TestPositionMetrics) {
+class GlicWindowControllerLocationMetricsUiTest
+    : public GlicWindowControllerUiTest {
+ public:
+  GlicWindowControllerLocationMetricsUiTest() {
+    features_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{features::kGlicPanelResetOnSessionTimeout,
+                               features::kGlicPanelResetSizeAndLocationOnOpen});
+  }
+  ~GlicWindowControllerLocationMetricsUiTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList features_;
+};
+
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerLocationMetricsUiTest,
+                       TestPositionMetrics) {
   if (IsWorkAreaTooSmallForTest()) {
     GTEST_SKIP()
         << "Test's work area bounds are too small for consistent results.";
@@ -547,7 +609,7 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, TestPositionMetrics) {
   // The GlicButton and Tabstrip are not actually shown until a tab is created.
   chrome::AddTabAt(browser(), GURL("about:blank"), 0, true);
   gfx::Rect work_area_bounds =
-      display::Screen::GetScreen()->GetPrimaryDisplay().work_area();
+      display::Screen::Get()->GetPrimaryDisplay().work_area();
   // Work area is split into 9 cells.
   gfx::Size cell_size = {work_area_bounds.width() / 3,
                          work_area_bounds.height() / 3};
@@ -620,6 +682,59 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, TestPositionMetrics) {
   // ChromeRelativePosition::kChromeOnOtherDisplay isn't being tested since
   // tests involving moving Glic to another display are flaky.
 }
+
+IN_PROC_BROWSER_TEST_F(GlicWindowControllerLocationMetricsUiTest,
+                       TestPercentOverlapMetrics) {
+  if (IsWorkAreaTooSmallForTest()) {
+    GTEST_SKIP()
+        << "Test's work area bounds are too small for consistent results.";
+  }
+  // The GlicButton and Tabstrip are not actually shown until a tab is created.
+  chrome::AddTabAt(browser(), GURL("about:blank"), 0, true);
+  // Set browser bounds to the center cell of the work area bounds.
+  gfx::Rect browser_bounds = gfx::Rect(50, 50, 500, 400);
+  browser()->window()->SetBounds(browser_bounds);
+  browser_bounds = browser()->window()->GetBounds();
+  gfx::Size glic_expected_size = GlicWidget::GetInitialSize();
+
+  base::HistogramTester tester;
+
+  auto open_and_close = [this,
+                         &tester](PercentOverlap expected_percent_overlap) {
+    RunTestSequence(ActivateSurface(kBrowserViewElementId),
+                    SimulateGlicHotkey(), WaitForAndInstrumentGlic(kNone),
+                    CheckControllerHasWidget(true),
+                    CheckControllerWidgetMode(GlicWindowMode::kDetached),
+                    SimulateOsButton(), WaitForHide(test::kGlicHostElementId),
+                    CheckControllerHasWidget(false));
+
+    tester.ExpectBucketCount("Glic.PercentOverlapWithBrowser.OnOpen",
+                             expected_percent_overlap, 1);
+    tester.ExpectBucketCount("Glic.PercentOverlapWithBrowser.OnClose",
+                             expected_percent_overlap, 1);
+  };
+
+  gfx::Point test_origin = browser_bounds.top_right();
+  window_controller().SetPreviousPositionForTesting(test_origin);
+  open_and_close(PercentOverlap::k0);
+
+  test_origin.Offset(-0.5 * glic_expected_size.width(), 0);
+  window_controller().SetPreviousPositionForTesting(test_origin);
+  open_and_close(PercentOverlap::k50);
+
+  test_origin = browser_bounds.origin();
+  window_controller().SetPreviousPositionForTesting(test_origin);
+  open_and_close(PercentOverlap::k100);
+
+  RunTestSequence(OpenGlicWindow(GlicWindowMode::kDetached));
+  browser()->window()->Minimize();
+  ASSERT_TRUE(ui_test_utils::WaitForMinimized(browser()));
+  EXPECT_FALSE(browser()->window()->IsActive());
+  RunTestSequence(CloseGlicWindow());
+  tester.ExpectBucketCount("Glic.PositionOnChrome.OnClose",
+                           ChromeRelativePosition::kNoVisibleChromeBrowser, 1);
+}
+
 #endif
 
 IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, PermanentlyDeleteProfile) {
@@ -629,7 +744,7 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, PermanentlyDeleteProfile) {
   Browser* const browser1 = CreateBrowser(&profile1);
   GlicKeyedService* const service1 =
       GlicKeyedServiceFactory::GetGlicKeyedService(browser1->profile());
-  service1->window_controller().fre_controller()->AcceptFre();
+  service1->fre_controller().AcceptFre();
   EXPECT_TRUE(service1->enabling().HasConsented());
 
   // Open glic
@@ -650,6 +765,12 @@ IN_PROC_BROWSER_TEST_F(GlicWindowControllerUiTest, PermanentlyDeleteProfile) {
 class GlicWindowControllerWithPreviousPostionUiTest
     : public GlicWindowControllerUiTest {
  public:
+  GlicWindowControllerWithPreviousPostionUiTest() {
+    features_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{features::kGlicPanelResetOnSessionTimeout,
+                               features::kGlicPanelResetSizeAndLocationOnOpen});
+  }
   void SetUpBrowserContextKeyedServices(
       content::BrowserContext* context) override {
     // Set initial bounds via pref and check that they are used.
@@ -659,6 +780,9 @@ class GlicWindowControllerWithPreviousPostionUiTest
         prefs::kGlicPreviousPositionY, 10);
     test::InteractiveGlicTest::SetUpBrowserContextKeyedServices(context);
   }
+
+ private:
+  base::test::ScopedFeatureList features_;
 };
 
 IN_PROC_BROWSER_TEST_F(GlicWindowControllerWithPreviousPostionUiTest,
@@ -768,11 +892,11 @@ class GlicWindowControllerMultipleDisplaysUiTest
   // Create virtual displays as needed, ensuring 2 displays are available for
   // testing multi-screen functionality.
   bool SetUpVirtualDisplays() {
-    if (display::Screen::GetScreen()->GetNumDisplays() > 1) {
+    if (display::Screen::Get()->GetNumDisplays() > 1) {
       return true;
     }
     if ((virtual_display_util_ = display::test::VirtualDisplayUtil::TryCreate(
-             display::Screen::GetScreen()))) {
+             display::Screen::Get()))) {
       virtual_display_util_->AddDisplay(
           display::test::VirtualDisplayUtil::k1024x768);
       return true;
@@ -796,9 +920,9 @@ class GlicWindowControllerMultipleDisplaysUiTest
 
   bool SetPrimaryAndSecondaryDisplay() {
     display::Display primary_display =
-        display::Screen::GetScreen()->GetPrimaryDisplay();
+        display::Screen::Get()->GetPrimaryDisplay();
     secondary_display_ =
-        ui_test_utils::GetSecondaryDisplay(display::Screen::GetScreen());
+        ui_test_utils::GetSecondaryDisplay(display::Screen::Get());
     return primary_display.id() && secondary_display_.id();
   }
 

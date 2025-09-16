@@ -64,9 +64,6 @@ BASE_FEATURE(kIPHDesktopCustomizeChromeFeature,
 BASE_FEATURE(kIPHDesktopCustomizeChromeRefreshFeature,
              "IPH_DesktopCustomizeChromeRefresh",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHDesktopNewTabPageModulesCustomizeFeature,
-             "IPH_DesktopNewTabPageModulesCustomize",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDiscardRingFeature,
              "IPH_DiscardRing",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -413,7 +410,7 @@ BASE_FEATURE(kIPHRequestDesktopSiteWindowSettingFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHRtlGestureNavigationFeature,
              "IPH_RtlGestureNavigation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHShoppingListSaveFlowFeature,
              "IPH_ShoppingListSaveFlow",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -473,6 +470,9 @@ BASE_FEATURE(kIPHPdfPageDownloadFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPreviewsOmniboxUIFeature,
              "IPH_PreviewsOmniboxUI",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHReaderModeDistillInAppFeature,
+             "IPH_ReaderModeDistillInApp",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHShoppingListMenuItemFeature,
              "IPH_ShoppingListMenuItem",
@@ -605,6 +605,9 @@ BASE_FEATURE(kIPHBottomToolbarTipFeature,
 #if BUILDFLAG(IS_IOS)
 BASE_FEATURE(kIPHLongPressToolbarTipFeature,
              "IPH_LongPressToolbarTip",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHBadgedReaderModeFeature,
+             "IPH_BadgedReaderMode",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHBadgedReadingListFeature,
              "IPH_BadgedReadingList",
@@ -827,6 +830,10 @@ BASE_FEATURE(kDefaultBrowserTriggerCriteriaExperiment,
              "DefaultBrowserTriggerCriteriaExperiment",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kIPHiOSAIHubNewBadge,
+             "IPH_iOSAIHubNewBadge",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -851,6 +858,9 @@ BASE_FEATURE(kIPHAutofillExternalAccountProfileSuggestionFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillHomeWorkProfileSuggestionFeature,
              "IPH_AutofillHomeWorkProfileSuggestion",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHAutofillAccountNameEmailSuggestionFeature,
+             "IPH_AutofillAccountNameEmailSuggestion",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillAiOptInFeature,
              "IPH_AutofillAiOptIn",

@@ -136,6 +136,21 @@ void LensSearchController::OpenLensOverlay(
     return;
   }
 
+  // If flag enabled, perform an empty contextual query instead of opening the
+  // overlay as normal. For internal debugging only.
+  if (lens::features::IsLensOverlayForceEmptyCsbQueryEnabled()) {
+    IssueTextSearchRequest(
+        lens::LensOverlayInvocationSource::kContentAreaContextMenuText,
+        /*query_text=*/"",
+        /*additional_query_parameters=*/{},
+        // TODO(crbug.com/432490312): Match type here is likely not ideal.
+        // Investigate removing match type from this function.
+        AutocompleteMatchType::Type::SEARCH_SUGGEST,
+        /*is_zero_prefix_suggestion=*/false,
+        /*suppress_contextualization=*/false);
+    return;
+  }
+
   // Setup all state necessary for this Lens session.
   StartLensSession(invocation_source);
 
@@ -503,7 +518,9 @@ LensSearchController::CreateLensSearchboxController() {
 
 std::unique_ptr<lens::LensComposeboxController>
 LensSearchController::CreateLensComposeboxController() {
-  return std::make_unique<lens::LensComposeboxController>(this);
+  Profile* profile =
+      Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
+  return std::make_unique<lens::LensComposeboxController>(this, profile);
 }
 
 std::unique_ptr<lens::LensSearchContextualizationController>

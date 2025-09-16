@@ -56,7 +56,6 @@ IDeviceInfo& get_device_info() {
 
 void Set(const IDeviceInfo& info) {
   std::optional<IDeviceInfo>& holder = get_holder();
-  DCHECK(!holder.has_value());
   holder.emplace(info);
 }
 

@@ -111,12 +111,6 @@ NativeTheme* NativeTheme::GetInstanceForNativeUi() {
   return NativeThemeMac::instance();
 }
 
-NativeTheme* NativeTheme::GetInstanceForDarkUI() {
-  static base::NoDestructor<NativeThemeMac> s_native_theme(
-      /*configure_web_instance=*/false, /*should_only_use_dark_colors=*/true);
-  return s_native_theme.get();
-}
-
 // static
 bool NativeTheme::SystemDarkModeSupported() {
   return true;
@@ -146,7 +140,8 @@ void NativeThemeMac::Paint(cc::PaintCanvas* canvas,
                            const std::optional<SkColor>& accent_color) const {
   ColorScheme color_scheme_updated = color_scheme;
   if (color_scheme_updated == ColorScheme::kDefault) {
-    color_scheme_updated = GetDefaultSystemColorScheme();
+    color_scheme_updated =
+        ShouldUseDarkColors() ? ColorScheme::kDark : ColorScheme::kLight;
   }
 
   if (rect.IsEmpty()) {
@@ -516,8 +511,7 @@ void NativeThemeMac::PaintMenuItemBackground(
     const ColorProvider* color_provider,
     State state,
     const gfx::Rect& rect,
-    const MenuItemExtraParams& menu_item,
-    ColorScheme color_scheme) const {
+    const MenuItemExtraParams& menu_item) const {
   switch (state) {
     case NativeTheme::kNormal:
     case NativeTheme::kDisabled:

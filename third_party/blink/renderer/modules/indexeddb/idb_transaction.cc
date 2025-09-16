@@ -108,8 +108,8 @@ IDBTransaction::IDBTransaction(
   ExecutionContext::From(script_state)
       ->GetAgent()
       ->event_loop()
-      ->EnqueueEndOfMicrotaskCheckpointTask(WTF::BindOnce(
-          &IDBTransaction::SetActive, WrapPersistent(this), false));
+      ->EnqueueEndOfMicrotaskCheckpointTask(
+          BindOnce(&IDBTransaction::SetActive, WrapPersistent(this), false));
 
   database_->TransactionCreated(this);
 }
@@ -686,7 +686,7 @@ DispatchEventResult IDBTransaction::DispatchEventInternal(Event& event) {
   DCHECK_NE(state_, kFinished);
   DCHECK(has_pending_activity_);
   DCHECK(GetExecutionContext());
-  DCHECK_EQ(event.target(), this);
+  DCHECK_EQ(event.RawTarget(), this);
   state_ = kFinished;
 
   DispatchEventResult dispatch_result =

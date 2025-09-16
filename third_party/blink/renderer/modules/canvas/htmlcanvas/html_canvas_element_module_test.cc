@@ -13,6 +13,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/fingerprinting_protection/canvas_noise_token.h"
 #include "third_party/blink/public/mojom/frame_sinks/embedded_frame_sink.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -25,13 +26,18 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.h"
+#include "third_party/blink/renderer/modules/canvas/canvas_noise_test_util.h"
+#include "third_party/blink/renderer/modules/canvas/offscreencanvas2d/offscreen_canvas_rendering_context_2d.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/test/gpu_memory_buffer_test_platform.h"
 #include "third_party/blink/renderer/platform/graphics/test/gpu_test_utils.h"
 #include "third_party/blink/renderer/platform/graphics/test/mock_compositor_frame_sink.h"
 #include "third_party/blink/renderer/platform/graphics/test/mock_embedded_frame_sink_provider.h"
+#include "third_party/blink/renderer/platform/graphics/test/test_webgraphics_shared_image_interface_provider.h"
+#include "third_party/blink/renderer/platform/runtime_feature_state/runtime_feature_state_override_context.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
+#include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/text/layout_locale.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 
@@ -79,10 +85,9 @@ class HTMLCanvasElementModuleTest : public ::testing::Test,
   Document& GetDocument() const { return *GetWindow()->document(); }
 
   HTMLCanvasElement& canvas_element() const { return *canvas_element_; }
-  OffscreenCanvas* TransferControlToOffscreen(ExceptionState& exception_state) {
+  OffscreenCanvas* TransferControlToOffscreen() {
     return HTMLCanvasElementModule::TransferControlToOffscreenInternal(
-        ToScriptStateForMainWorld(GetWindow()->GetFrame()), canvas_element(),
-        exception_state);
+        ToScriptStateForMainWorld(GetWindow()->GetFrame()), canvas_element());
   }
 
   test::TaskEnvironment task_environment_;
@@ -93,21 +98,17 @@ class HTMLCanvasElementModuleTest : public ::testing::Test,
 
 // Tests if the Canvas Id is associated correctly.
 TEST_F(HTMLCanvasElementModuleTest, TransferControlToOffscreen) {
-  NonThrowableExceptionState exception_state;
-  const OffscreenCanvas* offscreen_canvas =
-      TransferControlToOffscreen(exception_state);
+  const OffscreenCanvas* offscreen_canvas = TransferControlToOffscreen();
   const DOMNodeId canvas_id = offscreen_canvas->PlaceholderCanvasId();
   EXPECT_EQ(canvas_id, canvas_element().GetDomNodeId());
 }
 
 // Test that lang and direction attributes are transferred correctly.
 TEST_F(HTMLCanvasElementModuleTest, TransferLangAndDirectionToOffscreen) {
-  NonThrowableExceptionState exception_state;
   canvas_element_->setAttribute(AtomicString("lang"), "zh-CN");
   canvas_element_->setAttribute(AtomicString("dir"), "rtl");
 
-  OffscreenCanvas* offscreen_canvas =
-      TransferControlToOffscreen(exception_state);
+  OffscreenCanvas* offscreen_canvas = TransferControlToOffscreen();
 
   const LayoutLocale* locale = offscreen_canvas->GetLocale();
   EXPECT_EQ(locale->LocaleString(), AtomicString("zh-CN"));
@@ -120,9 +121,7 @@ TEST_F(HTMLCanvasElementModuleTest, TransferLangAndDirectionToOffscreen) {
 // Test that lang and direction defaults are transferred correctly.
 TEST_F(HTMLCanvasElementModuleTest,
        TransferLangAndDirectionDefaultsToOffscreen) {
-  NonThrowableExceptionState exception_state;
-  OffscreenCanvas* offscreen_canvas =
-      TransferControlToOffscreen(exception_state);
+  OffscreenCanvas* offscreen_canvas = TransferControlToOffscreen();
 
   const LayoutLocale* locale = offscreen_canvas->GetLocale();
   EXPECT_EQ(locale, &LayoutLocale::GetDefault());
@@ -135,11 +134,9 @@ TEST_F(HTMLCanvasElementModuleTest,
 // Test that lang and direction from document are transferred correctly.
 TEST_F(HTMLCanvasElementModuleTest,
        TransferLangAndDirectionDocumentToOffscreen) {
-  NonThrowableExceptionState exception_state;
   GetDocument().documentElement()->setAttribute(AtomicString("lang"), "zh-CN");
   GetDocument().documentElement()->setAttribute(AtomicString("dir"), "rtl");
-  OffscreenCanvas* offscreen_canvas =
-      TransferControlToOffscreen(exception_state);
+  OffscreenCanvas* offscreen_canvas = TransferControlToOffscreen();
 
   const LayoutLocale* locale = offscreen_canvas->GetLocale();
   EXPECT_EQ(locale->LocaleString(), AtomicString("zh-CN"));
@@ -147,6 +144,51 @@ TEST_F(HTMLCanvasElementModuleTest,
   const TextDirection direction = offscreen_canvas->GetTextDirection(
       /*conputed_style=*/nullptr);
   EXPECT_EQ(direction, TextDirection::kRtl);
+}
+
+TEST_F(HTMLCanvasElementModuleTest, CanvasNoisedAfterTransferToOffscreen) {
+  CanvasNoiseToken::Set(0x1234567890123456);
+  V8TestingScope scope;
+  NonThrowableExceptionState exception_state;
+  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
+  scoped_refptr<viz::TestContextProvider> test_context_provider =
+      viz::TestContextProvider::CreateRaster(
+          CreateCanvasNoiseTestRasterInterface());
+  InitializeSharedGpuContextRaster(test_context_provider.get());
+  GetDocument().GetSettings()->SetAcceleratedCompositingEnabled(true);
+  test_context_provider->GetTestRasterInterface()->set_gpu_rasterization(true);
+  canvas_element().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
+
+  OffscreenCanvas* offscreen_canvas =
+      HTMLCanvasElementModule::transferControlToOffscreen(
+          scope.GetScriptState(), canvas_element(), exception_state);
+  OffscreenCanvasRenderingContext2D* context =
+      static_cast<OffscreenCanvasRenderingContext2D*>(
+          offscreen_canvas->GetCanvasRenderingContext(
+              offscreen_canvas->GetExecutionContext(),
+              CanvasRenderingContext::CanvasRenderingAPI::k2D,
+              CanvasContextCreationAttributesCore()));
+  context->fillText("CanvasNoiseTest", 20, 20);
+
+  offscreen_canvas->GetOrCreateResourceDispatcher()->OnBeginFrame(
+      /*begin_frame_args=*/{}, /*timing details*/ {},
+      /*resources=*/{});
+  test::RunPendingTasks();
+
+  GetWindow()
+      ->GetRuntimeFeatureStateOverrideContext()
+      ->SetCanvasInterventionsForceDisabled();
+  String data_url_no_interventions =
+      canvas_element().toDataURL("image/png", exception_state);
+  GetWindow()
+      ->GetRuntimeFeatureStateOverrideContext()
+      ->SetCanvasInterventionsForceEnabled();
+  GetDocument().GetExecutionContext()->SetCanvasNoiseToken(0x1234567890123456);
+  String data_url_with_interventions =
+      canvas_element().toDataURL("image/png", exception_state);
+  EXPECT_NE(data_url_no_interventions, data_url_with_interventions);
+
+  SharedGpuContext::Reset();
 }
 
 // Verifies that a desynchronized canvas has the appropriate opacity/blending
@@ -200,7 +242,7 @@ TEST_P(HTMLCanvasElementModuleTest, LowLatencyCanvasCompositorFrameOpacity) {
   EXPECT_CALL(mock_embedded_frame_sink_provider.mock_compositor_frame_sink(),
               SubmitCompositorFrame_(_))
       .WillOnce(::testing::WithArg<0>(
-          ::testing::Invoke([context_alpha](const viz::CompositorFrame* frame) {
+          [context_alpha](const viz::CompositorFrame* frame) {
             ASSERT_EQ(frame->render_pass_list.size(), 1u);
 
             const auto& quad_list = frame->render_pass_list[0]->quad_list;
@@ -212,7 +254,7 @@ TEST_P(HTMLCanvasElementModuleTest, LowLatencyCanvasCompositorFrameOpacity) {
             ASSERT_EQ(shared_quad_state_list.size(), 1u);
             EXPECT_NE(shared_quad_state_list.front()->are_contents_opaque,
                       context_alpha);
-          })));
+          }));
   context_->PreFinalizeFrame();
   context_->FinalizeFrame(FlushReason::kTesting);
   canvas_element().PostFinalizeFrame(FlushReason::kTesting);

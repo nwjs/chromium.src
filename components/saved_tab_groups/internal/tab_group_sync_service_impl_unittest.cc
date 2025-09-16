@@ -62,7 +62,6 @@ using testing::DoAll;
 using testing::Each;
 using testing::ElementsAre;
 using testing::Eq;
-using testing::Invoke;
 using testing::IsEmpty;
 using testing::Matcher;
 using testing::Not;
@@ -238,6 +237,7 @@ class TabGroupSyncServiceImplTest : public testing::Test {
                 shared_store_.get())),
         nullptr, &pref_service_, std::move(metrics_logger), decider_.get(),
         identity_test_environment_.identity_manager(),
+        /*personal_collaboration_data_service=*/nullptr,
         std::move(collaboration_finder), /*logger=*/nullptr);
     ON_CALL(saved_processor_, IsTrackingMetadata())
         .WillByDefault(testing::Return(true));
@@ -261,14 +261,14 @@ class TabGroupSyncServiceImplTest : public testing::Test {
             CanApplyOptimization(
                 _, optimization_guide::proto::SAVED_TAB_GROUP,
                 An<optimization_guide::OptimizationGuideDecisionCallback>()))
-        .WillByDefault(Invoke(
+        .WillByDefault(
             [](const GURL& url,
                optimization_guide::proto::OptimizationType optimization_type,
                optimization_guide::OptimizationGuideDecisionCallback callback) {
               std::move(callback).Run(
                   optimization_guide::OptimizationGuideDecision::kUnknown,
                   optimization_guide::OptimizationMetadata());
-            }));
+            });
 
     auto coordinator =
         std::make_unique<testing::NiceMock<MockTabGroupSyncCoordinator>>();
@@ -2716,6 +2716,24 @@ TEST_F(PinningTabGroupSyncServiceImplTest, UpdateGroupPositionIndex) {
   EXPECT_EQ(0, get_index(group_id_1));
   EXPECT_EQ(1, get_index(group_id_3));
   EXPECT_EQ(2, get_index(group_id_2));
+}
+
+TEST_F(PinningTabGroupSyncServiceImplTest, UpdateBookmarkNodeId) {
+  auto group = tab_group_sync_service_->GetGroup(local_group_id_1_);
+  EXPECT_TRUE(group.has_value());
+
+  base::Uuid bookmark_node_id = base::Uuid::GenerateRandomV4();
+
+  EXPECT_EQ(std::nullopt, group->bookmark_node_id());
+  tab_group_sync_service_->UpdateBookmarkNodeId(group->saved_guid(),
+                                                bookmark_node_id);
+  group = tab_group_sync_service_->GetGroup(local_group_id_1_);
+  EXPECT_EQ(bookmark_node_id, group->bookmark_node_id());
+
+  tab_group_sync_service_->UpdateBookmarkNodeId(group->saved_guid(),
+                                                std::nullopt);
+  group = tab_group_sync_service_->GetGroup(local_group_id_1_);
+  EXPECT_EQ(std::nullopt, group->bookmark_node_id());
 }
 
 TEST_F(TabGroupSyncServiceImplTest, MetricsOnSignin) {

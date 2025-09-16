@@ -52,8 +52,20 @@ id<GREYMatcher> ButtonWithForegroundColor(NSString* colorName) {
   return [ChromeMatchersAppInterface buttonWithForegroundColor:colorName];
 }
 
+id<GREYMatcher> ButtonWithPrimaryColor() {
+  return [ChromeMatchersAppInterface buttonWithPrimaryColor];
+}
+
+id<GREYMatcher> ButtonWithSecondaryColor() {
+  return [ChromeMatchersAppInterface buttonWithSecondaryColor];
+}
+
+id<GREYMatcher> ButtonWithEqualWeightColor() {
+  return [ChromeMatchersAppInterface buttonWithEqualWeightColor];
+}
+
 id<GREYMatcher> ButtonWithBackgroundColor(NSString* colorName) {
-  return [ChromeMatchersAppInterface buttonWithBackgroundColor:colorName];
+  return [ChromeMatchersAppInterface buttonWithBackgroundColorNamed:colorName];
 }
 
 id<GREYMatcher> ContextMenuItemWithAccessibilityLabel(NSString* label) {

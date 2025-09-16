@@ -78,6 +78,7 @@ public class HistoricalTabModelObserverUnitTest {
         when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
         when(mTabModel.getComprehensiveModel()).thenReturn(mTabModel);
         when(mTabModel.getProfile()).thenReturn(mProfile);
+        when(mTabModel.iterator()).thenAnswer(inv -> Collections.emptyList().iterator());
 
         mObserver = new HistoricalTabModelObserver(mTabGroupModelFilter, mHistoricalTabSaver);
         verify(mTabGroupModelFilter).addObserver(mObserver);
@@ -556,6 +557,7 @@ public class HistoricalTabModelObserverUnitTest {
             MockTab[] tabList) {
         assert tabList.length != 0;
 
+        when(mTabGroupModelFilter.getTabsInGroup(tabGroupId)).thenReturn(Arrays.asList(tabList));
         when(mTabGroupModelFilter.getTabCountForGroup(tabGroupId)).thenReturn(tabList.length);
         when(mTabGroupModelFilter.tabGroupExists(tabGroupId)).thenReturn(true);
         for (MockTab tab : tabList) {

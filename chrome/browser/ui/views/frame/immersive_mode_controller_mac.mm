@@ -39,14 +39,6 @@
 
 namespace {
 
-// The width of the traffic lights. Used to animate the tab strip leaving a hole
-// for the traffic lights.
-// TODO(crbug.com/40892148): Get this dynamically. Unfortunately the
-// values in BrowserNonClientFrameViewMac::GetCaptionButtonInsets don't account
-// for a window with an NSToolbar.
-constexpr int kTrafficLightsWidth = 62;
-constexpr int kTabAlignmentInset = 4;
-
 class ImmersiveModeFocusSearchMac : public views::FocusSearch {
  public:
   explicit ImmersiveModeFocusSearchMac(BrowserView* browser_view);
@@ -235,8 +227,17 @@ void ImmersiveModeControllerMac::SetEnabled(bool enabled) {
   }
 }
 
+// LINT.IfChange(MacTabStripInsets)
 gfx::Insets ImmersiveModeControllerMac::GetTabStripRegionViewInsets() {
-  int right_left_inset = kTabAlignmentInset + kTrafficLightsWidth;
+  // TODO(crbug.com/40892148): Get this dynamically. Unfortunately the
+  // values in BrowserNonClientFrameViewMac::GetCaptionButtonInsets don't
+  // account for a window with an NSToolbar.
+  int right_left_inset = 0;
+  if (@available(macOS 26, *)) {
+    right_left_inset = 74;
+  } else {
+    right_left_inset = 66;
+  }
 
   // Without this +1 top inset the tabs sit 1px too high. I assume this is
   // because in fullscreen there is no resize handle.
@@ -244,6 +245,7 @@ gfx::Insets ImmersiveModeControllerMac::GetTabStripRegionViewInsets() {
              ? gfx::Insets::TLBR(1, right_left_inset, 0, 0)
              : gfx::Insets::TLBR(1, 0, 0, right_left_inset);
 }
+// LINT.ThenChange(//chrome/browser/ui/views/frame/browser_non_client_frame_view_mac.mm:MacTabStripInsets)
 
 void ImmersiveModeControllerMac::BrowserDidClose(
     BrowserWindowInterface* browser) {
@@ -294,10 +296,6 @@ void ImmersiveModeControllerMac::OnFindBarVisibleBoundsChanged(
 bool ImmersiveModeControllerMac::ShouldStayImmersiveAfterExitingFullscreen() {
   return false;
 }
-
-void ImmersiveModeControllerMac::OnWidgetActivationChanged(
-    views::Widget* widget,
-    bool active) {}
 
 int ImmersiveModeControllerMac::GetMinimumContentOffset() const {
   if (find_bar_visible_ &&
@@ -587,4 +585,9 @@ void ImmersiveModeOverlayWidgetObserver::OnWidgetBoundsChanged(
   // Update web dialog position when the overlay widget moves by invalidating
   // the browse view layout.
   controller_->browser_view()->InvalidateLayout();
+}
+
+void ImmersiveModeOverlayWidgetObserver::OnWidgetDestroying(
+    views::Widget* widget) {
+  controller_->SetEnabled(false);
 }

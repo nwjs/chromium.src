@@ -33,6 +33,9 @@
 #import "components/segmentation_platform/public/segmentation_platform_service.h"
 #import "components/send_tab_to_self/features.h"
 #import "components/send_tab_to_self/pref_names.h"
+#import "ios/chrome/browser/app_store_bundle/model/app_store_bundle_service.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/app_bundle_promo/coordinator/app_bundle_promo_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/app_bundle_promo/ui/app_bundle_promo_config.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/cells/most_visited_tiles_config.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/cells/most_visited_tiles_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/cells/shortcuts_config.h"
@@ -104,7 +107,8 @@ using segmentation_platform::home_modules::EnhancedSafeBrowsingEphemeralModule;
 using segmentation_platform::home_modules::LensEphemeralModule;
 using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
 
-@interface MagicStackRankingModel () <PriceTrackingPromoMediatorDelegate,
+@interface MagicStackRankingModel () <AppBundlePromoMediatorDelegate,
+                                      PriceTrackingPromoMediatorDelegate,
                                       SafetyCheckMagicStackMediatorDelegate,
                                       SendTabPromoMediatorDelegate,
                                       ShopCardMediatorDelegate,
@@ -121,6 +125,7 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
   raw_ptr<segmentation_platform::SegmentationPlatformService>
       _segmentationService;
   raw_ptr<commerce::ShoppingService> _shoppingService;
+  raw_ptr<AppStoreBundleService> _appStoreBundleService;
   raw_ptr<AuthenticationService> _authService;
   raw_ptr<PrefService> _prefService;
   raw_ptr<PrefService> _localState;
@@ -142,6 +147,7 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
   SafetyCheckMagicStackMediator* _safetyCheckMediator;
   SendTabPromoMediator* _sendTabPromoMediator;
   TipsMagicStackMediator* _tipsMediator;
+  AppBundlePromoMediator* _appBundlePromoMediator;
   raw_ptr<TipsManagerIOS> _tipsManager;
   base::TimeTicks ranking_fetch_start_time_;
   ContentSuggestionsModuleType _ephemeralCardToShow;
@@ -157,11 +163,13 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
                      localState:(PrefService*)localState
                 moduleMediators:(NSArray*)moduleMediators
                     tipsManager:(TipsManagerIOS*)tipsManager
-             templateURLService:(TemplateURLService*)templateURLService {
+             templateURLService:(TemplateURLService*)templateURLService
+          appStoreBundleService:(AppStoreBundleService*)appStoreBundleService {
   self = [super init];
   if (self) {
     _segmentationService = segmentationService;
     _shoppingService = shoppingService;
+    _appStoreBundleService = appStoreBundleService;
     _authService = authenticationService;
     _prefService = prefService;
     _localState = localState;
@@ -204,6 +212,10 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
       } else if ([mediator isKindOfClass:[SendTabPromoMediator class]]) {
         _sendTabPromoMediator = static_cast<SendTabPromoMediator*>(mediator);
         _sendTabPromoMediator.delegate = self;
+      } else if ([mediator isKindOfClass:[AppBundlePromoMediator class]]) {
+        _appBundlePromoMediator =
+            static_cast<AppBundlePromoMediator*>(mediator);
+        _appBundlePromoMediator.delegate = self;
       } else {
         // Known module mediators need to be handled.
         NOTREACHED();
@@ -224,6 +236,7 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
   _shopCardMediator = nil;
   _tipsMediator = nil;
   _tipsManager = nil;
+  _appBundlePromoMediator = nil;
 }
 
 #pragma mark - Public
@@ -315,6 +328,19 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
 
   [self.delegate magicStackRankingModel:self
                           didRemoveItem:_tipsMediator.state
+                                animate:YES
+                         withCompletion:completion];
+}
+
+#pragma mark - AppBundlePromoMediatorDelegate
+
+- (void)removeAppBundlePromoModuleWithCompletion:(ProceduralBlock)completion {
+  if (![self isMagicStackOrderReady]) {
+    return;
+  }
+
+  [self.delegate magicStackRankingModel:self
+                          didRemoveItem:_appBundlePromoMediator.config
                                 animate:YES
                          withCompletion:completion];
 }
@@ -506,6 +532,16 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
         segmentation_platform::kLensAllowedByEnterprisePolicy,
         segmentation_platform::processing::ProcessedValue::FromFloat(
             [self isLensEnabled]));
+
+    if (base::FeatureList::IsEnabled(
+            segmentation_platform::features::kAppBundlePromoEphemeralCard)) {
+      CHECK(_appStoreBundleService);
+      inputContext->metadata_args.emplace(
+          segmentation_platform::kAppBundleAppsInstalledCount,
+          segmentation_platform::processing::ProcessedValue::FromFloat(
+              static_cast<float>(
+                  _appStoreBundleService->GetInstalledAppCount())));
+    }
   }
 
   __weak MagicStackRankingModel* weakSelf = self;
@@ -574,6 +610,13 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
               IsSendTabIOSPushNotificationsEnabledWithMagicStackCard()) {
         _ephemeralCardToShow = ContentSuggestionsModuleType::kSendTabPromo;
         card = _sendTabPromoMediator.sendTabPromoItemToShow;
+        break;
+      }
+    } else if (label == segmentation_platform::kAppBundlePromoEphemeralModule) {
+      if (base::FeatureList::IsEnabled(
+              segmentation_platform::features::kAppBundlePromoEphemeralCard)) {
+        _ephemeralCardToShow = ContentSuggestionsModuleType::kAppBundlePromo;
+        card = _appBundlePromoMediator.config;
         break;
       }
     }
@@ -802,6 +845,13 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
         }
         break;
       }
+      case ContentSuggestionsModuleType::kAppBundlePromo:
+        if (base::FeatureList::IsEnabled(segmentation_platform::features::
+                                             kAppBundlePromoEphemeralCard) &&
+            _appBundlePromoMediator && _appBundlePromoMediator.config) {
+          [magicStackOrder addObject:_appBundlePromoMediator.config];
+        }
+        break;
       default:
         break;
     }
@@ -869,9 +919,6 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
             _shopCardMediator.shopCardItemToShow) {
           [magicStackOrder addObject:_shopCardMediator.shopCardItemToShow];
         }
-        break;
-      case ContentSuggestionsModuleType::kParcelTracking:
-        // TODO(crbug.com/391002352): Remove kParcelTracking entirely.
         break;
       default:
         // These module types should not have been added by the logic

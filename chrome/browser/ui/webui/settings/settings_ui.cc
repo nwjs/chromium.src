@@ -188,7 +188,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/ui/webui/settings/glic_handler.h"
 #endif
@@ -472,20 +472,11 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean("isPrivacySandboxRestrictedNoticeEnabled",
                           is_restricted_notice_enabled);
 
-  html_source->AddBoolean(
-      "isRelatedWebsiteSetsV2UiEnabled",
-      base::FeatureList::IsEnabled(
-          privacy_sandbox::kPrivacySandboxRelatedWebsiteSetsUi));
-
   // Mode B UX
   html_source->AddBoolean(
       "is3pcdCookieSettingsRedesignEnabled",
       TrackingProtectionSettingsFactory::GetForProfile(profile)
           ->IsTrackingProtection3pcdEnabled());
-
-  html_source->AddBoolean(
-      "isAlwaysBlock3pcsIncognitoEnabled",
-      base::FeatureList::IsEnabled(privacy_sandbox::kAlwaysBlock3pcsIncognito));
 
   // ACT UX
   bool ipp_ux = base::FeatureList::IsEnabled(privacy_sandbox::kIpProtectionUx);
@@ -514,10 +505,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean("capturedSurfaceControlEnabled",
                           base::FeatureList::IsEnabled(
                               features::kCapturedSurfaceControlKillswitch));
-
-  html_source->AddBoolean("enableAutomaticFullscreenContentSetting",
-                          base::FeatureList::IsEnabled(
-                              features::kAutomaticFullscreenContentSetting));
 
   html_source->AddBoolean(
       "enablePermissionSiteSettingsRadioButton",
@@ -574,9 +561,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean("showGlicSettings", show_glic_section);
   html_source->AddBoolean("glicDisallowedByAdmin", glic_disallowed_by_admin);
 
-  const bool use_is_setting_visible = base::FeatureList::IsEnabled(
-      optimization_guide::features::kAiSettingsPageEnterpriseDisabledUi);
-
   const auto& autofill_client =
       *autofill::ContentAutofillClient::FromWebContents(
           web_ui->GetWebContents());
@@ -587,18 +571,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
           autofill::AutofillAiAction::kListEntityInstancesInSettings));
   std::pair<const std::string_view, bool> optimization_guide_features[] = {
       {"showTabOrganizationControl",
-       use_is_setting_visible
-           ? TabOrganizationUtils::GetInstance()->IsSettingVisible(profile)
-           : TabOrganizationUtils::GetInstance()->IsEnabled(profile)},
-      {"showComposeControl",
-       use_is_setting_visible ? compose_visible : compose_enabled},
+       TabOrganizationUtils::GetInstance()->IsSettingVisible(profile)},
+      {"showComposeControl", compose_visible},
       {"showHistorySearchControl",
        history_embeddings::IsHistoryEmbeddingsSettingVisible(profile)},
-      {"showCompareControl",
-       use_is_setting_visible ? commerce::IsProductSpecificationsSettingVisible(
-                                    shopping_service->GetAccountChecker())
-                              : commerce::CanFetchProductSpecificationsData(
-                                    shopping_service->GetAccountChecker())},
+      {"showCompareControl", commerce::IsProductSpecificationsSettingVisible(
+                                 shopping_service->GetAccountChecker())},
       {"showPasswordChangeControl",
        PasswordChangeServiceFactory::GetForProfile(profile) &&
            PasswordChangeServiceFactory::GetForProfile(profile)

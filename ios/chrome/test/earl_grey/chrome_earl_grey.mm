@@ -189,6 +189,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   return [ChromeEarlGreyAppInterface isEnhancedSafeBrowsingInfobarEnabled];
 }
 
+- (UIInterfaceOrientation)interfaceOrientation {
+  return [ChromeEarlGreyAppInterface interfaceOrientation];
+}
+
 #pragma mark - Profile Utilities (EG2)
 
 - (NSString*)currentProfileName {
@@ -1462,6 +1466,11 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
 }
 
 - (void)waitForKeyboardToDisappear {
+  // Disable the synchronization due to the infinite spinner. Without this, the
+  // timer waits for the keyboard to disappear infinitely although the keyboard
+  // is not visible.
+  ScopedSynchronizationDisabler disabler;
+
   GREYCondition* waitForKeyboard = [GREYCondition
       conditionWithName:@"Wait for keyboard to disappear"
                   block:^BOOL {
@@ -1947,11 +1956,8 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
 
 #pragma mark - Reader mode Utilities
 
-- (void)showReaderMode {
+- (BOOL)showReaderModeAndWaitUntilReaderModeWebStateIsReady {
   [ReaderModeAppInterface showReaderMode];
-}
-
-- (BOOL)waitUntilReaderModeWebStateIsReady {
   auto verifyBlock = ^BOOL {
     return [ReaderModeAppInterface readerModeWebStateIsReady];
   };
@@ -1959,7 +1965,12 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
       [NSString stringWithFormat:@"Reader mode WebState is ready."];
   GREYCondition* condition = [GREYCondition conditionWithName:conditionName
                                                         block:verifyBlock];
-  return [condition waitWithTimeout:kWaitForJSCompletionTimeout.InSecondsF()];
+  // For the Reader mode WebState to be ready, distillation must complete
+  // (JavaScript completion) and the distilled content must be loaded in to the
+  // Reader mode WebState (page load).
+  constexpr base::TimeDelta timeout =
+      kWaitForJSCompletionTimeout + kWaitForPageLoadTimeout;
+  return [condition waitWithTimeout:timeout.InSecondsF()];
 }
 
 - (void)hideReaderMode {

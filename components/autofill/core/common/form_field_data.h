@@ -60,10 +60,16 @@ enum FieldPropertiesFlags : uint32_t {
   // Whether a change password filled was autofilled as part of change password
   // process. Filling happens on page-load although it's initiated by a user.
   kAutofilledChangePasswordFormOnPageLoad = 1u << 7,
+  // Whether a username or password field was autofilled as a result
+  // of a request to the actor login component.
+  kAutofilledActorLogin = 1u << 8,
   // A value was autofilled on any of the triggers.
   kAutofilled = kAutofilledOnUserTrigger | kAutofilledOnPageLoad |
                 kAutofilledPasswordFormFilledViaManualFallback |
-                kAutofilledChangePasswordFormOnPageLoad,
+                kAutofilledChangePasswordFormOnPageLoad | kAutofilledActorLogin
+
+  // IMPORTANT: Make sure to keep this enum in sync with the server-side enum
+  // with the same name in classification_utils.h.
 };
 
 // FieldPropertiesMask is used to contain combinations of FieldPropertiesFlags
@@ -155,10 +161,6 @@ class FormFieldData {
     return {host_frame(), host_form_id()};
   }
 
-  // TODO(crbug.com/40183094): This function is deprecated. Use
-  // FormFieldData::DeepEqual() instead.
-  bool SameFieldAs(const FormFieldData& field) const;
-
   // Returns true for all of textfield-looking types: text, password,
   // search, email, url, and number. It must work the same way as Blink function
   // WebInputElement::IsTextField(), and it returns false if |*this| represents
@@ -185,7 +187,7 @@ class FormFieldData {
     return is_focusable() && role() != RoleAttribute::kPresentation;
   }
 
-  // NOTE: Update `SameFieldAs()` and `FormFieldDataAndroid::SimilarFieldAs()`
+  // NOTE: Update `DeepEqual()` and `FormFieldDataAndroid::SimilarFieldAs()`
   // if needed when adding new a member.
 
   // The name by which autofill knows this field. This is generally either the
@@ -298,7 +300,7 @@ class FormFieldData {
   // A unique identifier of the containing frame. This value is not serialized
   // because LocalFrameTokens must not be leaked to other renderer processes.
   // It is not persistent between page loads and therefore not used in
-  // comparison in SameFieldAs().
+  // comparison in DeepEqual().
   const LocalFrameToken& host_frame() const { return host_frame_; }
   void set_host_frame(LocalFrameToken host_frame) {
     host_frame_ = std::move(host_frame);

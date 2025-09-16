@@ -1814,33 +1814,6 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest, CrossSiteRedirectionToPDF) {
 
 using ChromeNavigationBrowserTestWithMobileEmulation = DevToolsProtocolTestBase;
 
-// Tests the behavior of navigating to a PDF when mobile emulation is enabled.
-IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTestWithMobileEmulation,
-                       NavigateToPDFWithMobileEmulation) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-
-  GURL initial_url = embedded_test_server()->GetURL("/title1.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), initial_url));
-
-  Attach();
-  base::Value::Dict params;
-  params.Set("width", 400);
-  params.Set("height", 800);
-  params.Set("deviceScaleFactor", 1.0);
-  params.Set("mobile", true);
-  SendCommandSync("Emulation.setDeviceMetricsOverride", std::move(params));
-
-  GURL pdf_url = embedded_test_server()->GetURL("/pdf/test.pdf");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), pdf_url));
-
-  EXPECT_EQ(pdf_url, web_contents()->GetLastCommittedURL());
-  EXPECT_EQ(
-      "<head></head>"
-      "<body><!-- no enabled plugin supports this MIME type --></body>",
-      content::EvalJs(web_contents(), "document.documentElement.innerHTML")
-          .ExtractString());
-}
-
 // Tests the behavior of cross origin redirection to a PDF with mobile emulation
 // is enabled.
 IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTestWithMobileEmulation,
@@ -2390,9 +2363,10 @@ IN_PROC_BROWSER_TEST_F(NavigationConsumingTest, TargetNavigationFocus) {
 using HistoryManipulationInterventionBrowserTest = ChromeNavigationBrowserTest;
 
 // Tests that chrome::GoBack does nothing if all the previous entries are marked
-// as skippable and the back button is disabled.
+// as skippable. The back button should remain enabled in the UI, so that the
+// user can long-press and select a skippable entry if they choose.
 IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
-                       AllEntriesSkippableBackButtonDisabled) {
+                       AllEntriesSkippableBackButtonEnabledButDoesNothing) {
   // Create a new tab to avoid confusion from having a NTP navigation entry.
   GURL skippable_url(embedded_test_server()->GetURL("/title1.html"));
   ui_test_utils::NavigateToURLWithDisposition(
@@ -2411,14 +2385,18 @@ IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
   ASSERT_TRUE(manager.WaitForNavigationFinished());
   ASSERT_EQ(redirected_url, main_contents->GetLastCommittedURL());
   ASSERT_EQ(2, main_contents->GetController().GetEntryCount());
+  EXPECT_TRUE(chrome::ShouldEnableBackButton(browser()));
+  EXPECT_EQ(main_contents->GetController().GetLastCommittedEntryIndex(), 1);
 
   // Attempting to go back should do nothing.
   ASSERT_FALSE(chrome::CanGoBack(browser()));
   chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
   ASSERT_EQ(redirected_url, main_contents->GetLastCommittedURL());
+  EXPECT_EQ(main_contents->GetController().GetLastCommittedEntryIndex(), 1);
 
-  // Back command should be disabled.
-  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_BACK));
+  // The back button remains enabled.
+  EXPECT_TRUE(chrome::ShouldEnableBackButton(browser()));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_BACK));
 }
 
 // Tests that chrome::GoBack is successful if there is at least one entry not

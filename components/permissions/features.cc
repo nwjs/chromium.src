@@ -53,7 +53,7 @@ BASE_FEATURE(kPermissionsAIv4,
 
 BASE_FEATURE(kPermissionPromiseLifetimeModulation,
              "PermissionPromiseLifetimeModulation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether to trigger showing a HaTS survey, with the given
 // `probability` and `trigger_id`. The `probability` parameter is defined and
@@ -123,10 +123,8 @@ BASE_FEATURE(kCpssUseTfliteSignatureRunner,
              "CpssUseTfliteSignatureRunner",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, FederatedIdentityApiEmbargoDurationDismiss will use values from
-// a field trial.
-BASE_FEATURE(kFedCmUpdatedCooldownPeriod,
-             "FedCmUpdatedCooldownPeriod",
+BASE_FEATURE(kGlicActorPermissionsAutoReject,
+             "GlicActorPermissionsAutoReject",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)

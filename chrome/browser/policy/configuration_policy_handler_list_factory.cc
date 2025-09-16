@@ -49,7 +49,6 @@
 #include "chrome/browser/spellchecker/spellcheck_language_blocklist_policy_handler.h"
 #include "chrome/browser/spellchecker/spellcheck_language_policy_handler.h"
 #include "chrome/browser/ssl/secure_origin_policy_handler.h"
-#include "chrome/browser/themes/theme_color_policy_handler.h"
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_prefs.h"
 #include "chrome/browser/webauthn/webauthn_pref_names.h"
 #include "chrome/common/buildflags.h"
@@ -91,6 +90,7 @@
 #include "components/live_caption/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/network_time/network_time_pref_names.h"
+#include "components/ntp_tiles/enterprise/ntp_shortcuts_policy_handler.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
@@ -129,6 +129,7 @@
 #include "components/spellcheck/spellcheck_buildflags.h"
 #include "components/sync/base/pref_names.h"
 #include "components/sync/service/sync_policy_handler.h"
+#include "components/themes/theme_color_policy_handler.h"
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "components/unified_consent/pref_names.h"
 #include "components/variations/pref_names.h"
@@ -389,6 +390,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kLegacyCookieScopeEnabledForDomainList,
     prefs::kManagedLegacyCookieScopeForDomains,
     base::Value::Type::LIST },
+  { key::kGloballyScopeHTTPAuthCacheEnabled,
+    prefs::kGloballyScopeHTTPAuthCacheEnabled,
+    base::Value::Type::BOOLEAN},
   { key::kPolicyTestPageEnabled,
     policy_prefs::kPolicyTestPageEnabled,
     base::Value::Type::BOOLEAN},
@@ -644,9 +648,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kForcedLanguages,
     language::prefs::kForcedLanguages,
     base::Value::Type::LIST },
-  { key::kGloballyScopeHTTPAuthCacheEnabled,
-    prefs::kGloballyScopeHTTPAuthCacheEnabled,
-    base::Value::Type::BOOLEAN },
   { key::kHideWebStoreIcon,
     policy::policy_prefs::kHideWebStoreIcon,
     base::Value::Type::BOOLEAN },
@@ -1150,6 +1151,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     base::Value::Type::LIST },
   { key::kFloatingSsoSessionCookiesIncluded,
     prefs::kFloatingSsoSessionCookiesIncluded,
+    base::Value::Type::BOOLEAN },
+  { key::kAutoSignOutEnabled,
+    prefs::kAutoSignOutEnabled,
     base::Value::Type::BOOLEAN },
   { key::kDeviceAllowEnterpriseRemoteAccessConnections,
     prefs::kDeviceAllowEnterpriseRemoteAccessConnections,
@@ -2567,6 +2571,8 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
           optimization_guide::model_execution::prefs::
               GenAILocalFoundationalModelEnterprisePolicySettings::kMaxValue),
       false));
+  handlers->AddHandler(
+      std::make_unique<NTPShortcutsPolicyHandler>(chrome_schema));
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
 
@@ -2582,6 +2588,13 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
           enterprise_connectors::kEnterpriseRealTimeUrlCheckMode,
           enterprise_connectors::kEnterpriseRealTimeUrlCheckScope,
           chrome_schema));
+  handlers->AddHandler(
+      std::make_unique<SimpleJsonStringSchemaValidatingPolicyHandler>(
+          key::kAutoSelectCertificateForUrls,
+          prefs::kManagedAutoSelectCertificateForUrls,
+          chrome_schema.GetValidationSchema(),
+          SimpleSchemaValidatingPolicyHandler::RECOMMENDED_ALLOWED,
+          SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
   handlers->AddHandler(std::make_unique<BrowsingHistoryPolicyHandler>());
 #if BUILDFLAG(IS_ANDROID)
   handlers->AddHandler(
@@ -2618,13 +2631,6 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
   // Handlers for policies with embedded JSON strings. These handlers are very
   // lenient - as long as the root value is of the right type, they only display
   // warnings and never reject the policy value.
-  handlers->AddHandler(
-      std::make_unique<SimpleJsonStringSchemaValidatingPolicyHandler>(
-          key::kAutoSelectCertificateForUrls,
-          prefs::kManagedAutoSelectCertificateForUrls,
-          chrome_schema.GetValidationSchema(),
-          SimpleSchemaValidatingPolicyHandler::RECOMMENDED_ALLOWED,
-          SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
   handlers->AddHandler(
       std::make_unique<SimpleJsonStringSchemaValidatingPolicyHandler>(
           key::kDefaultPrinterSelection,
@@ -3282,6 +3288,10 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       extensions::pref_names::kExtensionUnpublishedAvailability,
       /*min=*/0, /*max=*/1, /*clamp=*/false));
   handlers->AddHandler(std::make_unique<ExtensionDeveloperModePolicyHandler>());
+  handlers->AddHandler(std::make_unique<SimplePolicyHandler>(
+      key::kExtensionInstallCloudPolicyChecksEnabled,
+      extensions::pref_names::kExtensionInstallCloudPolicyChecksEnabled,
+      base::Value::Type::BOOLEAN));
 
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 

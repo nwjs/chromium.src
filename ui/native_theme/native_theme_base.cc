@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "ui/native_theme/native_theme_base.h"
 
 #include <algorithm>
@@ -16,10 +11,12 @@
 
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/containers/span.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
+#include "base/numerics/safe_conversions.h"
 #include "build/build_config.h"
 #include "cc/paint/paint_flags.h"
 #include "cc/paint/paint_shader.h"
@@ -39,7 +36,6 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/image/image_skia.h"
-#include "ui/native_theme/common_theme.h"
 #include "ui/native_theme/features/native_theme_features.h"
 #include "ui/native_theme/native_theme.h"
 
@@ -268,8 +264,7 @@ void NativeThemeBase::Paint(cc::PaintCanvas* canvas,
       break;
     case kMenuItemBackground:
       PaintMenuItemBackground(canvas, color_provider, state, rect,
-                              std::get<MenuItemExtraParams>(extra),
-                              color_scheme);
+                              std::get<MenuItemExtraParams>(extra));
       break;
     case kProgressBar:
       PaintProgressBar(canvas, color_provider, state, rect,
@@ -950,24 +945,30 @@ void NativeThemeBase::PaintMenuList(cc::PaintCanvas* canvas,
   flags.setStyle(cc::PaintFlags::kStroke_Style);
   flags.setStrokeWidth(kMenuListArrowStrokeWidth);
 
+  // The arrow base is twice the arrow height, giving 45 degree sides.
+  static constexpr float kAspectRatio = 2.0f;
+
   if (menu_list.arrow_direction == ui::NativeTheme::ArrowDirection::kDown) {
-    float arrow_width = menu_list.arrow_size;
-    int arrow_height = arrow_width * 0.5;
+    int arrow_width = menu_list.arrow_size;
+    int arrow_height = base::ClampFloor(arrow_width / kAspectRatio);
     gfx::Rect arrow(menu_list.arrow_x, menu_list.arrow_y - (arrow_height / 2),
                     arrow_width, arrow_height);
     arrow.Intersect(rect);
 
     if (arrow_width != arrow.width() || arrow_height != arrow.height()) {
-      // The arrow is clipped after being constrained to the paint rect so we
-      // need to recalculate its size.
-      int height_clip = arrow_height - arrow.height();
+      // Shrink the arrow so it's not clipped. Pick the dimension that was
+      // clipped "more" (keeping in mind that each px of height is worth
+      // `kAspectRatio` px of width) and compute the other dimension based on
+      // that.
+      int height_clip = (arrow_height - arrow.height()) * kAspectRatio;
       int width_clip = arrow_width - arrow.width();
       if (height_clip > width_clip) {
-        arrow.set_width(arrow.height() * 1.6);
+        arrow.set_width(arrow.height() * kAspectRatio);
       } else {
-        arrow.set_height(arrow.width() * 0.6);
+        arrow.set_height(arrow.width() / kAspectRatio);
       }
-      arrow.set_y(menu_list.arrow_y - (arrow.height() / 2));
+      arrow.set_origin({menu_list.arrow_x + (arrow_width - arrow.width()) / 2,
+                        menu_list.arrow_y - arrow.height() / 2});
     }
 
     SkPath path;
@@ -977,23 +978,27 @@ void NativeThemeBase::PaintMenuList(cc::PaintCanvas* canvas,
     canvas->drawPath(path, flags);
   } else {
     // Arrow direction is either left or right
-    float arrow_height = menu_list.arrow_size;
-    int arrow_width = arrow_height * 0.5;
+    int arrow_height = menu_list.arrow_size;
+    int arrow_width = base::ClampFloor(arrow_height / kAspectRatio);
     gfx::Rect arrow(menu_list.arrow_x - (arrow_width / 2), menu_list.arrow_y,
                     arrow_width, arrow_height);
     arrow.Intersect(rect);
 
     if (arrow_width != arrow.width() || arrow_height != arrow.height()) {
-      // The arrow is clipped after being constrained to the paint rect so we
-      // need to recalculate its size.
+      // Shrink the arrow so it's not clipped. Pick the dimension that was
+      // clipped "more" (keeping in mind that each px of width is worth
+      // `kAspectRatio` px of height) and compute the other dimension based on
+      // that.
       int height_clip = arrow_height - arrow.height();
-      int width_clip = arrow_width - arrow.width();
+      int width_clip = (arrow_width - arrow.width()) * kAspectRatio;
       if (height_clip > width_clip) {
-        arrow.set_width(arrow.height() * 0.6);
+        arrow.set_width(arrow.height() / kAspectRatio);
       } else {
-        arrow.set_height(arrow.width() * 1.6);
+        arrow.set_height(arrow.width() * kAspectRatio);
       }
-      arrow.set_x(menu_list.arrow_x - (arrow.width() / 2));
+      arrow.set_origin(
+          {menu_list.arrow_x - arrow.width() / 2,
+           menu_list.arrow_y + (arrow_height - arrow.height()) / 2});
     }
 
     SkPath path;
@@ -1026,16 +1031,6 @@ void NativeThemeBase::PaintMenuPopupBackground(
   canvas->drawColor(
       SkColor4f::FromColor(GetColor(kMenuPopupBackgroundColor, color_scheme)),
       SkBlendMode::kSrc);
-}
-
-void NativeThemeBase::PaintMenuItemBackground(
-    cc::PaintCanvas* canvas,
-    const ColorProvider* color_provider,
-    State state,
-    const gfx::Rect& rect,
-    const MenuItemExtraParams& menu_item,
-    ColorScheme color_scheme) const {
-  // By default don't draw anything over the normal background.
 }
 
 void NativeThemeBase::PaintMenuSeparator(
@@ -1285,8 +1280,10 @@ SkColor NativeThemeBase::SaturateAndBrighten(SkScalar* hsv,
                                              SkScalar brighten_amount) const {
   SkScalar color[3];
   color[0] = hsv[0];
-  color[1] = std::clamp(hsv[1] + saturate_amount, SkScalar{0}, SK_Scalar1);
-  color[2] = std::clamp(hsv[2] + brighten_amount, SkScalar{0}, SK_Scalar1);
+  color[1] = std::clamp(UNSAFE_TODO(hsv[1]) + saturate_amount, SkScalar{0},
+                        SK_Scalar1);
+  color[2] = std::clamp(UNSAFE_TODO(hsv[2]) + brighten_amount, SkScalar{0},
+                        SK_Scalar1);
   return SkHSVToColor(color);
 }
 
@@ -1367,10 +1364,12 @@ SkColor NativeThemeBase::OutlineColor(SkScalar* hsv1, SkScalar* hsv2) const {
   //
   // The following code has been tested to look OK with all of the
   // default GTK themes.
-  SkScalar min_diff = std::clamp((hsv1[1] + hsv2[1]) * 1.2f, 0.28f, 0.5f);
-  SkScalar diff = std::clamp(fabsf(hsv1[2] - hsv2[2]) / 2, min_diff, 0.5f);
+  SkScalar min_diff = std::clamp(
+      (UNSAFE_TODO(hsv1[1]) + UNSAFE_TODO(hsv2[1])) * 1.2f, 0.28f, 0.5f);
+  SkScalar diff = std::clamp(
+      fabsf(UNSAFE_TODO(hsv1[2]) - UNSAFE_TODO(hsv2[2])) / 2, min_diff, 0.5f);
 
-  if (hsv1[2] + hsv2[2] > 1.0) {
+  if (UNSAFE_TODO(hsv1[2]) + UNSAFE_TODO(hsv2[2]) > 1.0) {
     diff = -diff;
   }
 

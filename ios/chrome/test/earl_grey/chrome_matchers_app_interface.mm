@@ -54,14 +54,15 @@
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_url_item.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/tab_switcher/tab_strip/ui/swift_constants_for_objective_c.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_constants.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/inactive_tabs/inactive_tabs_constants.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_constants.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_groups_constants.h"
-#import "ios/chrome/browser/tab_switcher/ui_bundled/tab_strip/ui/swift_constants_for_objective_c.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/buttons/buttons_constants.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/primary_toolbar_view.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/public/toolbar_constants.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/confirmation_alert/constants.h"
 #import "ios/chrome/common/ui/promo_style/constants.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
@@ -254,19 +255,47 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
                     foregroundColorMatcher, nil);
 }
 
-+ (id<GREYMatcher>)buttonWithBackgroundColor:(NSString*)colorName {
++ (id<GREYMatcher>)buttonWithPrimaryColor {
+  return grey_allOf([self buttonWithForegroundColor:kSolidButtonTextColor],
+                    [self buttonWithBackgroundColorNamed:kBlueColor], nil);
+}
+
++ (id<GREYMatcher>)buttonWithSecondaryColor {
+#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+  if (@available(iOS 26, *)) {
+    return grey_allOf([self buttonWithForegroundColor:kSolidBlackColor],
+                      [self buttonWithBackgroundColor:UIColor.clearColor], nil);
+  }
+#endif
+  return grey_allOf([self buttonWithForegroundColor:kBlueColor], nil);
+}
+
++ (id<GREYMatcher>)buttonWithEqualWeightColor {
+  return grey_allOf([self buttonWithForegroundColor:kBlueColor],
+                    [self buttonWithBackgroundColorNamed:kBlueHaloColor], nil);
+}
+
++ (id<GREYMatcher>)buttonWithBackgroundColorNamed:(NSString*)colorName {
+  return [self buttonWithBackgroundColor:[UIColor colorNamed:colorName]];
+}
+
++ (id<GREYMatcher>)buttonWithBackgroundColor:(UIColor*)color {
   GREYMatchesBlock matches = ^BOOL(id element) {
     if (![element isKindOfClass:UIButton.class]) {
       return NO;
     }
     UIButton* button = base::apple::ObjCCastStrict<UIButton>(element);
+#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+    if (@available(iOS 26, *)) {
+      return CGColorEqualToColor(color.CGColor, button.tintColor.CGColor);
+    }
+#endif
     return CGColorEqualToColor(
-        [UIColor colorNamed:colorName].CGColor,
-        button.configuration.background.backgroundColor.CGColor);
+        color.CGColor, button.configuration.background.backgroundColor.CGColor);
   };
 
   NSString* descriptionString =
-      [NSString stringWithFormat:@"Background color %@", colorName];
+      [NSString stringWithFormat:@"Background color %@", color];
 
   GREYDescribeToBlock describe = ^(id<GREYDescription> description) {
     [description appendText:descriptionString];
@@ -1804,16 +1833,8 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 }
 
 + (id<GREYMatcher>)closeTabGroupButton {
-  if (IsContainedTabGroupEnabled()) {
-    return grey_allOf(grey_accessibilityID(kTabGroupCloseButtonIdentifier),
-                      grey_sufficientlyVisible(), nil);
-  } else {
-    return grey_allOf(
-        [ChromeMatchersAppInterface
-            buttonWithAccessibilityLabel:l10n_util::GetNSString(
-                                             IDS_IOS_ICON_ARROW_BACK)],
-        grey_kindOfClassName(@"UIAccessibilityBackButtonElement"), nil);
-  }
+  return grey_allOf(grey_accessibilityID(kTabGroupCloseButtonIdentifier),
+                    grey_sufficientlyVisible(), nil);
 }
 
 + (id<GREYMatcher>)tabGroupActivitySummaryCell {

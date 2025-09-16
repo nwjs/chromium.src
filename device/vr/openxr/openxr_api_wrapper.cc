@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <type_traits>
 
 #include "base/check.h"
 #include "base/containers/contains.h"
@@ -33,6 +34,7 @@
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/openxr/src/include/openxr/openxr.h"
 #include "ui/gfx/geometry/point3_f.h"
 #include "ui/gfx/geometry/quaternion.h"
@@ -145,7 +147,6 @@ OpenXrApiWrapper::~OpenXrApiWrapper() {
 
 void OpenXrApiWrapper::Reset() {
   SetXrSessionState(XR_SESSION_STATE_UNKNOWN);
-  anchor_manager_.reset();
   depth_sensor_.reset();
   light_estimator_.reset();
   scene_understanding_manager_.reset();
@@ -426,7 +427,9 @@ OpenXrApiWrapper::PickEnvironmentBlendModeForSession(
 }
 
 OpenXrAnchorManager* OpenXrApiWrapper::GetAnchorManager() {
-  return anchor_manager_.get();
+  return scene_understanding_manager_
+             ? scene_understanding_manager_->GetAnchorManager()
+             : nullptr;
 }
 
 OpenXrHitTestManager* OpenXrApiWrapper::GetHitTestManager() {
@@ -522,9 +525,13 @@ XrResult OpenXrApiWrapper::EnableSupportedFeatures(
         break;
 
       case mojom::XRSessionFeature::HIT_TEST:
-        scene_understanding_manager_ =
-            extension_helper.CreateSceneUnderstandingManager(session_,
-                                                             local_space_);
+        if (scene_understanding_manager_ == nullptr) {
+          scene_understanding_manager_ =
+              extension_helper.CreateSceneUnderstandingManager(
+                  this, session_, local_space_,
+                  session_options_->required_features,
+                  session_options_->optional_features);
+        }
         is_enabled =
             scene_understanding_manager_ != nullptr &&
             scene_understanding_manager_->GetHitTestManager() != nullptr;
@@ -537,9 +544,17 @@ XrResult OpenXrApiWrapper::EnableSupportedFeatures(
         break;
 
       case mojom::XRSessionFeature::ANCHORS:
-        anchor_manager_ =
-            extension_helper.CreateAnchorManager(session_, local_space_);
-        is_enabled = anchor_manager_ != nullptr;
+        // Anchors are managed by the scene understanding manager.
+        if (scene_understanding_manager_ == nullptr) {
+          scene_understanding_manager_ =
+              extension_helper.CreateSceneUnderstandingManager(
+                  this, session_, local_space_,
+                  session_options_->required_features,
+                  session_options_->optional_features);
+        }
+        is_enabled =
+            scene_understanding_manager_ != nullptr &&
+            scene_understanding_manager_->GetAnchorManager() != nullptr;
         break;
 
       case mojom::XRSessionFeature::DEPTH:
@@ -619,6 +634,8 @@ XrResult OpenXrApiWrapper::InitSession(
     VisibilityChangedCallback visibility_changed_callback) {
   DCHECK(IsInitialized());
   DCHECK(options);
+
+  extension_helper_ = &extension_helper;
 
   session_options_ = std::move(options);
   on_session_started_callback_ = std::move(on_session_started_callback);
@@ -1377,6 +1394,38 @@ std::vector<mojom::XRInputSourceStatePtr> OpenXrApiWrapper::GetInputState() {
   return input_helper_->GetInputState(GetPredictedDisplayTime());
 }
 
+void OpenXrApiWrapper::PollFuture(
+    XrFutureEXT future,
+    base::OnceCallback<void(XrFutureEXT)> on_ready_callback) {
+  pending_futures_.emplace(future, std::move(on_ready_callback));
+}
+
+void OpenXrApiWrapper::ProcessPendingFutures() {
+  if (pending_futures_.empty()) {
+    return;
+  }
+
+  auto it = pending_futures_.begin();
+  while (it != pending_futures_.end()) {
+    XrFuturePollInfoEXT poll_info = {XR_TYPE_FUTURE_POLL_INFO_EXT};
+    poll_info.future = it->first;
+    XrFuturePollResultEXT poll_result = {XR_TYPE_FUTURE_POLL_RESULT_EXT};
+    XrResult result = extension_helper_->ExtensionMethods().xrPollFutureEXT(
+        instance_, &poll_info, &poll_result);
+
+    if (result == XR_SUCCESS &&
+        poll_result.state == XR_FUTURE_STATE_READY_EXT) {
+      std::move(it->second).Run(it->first);
+      pending_futures_.erase(it++);
+    } else if (XR_FAILED(result)) {
+      std::move(it->second).Run(XR_NULL_FUTURE_EXT);
+      pending_futures_.erase(it++);
+    } else {
+      it++;
+    }
+  }
+}
+
 void OpenXrApiWrapper::EnsureEventPolling() {
   // Events are usually processed at the beginning of a frame. When frames
   // aren't being requested, this timer loop ensures OpenXR events are
@@ -1403,6 +1452,8 @@ XrResult OpenXrApiWrapper::ProcessEvents() {
   if (!HasInstance()) {
     return XR_ERROR_INSTANCE_LOST;
   }
+
+  ProcessPendingFutures();
 
   // If we've received an exit gesture from any of the input sources, end the
   // session.
@@ -1483,6 +1534,13 @@ XrResult OpenXrApiWrapper::ProcessEvents() {
           reinterpret_cast<XrEventDataInteractionProfileChanged*>(&event_data);
       DCHECK_EQ(interaction_profile_changed->session, session_);
       xr_result = input_helper_->OnInteractionProfileChanged();
+    } else if (event_data.type ==
+               XR_TYPE_EVENT_DATA_SPATIAL_DISCOVERY_RECOMMENDED_EXT) {
+      if (scene_understanding_manager_) {
+        scene_understanding_manager_->OnDiscoveryRecommended(
+            reinterpret_cast<const XrEventDataSpatialDiscoveryRecommendedEXT*>(
+                &event_data));
+      }
     } else {
       DVLOG(1) << __func__ << " Unhandled event type: " << event_data.type;
       TRACE_EVENT_INSTANT1("xr", "UnandledXrEvent", TRACE_EVENT_SCOPE_THREAD,

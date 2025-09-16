@@ -669,6 +669,7 @@ chromium-metrics-reviews@google.com.
   <int value="157" label="BackForwardCacheSettings.getTimeoutInSeconds"/>
   <int value="158" label="BackForwardCacheSettings.getMaxPagesInCache"/>
   <int value="159" label="Profile.preconnect"/>
+  <int value="160" label="WebSettingsCompat.setHyperlinkContextMenuItems"/>
 <!-- LINT.ThenChange(/android_webview/support_library/java/src/org/chromium/support_lib_glue/SupportLibWebViewChromiumFactory.java:ApiCall) -->
 
 </enum>
@@ -1350,6 +1351,8 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Intent scheme"/>
   <int value="4" label="MDoc scheme"/>
   <int value="5" label="openid4vp"/>
+  <int value="6" label="OpenId4Vci"/>
+  <int value="7" label="Haip"/>
 </enum>
 
 <enum name="NightMode">

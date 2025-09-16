@@ -81,6 +81,7 @@
 <translation id="2008474315282236005">การดำเนินการนี้จะลบ 1 รายการออกจากอุปกรณ์นี้ หากต้องการดึงข้อมูลภายหลัง ให้ลงชื่อเข้าใช้ Chromium ด้วย <ph name="USER_EMAIL" /></translation>
 <translation id="2018879682492276940">การติดตั้งไม่สำเร็จ โปรดลองอีกครั้ง</translation>
 <translation id="2020032459870799438"><ph name="BEGIN_LINK" />ลงชื่อเข้าใช้ Chromium<ph name="END_LINK" /> เพื่อตรวจสอบว่ารหัสผ่านรายการอื่นไม่ได้รับผลกระทบจากการละเมิดข้อมูลและปัญหาด้านความปลอดภัยอื่นๆ</translation>
+<translation id="2039417478970545937">การตั้งค่า</translation>
 <translation id="2049376729098081731">เลือกว่าจะรวมประวัติการเข้าชม Chromium เพื่อรับประสบการณ์ที่ปรับเปลี่ยนในแบบของคุณมากขึ้นในบริการของ Google หรือไม่</translation>
 <translation id="2054039611381840095">คุณจะต้องใช้ macOS 12 ขึ้นไปเพื่อรับการอัปเดต Chromium ในอนาคต คอมพิวเตอร์เครื่องนี้ใช้ macOS 11</translation>
 <translation id="2086476982681781442">Chromium บล็อกการดาวน์โหลดนี้เนื่องจากไฟล์มีการหลอกลวงและอาจทำการเปลี่ยนแปลงที่ไม่คาดคิดกับอุปกรณ์</translation>
@@ -99,6 +100,7 @@
 <translation id="2238130810669087193">ลงชื่อเข้าใช้ Chromium เพื่อรับที่อยู่และข้อมูลอื่นๆ ในทุกอุปกรณ์ ระบบจะบันทึกที่อยู่นี้ไว้ในบัญชี Google หลังจากที่คุณลงชื่อเข้าใช้</translation>
 <translation id="2241627712206172106">ถ้าคุณให้ผู้อื่นใช้คอมพิวเตอร์ร่วมด้วย เพื่อนๆ และครอบครัวของคุณสามารถท่องเว็บแยกกันได้และตั้งค่า Chromium ได้ตามที่พวกเขาต้องการ</translation>
 <translation id="2287771843518581140">{NUM_TABS,plural, =1{Chromium แนะนำให้หยุดแท็บที่ทำให้เบราว์เซอร์ทำงานช้าลงชั่วคราว}other{Chromium แนะนำให้หยุดแท็บที่ทําให้เบราว์เซอร์ทำงานช้าลงชั่วคราว}}</translation>
+<translation id="2307973900865360088">ปักหมุดไว้ที่แถบแอป</translation>
 <translation id="2313870531055795960">ตรวจสอบ URL กับรายการเว็บไซต์ที่ไม่ปลอดภัยซึ่งจัดเก็บไว้ใน Chromium หากเว็บไซต์พยายามขโมยรหัสผ่าน หรือคุณดาวน์โหลดไฟล์ที่เป็นอันตราย Chromium อาจส่ง URL รวมถึงเนื้อหาบางส่วนในหน้าไปยัง Google Safe Browsing ด้วย</translation>
 <translation id="2343156876103232566">หากต้องการส่งหมายเลขจากที่นี่ไปยังโทรศัพท์ Android ให้ลงชื่อเข้าใช้ Chromium ในอุปกรณ์ทั้งสองเครื่อง</translation>
 <translation id="2359808026110333948">ต่อไป</translation>
@@ -187,10 +189,12 @@
 <translation id="3313189106987092621">Chromium จะแจ้งเตือนคุณก่อนโหลดเว็บไซต์โดยใช้การเชื่อมต่อที่ไม่ปลอดภัย</translation>
 <translation id="3316771292331273802">คุณจะออกจากระบบของเว็บไซต์ส่วนใหญ่เมื่อปิดหน้าต่าง Chromium ทั้งหมด ยกเว้นบัญชี Google ที่ลงชื่อเข้าใช้ Chromium หากต้องการให้เว็บไซต์จดจำคุณ ให้<ph name="SETTINGS_LINK" /></translation>
 <translation id="3352986031709923790">มุมขวาบนของพื้นที่การค้นหา: ขวา <ph name="RIGHT" />% บน <ph name="TOP" />%</translation>
+<translation id="3366305173356742781">ข้อมูล Chromium ในบัญชี</translation>
 <translation id="3369405342922656244">ค้นหาหน้านี้ด้วยการค้นหารูปภาพ</translation>
 <translation id="3387527074123400161">Chromium OS</translation>
 <translation id="3406848076815591792">เปลี่ยนไปใช้โปรไฟล์ Chromium ที่มีอยู่ไหม</translation>
 <translation id="3412460710772753638">ในเครื่องมือจัดการรหัสผ่านบนอุปกรณ์นี้</translation>
+<translation id="3461644266919055473">กำลังปรับแต่ง Chromium ในแบบของคุณ...</translation>
 <translation id="347328004046849135">Chromium จะแจ้งให้ทราบเมื่อคุณลงชื่อเข้าใช้ด้วยรหัสผ่านที่ไม่รัดกุม</translation>
 <translation id="3474745554856756813">การดำเนินการนี้จะลบ <ph name="ITEMS_COUNT" /> รายการออกจากอุปกรณ์นี้ หากต้องการดึงข้อมูลภายหลัง ให้ลงชื่อเข้าใช้ Chromium ด้วย <ph name="USER_EMAIL" /></translation>
 <translation id="3497319089134299931"><ph name="SHORTCUT" /> จะสลับไปมาระหว่างโปรไฟล์ Chromium ได้</translation>
@@ -205,6 +209,7 @@
 <translation id="364817392622123556">{COUNT,plural, =0{อัปเดตใหม่ของ Chromium พร้อมให้ใช้งานแล้วและระบบจะใช้อัปเดตดังกล่าวเมื่อคุณเปิด Chromium ขึ้นมาใหม่}=1{อัปเดตใหม่ของ Chromium พร้อมให้ใช้งานแล้วและระบบจะใช้อัปเดตดังกล่าวเมื่อคุณเปิด Chromium ขึ้นมาใหม่ หน้าต่างที่ไม่ระบุตัวตนจะไม่เปิดให้อีก}other{อัปเดตใหม่ของ Chromium พร้อมให้ใช้งานแล้วและระบบจะใช้อัปเดตดังกล่าวเมื่อคุณเปิด Chromium ขึ้นมาใหม่ หน้าต่างที่ไม่ระบุตัวตนจำนวน # หน้าต่างจะไม่เปิดให้อีก}}</translation>
 <translation id="3651803019964686660">หากต้องการส่งหมายเลขจาก <ph name="ORIGIN" /> ไปยังโทรศัพท์ Android ให้ลงชื่อเข้าใช้ Chromium ในอุปกรณ์ทั้งสองเครื่อง</translation>
 <translation id="3667616615096815454">ติดตั้งไม่ได้เนื่องจากเซิร์ฟเวอร์ไม่รู้จักแอปพลิเคชัน</translation>
+<translation id="3675854891107786059">ใช้<ph name="BEGIN_LINK" />รหัสผ่านของคุณเอง<ph name="END_LINK" />ในการเข้ารหัสข้อมูล Chromium ทั้งหมดในบัญชี Google ที่อยู่และวิธีการชำระเงินจาก Google Pay จะไม่มีการเข้ารหัส ประวัติการท่องเว็บจาก Chromium จะไม่ซิงค์</translation>
 <translation id="3685209450716071127">Chromium ตรวจสอบรหัสผ่านของคุณไม่ได้ โปรดลองตรวจสอบการเชื่อมต่ออินเทอร์เน็ต</translation>
 <translation id="370962675267501463">{COUNT,plural, =0{ผู้ดูแลระบบขอให้คุณเปิด Chromium ขึ้นมาใหม่เพื่อใช้การอัปเดตนี้}=1{ผู้ดูแลระบบขอให้คุณเปิด Chromium ขึ้นมาใหม่เพื่อใช้การอัปเดตนี้ หน้าต่างที่ไม่ระบุตัวตนจะไม่เปิดให้อีก}other{ผู้ดูแลระบบขอให้คุณเปิด Chromium ขึ้นมาใหม่เพื่อใช้การอัปเดตนี้ หน้าต่างที่ไม่ระบุตัวตนจำนวน # หน้าต่างจะไม่เปิดให้อีก}}</translation>
 <translation id="3713809861844741608">เปิดลิงก์ใน Chromium แท็บใหม่</translation>
@@ -305,10 +310,12 @@
 <translation id="494490797786467921">คลิกเพื่อปิดกล่องโต้ตอบการลงชื่อเข้าใช้ Chromium</translation>
 <translation id="4950660488495335294">โปรไฟล์ Chromium ช่วยให้คุณแยกข้อมูลต่างๆ ใน Chromium ออกจากกันได้ สร้างโปรไฟล์สำหรับเพื่อนและครอบครัว หรือแยกการทำงานออกจากความบันเทิง</translation>
 <translation id="4987820182225656817">ผู้เยี่ยมชมสามารถใช้ Chromium โดยไม่ทิ้งร่องรอยไว้</translation>
+<translation id="4992938037305302429">บัญชีของคุณใน Chromium</translation>
 <translation id="4994636714258228724">เพิ่มตัวคุณเองใน Chromium</translation>
 <translation id="5123973130450702873">Chromium ต้องการสิทธิ์ในการติดตามการเคลื่อนไหวของมือ</translation>
 <translation id="5141988424377517949">คุณไม่ได้เข้าชมเมื่อเร็วๆ นี้ Chromium นำสิทธิ์เข้าถึง<ph name="PERMISSION_1" /> <ph name="PERMISSION_2" /> และ<ph name="PERMISSION_3" />ออกแล้ว</translation>
 <translation id="5174969993834422967">คุณมักจะบล็อกการแจ้งเตือน หากต้องการให้เว็บไซต์ส่งการแจ้งเตือน ให้คลิกไอคอนการแจ้งเตือนที่มุมขวาของแถบตําแหน่ง</translation>
+<translation id="5174983315706567306">มีพื้นที่ในดิสก์ไม่เพียงพอ</translation>
 <translation id="5187123684706427865">บัญชี Chromium ต้องมีการตรวจสอบสิทธิ์อีกครั้ง</translation>
 <translation id="5224391634244552924">ไม่มีรหัสผ่านที่บันทึกไว้ Chromium จะตรวจสอบรหัสผ่านได้เมื่อคุณบันทึกรหัสผ่านไว้</translation>
 <translation id="5231355151045086930">ออกจากระบบ Chromium</translation>
@@ -382,6 +389,7 @@
 <translation id="6072463441809498330">ทำให้ Chromium เร็วขึ้น</translation>
 <translation id="6096348254544841612">ปรับแต่งและควบคุม Chromium มีการอัปเดต</translation>
 <translation id="6107893135096467929">เปิด • Chromium ยืนยันไม่ได้ว่าส่วนขยายนี้มาจากไหน</translation>
+<translation id="611228897408671387">บัญชีของคุณใน Chromium</translation>
 <translation id="6119438414301547735">อนุญาตให้ส่วนขยายแสดงคำขอเข้าถึงในแถบเครื่องมือ Chromium</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> เป็นอันตราย Chromium จึงบล็อกไว้</translation>
 <translation id="6132897690380286411">Chromium จะปิดและลบข้อมูลเร็วๆ นี้</translation>
@@ -436,6 +444,7 @@
 <translation id="6598877126913850652">ไปที่การตั้งค่าการแจ้งเตือน Chromium</translation>
 <translation id="6600016381025017075">ค้นหาอะไรก็ได้ในหน้านี้</translation>
 <translation id="6613594504749178791">การเปลี่ยนแปลงของคุณจะมีผลในครั้งถัดไปที่คุณเปิด Chromium ขึ้นอีก</translation>
+<translation id="6648212540664651655">ดำเนินการต่อจากที่ค้างไว้: Chromium ได้คืนค่าแท็บจากการเข้าชมล่าสุด คุณปิดตัวเลือกนี้ได้ใน</translation>
 <translation id="665732753414869868">Chromium ต้องการสิทธิ์เข้าถึงกล้องเพื่อสร้างแผนที่ 3 มิติของสิ่งที่อยู่รอบตัวคุณ</translation>
 <translation id="6669284030132180248">หากบันทึกบุ๊กมาร์กไว้ในบัญชี Google ด้วย คุณก็จะติดตามราคาผลิตภัณฑ์ใน Chromium และรับการแจ้งเตือนเมื่อราคาต่ำลงได้</translation>
 <translation id="6676384891291319759">เข้าถึงอินเทอร์เน็ต</translation>
@@ -481,6 +490,7 @@
 <translation id="718435575166326686">Chromium ต้องการสิทธิ์เข้าถึงกล้องสำหรับเว็บไซต์นี้</translation>
 <translation id="7196312274710523067">เปิด Chromium ไม่ได้ โปรดลองอีกครั้ง</translation>
 <translation id="7197677400338048821">Chromium ตรวจสอบรหัสผ่านของคุณไม่ได้ โปรดรอ 24 ชั่วโมงแล้วลองอีกครั้ง</translation>
+<translation id="7213008767289637091">ปักหมุด Chromium ไว้ที่แถบแอปเพื่อให้เข้าถึงได้อย่างรวดเร็วทุกเมื่อ</translation>
 <translation id="7213407614656404070">ใช้ Chromium ทุกครั้งที่คุณคลิกลิงก์ในข้อความ เอกสาร และแอปอื่นๆ</translation>
 <translation id="7223968959479464213">ตัวจัดการงาน - Chromium</translation>
 <translation id="7246575524853130370">ความสนใจของคุณตามที่คาดคะเนโดย Chromium</translation>
@@ -494,10 +504,12 @@
 Chromium ไม่สามารถกู้คืนการตั้งค่าของคุณได้</translation>
 <translation id="7339898014177206373">หน้าต่างใหม่</translation>
 <translation id="734373864078049451">เว็บของคุณ บุ๊กมาร์ก และข้อมูลอื่นๆ ใน Chromium พร้อมใช้แล้วที่นี่</translation>
+<translation id="7347827960336370838">เฉพาะผู้ที่มีรหัสผ่านของคุณเท่านั้นที่จะอ่านข้อมูลที่เข้ารหัสได้ Google จะไม่ได้รับหรือจัดเก็บรหัสผ่านดังกล่าว หากลืมรหัสผ่านหรือต้องการเปลี่ยนการตั้งค่านี้ คุณจะต้อง<ph name="BEGIN_LINK" />ลบข้อมูล Chromium ในบัญชี<ph name="END_LINK" /></translation>
 <translation id="7349591376906416160">ผู้ดูแลระบบได้กำหนดค่าให้ Chromium เปิด <ph name="ALTERNATIVE_BROWSER_NAME" /> เพื่อเข้าถึง <ph name="TARGET_URL_HOSTNAME" /></translation>
 <translation id="7352651011704765696">มีข้อผิดพลาดเกิดขึ้น</translation>
 <translation id="7376384068949534168">คุณไม่ได้เข้าชมเมื่อเร็วๆ นี้ Chromium นำสิทธิ์เข้าถึง<ph name="PERMISSION_1" />และ<ph name="PERMISSION_2" />ออกแล้ว</translation>
 <translation id="7384121030444253939">ระบบไม่รองรับส่วนขยายนี้แล้ว Chromium แนะนำให้คุณนำออกแทน</translation>
+<translation id="7413153308467572558">ดำเนินการต่อจากที่ค้างไว้: Chromium จะคืนค่าแท็บทุกครั้งที่คุณรีสตาร์ท หากต้องการปิดตัวเลือกนี้ ให้ไปที่</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
 <translation id="7450541714075000668">คัดลอกข้อความแล้ว</translation>
 <translation id="7451052299415159299">Chromium ต้องการสิทธิ์เข้าถึงกล้องถ่ายรูปของคุณสำหรับเว็บไซต์นี้</translation>
@@ -532,6 +544,7 @@ Chromium ไม่สามารถกู้คืนการตั้งค�
 <translation id="7859018312476869945">เมื่อคุณพิมพ์ในแถบที่อยู่หรือช่องค้นหา Chromium จะส่งสิ่งที่คุณพิมพ์ไปยังเครื่องมือค้นหาเริ่มต้นเพื่อให้ได้รับการแนะนำที่ดียิ่งขึ้น ตัวเลือกนี้จะปิดไว้ในโหมดไม่ระบุตัวตน</translation>
 <translation id="7867198900892795913">Chromium อัปเดตเป็นเวอร์ชันล่าสุดไม่ได้ คุณจึงไม่ได้รับฟีเจอร์ใหม่และการแก้ไขด้านความปลอดภัย</translation>
 <translation id="7872446069773932638">กำลังดาวน์โหลด... เหลืออีก <ph name="SECONDS" /> วินาที</translation>
+<translation id="7873537467422636035">หากลืมรหัสผ่านหรือต้องการเปลี่ยนการตั้งค่านี้ ให้<ph name="BEGIN_LINK" />ลบข้อมูล Chromium ในบัญชี<ph name="END_LINK" /></translation>
 <translation id="7877212753140190672">ถามเกี่ยวกับรูปภาพนี้</translation>
 <translation id="7888981273428720788">ตั้ง Chromium เป็นเบราว์เซอร์เริ่มต้น</translation>
 <translation id="7934340546140346950">Chromium จะอัปเกรดการเชื่อมต่อที่ไม่ปลอดภัยเป็น HTTPS โดยอัตโนมัติเมื่อเป็นไปได้</translation>
@@ -582,6 +595,7 @@ Chromium ไม่สามารถกู้คืนการตั้งค�
 <translation id="8458614432758743027">Chromium ต้องใช้ Windows 10 ขึ้นไป</translation>
 <translation id="8463672209299734063">ไม่บังคับ: ช่วยปรับปรุงฟีเจอร์และประสิทธิภาพของ Chromium OS โดยการส่งข้อมูลการวินิจฉัยและการใช้งานให้ Google โดยอัตโนมัติ</translation>
 <translation id="8471947159125090285">โปรดยืนยันว่าเป็นคุณเพื่อใช้และบันทึกข้อมูล Chromium ในบัญชี Google</translation>
+<translation id="8482493977473846331">แสดงข้อความแจ้งให้ลงชื่อเข้าใช้ Chromium</translation>
 <translation id="8493179195440786826">Chromium ล้าสมัย</translation>
 <translation id="8522801943730206384">Chromium จะตรวจสอบรหัสผ่านได้เมื่อคุณบันทึกรหัสผ่านไว้</translation>
 <translation id="8555465886620020932">ข้อผิดพลาดในการบริการ: <ph name="SERVICE_ERROR" /></translation>
@@ -599,10 +613,10 @@ Chromium ไม่สามารถกู้คืนการตั้งค�
 <translation id="8712637175834984815">รับทราบ</translation>
 <translation id="8719993436687031146">ลงชื่อเข้าใช้ Chromium ไหม</translation>
 <translation id="8747073452963259673">มุมซ้ายล่างของพื้นที่การค้นหา: ซ้าย <ph name="LEFT" />% ล่าง <ph name="BOTTOM" />%</translation>
-<translation id="8768722695577490596">คุณลบรหัสผ่านได้ภายนอก Chromium เท่านั้น</translation>
 <translation id="878572486461146056">ข้อผิดพลาดในการติดตั้ง: ผู้ดูแลเครือข่ายของคุณใช้นโยบายระดับกลุ่มซึ่งป้องกันการติดตั้ง: <ph name="INSTALL_ERROR" /></translation>
 <translation id="8796602469536043152">Chromium ต้องการสิทธิ์เข้าถึงไมโครโฟนและกล้องถ่ายรูปของคุณสำหรับเว็บไซต์นี้</translation>
 <translation id="8818550178040858407">ลงชื่อเข้าใช้ Chromium ไหม</translation>
+<translation id="8823401858233292222">ตั้ง Chromium เป็นเบราว์เซอร์เริ่มต้นและปักหมุดไว้ที่แถบงาน</translation>
 <translation id="8826492472752484139">คลิก "เครื่องมือจัดการรหัสผ่าน"</translation>
 <translation id="8833697763442816810">ระบบ Chromium OS</translation>
 <translation id="8852026904190808918">ระบบจะใช้ภาษานี้เพื่อแสดงเมนู การตั้งค่า การแจ้งเตือน และข้อความอื่นๆ ใน Chromium</translation>
@@ -628,6 +642,7 @@ Chromium ไม่สามารถกู้คืนการตั้งค�
 <translation id="911206726377975832">ลบข้อมูลการท่องเว็บด้วยหรือไม่</translation>
 <translation id="9134482777260927479">ความช่วยเหลือเรื่องการบ้าน</translation>
 <translation id="9148058034647219655">ออก</translation>
+<translation id="9155105544013854680">ดำเนินการต่อจากที่ค้างไว้: Chromium สามารถคืนค่าแท็บทุกครั้งที่คุณรีสตาร์ท หากต้องการเปิดตัวเลือกนี้ ให้ไปที่</translation>
 <translation id="9158494823179993217">ผู้ดูแลระบบของคุณกำหนดค่าให้ Chromium เปิดเบราว์เซอร์สำรองเพื่อเข้าถึง <ph name="TARGET_URL_HOSTNAME" /></translation>
 <translation id="9185526690718004400">เปิดอีกครั้งเพื่ออัปเดต Chromium</translation>
 <translation id="9190841055450128916">Chromium (mDNS-In)</translation>

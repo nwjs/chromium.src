@@ -21,18 +21,13 @@ namespace autofill::features {
 namespace {
 
 const base::Feature* const kFeaturesExposedToJava[] = {
-    &kAutofillVirtualViewStructureAndroidInCct,
     &kAndroidAutofillLazyFrameworkWrapper,
-    &kAutofillVirtualViewStructureAndroidPasskeyLongPress};
+    &kAutofillVirtualViewStructureAndroidPasskeyLongPress,
+    &kAndroidAutofillForwardIframeOrigin,
+    &kAndroidAutofillUpdateContextForWebContents,
+    &kAndroidAutofillImprovedVisibilityDetection};
 
 }  // namespace
-
-// Safe-guard for a crucial fix that prevented consistent use of 3P in CCTs.
-// It's ineffective when AutofillVirtualViewStructureAndroid is disabled.
-// TODO: crbug.com/409579377 - Delete after M140.
-BASE_FEATURE(kAutofillVirtualViewStructureAndroidInCct,
-             "AutofillVirtualViewStructureAndroidInCct",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, at least one passkey must be present to forward passkey requests
 // to the Android Credential Manager. Users can then always (re-)trigger the
@@ -48,6 +43,24 @@ BASE_FEATURE(kAutofillVirtualViewStructureAndroidPasskeyLongPress,
 // issues.
 BASE_FEATURE(kAndroidAutofillLazyFrameworkWrapper,
              "AndroidAutofillLazyFrameworkWrapper",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, the origin of a field is forwarded to the Autofill framework if
+// it differs from the origin of the main frame.
+BASE_FEATURE(kAndroidAutofillForwardIframeOrigin,
+             "AndroidAutofillForwardIframeOrigin",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, an additional custom "visible" attribute in each node's HtmlInfo
+// is set and sent to the framework.
+BASE_FEATURE(kAndroidAutofillImprovedVisibilityDetection,
+             "AndroidAutofillImprovedVisibilityDetection",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, the native autofill provider is updated when the web contents
+// change.
+BASE_FEATURE(kAndroidAutofillUpdateContextForWebContents,
+             "AndroidAutofillUpdateContextForWebContents",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 static jlong JNI_AndroidAutofillFeatures_GetFeature(JNIEnv* env, jint ordinal) {

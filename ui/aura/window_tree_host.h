@@ -31,6 +31,7 @@
 #include "ui/gfx/overlay_transform.h"
 
 namespace gfx {
+class DisplayColorSpacesRef;
 class Point;
 class Rect;
 class Size;
@@ -373,6 +374,9 @@ class AURA_EXPORT WindowTreeHost : public ui::ImeKeyEventDispatcher,
   void OnDisplayMetricsChanged(const display::Display& display,
                                uint32_t metrics) override;
 
+  void OnDisplayColorSpacesChanged(
+      scoped_refptr<gfx::DisplayColorSpacesRef> color_spaces);
+
   // Begins capturing system key events.  Returns true if successful.
   virtual bool CaptureSystemKeyEventsImpl(
       std::optional<base::flat_set<ui::DomCode>> dom_codes) = 0;
@@ -428,8 +432,10 @@ class AURA_EXPORT WindowTreeHost : public ui::ImeKeyEventDispatcher,
                             const gfx::Point& host_location);
 
   // Overridden from CompositorObserver:
-  void OnCompositingAckDeprecated(ui::Compositor* compositor) final;
-  void OnCompositingChildResizing(ui::Compositor* compositor) final;
+#if BUILDFLAG(IS_CHROMEOS)
+  void OnCompositingChildResizing() final;
+  void OnChildResizeActivated() final;
+#endif
   void OnFrameSinksToThrottleUpdated(
       const base::flat_set<viz::FrameSinkId>& ids) final;
   void OnSetPreferredRefreshRate(ui::Compositor*,
@@ -499,6 +505,10 @@ class AURA_EXPORT WindowTreeHost : public ui::ImeKeyEventDispatcher,
   bool native_window_occlusion_enabled_ = false;
 
   bool accelerated_widget_made_visible_ = false;
+
+  // The explicitly set display color spaces. If set, this takes precedence over
+  // the color spaces associated with the display for this host.
+  scoped_refptr<const gfx::DisplayColorSpacesRef> display_color_spaces_;
 
   // Number of VideoCaptureLocks that have been created and not destroyed.
   // This is only used when occlusion tracking is always enabled.

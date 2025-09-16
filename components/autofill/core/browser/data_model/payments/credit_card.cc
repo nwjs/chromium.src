@@ -631,10 +631,11 @@ void CreditCard::GetMatchingTypes(const std::u16string& text,
     }
   }
 
-  int month = 0;
-  if (data_util::ParseExpirationMonth(text, app_locale, &month) &&
-      month == expiration_month_) {
-    matching_types->insert(CREDIT_CARD_EXP_MONTH);
+  if (std::optional<int> parsed_month =
+          data_util::ParseMonthFromString(text, app_locale)) {
+    if (*parsed_month == expiration_month_) {
+      matching_types->insert(CREDIT_CARD_EXP_MONTH);
+    }
   }
 }
 
@@ -659,11 +660,17 @@ void CreditCard::SetInfoForMonthInputType(const std::u16string& value) {
 }
 
 void CreditCard::SetExpirationMonth(int expiration_month) {
-  data_util::SetExpirationMonth(expiration_month, &expiration_month_);
+  if (std::optional<int> parsed_month =
+          data_util::GetExpirationMonth(expiration_month)) {
+    expiration_month_ = *parsed_month;
+  }
 }
 
 void CreditCard::SetExpirationYear(int expiration_year) {
-  data_util::SetExpirationYear(expiration_year, &expiration_year_);
+  if (std::optional<int> parsed_year =
+          data_util::GetExpirationYear(expiration_year)) {
+    expiration_year_ = *parsed_year;
+  }
 }
 
 void CreditCard::SetNickname(const std::u16string& nickname) {
@@ -828,6 +835,15 @@ int CreditCard::Compare(const CreditCard& credit_card) const {
       static_cast<int>(credit_card.card_info_retrieval_enrollment_state_)) {
     return 1;
   }
+
+  if (static_cast<int>(card_creation_source_) <
+      static_cast<int>(credit_card.card_creation_source_)) {
+    return -1;
+  }
+  if (static_cast<int>(card_creation_source_) >
+      static_cast<int>(credit_card.card_creation_source_)) {
+    return 1;
+  }
   return 0;
 }
 
@@ -940,11 +956,20 @@ bool CreditCard::HasValidExpirationDate() const {
 
 bool CreditCard::SetExpirationMonthFromString(const std::u16string& text,
                                               const std::string& app_locale) {
-  return data_util::ParseExpirationMonth(text, app_locale, &expiration_month_);
+  if (std::optional<int> parsed_month =
+          data_util::ParseMonthFromString(text, app_locale)) {
+    expiration_month_ = *parsed_month;
+    return true;
+  }
+  return false;
 }
 
 bool CreditCard::SetExpirationYearFromString(const std::u16string& text) {
-  return data_util::ParseExpirationYear(text, &expiration_year_);
+  if (std::optional<int> parsed_year = data_util::ParseYearFromString(text)) {
+    expiration_year_ = *parsed_year;
+    return true;
+  }
+  return false;
 }
 
 void CreditCard::SetExpirationDateFromString(const std::u16string& text) {
@@ -1206,7 +1231,7 @@ FieldTypeSet CreditCard::GetSupportedTypes() const {
 }
 
 std::u16string CreditCard::GetInfo(const AutofillType& autofill_type,
-                                   const std::string& app_locale) const {
+                                   std::string_view app_locale) const {
   const FieldType type = autofill_type.GetCreditCardType();
   if (type == CREDIT_CARD_NUMBER) {
     // Web pages should never actually be filled by a masked server card,
@@ -1332,7 +1357,8 @@ std::ostream& operator<<(std::ostream& os, const CreditCard& credit_card) {
             << credit_card.product_terms_url().spec() << " "
             << credit_card.benefit_source() << " " << credit_card.cvc() << " "
             << base::to_underlying(
-                   credit_card.card_info_retrieval_enrollment_state());
+                   credit_card.card_info_retrieval_enrollment_state())
+            << " " << base::to_underlying(credit_card.card_creation_source());
 }
 
 void CreditCard::SetNameOnCardFromSeparateParts() {

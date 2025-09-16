@@ -43,10 +43,12 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
+#include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/nth_index_cache.h"
 #include "third_party/blink/renderer/core/dom/popover_data.h"
 #include "third_party/blink/renderer/core/dom/scroll_button_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_group_data.h"
+#include "third_party/blink/renderer/core/dom/scroll_marker_group_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/slot_assignment_engine.h"
@@ -93,6 +95,8 @@
 #include "third_party/blink/renderer/core/view_transition/view_transition_pseudo_element_base.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_view.h"
 
 namespace blink {
 
@@ -155,6 +159,95 @@ static bool MatchesUniversalTagName(const Element& element,
   const AtomicString& namespace_uri = tag_q_name.NamespaceURI();
   return namespace_uri == g_star_atom ||
          namespace_uri == element.namespaceURI();
+}
+
+// Matches the element's content language against one or more language ranges,
+// both represented in BCP 47 syntax, by following the extended filtering
+// algorithm defined in [RFC4647] Matching of Language Tags (section 3.3.2).
+// A language range matches a particular language tag if each respective list
+// of subtags matches. Comparisons are case-insensitive within the ASCII range.
+// See: https://www.rfc-editor.org/rfc/rfc4647#section-3.3.2
+static bool MatchesLangPseudoClass(
+    const AtomicString& language,
+    const Vector<AtomicString>& language_ranges) {
+  // Iterator class to traverse subtags within a language tag or range.
+  class LanguageTagIterator {
+    STACK_ALLOCATED();
+
+   public:
+    explicit LanguageTagIterator(const AtomicString& language_range)
+        : language_range_(language_range),
+          language_range_length_(language_range.length()),
+          subtag_end_(
+              std::min(language_range.find('-', 0), language_range.length())) {}
+    void operator++() {
+      if (subtag_end_ >= language_range_length_) {
+        subtag_start_ = language_range_length_;
+        subtag_end_ = language_range_length_;
+        return;
+      }
+      subtag_start_ = subtag_end_ + 1;
+      subtag_end_ = std::min(language_range_.find('-', subtag_start_),
+                             language_range_length_);
+    }
+    bool AtEnd() const {
+      return subtag_start_ >= subtag_end_ ||
+             subtag_start_ >= language_range_length_;
+    }
+    StringView CurrentSubtag() const {
+      return {language_range_, subtag_start_, subtag_end_ - subtag_start_};
+    }
+    bool Matches(const LanguageTagIterator& other) const {
+      return EqualIgnoringASCIICase(CurrentSubtag(), other.CurrentSubtag());
+    }
+    bool MatchesWildcard() const {
+      StringView subtag = CurrentSubtag();
+      return subtag.length() == 1 && subtag[0] == '*';
+    }
+    bool IsSingleton() const {
+      return (subtag_end_ - subtag_start_) == 1 && subtag_start_ > 0;
+    }
+
+   private:
+    const AtomicString& language_range_;
+    wtf_size_t language_range_length_;
+    wtf_size_t subtag_start_ = 0;
+    wtf_size_t subtag_end_;
+  };
+
+  for (const AtomicString& range : language_ranges) {
+    LanguageTagIterator range_subtag(range);
+    LanguageTagIterator language_subtag(language);
+    if (!range_subtag.Matches(language_subtag) &&
+        !range_subtag.MatchesWildcard()) {
+      continue;
+    }
+
+    // Compare the subtags of language and range, taking wildcards into account.
+    // The match succeeds when all the language range subtags can be matched to
+    // the language subtags, and fails otherwise.
+    ++range_subtag;
+    ++language_subtag;
+    while (!range_subtag.AtEnd() && !language_subtag.AtEnd()) {
+      if (range_subtag.MatchesWildcard()) {
+        // A wildcard must match at least one subtag, so consume it
+        ++language_subtag;
+        ++range_subtag;
+      } else if (range_subtag.Matches(language_subtag)) {
+        ++range_subtag;
+        ++language_subtag;
+      } else if (language_subtag.IsSingleton()) {
+        return false;
+      } else {
+        ++language_subtag;
+      }
+    }
+
+    if (range_subtag.AtEnd()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // The associated host, if we are matching in the context of a shadow tree.
@@ -537,12 +630,14 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoFocusVisible:
     case CSSSelector::kPseudoFocusWithin:
     case CSSSelector::kPseudoFullPageMedia:
-    case CSSSelector::kPseudoHasInterest:
     case CSSSelector::kPseudoHasSlotted:
     case CSSSelector::kPseudoHorizontal:
     case CSSSelector::kPseudoHover:
     case CSSSelector::kPseudoIncrement:
     case CSSSelector::kPseudoIndeterminate:
+    case CSSSelector::kPseudoInterestHint:
+    case CSSSelector::kPseudoInterestSource:
+    case CSSSelector::kPseudoInterestTarget:
     case CSSSelector::kPseudoInvalid:
     case CSSSelector::kPseudoLang:
     case CSSSelector::kPseudoLastChild:
@@ -587,7 +682,6 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoStart:
     case CSSSelector::kPseudoState:
     case CSSSelector::kPseudoTarget:
-    case CSSSelector::kPseudoTargetOfInterest:
     case CSSSelector::kPseudoUnknown:
     case CSSSelector::kPseudoUnparsed:
     case CSSSelector::kPseudoUserInvalid:
@@ -634,6 +728,8 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoVideoPersistent:
     case CSSSelector::kPseudoVideoPersistentAncestor:
     case CSSSelector::kPseudoTargetCurrent:
+    case CSSSelector::kPseudoTargetBefore:
+    case CSSSelector::kPseudoTargetAfter:
     case CSSSelector::kPseudoViewTransition:
     case CSSSelector::kPseudoViewTransitionGroup:
     case CSSSelector::kPseudoViewTransitionGroupChildren:
@@ -1710,6 +1806,102 @@ bool MatchesExternalSVGUseTarget(Element& element) {
 
 }  // namespace
 
+// Check whether a :has() pseudo matches.
+//
+// The primary challenge in implementing :has() is performance; if we only
+// wanted a correct implementation, we could test every element (I'll call
+// these the “candidates”) to the right and below the element in question
+// (the “:has() anchor”[1]) and that would be it. However, it would be
+// far too slow to be usable in practice, so we need to add two mitigating
+// strategies.
+//
+// The first and simplest one is scoping. The type of the combinators used
+// inside :has() will determine the _traversal scope_ of the selector; for
+// instance, :has(> .a) can only match elements directly below the anchor, while
+// :has(+ .a .b) will match elements below something that is in the subtree
+// below the anchor's first sibling. You can think of it as a rough shape
+// of the subtree we need to search; we classify each :has() selector into
+// one of eleven such shapes (the enum CheckPseudoHasArgumentTraversalScope).
+// The traversal scope plus more concrete numerical bounds on how far out
+// (in width and depth) we need to search is called the _traversal type_.
+// This restricts the amount of candidates we need to search.
+//
+// The second one is caching. When we start a style recalc, we instantiate
+// two caches which are local to that style recalc (so that we do not ever need
+// to deal with invalidation), the _result cache_ (CheckPseudoHasResultCache)
+// and the _fast-reject cache_ (CheckPseudoHasFastRejectFilter). Each will
+// attempt to answer the question “does the given candidate match the given
+// selector against our anchor”, so they will be queried repeatedly and can
+// be reused across elements. The result cache can answer yes/no/unknown,
+// while the fast-reject cache can only answer no/unknown. We will deal with
+// the fast-reject cache first, since it is simpler to describe.
+//
+// The fast-reject cache is a Bloom filter similar in spirit to the normal
+// SelectorFilter, but it is not incrementally built and corresponds to
+// a single given element. When we decide to build it (typically when we've
+// had multiple queries against the same element), we look at every relevant
+// candidate element (e.g., the entire subtree under the anchor) and add
+// their tag/class/attribute names to the Bloom filter. This allows us to
+// quickly answer “could we have any element matching .a”, but only in the
+// negative. It is expensive to traverse all candidates just for this,
+// so to get any real use of the fast-reject filter, we need to reuse it
+// for many different :has() selectors (trivial, as long as they have
+// the same traversal type), and ideally also for many different elements.
+// The latter is only allowed for certain but rather common traversal
+// scopes, such as subtrees; if we have a fast-reject filter for a given
+// anchor, we can reuse it when styling its children (remember, the caches
+// are persistent for the entire style recalc), although of course with
+// increased risk of false positives.
+//
+// The result cache is simpler in itself, but interacts with more components
+// of the selector checker. At its core, it stores “would anchor element E
+// match selector S?” (where S is the serialized form of the inside of
+// :has(), in order to facilitate more sharing across similar selectors),
+// storing both positive and negative results. This cache wouldn't immediately
+// seem so useful (why would we ever try to check the same anchor repeatedly
+// against the same selector?), but there are two things to keep in mind:
+//
+// - First, :has() doesn't need to be in the subject. If we have a selector
+//   like “:has(.a) .b”, then each ancestor could indeed be checked a lot of
+//   times, and the cache would have a good hit rate without any trickery.
+//
+// - Second, when inserting positive results into the cache, we get some help
+//   from the selector checker. When getting a positive match for the inside
+//   of :has(), It identifies the element(s) that matched _the leftmost
+//   compound_ of the (sub)selector and return those as a side effect to the
+//   match result. Depending on the traversal scope, we can then propagate
+//   the positive match for free to other relevant elements.
+//
+//   E.g., in the simplest possible case, we could have a rule like “:has(.a)”,
+//   and once we find an .a, we know that not only our current anchor matches
+//   this rule, but every parent element of the matched .a would also match
+//   and can be inserted in the cache. Similarly, for a rule like
+//   “:has(.b ~ .c)”, .b would be our leftmost compound, and upon seeing
+//   which element matched .b, we could insert every sibling before it
+//   into the cache. Not all traversal scopes support such propagation,
+//   but many do.
+//
+// In order to get the most out of the latter optimization, the traversal
+// over candidates happen in _reverse_ DOM tree traversal order; that is,
+// the element furthest away from what we would normally expect is processed
+// first. (See CheckPseudoHasArgumentTraversalIterator for the implementation.
+// It also makes sure we check only candidates relevant for the traversal
+// type.) For instance, if we are in “all neighbors” traversal scope,
+// this is the rightmost sibling of our anchor. This is not what an author
+// would expect, but it maximizes the amounts of extra cache entries
+// we can add.
+//
+// There are, of course, many more details to these caches;
+// for instance, see check_pseudo_has_cache_scope.h for more information.
+// In particular, the result cache also automatically gets populated with
+// _negative_ results as we traverse the tree and don't find what we are
+// looking for.
+//
+//
+// [1] This gives rise to the variable name “has_anchor_element”, which sounds
+//     like it is a boolean for whether we have an anchor element or not.
+//     But we always do; “has_” comes from “:has()”, and it always stores
+//     the element we are testing from the selector checker's point of view.
 bool SelectorChecker::CheckPseudoHas(const SelectorCheckingContext& context,
                                      MatchResult& result) const {
   Element& element = *context.element;
@@ -2160,14 +2352,14 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
         return true;
       }
       return element.HasFocusWithin();
-    case CSSSelector::kPseudoHasInterest:
+    case CSSSelector::kPseudoInterestSource:
       DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
           element.GetDocument().GetExecutionContext()));
       return element.GetInterestState() != Element::InterestState::kNoInterest;
-    case CSSSelector::kPseudoTargetOfInterest: {
+    case CSSSelector::kPseudoInterestTarget: {
       DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
           element.GetDocument().GetExecutionContext()));
-      Element* invoker = element.GetInterestInvoker();
+      Element* invoker = element.SourceInterestInvoker();
       DCHECK(!invoker || invoker->GetInterestState() !=
                              Element::InterestState::kNoInterest);
       return invoker;
@@ -2410,6 +2602,39 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       }
       break;
     }
+    case CSSSelector::kPseudoTargetBefore:
+    case CSSSelector::kPseudoTargetAfter: {
+      Element* scroll_marker = nullptr;
+      Element* active_scroll_marker = nullptr;
+      // ::scroll-marker pseudo element case.
+      if (auto* pseudo_scroll_marker =
+              DynamicTo<ScrollMarkerPseudoElement>(element)) {
+        if (auto* scroll_marker_group =
+                pseudo_scroll_marker->ScrollMarkerGroup()) {
+          scroll_marker = pseudo_scroll_marker;
+          active_scroll_marker = scroll_marker_group->Selected();
+        }
+      }
+      // html anchor scroll marker case.
+      if (auto* anchor_element = DynamicTo<HTMLAnchorElement>(element)) {
+        if (ScrollMarkerGroupData* data =
+                anchor_element->GetScrollTargetGroupContainerData()) {
+          scroll_marker = anchor_element;
+          active_scroll_marker = data->Selected();
+        }
+      }
+      // Compare the layout tree position of the scroll marker and the
+      // active scroll marker to determine before/after relationship.
+      if (scroll_marker && active_scroll_marker) {
+        int order_result =
+            LayoutTreeBuilderTraversal::ComparePreorderTreePosition(
+                *scroll_marker, *active_scroll_marker);
+        return selector.GetPseudoType() == CSSSelector::kPseudoTargetBefore
+                   ? order_result == -1
+                   : order_result == 1;
+      }
+      break;
+    }
     case CSSSelector::kPseudoIndeterminate: {
       probe::ForcePseudoState(&element, CSSSelector::kPseudoIndeterminate,
                               &force_pseudo_state);
@@ -2424,16 +2649,10 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       auto* vtt_element = DynamicTo<VTTElement>(element);
       AtomicString value = vtt_element ? vtt_element->Language()
                                        : element.ComputeInheritedLanguage();
-      const AtomicString& argument = selector.Argument();
-      if (value.empty() ||
-          !value.StartsWith(argument, kTextCaseASCIIInsensitive)) {
-        break;
+      if (value.empty()) {
+        return false;
       }
-      if (value.length() != argument.length() &&
-          value[argument.length()] != '-') {
-        break;
-      }
-      return true;
+      return MatchesLangPseudoClass(value, *selector.ArgumentList());
     }
     case CSSSelector::kPseudoDir: {
       const AtomicString& argument = selector.Argument();

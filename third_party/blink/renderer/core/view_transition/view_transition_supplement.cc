@@ -20,6 +20,7 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
+#include "third_party/blink/renderer/core/scheduler/task_attribution_util.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/view_transition/dom_view_transition.h"
 #include "third_party/blink/renderer/core/view_transition/page_swap_event.h"
@@ -63,17 +64,13 @@ DOMViewTransition* ViewTransitionSupplement::StartViewTransitionForElement(
     return nullptr;
   }
 
-  auto* supplement = From(element->GetDocument());
-
   if (callback) {
-    auto* tracker =
-        scheduler::TaskAttributionTracker::From(script_state->GetIsolate());
     // Set the task state if we're not in an extension task (as extensions
     // are not currently supported in TaskAttributionTracker).
-    if (tracker && script_state->World().IsMainWorld()) {
-      callback->SetTaskState(tracker->CurrentTaskState());
-    }
+    callback->SetTaskState(CaptureCurrentTaskStateIfMainWorld(script_state));
   }
+
+  auto* supplement = From(element->GetDocument());
   return supplement->StartTransition(*element, callback, types,
                                      exception_state);
 }
@@ -107,6 +104,18 @@ DOMViewTransition* ViewTransitionSupplement::startViewTransition(
       script_state, document.documentElement(),
       static_cast<V8ViewTransitionCallback*>(nullptr), std::nullopt,
       exception_state);
+}
+
+// static
+DOMViewTransition* ViewTransitionSupplement::activeViewTransition(
+    Document& document) {
+  auto* supplement = FromIfExists(document);
+  if (!supplement) {
+    return nullptr;
+  }
+  return supplement->document_transition_
+             ? supplement->document_transition_->GetScriptDelegate()
+             : nullptr;
 }
 
 DOMViewTransition* ViewTransitionSupplement::StartTransition(

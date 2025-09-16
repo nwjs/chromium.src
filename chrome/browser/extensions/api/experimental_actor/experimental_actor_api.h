@@ -7,6 +7,7 @@
 
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/actor/task_id.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
@@ -44,10 +45,12 @@ class ExperimentalActorStartTaskFunction : public ExperimentalActorApiFunction {
   ~ExperimentalActorStartTaskFunction() override;
   ResponseAction Run() override;
   void OnTaskStarted(actor::TaskId task_id, int32_t tab_id);
-  void OnTabCreated(base::WeakPtr<Browser> browser,
-                    actor::TaskId task_id,
-                    actor::mojom::ActionResultCode result_code,
-                    std::optional<size_t> index_of_failed_action);
+  void OnTabCreated(
+      base::WeakPtr<Browser> browser,
+      actor::TaskId task_id,
+      actor::mojom::ActionResultCode result_code,
+      std::optional<size_t> index_of_failed_action,
+      std::vector<actor::ActionResultWithLatencyInfo> action_results);
 
   DECLARE_EXTENSION_FUNCTION("experimentalActor.startTask",
                              EXPERIMENTALACTOR_STARTTASK)
@@ -120,11 +123,16 @@ class ExperimentalActorPerformActionsFunction
  protected:
   ~ExperimentalActorPerformActionsFunction() override;
   ResponseAction Run() override;
-  void OnActionsFinished(actor::TaskId task_id,
-                         actor::mojom::ActionResultCode result_code,
-                         std::optional<size_t> index_of_failed_action);
+  void OnActionsFinished(
+      actor::TaskId task_id,
+      base::TimeTicks start_time,
+      actor::mojom::ActionResultCode result_code,
+      std::optional<size_t> index_of_failed_action,
+      std::vector<actor::ActionResultWithLatencyInfo> action_results);
   void OnObservationResult(
-      std::unique_ptr<optimization_guide::proto::ActionsResult> response);
+      std::unique_ptr<optimization_guide::proto::ActionsResult> response,
+      std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry>
+          journal_entry);
   DECLARE_EXTENSION_FUNCTION("experimentalActor.performActions",
                              EXPERIMENTALACTOR_PERFORMACTIONS)
 };

@@ -93,9 +93,6 @@ base::expected<std::unique_ptr<Session>, SessionError> Session::CreateIfValid(
   if (!params.fetcher_url.is_valid()) {
     return base::unexpected(
         SessionError{SessionError::ErrorType::kInvalidFetcherUrl});
-  } else if (params.refresh_url.empty()) {
-    return base::unexpected(
-        SessionError{SessionError::ErrorType::kInvalidRefreshUrl});
   } else if (params.session_id.empty()) {
     return base::unexpected(
         SessionError{SessionError::ErrorType::kInvalidSessionId});
@@ -110,6 +107,20 @@ base::expected<std::unique_ptr<Session>, SessionError> Session::CreateIfValid(
   if (scope_origin.opaque()) {
     return base::unexpected(
         SessionError{SessionError::ErrorType::kInvalidScopeOrigin});
+  }
+
+  // If there is an origin in the scope, verify it has no path (including '/').
+  if (base::FeatureList::IsEnabled(
+          features::kDeviceBoundSessionsOriginTrialFeedback) &&
+      !params.scope.origin.empty()) {
+    std::string_view origin_view =
+        base::TrimWhitespaceASCII(params.scope.origin, base::TRIM_ALL);
+    if ((scope_origin_as_url.has_path() &&
+         scope_origin_as_url.path_piece() != "/") ||
+        base::EndsWith(origin_view, "/")) {
+      return base::unexpected(
+          SessionError{SessionError::ErrorType::kInvalidScopeOrigin});
+    }
   }
 
   // Check if the scope-origin is samesite with fetcher URL.
@@ -316,7 +327,7 @@ bool Session::ShouldDeferRequest(
     return false;
   }
 
-  // TODO(crbug.com/353766029): Refactor this.
+  // TODO(crbug.com/438783631): Refactor this.
   // The below is all copied from AddCookieHeaderAndStart. We should refactor
   // it.
   CookieStore* cookie_store = request->context()->cookie_store();
@@ -371,8 +382,6 @@ bool Session::ShouldDeferRequest(
       // request is insecure, then the CookieCraving will be excluded, but the
       // CanonicalCookie will be included. DBSC only applies to secure context
       // but there might be similar cases.
-      //
-      // TODO: think about edge cases here...
       if (cookie_craving.IsSatisfiedBy(request_cookie.cookie)) {
         satisfied = true;
         break;
@@ -500,6 +509,11 @@ void Session::InformOfRefreshResult(SessionError::ErrorType error_type) {
     case kTransientHttpError:
       backoff_.InformOfRequest(/*succeeded=*/false);
       break;
+    // Registration-only errors
+    case kWellKnownUnavailable:
+    case kSubdomainRegistrationUnauthorized:
+    case kWellKnownMalformed:
+      NOTREACHED();
   }
 }
 

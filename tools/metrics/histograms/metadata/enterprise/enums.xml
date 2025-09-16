@@ -93,6 +93,18 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="STORE_VALIDATION_ERROR"/>
 </enum>
 
+<enum name="DeviceSettingsStatus2">
+  <int value="0" label="STORE_SUCCESS"/>
+  <int value="1" label="STORE_KEY_UNAVAILABLE"/>
+  <int value="2" label="STORE_OPERATION_FAILED"/>
+  <int value="3" label="STORE_NO_POLICY"/>
+  <int value="4" label="STORE_INVALID_POLICY"/>
+  <int value="5" label="STORE_VALIDATION_ERROR"/>
+  <int value="6" label="STORE_KEY_UNAVAILABLE_NOT_INITIALIZED"/>
+  <int value="7" label="STORE_KEY_UNAVAILABLE_NOT_LOCKED"/>
+  <int value="8" label="STORE_KEY_UNAVAILABLE_MANAGED"/>
+</enum>
+
 <enum name="DeviceSignalsParsingError">
   <int value="0" label="Hit max data size"/>
   <int value="1" label="Data malformed"/>
@@ -2247,7 +2259,7 @@ chromium-metrics-reviews@google.com.
   <int value="1377" label="DefaultDeviceAttributesSetting"/>
   <int value="1378" label="DeviceAttributesBlockedForOrigins"/>
   <int value="1379" label="FloatingSsoSessionCookiesIncluded"/>
-  <int value="1380" label="ServiceWorkerAutoPreload"/>
+  <int value="1380" label="ServiceWorkerAutoPreloadEnabled"/>
   <int value="1381" label="ProtectedContentIdentifiersAllowed"/>
   <int value="1382" label="LegacyCookieScopeEnabled"/>
   <int value="1383" label="LegacyCookieScopeEnabledForDomainList"/>
@@ -2255,6 +2267,9 @@ chromium-metrics-reviews@google.com.
   <int value="1385" label="DeviceLoginScreenSecurityKeyPermitAttestation"/>
   <int value="1386" label="RestrictCoreSharingOnRenderer"/>
   <int value="1387" label="OriginKeyedProcessesEnabled"/>
+  <int value="1388" label="NTPShortcuts"/>
+  <int value="1389" label="AutoSignOutEnabled"/>
+  <int value="1390" label="ExtensionInstallCloudPolicyChecksEnabled"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">
@@ -2611,6 +2626,12 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Connection Error"/>
   <int value="8" label="Server Error"/>
   <int value="9" label="Timeout"/>
+</enum>
+
+<enum name="RegisterCloudPolicyServiceEvent">
+  <int value="0" label="No re-registration"/>
+  <int value="1" label="Re-registeringg with Gaia account"/>
+  <int value="2" label="Re-registeringg without Gaia account"/>
 </enum>
 
 <enum name="RemoteCommandExecutionStatus">

@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/startup/startup_types.h"
 #include "chrome/browser/ui/startup/test_third_party_cookie_phaseout_infobar_delegate.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "components/infobars/content/content_infobar_manager.h"
@@ -36,15 +37,11 @@
 #include "chrome/browser/ui/startup/chrome_for_testing_infobar_delegate.h"
 #endif
 
-#if BUILDFLAG(IS_WIN)
-#include "chrome/browser/ui/startup/default_browser_prompt/pin_infobar/pin_infobar_controller.h"
-#endif
-
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 #include "base/feature_list.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/pdf/infobar/pdf_infobar_controller.h"
-#include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/startup/default_browser_prompt/pin_infobar/pin_infobar_controller.h"
 #endif
 
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -93,6 +90,10 @@ bool IsGpuTest() {
 }
 #endif
 
+BASE_FEATURE(kShowTestThirdPartyCookiePhaseoutInfoBar,
+             "ShowTestThirdPartyCookiePhaseoutInfoBar",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 }  // namespace
 
 void AddInfoBarsIfNecessary(Browser* browser,
@@ -128,7 +129,9 @@ void AddInfoBarsIfNecessary(Browser* browser,
     }
 
     if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-            network::switches::kTestThirdPartyCookiePhaseout)) {
+            network::switches::kTestThirdPartyCookiePhaseout) &&
+        base::FeatureList::IsEnabled(
+            kShowTestThirdPartyCookiePhaseoutInfoBar)) {
       TestThirdPartyCookiePhaseoutInfoBarDelegate::Create(web_contents);
     }
   }
@@ -194,6 +197,13 @@ void AddInfoBarsIfNecessary(Browser* browser,
     }
 #endif
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+    if (base::FeatureList::IsEnabled(features::kSessionRestoreInfobar)) {
+      // TODO(crbug.com/431828875): Instantiate and initialize the session
+      // restore controller.
+    }
+#endif
+
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
   if (is_web_app ||
       startup_command_line.HasSwitch(switches::kNoDefaultBrowserCheck) ||
@@ -209,16 +219,14 @@ void AddInfoBarsIfNecessary(Browser* browser,
         &pdf::infobar::PdfInfoBarController::MaybeShowInfoBarAtStartup,
         browser->GetWeakPtr());
   }
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
-#if BUILDFLAG(IS_WIN)
   if (base::FeatureList::IsEnabled(features::kOfferPinToTaskbarInfoBar)) {
     default_browser_prompt_shown_callback = base::BindOnce(
         &default_browser::PinInfoBarController::MaybeShowInfoBarForBrowser,
         browser->GetWeakPtr(),
         std::move(default_browser_prompt_shown_callback));
   }
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
   // The default browser prompt should only be shown after the first run.
   if (is_first_run == chrome::startup::IsFirstRun::kNo) {

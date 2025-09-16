@@ -46,6 +46,7 @@ backgroundSize
 basePalette
 baselineShift
 baselineSource
+blockEllipsis
 blockSize
 border
 borderBlock
@@ -232,7 +233,7 @@ fontVariationSettings
 fontWeight
 forcedColorAdjust
 gap
-gapRulePaintOrder
+gapRuleOverlap
 getPropertyPriority
 getPropertyValue
 grid

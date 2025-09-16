@@ -15,13 +15,15 @@
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "build/build_config.h"
+#include "cc/paint/paint_canvas.h"
+#include "cc/paint/paint_flags.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_metrics.h"
 #include "ui/color/color_provider.h"
 #include "ui/color/color_provider_key.h"
 #include "ui/color/color_provider_utils.h"
-#include "ui/native_theme/common_theme.h"
+#include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/native_theme/features/native_theme_features.h"
 #include "ui/native_theme/native_theme_utils.h"
 
@@ -76,22 +78,13 @@ ColorProviderKey NativeTheme::GetColorProviderKey(
     return kForcedColorsMap.at(page_colors);
   };
 
+  const bool dark_mode =
+      InForcedColorsMode()
+          ? (GetPreferredColorScheme() == PreferredColorScheme::kDark)
+          : ShouldUseDarkColors();
   ui::ColorProviderKey key;
-  switch (GetDefaultSystemColorScheme()) {
-    case ColorScheme::kDark:
-      key.color_mode = ColorProviderKey::ColorMode::kDark;
-      break;
-    case ColorScheme::kLight:
-      key.color_mode = ColorProviderKey::ColorMode::kLight;
-      break;
-    case ColorScheme::kPlatformHighContrast:
-      key.color_mode = GetPreferredColorScheme() == PreferredColorScheme::kDark
-                           ? ColorProviderKey::ColorMode::kDark
-                           : ColorProviderKey::ColorMode::kLight;
-      break;
-    default:
-      NOTREACHED();
-  }
+  key.color_mode = dark_mode ? ColorProviderKey::ColorMode::kDark
+                             : ColorProviderKey::ColorMode::kLight;
   key.contrast_mode = UserHasContrastPreference()
                           ? ColorProviderKey::ContrastMode::kHigh
                           : ColorProviderKey::ContrastMode::kNormal;
@@ -209,13 +202,45 @@ NativeTheme::NativeTheme(bool should_use_dark_colors,
 
 NativeTheme::~NativeTheme() = default;
 
-bool NativeTheme::ShouldUseDarkColors() const {
-  return should_use_dark_colors_;
+void NativeTheme::PaintMenuItemBackground(
+    cc::PaintCanvas* canvas,
+    const ColorProvider* color_provider,
+    State state,
+    const gfx::Rect& rect,
+    const MenuItemExtraParams& extra_params) const {
+  DCHECK(color_provider);
+  cc::PaintFlags flags;
+  switch (state) {
+    case NativeTheme::kNormal:
+    case NativeTheme::kDisabled: {
+      ui::ColorId id = kColorMenuBackground;
+#if BUILDFLAG(IS_CHROMEOS)
+      id = kColorAshSystemUIMenuBackground;
+#endif
+      flags.setColor(color_provider->GetColor(id));
+      break;
+    }
+    case NativeTheme::kHovered: {
+      ui::ColorId id = kColorMenuItemBackgroundSelected;
+#if BUILDFLAG(IS_CHROMEOS)
+      id = kColorAshSystemUIMenuItemBackgroundSelected;
+#endif
+      flags.setColor(color_provider->GetColor(id));
+      break;
+    }
+    default:
+      NOTREACHED() << "Invalid state " << state;
+  }
+  if (extra_params.corner_radius > 0) {
+    const SkScalar radius = SkIntToScalar(extra_params.corner_radius);
+    canvas->drawRoundRect(gfx::RectToSkRect(rect), radius, radius, flags);
+    return;
+  }
+  canvas->drawRect(gfx::RectToSkRect(rect), flags);
 }
 
-bool NativeTheme::ShouldUseDarkColorsForSystemIntegratedUI() const {
-  return should_use_dark_colors_for_system_integrated_ui_.value_or(
-      ShouldUseDarkColors());
+bool NativeTheme::ShouldUseDarkColors() const {
+  return should_use_dark_colors_;
 }
 
 bool NativeTheme::UserHasContrastPreference() const {
@@ -229,7 +254,7 @@ bool NativeTheme::InForcedColorsMode() const {
 
 NativeTheme::PlatformHighContrastColorScheme
 NativeTheme::GetPlatformHighContrastColorScheme() const {
-  if (GetDefaultSystemColorScheme() != ColorScheme::kPlatformHighContrast) {
+  if (!InForcedColorsMode()) {
     return PlatformHighContrastColorScheme::kNone;
   }
   return (GetPreferredColorScheme() == PreferredColorScheme::kDark)
@@ -376,10 +401,6 @@ void NativeTheme::ColorSchemeNativeThemeObserver::OnNativeThemeUpdated(
            !theme_to_update_->InForcedColorsMode());
     theme_to_update_->NotifyOnNativeThemeUpdated();
   }
-}
-
-NativeTheme::ColorScheme NativeTheme::GetDefaultSystemColorScheme() const {
-  return ShouldUseDarkColors() ? ColorScheme::kDark : ColorScheme::kLight;
 }
 
 bool NativeTheme::UpdateContrastRelatedStates(

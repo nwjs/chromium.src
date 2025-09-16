@@ -5,12 +5,14 @@
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <utility>
 #include <variant>
 
 #include "base/check.h"
 #include "base/containers/contains.h"
+#include "base/debug/stack_trace.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
@@ -30,6 +32,7 @@
 #include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/quads/compositor_frame_metadata.h"
 #include "components/viz/common/quads/compositor_render_pass.h"
+#include "components/viz/common/quads/trees_in_viz_timing.h"
 #include "components/viz/common/surfaces/surface_info.h"
 #include "components/viz/common/surfaces/video_capture_target.h"
 #include "components/viz/common/viz_utils.h"
@@ -578,6 +581,10 @@ void CompositorFrameSinkSupport::SetAutoNeedsBeginFrame() {
   auto_needs_begin_frame_ = true;
 }
 
+void CompositorFrameSinkSupport::SetNoCompositorFrameAcks() {
+  no_compositor_frame_acks_ = true;
+}
+
 bool CompositorFrameSinkSupport::WantsAnimateOnlyBeginFrames() const {
   return wants_animate_only_begin_frames_;
 }
@@ -724,7 +731,9 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
   base::TimeTicks now_time = base::TimeTicks::Now();
   pending_received_frame_times_.emplace(
       frame.metadata.frame_token,
-      std::make_unique<PendingFrameDetails>(now_time, surface_manager_));
+      std::make_unique<PendingFrameDetails>(
+          now_time, frame.metadata.trees_in_viz_timing_details,
+          surface_manager_));
 
   // Override the has_damage flag (ignoring invalid data from clients).
   frame.metadata.begin_frame_ack.has_damage = true;
@@ -759,7 +768,8 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
 
   // TODO(crbug.com/40578019): It should be possible to use
   // |frame.metadata.frame_token| instead of maintaining a |last_frame_index_|.
-  uint64_t frame_index = ++last_frame_index_;
+  CHECK_LT(last_frame_index_, std::numeric_limits<uint32_t>::max());
+  uint32_t frame_index = ++last_frame_index_;
 
   if (features::ShouldOnBeginFrameThrottleVideo()) {
     const auto& interval_info =
@@ -961,11 +971,17 @@ SurfaceReference CompositorFrameSinkSupport::MakeTopLevelRootReference(
 }
 
 void CompositorFrameSinkSupport::DidReceiveCompositorFrameAck() {
-  DCHECK_GT(pending_frames_, 0u);
+  DCHECK_GT(pending_frames_, 0);
   pending_frames_--;
 
   if (!client_)
     return;
+
+  if (no_compositor_frame_acks_) {
+    client_->ReclaimResources(std::move(surface_returned_resources_));
+    surface_returned_resources_.clear();
+    return;
+  }
 
   // TODO(https://crbug.com/40902503): Drawing from a layer context is indeed
   // local, but we'll likely want to use a different resource return policy.
@@ -1013,6 +1029,14 @@ void CompositorFrameSinkSupport::DidPresentCompositorFrame(
       details.presentation_feedback.interval.is_positive()) {
     details.presentation_feedback.interval = begin_frame_interval_;
   }
+
+  details.start_update_display_tree =
+      received_frame_timestamp->second->start_update_display_tree();
+  details.start_prepare_to_draw =
+      received_frame_timestamp->second->start_prepare_to_draw();
+  details.start_draw_layers =
+      received_frame_timestamp->second->start_draw_layers();
+
   pending_received_frame_times_.erase(received_frame_timestamp);
 
   // We should only ever get one PresentationFeedback per frame_token.
@@ -1368,6 +1392,13 @@ bool CompositorFrameSinkSupport::ShouldSendBeginFrame(
     BeginFrameId frame_id,
     base::TimeTicks frame_time,
     base::TimeDelta vsync_interval) {
+  if (base::FeatureList::IsEnabled(features::kNoCompositorFrameAcks)) {
+    const int pending_frames_limit =
+        features::kNumberPendingFramesUntilThrottle.Get();
+    if (pending_frames_ >= pending_frames_limit) {
+      return RecordShouldSendBeginFrame("PendingAck", false);
+    }
+  }
   // Don't send the same BeginFrameId to a client twice. This could otherwise
   // happen if the client removes and then immediately re-adds a
   // BeginFrameObserver before the next BeginFrame arrives. See
@@ -1394,7 +1425,7 @@ bool CompositorFrameSinkSupport::ShouldSendBeginFrame(
 
     DCHECK(surface);
     DCHECK(surface->HasActiveFrame());
-    uint64_t active_frame_index = surface->GetActiveFrameIndex();
+    uint32_t active_frame_index = surface->GetActiveFrameIndex();
 
     // Since we have an active frame, and frame indexes strictly increase
     // during the lifetime of the CompositorFrameSinkSupport, our active frame
@@ -1682,8 +1713,10 @@ void CompositorFrameSinkSupport::ForAllReservedResourceDelegates(
 
 CompositorFrameSinkSupport::PendingFrameDetails::PendingFrameDetails(
     base::TimeTicks frame_submit_timestamp,
+    TreesInVizTiming timing_details,
     SurfaceManager* surface_manager)
     : frame_submit_timestamp_(frame_submit_timestamp),
+      trees_in_viz_timing_details_(timing_details),
       // Use the submit timestamp as the default value, so that the metrics
       // won't get skewed in case the surface never gets embedded/the surface
       // ID never gets set.

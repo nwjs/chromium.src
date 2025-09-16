@@ -16,6 +16,7 @@ static_library("config") {
 
   deps = [
     "//ash/constants",
+    "//ash/webui/boca_receiver_app_ui",
     "//ash/webui/color_internals",
     "//ash/webui/demo_mode_app_ui",
     "//ash/webui/diagnostics_ui",
@@ -68,7 +69,6 @@ static_library("config") {
     "//chrome/browser/ui/webui/ash/app_install",
     "//chrome/browser/ui/webui/ash/arc_overview_tracing",
     "//chrome/browser/ui/webui/ash/arc_power_control",
-    "//chrome/browser/ui/webui/ash/assistant_optin",
     "//chrome/browser/ui/webui/ash/audio",
     "//chrome/browser/ui/webui/ash/bluetooth",
     "//chrome/browser/ui/webui/ash/borealis_installer",

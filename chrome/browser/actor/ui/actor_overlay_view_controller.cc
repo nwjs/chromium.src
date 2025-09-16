@@ -4,10 +4,13 @@
 
 #include "chrome/browser/actor/ui/actor_overlay_view_controller.h"
 
+#include "chrome/browser/actor/ui/actor_overlay_window_controller.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
+#include "chrome/browser/actor/ui/actor_ui_tab_controller_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "content/public/browser/browser_context.h"
 #include "ui/views/controls/webview/web_contents_set_background_color.h"
@@ -15,26 +18,37 @@
 
 namespace actor::ui {
 
+using tabs::TabInterface;
+
 ActorOverlayViewController::ActorOverlayViewController(
-    tabs::TabInterface& tab_interface)
-    : tab_interface_(tab_interface) {}
+    TabInterface& tab_interface)
+    : tab_interface_(tab_interface) {
+  if (features::kGlicActorUiOverlay.Get()) {
+    tab_subscriptions_.push_back(tab_interface_->RegisterWillDetach(
+        base::BindRepeating(&ActorOverlayViewController::OnTabWillDetach,
+                            base::Unretained(this))));
+  }
+}
 
 ActorOverlayViewController::~ActorOverlayViewController() = default;
 
 void ActorOverlayViewController::BindOverlay(
+    mojo::PendingRemote<mojom::ActorOverlayPage> page,
     mojo::PendingReceiver<mojom::ActorOverlayPageHandler> receiver) {
   receiver_.Bind(std::move(receiver));
-}
-
-ActorUiTabControllerInterface* ActorOverlayViewController::GetTabController() {
-  return tab_interface_->GetTabFeatures()->actor_ui_tab_controller();
+  page_.Bind(std::move(page));
 }
 
 // TODO(crbug.com/422540636): Might not be sufficient to determine when the
 // handoff button should be visible. Look into ways of tracking mouse movements
 // directly.
 void ActorOverlayViewController::OnHoverStatusChanged(bool is_hovering) {
-  GetTabController()->SetOverlayHoverStatus(is_hovering);
+  ActorUiTabControllerInterface::From(&tab_interface_.get())
+      ->SetOverlayHoverStatus(is_hovering);
+}
+
+void ActorOverlayViewController::SetScrimBackground(bool is_visible) {
+  page_->SetScrimBackground(is_visible);
 }
 
 void ActorOverlayViewController::UpdateState(const ActorOverlayState& state,
@@ -51,14 +65,34 @@ void ActorOverlayViewController::UpdateState(const ActorOverlayState& state,
   }
 }
 
+// TODO(crbug.com/436662421): Clean up the null checks for
+// actor_overlay_window_controller_. These were added to prevent crashes in test
+// scenarios where a controller is null. Once those tests are cleaned up, all
+// the null checks on if the window controller / web_views in this file can be
+// removed and we can assume they should be available with a CHECK again.
 void ActorOverlayViewController::AttachManagedWebViewToWindowController() {
+  // TODO(crbug.com/433999185): WebView child management upon tabs moving
+  // (into split view mode and out of split view mode) is not covered in this
+  // CL, and will be in a future one.
+  // No webview to attach
   if (!managed_overlay_web_view_) {
-    return;  // No WebView to attach.
+    return;
   }
-  CHECK(actor_overlay_window_controller_);
+
+  auto* contents_controller = ActorOverlayContentsContainerController::From(
+      base::to_address(tab_interface_));
+  // No contents container controller to use.
+  if (!contents_controller) {
+    return;
+  }
+
+  // Keep track of the contents container controller so this can be used to show
+  // and hide the webview.
+  contents_container_controller_ = contents_controller;
   // Transfer ownership from `managed_overlay_web_view_` to the window
   // controller's container.
-  overlay_web_view_ = actor_overlay_window_controller_->AddChildWebView(
+
+  overlay_web_view_ = contents_controller->AddChildWebView(
       std::move(managed_overlay_web_view_));
   // Ensure the newly attached WebView is initially hidden.
   overlay_web_view_->SetVisible(false);
@@ -66,24 +100,20 @@ void ActorOverlayViewController::AttachManagedWebViewToWindowController() {
   managed_overlay_web_view_ = nullptr;
 }
 
-void ActorOverlayViewController::SetWindowController(
-    ActorOverlayWindowController* controller) {
-  CHECK(controller);
-  actor_overlay_window_controller_ = controller;
-  // If a WebView was previously detached, re-attach it to the new window
-  // controller.
-  AttachManagedWebViewToWindowController();
-}
-
 void ActorOverlayViewController::NullifyWebView() {
-  if (!overlay_web_view_) {
+  // No controller or webview to remove.
+  if (!overlay_web_view_ || !contents_container_controller_) {
     return;
   }
-  // Reclaim ownership of the WebView from the window controller's container.
+
+  // Reclaim ownership of the WebView from the contents container controller's
+  // container.
   managed_overlay_web_view_ =
-      actor_overlay_window_controller_->RemoveChildWebView(overlay_web_view_);
-  // Clear the raw pointer since the WebView is no longer attached.
+      contents_container_controller_->RemoveChildWebView(overlay_web_view_);
+  // Clear the raw pointers since the WebView is no longer attached.
   overlay_web_view_ = nullptr;
+  // The controller is no longer valid as the webview is no longer attached.
+  contents_container_controller_ = nullptr;
 }
 
 void ActorOverlayViewController::CreateWebView() {
@@ -109,18 +139,21 @@ void ActorOverlayViewController::CreateWebView() {
   managed_overlay_web_view_->LoadInitialURL(
       GURL(chrome::kChromeUIActorOverlayURL));
   managed_overlay_web_view_->SetVisible(false);
-  // Attach the newly created WebView to the window controller.
-  AttachManagedWebViewToWindowController();
 }
 
 void ActorOverlayViewController::ShowWebView() {
+  // Attach if one was created prior to a tab moving.
+  AttachManagedWebViewToWindowController();
+  // Only show if the WebView is currently attached.
+  if (!overlay_web_view_) {
+    return;
+  }
+  CHECK(contents_container_controller_);
   // Disable mouse and keyboard inputs to the underlying contents.
   scoped_ignore_input_events_ =
       tab_interface_->GetContents()->IgnoreInputEvents(std::nullopt);
-  // Ensure the overlay WebView exists before showing it.
-  CHECK(overlay_web_view_);
   overlay_web_view_->SetVisible(true);
-  actor_overlay_window_controller_->MaybeUpdateContainerVisibility();
+  contents_container_controller_->MaybeUpdateContainerVisibility();
 }
 
 // TODO(crbug.com/422540636): Look into if HideWebView is called when the Actor
@@ -130,11 +163,18 @@ void ActorOverlayViewController::HideWebView() {
   if (!overlay_web_view_) {
     return;
   }
+  CHECK(contents_container_controller_);
   overlay_web_view_->SetVisible(false);
-  actor_overlay_window_controller_->MaybeUpdateContainerVisibility();
+  contents_container_controller_->MaybeUpdateContainerVisibility();
   // Re-enable mouse and keyboard events to the underlying web contents by
   // resetting the ScopedIgnoreInputEvents object.
   scoped_ignore_input_events_.reset();
+}
+
+void ActorOverlayViewController::OnTabWillDetach(
+    TabInterface* tab,
+    TabInterface::DetachReason reason) {
+  NullifyWebView();
 }
 
 }  // namespace actor::ui

@@ -54,7 +54,6 @@
 #include "third_party/blink/renderer/core/style/scroll_marker_group.h"
 #include "third_party/blink/renderer/core/style/shadow_list.h"
 #include "third_party/blink/renderer/core/style/style_anchor_scope.h"
-#include "third_party/blink/renderer/core/style/style_border_shape.h"
 #include "third_party/blink/renderer/core/style/style_offset_rotation.h"
 #include "third_party/blink/renderer/core/style/style_overflow_clip_margin.h"
 #include "third_party/blink/renderer/core/style/style_reflection.h"
@@ -224,7 +223,7 @@ class StyleBuilderConverter {
       const CSSValue&);
   template <typename T>
   static T ConvertLineWidth(StyleResolverState&, const CSSValue&);
-  static int ConvertBorderWidth(StyleResolverState&, const CSSValue&);
+  static int ConvertBorderWidth(const StyleResolverState&, const CSSValue&);
   static uint16_t ConvertColumnRuleWidth(StyleResolverState&, const CSSValue&);
   static Superellipse ConvertCornerShape(const StyleResolverState&,
                                          const CSSValue&);
@@ -282,13 +281,14 @@ class StyleBuilderConverter {
   static LengthSize ConvertRadius(const StyleResolverState&, const CSSValue&);
   static EPaintOrder ConvertPaintOrder(StyleResolverState&, const CSSValue&);
   static GapDataList<StyleColor> ConvertGapDecorationColorDataList(
-      StyleResolverState&,
+      const StyleResolverState&,
       const CSSValue&,
       bool for_visited_link = false);
-  static GapDataList<int> ConvertGapDecorationWidthDataList(StyleResolverState&,
-                                                            const CSSValue&);
+  static GapDataList<int> ConvertGapDecorationWidthDataList(
+      const StyleResolverState&,
+      const CSSValue&);
   static GapDataList<EBorderStyle> ConvertGapDecorationStyleDataList(
-      StyleResolverState&,
+      const StyleResolverState&,
       const CSSValue&);
   static ShadowData ConvertShadow(const CSSToLengthConversionData&,
                                   StyleResolverState*,
@@ -300,7 +300,7 @@ class StyleBuilderConverter {
   static AtomicString ConvertString(StyleResolverState&, const CSSValue&);
   static SVGDashArray* ConvertStrokeDasharray(StyleResolverState&,
                                               const CSSValue&);
-  static StyleColor ConvertStyleColor(StyleResolverState&,
+  static StyleColor ConvertStyleColor(const StyleResolverState&,
                                       const CSSValue&,
                                       bool for_visited_link = false);
   static StyleAutoColor ConvertStyleAutoColor(StyleResolverState&,

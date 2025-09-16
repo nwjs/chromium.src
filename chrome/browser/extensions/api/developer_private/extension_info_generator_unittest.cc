@@ -418,6 +418,44 @@ TEST_F(ExtensionInfoGeneratorUnitTest, BasicInfoTest) {
       info->manifest_errors[0];
   EXPECT_EQ(extension->id(), manifest_error.extension_id);
 
+  // Additional sanity check for service worker background: `canInspect` should
+  // be true for runtime errors from a service worker-based extension, even when
+  // no RenderFrameHost exists.
+  {
+    scoped_refptr<const Extension> sw_extension =
+        ExtensionBuilder("sw_extension")
+            .SetBackgroundContext(
+                ExtensionBuilder::BackgroundContext::SERVICE_WORKER)
+            .SetPath(data_dir())
+            .Build();
+
+    registrar()->AddExtension(sw_extension.get());
+    PermissionsUpdater sw_updater(profile());
+    sw_updater.InitializePermissions(sw_extension.get());
+    sw_updater.GrantActivePermissions(sw_extension.get());
+
+    ErrorConsole* sw_error_console = ErrorConsole::Get(profile());
+    const GURL sw_context_url("http://example.com");
+    // Simulate a service worker runtime error. Use -1 IDs to reflect the lack
+    // of a RenderFrameHost for service workers.
+    sw_error_console->ReportError(std::make_unique<RuntimeError>(
+        sw_extension->id(), false, u"source", u"message",
+        StackTrace(1, StackFrame(1, 1, u"source", u"function")), sw_context_url,
+        logging::LOGGING_ERROR,
+        /*render_frame_id=*/-1,
+        /*render_process_id=*/-1,
+        /*is_from_service_worker=*/true));
+
+    std::unique_ptr<api::developer_private::ExtensionInfo> sw_info =
+        GenerateExtensionInfo(sw_extension->id());
+    ASSERT_TRUE(sw_info);
+    ASSERT_EQ(1u, sw_info->runtime_errors.size());
+    const api::developer_private::RuntimeError& sw_runtime_error =
+        sw_info->runtime_errors[0];
+    EXPECT_TRUE(sw_runtime_error.is_service_worker);
+    EXPECT_TRUE(sw_runtime_error.can_inspect);
+  }
+
   // Test an extension that isn't unpacked.
   manifest_copy.Set("update_url",
                     "https://clients2.google.com/service/update2/crx");
@@ -929,16 +967,12 @@ TEST_F(ExtensionInfoGeneratorUnitTest,
       GenerateExtensionInfo(active_tab_extension->id());
   EXPECT_TRUE(active_tab_info->permissions.can_access_site_data);
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  // TODO(crbug.com/427285233): Desktop Android does not support the debugger
-  // API nor its permission.
   scoped_refptr<const Extension> debugger_extension =
       CreateExtension("activeTab", base::Value::List().Append("debugger"),
                       ManifestLocation::kInternal);
   std::unique_ptr<developer::ExtensionInfo> debugger_info =
       GenerateExtensionInfo(debugger_extension->id());
   EXPECT_TRUE(debugger_info->permissions.can_access_site_data);
-#endif
 }
 
 // Tests that the granted optional API permissions, when revoked, are not
@@ -1331,8 +1365,6 @@ class ExtensionInfoGeneratorWithMV2DeprecationUnitTest
     experiment_stage_ = GetParam();
     switch (experiment_stage_) {
       case MV2ExperimentStage::kWarning:
-        enabled_features.push_back(
-            extensions_features::kExtensionManifestV2DeprecationWarning);
         disabled_features.push_back(
             extensions_features::kExtensionManifestV2Disabled);
         disabled_features.push_back(
@@ -1342,23 +1374,11 @@ class ExtensionInfoGeneratorWithMV2DeprecationUnitTest
         enabled_features.push_back(
             extensions_features::kExtensionManifestV2Disabled);
         disabled_features.push_back(
-            extensions_features::kExtensionManifestV2DeprecationWarning);
-        disabled_features.push_back(
-            extensions_features::kExtensionManifestV2Unsupported);
-        break;
-      case MV2ExperimentStage::kNone:
-        disabled_features.push_back(
-            extensions_features::kExtensionManifestV2DeprecationWarning);
-        disabled_features.push_back(
-            extensions_features::kExtensionManifestV2Disabled);
-        disabled_features.push_back(
             extensions_features::kExtensionManifestV2Unsupported);
         break;
       case MV2ExperimentStage::kUnsupported:
         enabled_features.push_back(
             extensions_features::kExtensionManifestV2Unsupported);
-        disabled_features.push_back(
-            extensions_features::kExtensionManifestV2DeprecationWarning);
         disabled_features.push_back(
             extensions_features::kExtensionManifestV2Disabled);
         break;
@@ -1380,14 +1400,11 @@ class ExtensionInfoGeneratorWithMV2DeprecationUnitTest
 INSTANTIATE_TEST_SUITE_P(
     All,
     ExtensionInfoGeneratorWithMV2DeprecationUnitTest,
-    testing::Values(MV2ExperimentStage::kNone,
-                    MV2ExperimentStage::kWarning,
+    testing::Values(MV2ExperimentStage::kWarning,
                     MV2ExperimentStage::kDisableWithReEnable,
                     MV2ExperimentStage::kUnsupported),
     [](const testing::TestParamInfo<MV2ExperimentStage>& info) {
       switch (info.param) {
-        case MV2ExperimentStage::kNone:
-          return "NoneExperiment";
         case MV2ExperimentStage::kWarning:
           return "WarningExperiment";
         case MV2ExperimentStage::kDisableWithReEnable:
@@ -1398,7 +1415,7 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 // Tests that acknowledging the MV2 deprecation notice updates the extension
-// info when the experiment stage is different than 'kNone'.
+// info.
 TEST_P(ExtensionInfoGeneratorWithMV2DeprecationUnitTest,
        DidAcknowledgeMv2DeprecationNotice) {
   scoped_refptr<const Extension> extension =
@@ -1408,13 +1425,8 @@ TEST_P(ExtensionInfoGeneratorWithMV2DeprecationUnitTest,
   ManifestV2ExperimentManager* experiment_manager =
       ManifestV2ExperimentManager::Get(browser_context());
 
-  if (experiment_stage() == MV2ExperimentStage::kNone) {
-    // Extensions are not affected by MV2 deprecation in this stage.
-    EXPECT_FALSE(experiment_manager->IsExtensionAffected(*extension));
-  } else {
-    // Extensions with manifest version 2 are affected in the other stages.
-    EXPECT_TRUE(experiment_manager->IsExtensionAffected(*extension));
-  }
+  // Extensions with manifest version 2 are affected in the other stages.
+  EXPECT_TRUE(experiment_manager->IsExtensionAffected(*extension));
   EXPECT_FALSE(experiment_manager->DidUserAcknowledgeNotice(extension->id()));
 
   {
@@ -1428,10 +1440,9 @@ TEST_P(ExtensionInfoGeneratorWithMV2DeprecationUnitTest,
   {
     std::unique_ptr<developer::ExtensionInfo> info =
         GenerateExtensionInfo(extension->id());
-    if (experiment_stage() == MV2ExperimentStage::kNone ||
-        experiment_stage() == MV2ExperimentStage::kUnsupported) {
-      // Cannot acknowledge a notice that doesn't exist (none stage) or cannot
-      // be dismissed (unsupported stage).
+    if (experiment_stage() == MV2ExperimentStage::kUnsupported) {
+      // Cannot acknowledge a notice that cannot be dismissed (unsupported
+      // stage).
       EXPECT_FALSE(info->did_acknowledge_mv2_deprecation_notice);
     } else {
       EXPECT_TRUE(info->did_acknowledge_mv2_deprecation_notice);

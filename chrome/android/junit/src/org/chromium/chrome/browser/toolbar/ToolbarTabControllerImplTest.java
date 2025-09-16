@@ -27,7 +27,6 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.common.ChromeUrlConstants;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
@@ -44,6 +43,9 @@ import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.url.GURL;
+
+import java.util.Collections;
+import java.util.function.Supplier;
 
 /** Unit tests for ToolbarTabControllerImpl. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -237,7 +239,7 @@ public class ToolbarTabControllerImplTest {
         inOrder.verify(mTabCreator)
                 .createTabWithHistory(mTab, TabLaunchType.FROM_HISTORY_NAVIGATION_BACKGROUND);
         inOrder.verify(mTab2).goBack();
-        inOrder.verify(mMultiInstanceManager).moveTabToNewWindow(mTab2);
+        inOrder.verify(mMultiInstanceManager).moveTabsToNewWindow(Collections.singletonList(mTab2));
         inOrder.verifyNoMoreInteractions();
     }
 
@@ -295,7 +297,7 @@ public class ToolbarTabControllerImplTest {
         inOrder.verify(mTabCreator)
                 .createTabWithHistory(mTab, TabLaunchType.FROM_HISTORY_NAVIGATION_BACKGROUND);
         inOrder.verify(mTab2).goForward();
-        inOrder.verify(mMultiInstanceManager).moveTabToNewWindow(mTab2);
+        inOrder.verify(mMultiInstanceManager).moveTabsToNewWindow(Collections.singletonList(mTab2));
         inOrder.verifyNoMoreInteractions();
     }
 

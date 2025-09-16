@@ -23,15 +23,11 @@
 #include "chrome/browser/actor/tools/tool_delegate.h"
 #include "chrome/browser/password_manager/actor_login/actor_login_service.h"
 #include "chrome/common/actor.mojom-forward.h"
-#include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents_observer.h"
 
 class Profile;
-
-namespace mojo_base {
-class ProtoWrapper;
-}
 
 namespace tabs {
 class TabInterface;
@@ -91,8 +87,6 @@ class ExecutionEngine : public ToolDelegate {
   // ExecutionEngine, then the ActorTask.
   void SetOwner(ActorTask* task);
 
-  static void RegisterWithProfile(Profile* profile);
-
   // Cancels any in-progress actions with the reason: "kTaskPaused".
   void CancelOngoingActions(mojom::ActionResultCode reason);
 
@@ -104,25 +98,26 @@ class ExecutionEngine : public ToolDelegate {
   void Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
            ActorTask::ActCallback callback);
 
-  // Gets called when a new observation is made for the actor task.
-  void DidObserveContext(const mojo_base::ProtoWrapper&);
-
-  // Returns last observed page content, nullptr if no observation has been
-  // made.
-  const optimization_guide::proto::AnnotatedPageContent*
-  GetLastObservedPageContent();
-
   // Invalidated anytime `action_sequence_` is reset.
   base::WeakPtr<ExecutionEngine> GetWeakPtr();
 
   // ToolDelegate:
   AggregatedJournal& GetJournal() override;
+  favicon::FaviconService* GetFaviconService() override;
   actor_login::ActorLoginService& GetActorLoginService() override;
+  void PromptToSelectCredential(
+      const std::vector<actor_login::Credential>& credentials,
+      const base::flat_map<GURL, gfx::Image>& favicons,
+      ToolDelegate::CredentialSelectedCallback callback) override;
 
-  void SetActorLoginServiceForTesting(
-      std::unique_ptr<actor_login::ActorLoginService> test_service);
+  // Callback for when a credential is selected, in response to
+  // `ToolDelegate::PromptToSelectCredential()`.
+  void OnCredentialSelected(
+      webui::mojom::SelectCredentialDialogResponsePtr response);
 
   static std::string StateToString(State state);
+
+  bool ShouldGateNavigation(content::NavigationHandle& navigation_handle);
 
  private:
   class NewTabWebContentsObserver;
@@ -173,10 +168,6 @@ class ExecutionEngine : public ToolDelegate {
   raw_ptr<Profile> profile_;
   base::SafeRef<AggregatedJournal> journal_;
 
-  // Stores the last observed page content for TOCTOU check.
-  std::unique_ptr<optimization_guide::proto::AnnotatedPageContent>
-      last_observed_page_content_;
-
   // Owns `this`.
   raw_ptr<ActorTask> task_;
 
@@ -192,10 +183,21 @@ class ExecutionEngine : public ToolDelegate {
   // The index of the next action that will be started when ExecuteNextAction is
   // reached.
   size_t next_action_index_ = 0;
+  base::TimeTicks action_start_time_;
 
   // If set, the currently executing tool should be considered failed once it
   // completes.
   std::optional<mojom::ActionResultCode> external_tool_failure_reason_;
+
+  // The results for actions so far.
+  std::vector<ActionResultWithLatencyInfo> action_results_;
+
+  // Origins which the browser is allowed to navigate to under actor control
+  // without prompting the user. This is applied to all navigations, including
+  // those initiated by the renderer with web content.
+  std::set<url::Origin> allowed_navigation_origins_;
+
+  ToolDelegate::CredentialSelectedCallback credential_selected_callback_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

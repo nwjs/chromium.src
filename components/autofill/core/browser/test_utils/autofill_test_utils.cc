@@ -25,6 +25,7 @@
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/data_model/payments/bank_account.h"
@@ -35,7 +36,7 @@
 #include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/data_model/payments/payment_instrument.h"
 #include "components/autofill/core/browser/field_types.h"
-#include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide.h"
+#include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide_decider.h"
 #include "components/autofill/core/browser/metrics/suggestions_list_metrics.h"
 #include "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
@@ -190,6 +191,26 @@ std::unique_ptr<PrefService> PrefServiceForTesting(
                            FormControlType::kInputTelephone),
        CreateTestFormField("Email", "email", "",
                            FormControlType::kInputEmail)});
+  return form;
+}
+
+[[nodiscard]] FormData CreateTestHybridSignUpFormData(const char* unique_id) {
+  FormData form;
+  form.set_host_frame(MakeLocalFrameToken());
+  form.set_renderer_id(MakeFormRendererId());
+  form.set_name(u"MyForm" + ASCIIToUTF16(unique_id ? unique_id : ""));
+  form.set_button_titles({std::make_pair(
+      u"Submit", mojom::ButtonTitleType::BUTTON_ELEMENT_SUBMIT_TYPE)});
+  form.set_url(GURL("https://myform.com/form.html"));
+  form.set_action(GURL("https://myform.com/submit.html"));
+  form.set_is_action_empty(true);
+  form.set_main_frame_origin(
+      url::Origin::Create(GURL("https://myform_root.com/form.html")));
+  form.set_submission_event(
+      mojom::SubmissionIndicatorEvent::SAME_DOCUMENT_NAVIGATION);
+
+  form.set_fields({CreateTestFormField(
+      "Email", "email", "", FormControlType::kInputEmail, "webauthn")});
   return form;
 }
 
@@ -708,7 +729,7 @@ void SetUpCreditCardAndBenefitData(
     const CreditCardBenefit& benefit,
     const std::string& benefit_source,
     TestPersonalDataManager& personal_data,
-    AutofillOptimizationGuide* optimization_guide) {
+    AutofillOptimizationGuideDecider* optimization_guide) {
   std::visit(
       absl::Overload{
           [&card](const CreditCardFlatRateBenefit& flat_rate_benefit) {
@@ -723,7 +744,7 @@ void SetUpCreditCardAndBenefitData(
               const CreditCardCategoryBenefit& category_benefit) {
             card.set_instrument_id(
                 *category_benefit.linked_card_instrument_id());
-            ON_CALL(*static_cast<MockAutofillOptimizationGuide*>(
+            ON_CALL(*static_cast<MockAutofillOptimizationGuideDecider*>(
                         optimization_guide),
                     AttemptToGetEligibleCreditCardBenefitCategory)
                 .WillByDefault(testing::Return(
@@ -896,7 +917,7 @@ EntityInstance GetPassportEntityInstance(PassportEntityOptions options) {
   if (options.name) {
     attributes.emplace_back(AttributeType(kPassportName));
     attributes.back().SetInfo(
-        PASSPORT_NAME_TAG, options.name, std::string(options.app_locale),
+        NAME_FULL, options.name, std::string(options.app_locale),
         /*format_string=*/u"", VerificationStatus::kNoStatus);
     attributes.back().FinalizeInfo();
   }
@@ -923,9 +944,11 @@ EntityInstance GetPassportEntityInstance(PassportEntityOptions options) {
   }
   return EntityInstance(
       EntityType(EntityTypeName::kPassport), std::move(attributes),
-      base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
-      base::Time::FromTimeT(options.date_modified.ToTimeT()), /*use_count=*/0,
-      /*use_date=*/base::Time::FromTimeT(0));
+      EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
+      std::string(options.nickname),
+      base::Time::FromTimeT(options.date_modified.ToTimeT()), options.use_count,
+      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
+      options.are_attributes_read_only);
 }
 
 EntityInstance GetDriversLicenseEntityInstance(DriversLicenseOptions options) {
@@ -934,7 +957,7 @@ EntityInstance GetDriversLicenseEntityInstance(DriversLicenseOptions options) {
   if (options.name) {
     attributes.emplace_back(AttributeType(kDriversLicenseName));
     attributes.back().SetInfo(
-        DRIVERS_LICENSE_NAME_TAG, options.name, std::string(options.app_locale),
+        NAME_FULL, options.name, std::string(options.app_locale),
         /*format_string=*/u"", VerificationStatus::kNoStatus);
     attributes.back().FinalizeInfo();
   }
@@ -966,9 +989,11 @@ EntityInstance GetDriversLicenseEntityInstance(DriversLicenseOptions options) {
   }
   return EntityInstance(
       EntityType(EntityTypeName::kDriversLicense), std::move(attributes),
-      base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
-      base::Time::FromTimeT(options.date_modified.ToTimeT()), /*use_count=*/0,
-      /*use_date=*/base::Time::FromTimeT(0));
+      EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
+      std::string(options.nickname),
+      base::Time::FromTimeT(options.date_modified.ToTimeT()), options.use_count,
+      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
+      options.are_attributes_read_only);
 }
 
 EntityInstance GetKnownTravelerNumberInstance(
@@ -990,9 +1015,11 @@ EntityInstance GetKnownTravelerNumberInstance(
   }
   return EntityInstance(
       EntityType(EntityTypeName::kKnownTravelerNumber), std::move(attributes),
-      base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
-      base::Time::FromTimeT(kJune2017.ToTimeT()), /*use_count=*/0,
-      /*use_date=*/base::Time::FromTimeT(0));
+      EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
+      std::string(options.nickname), base::Time::FromTimeT(kJune2017.ToTimeT()),
+      options.use_count,
+      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
+      options.are_attributes_read_only);
 }
 
 EntityInstance GetRedressNumberEntityInstance(RedressNumberOptions options) {
@@ -1007,9 +1034,11 @@ EntityInstance GetRedressNumberEntityInstance(RedressNumberOptions options) {
 
   return EntityInstance(
       EntityType(EntityTypeName::kRedressNumber), std::move(attributes),
-      base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
-      base::Time::FromTimeT(kJune2017.ToTimeT()), /*use_count=*/0,
-      /*use_date=*/base::Time::FromTimeT(0));
+      EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
+      std::string(options.nickname), base::Time::FromTimeT(kJune2017.ToTimeT()),
+      options.use_count,
+      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
+      options.are_attributes_read_only);
 }
 
 EntityInstance GetVehicleEntityInstance(VehicleOptions options) {
@@ -1018,7 +1047,7 @@ EntityInstance GetVehicleEntityInstance(VehicleOptions options) {
   if (options.name) {
     attributes.emplace_back(AttributeType(kVehicleOwner));
     attributes.back().SetInfo(
-        VEHICLE_OWNER_TAG, options.name, std::string(options.app_locale),
+        NAME_FULL, options.name, std::string(options.app_locale),
         /*format_string=*/u"", VerificationStatus::kNoStatus);
     attributes.back().FinalizeInfo();
   }
@@ -1060,9 +1089,11 @@ EntityInstance GetVehicleEntityInstance(VehicleOptions options) {
   }
   return EntityInstance(
       EntityType(EntityTypeName::kVehicle), std::move(attributes),
-      base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
-      base::Time::FromTimeT(kJune2017.ToTimeT()), /*use_count=*/0,
-      /*use_date=*/base::Time::FromTimeT(0));
+      EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
+      std::string(options.nickname),
+      base::Time::FromTimeT(options.date_modified.ToTimeT()), options.use_count,
+      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
+      options.are_attributes_read_only);
 }
 
 EntityInstance GetNationalIdCardEntityInstance(NationalIdCardOptions options) {
@@ -1098,9 +1129,11 @@ EntityInstance GetNationalIdCardEntityInstance(NationalIdCardOptions options) {
   }
   return EntityInstance(
       EntityType(EntityTypeName::kNationalIdCard), std::move(attributes),
-      base::Uuid::ParseLowercase(options.guid), std::string(options.nickname),
-      base::Time::FromTimeT(kJune2017.ToTimeT()), /*use_count=*/0,
-      /*use_date=*/base::Time::FromTimeT(0));
+      EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
+      std::string(options.nickname), base::Time::FromTimeT(kJune2017.ToTimeT()),
+      options.use_count,
+      /*use_date=*/base::Time::FromTimeT(0), options.record_type,
+      options.are_attributes_read_only);
 }
 
 void InitializePossibleTypes(std::vector<FieldTypeSet>& possible_field_types,

@@ -166,7 +166,7 @@ bool IsAccessCodeCastTabSwitchingUIEnabled(
 // Returns the size of the primary display in pixels, or std::nullopt if it
 // cannot be determined.
 std::optional<gfx::Size> GetScreenResolution() {
-  display::Screen* screen = display::Screen::GetScreen();
+  display::Screen* screen = display::Screen::Get();
   if (!screen) {
     DVLOG(1) << "Cannot get the Screen object.";
     return std::nullopt;
@@ -471,7 +471,7 @@ void CastMirroringServiceHost::CreateAudioStreamForDesktop(
       mojo::PendingRemote<AudioInputStreamClient>(
           std::move(pipe_to_mirroring_service.handle0), 0),
       mojo::NullRemote(), mojo::NullRemote(), loopback_id, params,
-      total_segments, false, nullptr,
+      base::UnguessableToken::Create(), total_segments, false, nullptr,
       base::BindOnce(
           [](mojo::PendingRemote<mojom::AudioStreamCreatorClient> requestor,
              mojo::PendingRemote<AudioInputStream> stream,

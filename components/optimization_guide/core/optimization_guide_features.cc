@@ -6,6 +6,7 @@
 
 #include <cstring>
 
+#include "base/byte_count.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/containers/enum_set.h"
@@ -166,10 +167,6 @@ BASE_FEATURE(kPrivacyGuideAiSettings,
              "PrivacyGuideAiSettings",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAiSettingsPageEnterpriseDisabledUi,
-             "AiSettingsPageEnterpriseDisabledUi",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kOnDeviceModelPerformanceParams,
              "OnDeviceModelPerformanceParams",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -211,6 +208,10 @@ BASE_FEATURE(kBrokerModelSessionsForUntrustedProcesses,
 // Service.
 BASE_FEATURE(kOptimizationGuideProactivePersonalizedHintsFetching,
              "OptimizationGuideProactivePersonalizedHintsFetching",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kOptimizationGuideBypassFormsClassificationAuth,
+             "OptimizationGuideBypassFormsClassificationAuth",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // The default value here is a bit of a guess.
@@ -587,24 +588,24 @@ base::TimeDelta GetOnDeviceModelRetentionTime() {
       base::Days(30));
 }
 
-int GetDiskSpaceRequiredInMbForOnDeviceModelInstall() {
-  return base::GetFieldTrialParamByFeatureAsInt(
+base::ByteCount GetDiskSpaceRequiredForOnDeviceModelInstall() {
+  return base::MiB(base::GetFieldTrialParamByFeatureAsInt(
       kOptimizationGuideOnDeviceModel,
-      "on_device_model_free_space_mb_required_to_install", 20 * 1024);
+      "on_device_model_free_space_mb_required_to_install",
+      base::GiB(20).InMiB()));
 }
 
 bool IsFreeDiskSpaceSufficientForOnDeviceModelInstall(
-    int64_t free_disk_space_bytes) {
-  return GetDiskSpaceRequiredInMbForOnDeviceModelInstall() <=
-         free_disk_space_bytes / (1024 * 1024);
+    base::ByteCount free_disk_space_bytes) {
+  return GetDiskSpaceRequiredForOnDeviceModelInstall() <= free_disk_space_bytes;
 }
 
 bool IsFreeDiskSpaceTooLowForOnDeviceModelInstall(
-    int64_t free_disk_space_bytes) {
-  return base::GetFieldTrialParamByFeatureAsInt(
+    base::ByteCount free_disk_space_bytes) {
+  return base::MiB(base::GetFieldTrialParamByFeatureAsInt(
              kOptimizationGuideOnDeviceModel,
              "on_device_model_free_space_mb_required_to_retain",
-             10 * 1024) >= free_disk_space_bytes / (1024 * 1024);
+             base::GiB(10).InMiB())) >= free_disk_space_bytes;
 }
 
 bool GetOnDeviceModelRetractUnsafeContent() {
@@ -616,6 +617,12 @@ bool GetOnDeviceModelRetractUnsafeContent() {
 
 bool ShouldUseTextSafetyClassifierModel() {
   return base::FeatureList::IsEnabled(kTextSafetyClassifier);
+}
+
+bool ShouldUseGeneralizedSafetyModel() {
+  static const base::FeatureParam<bool> kUseGeneralizedSafetyModel{
+      &kTextSafetyClassifier, "use_generalized_safety_model", false};
+  return kUseGeneralizedSafetyModel.Get();
 }
 
 double GetOnDeviceModelLanguageDetectionMinimumReliability() {

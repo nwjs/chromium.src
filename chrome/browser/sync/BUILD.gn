@@ -30,6 +30,8 @@ source_set("sync") {
     "local_or_syncable_bookmark_sync_service_factory.h",
     "prefs/chrome_syncable_prefs_database.cc",
     "prefs/chrome_syncable_prefs_database.h",
+    "prefs/cross_device_pref_tracker_factory.cc",
+    "prefs/cross_device_pref_tracker_factory.h",
     "send_tab_to_self_sync_service_factory.cc",
     "send_tab_to_self_sync_service_factory.h",
     "session_sync_service_factory.cc",
@@ -57,6 +59,7 @@ source_set("sync") {
     "//base",
     "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/tab_group_sync:factories",
     "//chrome/browser/translate",
     "//components/browser_sync",
     "//components/collaboration/public",
@@ -118,7 +121,7 @@ source_set("sync") {
     "//components/password_manager/core/browser/password_store:password_store_interface",
     "//components/password_manager/core/browser/sharing",
     "//components/performance_manager",
-    "//components/plus_addresses/settings",
+    "//components/plus_addresses/core/browser/settings",
     "//components/plus_addresses/webdata",
     "//components/privacy_sandbox:privacy_sandbox_prefs",
     "//components/privacy_sandbox:tracking_protection_prefs",
@@ -129,6 +132,8 @@ source_set("sync") {
     "//components/spellcheck/browser",
     "//components/strings:components_strings_grit",
     "//components/sync_bookmarks",
+    "//components/sync_preferences:cross_device_pref_tracker",
+    "//components/sync_preferences:features",
     "//components/sync_user_events",
     "//components/user_manager",
     "//components/variations/service",
@@ -178,6 +183,7 @@ source_set("sync") {
     deps += [
       "//chrome/browser/accessibility/tree_fixing:prefs",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/tabs/saved_tab_groups",
     ]
   }
   if (enable_extensions_core) {

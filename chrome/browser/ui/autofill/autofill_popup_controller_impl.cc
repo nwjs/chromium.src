@@ -350,7 +350,9 @@ void AutofillPopupControllerImpl::OnSuggestionsChanged() {
   OnSuggestionsChanged(/*prefer_prev_arrow_side=*/false);
 }
 
-void AutofillPopupControllerImpl::AcceptSuggestion(int index) {
+void AutofillPopupControllerImpl::AcceptSuggestion(
+    int index,
+    AutofillMetrics::SuggestionAcceptedMethod accept_method) {
   CHECK_LT(base::checked_cast<size_t>(index), GetSuggestions().size());
   CHECK(IsAcceptableSuggestionType(GetSuggestions()[index].type));
 
@@ -381,6 +383,8 @@ void AutofillPopupControllerImpl::AcceptSuggestion(int index) {
   AutofillMetrics::LogPopupInteraction(suggestions_filling_product_,
                                        GetPopupLevel(),
                                        PopupInteraction::kSuggestionAccepted);
+  base::UmaHistogramEnumeration("Autofill.SuggestionAccepted.Method",
+                                accept_method);
   delegate_->DidAcceptSuggestion(suggestion,
                                  AutofillSuggestionDelegate::SuggestionMetadata{
                                      .row = index,
@@ -499,6 +503,7 @@ bool AutofillPopupControllerImpl::RemoveSuggestion(
     case FillingProduct::kMerchantPromoCode:
     case FillingProduct::kIban:
     case FillingProduct::kLoyaltyCard:
+    case FillingProduct::kPasskey:
     case FillingProduct::kPassword:
     case FillingProduct::kCompose:
     case FillingProduct::kPlusAddresses:

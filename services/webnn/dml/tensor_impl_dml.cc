@@ -47,7 +47,13 @@ TensorImplDml::TensorImplDml(
                       std::move(context),
                       std::move(tensor_info),
                       std::move(representation)),
-      buffer_(representation_->GetD3D12Buffer()) {}
+      buffer_(representation_->GetD3D12Buffer()) {
+  // Register this tensor with the representation so it may be used
+  // to call BeginAccessWebNN and EndAccessWebNN from shared image.
+  representation_->ConsumeWebNNTensor(AsWeakPtr());
+  representation_access_ = representation_->BeginScopedAccess();
+  CHECK(representation_access_);
+}
 
 TensorImplDml::~TensorImplDml() = default;
 
@@ -111,10 +117,6 @@ TensorImplDml::EndAccessWebNN() {
   // that used this tensor.
   return base::WrapUnique(new SharedFence(
       {command_queue->submission_fence(), last_submission_fence_value_}));
-}
-
-ID3D12Resource* TensorImplDml::GetD3D12Buffer() const {
-  return buffer();
 }
 
 }  // namespace webnn::dml

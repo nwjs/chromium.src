@@ -133,7 +133,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
       window = FindMostRecentBrowserWindow(
           [profile = browser_->profile(),
            app_id = browser_->app_controller()->app_id(),
-           display = display::Screen::GetScreen()->GetDisplayForNewWindows()](
+           display = display::Screen::Get()->GetDisplayForNewWindows()](
               Browser* browser) {
             if (browser->profile() != profile) {
               return false;
@@ -142,7 +142,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
               return false;
             }
 #if BUILDFLAG(IS_CHROMEOS)
-            if (display::Screen::GetScreen()->GetDisplayNearestWindow(
+            if (display::Screen::Get()->GetDisplayNearestWindow(
                     browser->window()->GetNativeWindow()) != display) {
               return false;
             }
@@ -285,7 +285,7 @@ bool WindowSizer::DetermineWindowBoundsAndShowState(
   // does not exactly what we want: It makes only sure that "a minimal part"
   // is visible on the screen.
   gfx::Rect work_area =
-      display::Screen::GetScreen()->GetDisplayMatching(*bounds).work_area();
+      display::Screen::Get()->GetDisplayMatching(*bounds).work_area();
 
   AdjustWorkAreaForPlatform(work_area);
 
@@ -307,8 +307,7 @@ bool WindowSizer::GetLastActiveWindowBounds(
   }
   bounds->Offset(kWindowTilePixels, kWindowTilePixels);
   AdjustBoundsToBeVisibleOnDisplay(
-      display::Screen::GetScreen()->GetDisplayMatching(*bounds), gfx::Rect(),
-      bounds);
+      display::Screen::Get()->GetDisplayMatching(*bounds), gfx::Rect(), bounds);
   return true;
 }
 
@@ -356,8 +355,7 @@ gfx::Rect WindowSizer::GetDefaultWindowBounds(
 #if !BUILDFLAG(IS_MAC)
   // For wider aspect ratio displays at higher resolutions, we might size the
   // window narrower to allow two windows to easily be placed side-by-side.
-  gfx::Rect screen_size =
-      display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
+  gfx::Rect screen_size = display::Screen::Get()->GetPrimaryDisplay().bounds();
   double width_to_height =
       static_cast<double>(screen_size.width()) / screen_size.height();
 
@@ -490,8 +488,8 @@ ui::mojom::WindowShowState WindowSizer::GetWindowDefaultShowState(
 display::Display WindowSizer::GetDisplayForNewWindow(const gfx::Rect& bounds) {
 #if BUILDFLAG(IS_CHROMEOS)
   // Prefer the display where the user last activated a window.
-  return display::Screen::GetScreen()->GetDisplayForNewWindows();
+  return display::Screen::Get()->GetDisplayForNewWindows();
 #else
-  return display::Screen::GetScreen()->GetDisplayMatching(bounds);
+  return display::Screen::Get()->GetDisplayMatching(bounds);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }

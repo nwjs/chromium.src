@@ -30,7 +30,7 @@ class WebState;
 @property(nonatomic, weak) id<SearchEngineLogoConsumer> consumer;
 
 // View that shows a doodle or a search engine logo.
-// TODO(crbug.com/423883582): Need to be removed.
+// TODO(crbug.com/436228514): Need to be removed.
 @property(nonatomic, strong, readonly) UIView* view;
 
 // Designated initializer.
@@ -58,6 +58,8 @@ class WebState;
 - (void)simulateDoodleTapped;
 // Sets the destination URL for the doodle tap handler.
 - (void)setClickURLText:(const GURL&)url;
+// Called when the search engine has changed.
+- (void)searchEngineChanged;
 
 @end
 

@@ -26,7 +26,6 @@
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/variations/variations_switches.h"
 #include "net/base/features.h"
-#include "net/base/host_mapping_rules.h"
 #include "net/disk_cache/backend_experiment.h"
 #include "net/disk_cache/buildflags.h"
 #include "net/http/http_network_session.h"
@@ -510,6 +509,9 @@ void SetQuicFlags(const VariationParameters& quic_trial_params) {
 }
 
 size_t GetQuicMaxPacketLength(const VariationParameters& quic_trial_params) {
+  if (base::FeatureList::IsEnabled(net::features::kLowerQuicMaxPacketSize)) {
+    return net::features::kQuicMaxPacketSize.Get();
+  }
   unsigned value;
   if (base::StringToUint(
           GetVariationParam(quic_trial_params, "max_packet_length"), &value)) {
@@ -823,11 +825,6 @@ void ParseCommandLineAndFieldTrials(const base::CommandLine& command_line,
   if (command_line.HasSwitch(switches::kTestingFixedHttpsPort)) {
     params->testing_fixed_https_port =
         GetSwitchValueAsInt(command_line, switches::kTestingFixedHttpsPort);
-  }
-
-  if (command_line.HasSwitch(switches::kHostRules)) {
-    params->host_mapping_rules.SetRulesFromString(
-        command_line.GetSwitchValueASCII(switches::kHostRules));
   }
 }
 

@@ -371,10 +371,11 @@ bool IsPatternValidForType(const std::string& pattern_string,
   // WebUI permissions are controlled by ContentSettingsRegistry
   // AllowlistedSchemes and WebUIAllowlist. Users shouldn't be able to grant
   // extra permissions or revoke existing permissions.
-  if (pattern.GetScheme() == ContentSettingsPattern::SCHEME_CHROME ||
-      pattern.GetScheme() == ContentSettingsPattern::SCHEME_CHROMEUNTRUSTED ||
-      pattern.GetScheme() == ContentSettingsPattern::SCHEME_DEVTOOLS ||
-      pattern.GetScheme() == ContentSettingsPattern::SCHEME_CHROMESEARCH) {
+  if (pattern.GetSchemeType() == ContentSettingsPattern::SCHEME_CHROME ||
+      pattern.GetSchemeType() ==
+          ContentSettingsPattern::SCHEME_CHROMEUNTRUSTED ||
+      pattern.GetSchemeType() == ContentSettingsPattern::SCHEME_DEVTOOLS ||
+      pattern.GetSchemeType() == ContentSettingsPattern::SCHEME_CHROMESEARCH) {
     *out_error = l10n_util::GetStringUTF8(IDS_SETTINGS_NOT_VALID_WEB_ADDRESS);
     return false;
   }
@@ -886,7 +887,7 @@ void SiteSettingsHandler::OnGetUsageInfo() {
   }
 
   if (size > 0) {
-    usage_string = base::UTF16ToUTF8(ui::FormatBytes(size));
+    usage_string = base::UTF16ToUTF8(ui::FormatBytes(base::ByteCount(size)));
   }
 
   auto* privacy_sandbox_service =
@@ -1380,7 +1381,7 @@ void SiteSettingsHandler::HandleGetFormattedBytes(
     const base::Value::List& args) {
   AllowJavascript();
   CHECK_EQ(2U, args.size());
-  int64_t num_bytes = static_cast<int64_t>(args[1].GetDouble());
+  base::ByteCount num_bytes = base::ByteCount(args[1].GetDouble());
   ResolveJavascriptCallback(/*callback_id=*/args[0],
                             base::Value(ui::FormatBytes(num_bytes)));
 }

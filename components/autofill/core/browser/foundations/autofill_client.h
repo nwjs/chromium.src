@@ -87,7 +87,7 @@ class AutofillAblationStudy;
 class AutofillComposeDelegate;
 class AutofillCrowdsourcingManager;
 class AutofillDriverFactory;
-class AutofillOptimizationGuide;
+class AutofillOptimizationGuideDecider;
 #if BUILDFLAG(IS_ANDROID)
 class AutofillSnackbarControllerImpl;
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -101,7 +101,7 @@ class EntityDataManager;
 class FieldClassificationModelHandler;
 class FormDataImporter;
 class LogManager;
-class OtpSuggestionDelegate;
+class OtpDelegate;
 class PersonalDataManager;
 class SingleFieldFillRouter;
 class StrikeDatabase;
@@ -236,6 +236,13 @@ class AutofillClient {
   using EntitySaveOrUpdatePromptResultCallback =
       base::OnceCallback<void(EntitySaveOrUpdatePromptResult result)>;
 
+  // The types of prompts that AutofillAi can show to the user after a form
+  // submission.
+  enum class AutofillAiPromptTypes {
+    kSave,
+    kUpdate,
+  };
+
   // Callback to run when the user makes a decision on whether to save the
   // profile. If the user edits the Autofill profile and then accepts edits, the
   // edited version of the profile should be passed as the second parameter. No
@@ -300,10 +307,12 @@ class AutofillClient {
   virtual EntityDataManager* GetEntityDataManager() = 0;
   const EntityDataManager* GetEntityDataManager() const;
 
-  // Gets the AutofillOptimizationGuide instance associated with the client.
-  // This function can return nullptr if we are on an unsupported platform, or
-  // if the AutofillOptimizationGuide's dependencies are not present.
-  virtual AutofillOptimizationGuide* GetAutofillOptimizationGuide() const;
+  // Gets the AutofillOptimizationGuideDecider instance associated with the
+  // client. This function can return nullptr if we are on an unsupported
+  // platform, or if the AutofillOptimizationGuideDecider's dependencies are not
+  // present.
+  virtual AutofillOptimizationGuideDecider*
+  GetAutofillOptimizationGuideDecider() const;
 
   // Gets the FieldClassificationModelHandler instance for autofill machine
   // learning predictions associated with the client.
@@ -362,9 +371,9 @@ class AutofillClient {
   virtual PasswordManagerDelegate* GetPasswordManagerDelegate(
       const FieldGlobalId& field_id);
 
-  // Returns the `OtpSuggestionDelegate` associated with the profile of
-  // the window of this tab.
-  virtual OtpSuggestionDelegate* GetOtpSuggestionDelegate();
+  // Returns the `OtpDelegate` associated with the profile of the window of
+  // this tab.
+  virtual OtpDelegate* GetOtpDelegate();
 
   // TODO(crbug.com/365494310): Move these methods to a plus-address-specific
   // client class.
@@ -574,6 +583,10 @@ class AutofillClient {
 
   // If the context is secure.
   virtual bool IsContextSecure() const = 0;
+
+  // Returns true if the client supports saving CVCs. This allows specific
+  // clients (IosWebView) to opt out of the CVC saving feature.
+  virtual bool IsCvcSavingSupported() const;
 
   // Returns a LogManager instance (for chrome://autofill-internals). Note that
   // the return value may change over the lifetime of an AutofillClient from

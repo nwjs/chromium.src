@@ -32,6 +32,10 @@ class ChromiumDepGraph {
                     licenseName: 'BSD'),
             androidx_multidex_multidex: new PropertyOverride(
                     url: 'https://maven.google.com/androidx/multidex/multidex/2.0.0/multidex-2.0.0.aar'),
+            com_android_extensions_xr_extensions_xr: new PropertyOverride(
+                    url: 'https://maven.google.com/web/index.html?q=xr#com.android.extensions.xr:extensions-xr',
+                    licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0.txt',
+                    licenseName: 'Apache-2.0'),
             com_google_android_datatransport_transport_api: new PropertyOverride(
                     description: 'Interfaces for data logging in gmscore SDKs.'),
             com_google_android_gms_play_services_cloud_messaging: new PropertyOverride(
@@ -98,6 +102,7 @@ class ChromiumDepGraph {
             // internal android override is defined, android targets should use that instead (and fail compile if they
             // use this one) but non-android targets still needs this guava target to exist.
             com_google_guava_guava: new PropertyOverride(
+                    cpePrefix: 'cpe:/a:google:guava',
                     url: 'https://github.com/google/guava',
                     licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0.txt',
                     licenseName: 'Apache 2.0',
@@ -156,6 +161,18 @@ class ChromiumDepGraph {
                     licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
                     licenseName: 'Apache 2.0'),
             io_grpc_grpc_stub: new PropertyOverride(
+                    cpePrefix: 'cpe:/a:grpc:grpc',
+                    licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
+                    licenseName: 'Apache 2.0'),
+            io_grpc_grpc_testing: new PropertyOverride(
+                    cpePrefix: 'cpe:/a:grpc:grpc',
+                    licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
+                    licenseName: 'Apache 2.0'),
+            io_grpc_grpc_inprocess: new PropertyOverride(
+                    cpePrefix: 'cpe:/a:grpc:grpc',
+                    licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
+                    licenseName: 'Apache 2.0'),
+            io_grpc_grpc_util: new PropertyOverride(
                     cpePrefix: 'cpe:/a:grpc:grpc',
                     licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
                     licenseName: 'Apache 2.0'),

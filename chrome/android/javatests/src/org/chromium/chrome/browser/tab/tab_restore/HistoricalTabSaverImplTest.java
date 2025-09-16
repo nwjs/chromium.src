@@ -16,7 +16,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.Token;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -50,6 +49,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * End to end tests for {@link HistoricalTabSaverImpl} and its interactions with TabRestoreService.
@@ -84,7 +84,7 @@ public class HistoricalTabSaverImplTest {
         mTabModelSelector = mInitialPage.getTabModelSelector();
         mTabModel = mInitialPage.getTabModel();
         TabRestoreServiceUtils.clearEntries(mTabModelSelector);
-        mTab = mInitialPage.loadedTabElement.get();
+        mTab = mInitialPage.loadedTabElement.value();
         mHistoricalTabSaver = new HistoricalTabSaverImpl(mTabModel);
     }
 

@@ -264,7 +264,6 @@
       "contexts": ["webui"],
       "matches": [
         "chrome://add-supervision/*",
-        "chrome://assistant-optin/*",
         "chrome://extensions/*",
         "chrome://glic/*",
         "chrome://glic-fre/*",
@@ -287,7 +286,8 @@
         "webui_untrusted"
       ],
       "matches": [
-        "chrome-untrusted://boca-app/*"
+        "chrome-untrusted://boca-app/*",
+        "chrome-untrusted://lens/*"
       ],
       // "desktop_android" is not supported.
       "platforms": ["chromeos", "linux", "mac", "win"]
@@ -363,7 +363,6 @@
   },
   "management.installReplacementWebApp": {
     "dependencies": ["manifest:replacement_web_app"],
-    "channel": "stable",
     "extension_types": ["extension", "platform_app"]
   },
   "management.uninstallSelf": {
@@ -693,7 +692,6 @@
   },{
     "contexts": ["webui"],
     "matches": [
-      "chrome://password-change/*",
       "chrome://file-manager/*"
     ]
   },{
@@ -897,7 +895,6 @@
     "contexts": ["webui"],
     "matches": [
       "chrome://add-supervision/*",
-      "chrome://assistant-optin/*",
       "chrome://chrome-signin/*",
       "chrome://glic/*",
       "chrome://glic-fre/*",
@@ -918,7 +915,8 @@
       "webui_untrusted"
     ],
     "matches": [
-      "chrome-untrusted://boca-app/*"
+      "chrome-untrusted://boca-app/*",
+      "chrome-untrusted://lens/*"
     ]
   }, {
     // This feature is used by the Controlled Frame API and is specifically
@@ -943,7 +941,6 @@
     "contexts": ["webui"],
     "matches": [
       "chrome://add-supervision/*",
-      "chrome://assistant-optin/*",
       "chrome://chrome-signin/*",
       "chrome://glic/*",
       "chrome://glic-fre/*",
@@ -963,7 +960,8 @@
       "webui_untrusted"
     ],
     "matches": [
-      "chrome-untrusted://boca-app/*"
+      "chrome-untrusted://boca-app/*",
+      "chrome-untrusted://lens/*"
     ]
   }, {
     // This feature is used by the Controlled Frame API and is specifically
@@ -986,7 +984,6 @@
     "contexts": ["webui"],
     "matches": [
       "chrome://add-supervision/*",
-      "chrome://assistant-optin/*",
       "chrome://chrome-signin/*",
       "chrome://glic/*",
       "chrome://graduation/*",
@@ -1002,7 +999,8 @@
       "webui_untrusted"
     ],
     "matches": [
-      "chrome-untrusted://boca-app/*"
+      "chrome-untrusted://boca-app/*",
+      "chrome-untrusted://lens/*"
     ]
   }]
 }

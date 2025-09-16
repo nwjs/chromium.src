@@ -26,7 +26,7 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {getCurrentSpeechRate, minOverflowLengthToScroll, openMenu, spinnerDebounceTimeout, ToolbarEvent} from './common.js';
+import {minOverflowLengthToScroll, openMenu, spinnerDebounceTimeout, ToolbarEvent} from './common.js';
 import type {SettingsPrefs} from './common.js';
 import {getNewIndex, isArrow, isForwardArrow, isHorizontalArrow} from './keyboard_util.js';
 import type {ColorMenuElement} from './menus/color_menu.js';
@@ -35,6 +35,7 @@ import type {LetterSpacingMenuElement} from './menus/letter_spacing_menu.js';
 import type {LineSpacingMenuElement} from './menus/line_spacing_menu.js';
 import type {RateMenuElement} from './menus/rate_menu.js';
 import {ReadAnythingSettingsChange} from './metrics_browser_proxy.js';
+import {getCurrentSpeechRate} from './read_aloud/speech_presentation_rules.js';
 import {ReadAnythingLogger, SpeechControls, TimeFrom} from './read_anything_logger.js';
 import {getCss} from './read_anything_toolbar.css.js';
 import {getHtml} from './read_anything_toolbar.html.js';
@@ -428,7 +429,8 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
         this.fontOptions_.indexOf(chrome.readingMode.fontName);
     if (currentFontIndex < 0) {
       currentFontIndex = 0;
-      this.propagateFontChange_(this.fontOptions_[0]!);
+      this.propagateFontChange_(
+          this.fontOptions_[0]!, /*isTemporaryFallback=*/ true);
     }
     this.fontName_ = this.fontOptions_[currentFontIndex]!;
     if (!this.isReadAloudEnabled_) {
@@ -443,6 +445,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     this.restoreFontMenu_();
 
     this.updateLinkToggleButton();
+    this.updateImagesToggleButton();
 
     if (this.isReadAloudEnabled_) {
       this.speechRate_ = getCurrentSpeechRate();
@@ -575,8 +578,13 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     this.propagateFontChange_(this.fontName_);
   }
 
-  private propagateFontChange_(fontName: string) {
-    chrome.readingMode.onFontChange(fontName);
+  private propagateFontChange_(
+      fontName: string, isTemporaryFallback: boolean = false) {
+    if (!isTemporaryFallback) {
+      // Persist the change only if it's a direct user selection, not a
+      // temporary fallback.
+      chrome.readingMode.onFontChange(fontName);
+    }
     this.fire(ToolbarEvent.FONT);
     this.style.fontFamily = chrome.readingMode.getValidatedFontName(fontName);
   }
@@ -627,9 +635,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     if (button) {
       button.ironIcon = chrome.readingMode.linksEnabled ? LINKS_ENABLED_ICON :
                                                           LINKS_DISABLED_ICON;
-      button.title = chrome.readingMode.linksEnabled ?
+      const linkStatusLabel = chrome.readingMode.linksEnabled ?
           loadTimeData.getString('disableLinksLabel') :
           loadTimeData.getString('enableLinksLabel');
+      button.title = linkStatusLabel;
+      button.ariaLabel = linkStatusLabel;
     }
   }
 
@@ -639,9 +649,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     if (button) {
       button.ironIcon = chrome.readingMode.imagesEnabled ? IMAGES_ENABLED_ICON :
                                                            IMAGES_DISABLED_ICON;
-      button.title = chrome.readingMode.imagesEnabled ?
+      const imageStatusLabel = chrome.readingMode.imagesEnabled ?
           loadTimeData.getString('disableImagesLabel') :
           loadTimeData.getString('enableImagesLabel');
+      button.title = imageStatusLabel;
+      button.ariaLabel = imageStatusLabel;
     }
   }
 

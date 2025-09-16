@@ -66,6 +66,11 @@ class BrowserDelegate {
   // be nullptr even if index is in bounds, just like GetActiveWebContents().
   virtual content::WebContents* GetWebContentsAt(size_t index) const = 0;
 
+  // Returns the inspected web contents if this is a kDevTools type browser.
+  // Returns nullptr otherwise.
+  // Can also be nullptr while the browser is initialized/shutdown.
+  virtual content::WebContents* GetInspectedWebContents() const = 0;
+
   // Returns the native window. Can be nullptr, e.g. when the browser is being
   // closed.
   virtual aura::Window* GetNativeWindow() const = 0;
@@ -81,6 +86,9 @@ class BrowserDelegate {
 
   // Returns whether the browser window is active.
   virtual bool IsActive() const = 0;
+
+  // Returns whether the browser window is minimized.
+  virtual bool IsMinimized() const = 0;
 
   // Shows the browser window, or activates it if it's already visible.
   virtual void Show() = 0;

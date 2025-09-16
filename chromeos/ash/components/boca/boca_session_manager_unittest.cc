@@ -18,6 +18,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "base/time/time.h"
 #include "base/types/expected.h"
 #include "chromeos/ash/components/boca/babelorca/soda_testing_utils.h"
 #include "chromeos/ash/components/boca/boca_app_client.h"
@@ -28,11 +29,13 @@
 #include "chromeos/ash/components/boca/session_api/get_session_request.h"
 #include "chromeos/ash/components/boca/session_api/student_heartbeat_request.h"
 #include "chromeos/ash/components/boca/session_api/update_student_activities_request.h"
+#include "chromeos/ash/components/boca/session_api/upload_token_request.h"
 #include "chromeos/ash/components/network/network_ui_data.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/fake_cros_settings_provider.h"
 #include "chromeos/ash/services/network_config/public/cpp/cros_network_config_test_helper.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/session_manager/core/fake_session_manager_delegate.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/session_manager/session_manager_types.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -53,7 +56,6 @@
 
 using ::testing::_;
 using ::testing::DoAll;
-using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrictMock;
@@ -78,6 +80,10 @@ class MockSessionClientImpl : public SessionClientImpl {
   MOCK_METHOD(void,
               StudentHeartbeat,
               (std::unique_ptr<StudentHeartbeatRequest>),
+              (override));
+  MOCK_METHOD(void,
+              UploadToken,
+              (std::unique_ptr<UploadTokenRequest>),
               (override));
 };
 
@@ -155,6 +161,8 @@ constexpr char kUpdateStudentActivitiesErrorCodeUmaPath[] =
     "Ash.Boca.UpdateStudentActivities.ErrorCode";
 constexpr char kStudentHeartbeatErrorCodeUmaPath[] =
     "Ash.Boca.StudentHeartbeat.ErrorCode";
+constexpr char kBocaUploadTokenErrorCodeUmaPath[] =
+    "Ash.Boca.UploadToken.ErrorCode";
 
 ::boca::Session GetInitialSession(base::Time inital_time) {
   ::boca::Session session_1;
@@ -343,7 +351,8 @@ class BocaSessionManagerTest : public BocaSessionManagerTestBase {
   }
 
  protected:
-  session_manager::SessionManager device_session_manger_;
+  session_manager::SessionManager device_session_manger_{
+      std::make_unique<session_manager::FakeSessionManagerDelegate>()};
   base::Time session_start_time_ = base::Time::Now();
   bool is_producer_ = true;
 
@@ -949,12 +958,12 @@ TEST_F(BocaSessionManagerTest, UpdateTabActivity) {
       .WillOnce(WithArg<0>(
           // Unique pointer have ownership issue, have to do manual deep copy
           // here instead of using SaveArg.
-          Invoke([&](auto request) {
+          [&](auto request) {
             EXPECT_EQ(kInitialSessionId, request->session_id());
             EXPECT_EQ(kTestGaiaId, request->gaia_id());
             EXPECT_EQ(kDeviceId, request->device_id());
             request->callback().Run(true);
-          })));
+          }));
 
   boca_session_manager()->UpdateCurrentSession(
       std::make_unique<::boca::Session>(session), false);
@@ -972,10 +981,10 @@ TEST_F(BocaSessionManagerTest, UpdateTabActivityFailed) {
       .WillOnce(WithArg<0>(
           // Unique pointer have ownership issue, have to do manual deep copy
           // here instead of using SaveArg.
-          Invoke([&](auto request) {
+          [&](auto request) {
             request->callback().Run(base::unexpected<google_apis::ApiErrorCode>(
                 google_apis::ApiErrorCode::HTTP_INTERNAL_SERVER_ERROR));
-          })));
+          }));
 
   boca_session_manager()->UpdateCurrentSession(
       std::make_unique<::boca::Session>(session), false);
@@ -1000,12 +1009,12 @@ TEST_F(BocaSessionManagerTest, UpdateTabActivityWithDummyDeviceId) {
       .WillOnce(WithArg<0>(
           // Unique pointer have ownership issue, have to do manual deep copy
           // here instead of using SaveArg.
-          Invoke([&](auto request) {
+          [&](auto request) {
             EXPECT_EQ(kInitialSessionId, request->session_id());
             EXPECT_EQ(kTestGaiaId, request->gaia_id());
             EXPECT_EQ(BocaSessionManager::kDummyDeviceId, request->device_id());
             request->callback().Run(true);
-          })));
+          }));
 
   boca_session_manager()->UpdateTabActivity(kTab);
 }
@@ -1600,6 +1609,58 @@ TEST_F(BocaSessionManagerTest,
   EXPECT_CALL(*observer(), OnSessionCaptionClosed).Times(0);
   EXPECT_CALL(*observer(), OnLocalCaptionClosed).Times(0);
   device_session_manger_.SetSessionState(session_manager::SessionState::ACTIVE);
+}
+
+TEST_F(BocaSessionManagerTest, UploadTokenSuccess) {
+  base::HistogramTester histogram_tester;
+  const std::string kFcmToken = "fcm_token";
+  std::string request_fcm_token;
+  base::test::TestFuture<bool> test_future;
+  EXPECT_CALL(*session_client_impl(), UploadToken)
+      .WillOnce(
+          [&request_fcm_token](std::unique_ptr<UploadTokenRequest> request) {
+            request_fcm_token = request->token();
+            std::move(request->callback()).Run(true);
+          });
+  boca_session_manager()->UploadToken(kFcmToken, test_future.GetCallback());
+
+  EXPECT_TRUE(test_future.Get());
+  EXPECT_EQ(request_fcm_token, kFcmToken);
+  histogram_tester.ExpectTotalCount(kBocaUploadTokenErrorCodeUmaPath, 0);
+}
+
+TEST_F(BocaSessionManagerTest, UploadTokenFailure) {
+  base::HistogramTester histogram_tester;
+  const std::string kFcmToken = "fcm_token";
+  std::string request_fcm_token;
+  base::test::TestFuture<bool> test_future;
+  EXPECT_CALL(*session_client_impl(), UploadToken)
+      .WillOnce([&request_fcm_token](
+                    std::unique_ptr<UploadTokenRequest> request) {
+        request_fcm_token = request->token();
+        std::move(request->callback())
+            .Run(base::unexpected(google_apis::ApiErrorCode::HTTP_BAD_REQUEST));
+      });
+  boca_session_manager()->UploadToken(kFcmToken, test_future.GetCallback());
+
+  EXPECT_FALSE(test_future.Get());
+  EXPECT_EQ(request_fcm_token, kFcmToken);
+  histogram_tester.ExpectTotalCount(kBocaUploadTokenErrorCodeUmaPath, 1);
+  histogram_tester.ExpectBucketCount(
+      kBocaUploadTokenErrorCodeUmaPath,
+      google_apis::ApiErrorCode::HTTP_BAD_REQUEST, 1);
+}
+
+TEST_F(BocaSessionManagerTest, OnInvalidationReceived) {
+  base::HistogramTester histogram_tester;
+  EXPECT_CALL(*session_client_impl(), GetSession)
+      .WillOnce([](std::unique_ptr<GetSessionRequest> request, bool) {
+        std::move(request->callback())
+            .Run(std::make_unique<::boca::Session>(
+                GetInitialSession(base::Time::Now())));
+      });
+  boca_session_manager()->OnInvalidationReceived("payload");
+  histogram_tester.ExpectTotalCount(boca::kPollingResult, 0);
 }
 
 class BocaSessionManagerSodaTest : public BocaSessionManagerTestBase {

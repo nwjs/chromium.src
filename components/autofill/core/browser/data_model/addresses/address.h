@@ -6,6 +6,7 @@
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MODEL_ADDRESSES_ADDRESS_H_
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/compiler_specific.h"
@@ -34,6 +35,8 @@ class Address : public FormGroup {
       ADDRESS_HOME_CITY,
       ADDRESS_HOME_STATE,
       ADDRESS_HOME_ZIP,
+      ADDRESS_HOME_ZIP_PREFIX,
+      ADDRESS_HOME_ZIP_SUFFIX,
       ADDRESS_HOME_SORTING_CODE,
       ADDRESS_HOME_COUNTRY,
       ADDRESS_HOME_APT,
@@ -60,7 +63,7 @@ class Address : public FormGroup {
   // FormGroup:
   using FormGroup::GetInfo;
   std::u16string GetInfo(const AutofillType& type,
-                         const std::string& app_locale) const override;
+                         std::string_view app_locale) const override;
   std::u16string GetRawInfo(FieldType type) const override;
   void SetRawInfoWithVerificationStatus(FieldType type,
                                         const std::u16string& value,

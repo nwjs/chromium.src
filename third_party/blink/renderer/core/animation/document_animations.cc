@@ -69,7 +69,7 @@ void UpdateAnimationTiming(
     // animation's timeline is serviced first and then the trigger's timeline is
     // serviced afterwards.
     for (auto& timeline : timelines) {
-      timeline->ServiceAnimationTriggers();
+      timeline->ServiceTriggers();
     }
   }
 
@@ -294,6 +294,12 @@ void DocumentAnimations::RemoveReplacedAnimations(
     Animation* animation = *it;
     event_loop->EnqueueMicrotask(WTF::BindOnce(
         &Animation::RemoveReplacedAnimation, WrapWeakPersistent(animation)));
+  }
+}
+
+void DocumentAnimations::UpdateAnimationTriggerAttachments() {
+  for (const auto& timeline : timelines_) {
+    timeline->UpdateAnimationTriggerAttachments();
   }
 }
 

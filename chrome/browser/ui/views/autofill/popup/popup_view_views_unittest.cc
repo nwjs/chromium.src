@@ -18,6 +18,7 @@
 #include "base/test/bind.h"
 #include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/mock_callback.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller.h"
@@ -203,7 +204,7 @@ class PopupViewViewsTest : public ChromeViewsTestBase {
     view->Show(AutoselectFirstSuggestion(false));
   }
 
-  void CreateAndShowView(
+  void CreateView(
       std::optional<views::Widget::InitParams> widget_params = std::nullopt,
       std::optional<AutofillPopupView::SearchBarConfig> search_bar_config =
           std::nullopt) {
@@ -220,6 +221,13 @@ class PopupViewViewsTest : public ChromeViewsTestBase {
         GetRootWindow(widget_.get()));
     view_ = new TestPopupViewViews(controller().GetWeakPtr(),
                                    std::move(search_bar_config));
+  }
+
+  void CreateAndShowView(
+      std::optional<views::Widget::InitParams> widget_params = std::nullopt,
+      std::optional<AutofillPopupView::SearchBarConfig> search_bar_config =
+          std::nullopt) {
+    CreateView(std::move(widget_params), std::move(search_bar_config));
     ShowView(view_, *widget_);
   }
 
@@ -538,7 +546,9 @@ TEST_F(PopupViewViewsTest, AcceptingOnTap) {
   CreateAndShowView({SuggestionType::kPasswordEntry});
 
   // Tapping will accept the selection.
-  EXPECT_CALL(controller(), AcceptSuggestion(0));
+  EXPECT_CALL(
+      controller(),
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kTap));
   generator().GestureTapAt(
       GetPopupRowViewAt(0).GetBoundsInScreen().CenterPoint());
 }
@@ -948,14 +958,18 @@ class PopupViewViewsTestKeyboard : public PopupViewViewsTest {
 // Tests that hitting enter on a suggestion autofills it.
 TEST_F(PopupViewViewsTestKeyboard, FillOnEnter) {
   SelectFirstSuggestion();
-  EXPECT_CALL(controller(), AcceptSuggestion(0));
+  EXPECT_CALL(controller(),
+              AcceptSuggestion(
+                  0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard));
   SimulateKeyPress(ui::VKEY_RETURN);
 }
 
 // Tests that hitting tab on a suggestion autofills it.
 TEST_F(PopupViewViewsTestKeyboard, FillOnTabPressed) {
   SelectFirstSuggestion();
-  EXPECT_CALL(controller(), AcceptSuggestion(0));
+  EXPECT_CALL(controller(),
+              AcceptSuggestion(
+                  0, AutofillMetrics::SuggestionAcceptedMethod::kKeyboard));
   SimulateKeyPress(ui::VKEY_TAB);
 }
 
@@ -963,7 +977,7 @@ TEST_F(PopupViewViewsTestKeyboard, FillOnTabPressed) {
 // autofill a selected suggestion.
 TEST_F(PopupViewViewsTestKeyboard, NoFillOnTabPressedWithModifiers) {
   SelectFirstSuggestion();
-  EXPECT_CALL(controller(), AcceptSuggestion(0)).Times(0);
+  EXPECT_CALL(controller(), AcceptSuggestion).Times(0);
   SimulateKeyPress(ui::VKEY_TAB, /*shift_modifier_pressed=*/false,
                    /*non_shift_modifier_pressed=*/true);
 }
@@ -1819,7 +1833,10 @@ TEST_F(PopupViewViewsTest, VirtualCardSuggestion_ElementId) {
 // Tests that (only) clickable items trigger an AcceptSuggestion event.
 TEST_P(PopupViewViewsTestWithAnySuggestionType, ShowClickTest) {
   CreateAndShowView({type()});
-  EXPECT_CALL(controller(), AcceptSuggestion(0)).Times(IsClickable(type()));
+  EXPECT_CALL(
+      controller(),
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse))
+      .Times(IsClickable(type()));
   generator().MoveMouseTo(gfx::Point(1000, 1000));
   ASSERT_FALSE(view().IsMouseHovered());
   Paint();
@@ -1832,7 +1849,9 @@ TEST_P(PopupViewViewsTestWithAnySuggestionType, ShowClickTest) {
 TEST_P(PopupViewViewsTestWithClickableSuggestionType,
        AcceptSuggestionIfUnfocusedAtPaint) {
   CreateAndShowView({type()});
-  EXPECT_CALL(controller(), AcceptSuggestion(0));
+  EXPECT_CALL(
+      controller(),
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse));
   generator().MoveMouseTo(gfx::Point(1000, 1000));
   ASSERT_FALSE(view().IsMouseHovered());
   Paint();
@@ -1845,7 +1864,9 @@ TEST_P(PopupViewViewsTestWithClickableSuggestionType,
 TEST_P(PopupViewViewsTestWithClickableSuggestionType,
        AcceptSuggestionIfMouseSelectedAnotherRow) {
   CreateAndShowView({type(), type()});
-  EXPECT_CALL(controller(), AcceptSuggestion);
+  EXPECT_CALL(
+      controller(),
+      AcceptSuggestion(1, AutofillMetrics::SuggestionAcceptedMethod::kMouse));
   generator().MoveMouseTo(GetCenterOfSuggestion(0));
   ASSERT_TRUE(view().IsMouseHovered());
   Paint();
@@ -1858,7 +1879,9 @@ TEST_P(PopupViewViewsTestWithClickableSuggestionType,
 TEST_P(PopupViewViewsTestWithClickableSuggestionType,
        AcceptSuggestionIfMouseTemporarilySelectedAnotherRow) {
   CreateAndShowView({type(), type()});
-  EXPECT_CALL(controller(), AcceptSuggestion);
+  EXPECT_CALL(
+      controller(),
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse));
   generator().MoveMouseTo(GetCenterOfSuggestion(0));
   ASSERT_TRUE(view().IsMouseHovered());
   Paint();
@@ -1873,7 +1896,9 @@ TEST_P(PopupViewViewsTestWithClickableSuggestionType,
 TEST_P(PopupViewViewsTestWithClickableSuggestionType,
        AcceptSuggestionIfMouseExitedPopupSincePaint) {
   CreateAndShowView({type()});
-  EXPECT_CALL(controller(), AcceptSuggestion);
+  EXPECT_CALL(
+      controller(),
+      AcceptSuggestion(0, AutofillMetrics::SuggestionAcceptedMethod::kMouse));
   generator().MoveMouseTo(GetCenterOfSuggestion(0));
   ASSERT_TRUE(view().IsMouseHovered());
   Paint();
@@ -2036,6 +2061,73 @@ TEST_F(PopupViewViewsTest, WarningOnShowA11yFocus) {
   ASSERT_TRUE(row_view);
 
   EXPECT_EQ(1, counter.GetCount(ax::mojom::Event::kFocus, *row_view));
+}
+
+TEST_F(PopupViewViewsTest, Show_A11yAnnouncesPasswordRecovery) {
+  const std::vector<Suggestion> suggestions = {
+      Suggestion(SuggestionType::kBackupPasswordEntry),
+      Suggestion(SuggestionType::kPasswordEntry)};
+  controller().set_suggestions(suggestions);
+  CreateView();
+  base::MockCallback<base::RepeatingCallback<void(const std::u16string&, bool)>>
+      announcement;
+  test_api(view()).SetA11yAnnouncer(announcement.Get());
+
+  EXPECT_CALL(
+      announcement,
+      Run(l10n_util::GetStringUTF16(
+              IDS_PASSWORD_MANAGER_UI_PASSWORD_RECOVERY_SHOWN_A11Y_ANNOUNCEMENT),
+          true));
+  ShowView(&view(), widget());
+}
+
+TEST_F(PopupViewViewsTest, Show_A11yDoesNotAnnounceNonPasswordRecovery) {
+  const std::vector<Suggestion> suggestions = {
+      Suggestion(SuggestionType::kPasswordEntry),
+      Suggestion(SuggestionType::kPasswordEntry)};
+  controller().set_suggestions(suggestions);
+  CreateView();
+  base::MockCallback<base::RepeatingCallback<void(const std::u16string&, bool)>>
+      announcement;
+  test_api(view()).SetA11yAnnouncer(announcement.Get());
+
+  EXPECT_CALL(announcement, Run).Times(0);
+  ShowView(&view(), widget());
+}
+
+TEST_F(PopupViewViewsTest, OnSuggestionsChanged_A11yAnnouncesPasswordRecovery) {
+  const std::vector<Suggestion> suggestions = {
+      Suggestion(SuggestionType::kBackupPasswordEntry),
+      Suggestion(SuggestionType::kPasswordEntry)};
+  controller().set_suggestions({Suggestion(SuggestionType::kAddressEntry)});
+  CreateAndShowView();
+  base::MockCallback<base::RepeatingCallback<void(const std::u16string&, bool)>>
+      announcement;
+  test_api(view()).SetA11yAnnouncer(announcement.Get());
+
+  EXPECT_CALL(
+      announcement,
+      Run(l10n_util::GetStringUTF16(
+              IDS_PASSWORD_MANAGER_UI_PASSWORD_RECOVERY_SHOWN_A11Y_ANNOUNCEMENT),
+          true));
+  controller().set_suggestions(suggestions);
+  static_cast<AutofillPopupView&>(view()).OnSuggestionsChanged(false);
+}
+
+TEST_F(PopupViewViewsTest,
+       OnSuggestionsChanged_A11yDoesNotAnnounceNonPasswordRecovery) {
+  const std::vector<Suggestion> suggestions = {
+      Suggestion(SuggestionType::kPasswordEntry),
+      Suggestion(SuggestionType::kPasswordEntry)};
+  controller().set_suggestions({Suggestion(SuggestionType::kAddressEntry)});
+  CreateAndShowView();
+  base::MockCallback<base::RepeatingCallback<void(const std::u16string&, bool)>>
+      announcement;
+  test_api(view()).SetA11yAnnouncer(announcement.Get());
+
+  EXPECT_CALL(announcement, Run).Times(0);
+  controller().set_suggestions(suggestions);
+  static_cast<AutofillPopupView&>(view()).OnSuggestionsChanged(false);
 }
 
 }  // namespace

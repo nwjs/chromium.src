@@ -71,6 +71,12 @@ id<GREYAction> PageSheetScrollDown() {
   // expand.
   CGFloat menu_scroll_displacement = 500;
 
+  // On iPad we do not need the page sheet to expand to full screen and the
+  // current large size may miss items in the middle of the page menu.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    menu_scroll_displacement = 250;
+  }
+
   // But for very small devices (like the SE), this is too big.
   UIWindow* currentWindow = [ChromeEarlGreyAppInterface keyWindow];
   if (currentWindow.rootViewController.view.frame.size.height < 600) {
@@ -211,15 +217,6 @@ const int kMaxNumberOfAttemptsAtTypingTextInOmnibox = 3;
          usingSearchAction:grey_swipeSlowInDirection(kGREYDirectionDown)
       onElementWithMatcher:chrome_test_util::WebStateScrollViewMatcher()]
       performAction:grey_longPress()];
-
-  if (@available(iOS 26, *)) {
-    // TODO(crbug.com/428928323): Investigate why the keyboard appears. Remove
-    // this workaround when it's not needed anymore.
-    // On iOS 26, the keyboard appears when the new tab button is tapped and it
-    // hides the elements behind. Close the keyboard by typing a return key.
-    [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"\\n" flags:0];
-  }
-
   // TODO(crbug.com/41271101): Add webViewScrollView matcher so we don't have
   // to always find it.
 }
@@ -580,12 +577,6 @@ const int kMaxNumberOfAttemptsAtTypingTextInOmnibox = 3;
                  grey_text(l10n_util::GetNSString(
                      IDS_IOS_CLEAR_BROWSING_DATA_TIME_RANGE_SELECTOR_TITLE))]
       performAction:grey_tap()];
-
-  // TODO(crbug.com/428928323): Investigate why the keyboard appears and remove
-  // this workaround when it's not needed anymore.
-  // On iOS 26, the keyboard appears when the 'Time Range' button is tapped and
-  // it hides the elements behind. Close the keyboard by typing a return key.
-  [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"\\n" flags:0];
 
   NSString* timeRange = l10n_util::GetNSString(
       IDS_IOS_CLEAR_BROWSING_DATA_TIME_RANGE_OPTION_BEGINNING_OF_TIME);

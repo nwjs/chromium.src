@@ -80,7 +80,6 @@ using base::test::RunOnceClosure;
 using testing::_;
 using testing::ByRef;
 using testing::Eq;
-using testing::Invoke;
 using testing::IsEmpty;
 using testing::MakeMatcher;
 using testing::Matcher;
@@ -2264,8 +2263,10 @@ TEST_F(BrowsingDataRemoverImplTest,
        RemoveBrowsingHistoryRegeneratesNoiseToken) {
   base::test::ScopedFeatureList features(
       fingerprinting_protection_interventions::features::kCanvasNoise);
+
+  url::Origin origin = url::Origin::Create(GURL("https://example.test"));
   uint64_t original_token =
-      content::CanvasNoiseTokenData::GetToken(GetBrowserContext());
+      content::CanvasNoiseTokenData::GetToken(GetBrowserContext(), origin);
 
   BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
                                 content::BrowsingDataRemover::DATA_TYPE_COOKIES,
@@ -2276,7 +2277,7 @@ TEST_F(BrowsingDataRemoverImplTest,
             GetOriginTypeMask());
 
   uint64_t updated_token =
-      content::CanvasNoiseTokenData::GetToken(GetBrowserContext());
+      content::CanvasNoiseTokenData::GetToken(GetBrowserContext(), origin);
   EXPECT_NE(original_token, updated_token);
 }
 

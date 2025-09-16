@@ -68,6 +68,7 @@
 #import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_settings_util.h"
 #import "ios/chrome/browser/safari_data_import/public/safari_data_import_entry_point.h"
+#import "ios/chrome/browser/safari_data_import/public/safari_data_import_ui_handler.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/settings/model/sync/utils/identity_error_util.h"
@@ -218,6 +219,7 @@ struct EnhancedSafeBrowsingActivePromoData
     PrefObserverDelegate,
     NotificationsCoordinatorDelegate,
     PrivacyCoordinatorDelegate,
+    SafariDataImportUIHandler,
     SafetyCheckCoordinatorDelegate,
     SearchEngineObserving,
     SyncObserverModelBridge,
@@ -1385,7 +1387,7 @@ struct EnhancedSafeBrowsingActivePromoData
           _browser->GetCommandDispatcher(), ApplicationCommands);
       [handler displaySafariDataImportFromEntryPoint:
                    SafariDataImportEntryPoint::kSetting
-                                       withUIHandler:nil];
+                                       withUIHandler:self];
       break;
     }
     case SettingsItemTypeBandwidth:
@@ -2165,12 +2167,10 @@ struct EnhancedSafeBrowsingActivePromoData
 #pragma mark - Sign in
 
 - (void)showSignIn {
-  if (_signinAndHistorySyncCoordinator) {
-    // According to crbug.com/1498153, it is possible for the user to tap twice
-    // on the sign-in cell from the settings to open the sign-in dialog.
-    // If this happens, the second tap should ignored.
+  if (_signinAndHistorySyncCoordinator.viewWillPersist) {
     return;
   }
+  [_signinAndHistorySyncCoordinator stop];
   __weak __typeof(self) weakSelf = self;
   ChangeProfileContinuationProvider provider =
       base::BindRepeating(&CreateChangeProfileSettingsContinuation);
@@ -2529,6 +2529,16 @@ struct EnhancedSafeBrowsingActivePromoData
   [_googleServicesSettingsCoordinator stop];
   _googleServicesSettingsCoordinator.delegate = nil;
   _googleServicesSettingsCoordinator = nil;
+}
+
+#pragma mark - SafariDataImportUIHandler
+
+- (void)safariDataImportDidDismiss {
+  NSIndexPath* indexPath = [self.tableView indexPathForSelectedRow];
+  if (indexPath && [self.tableViewModel itemTypeForIndexPath:indexPath] ==
+                       SettingsItemTypeSafariDataImport) {
+    [self.tableView deselectRowAtIndexPath:indexPath animated:YES];
+  }
 }
 
 #pragma mark - SafetyCheckCoordinatorDelegate

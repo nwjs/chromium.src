@@ -23,6 +23,7 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
 #include "third_party/blink/public/common/security/protocol_handler_security_level.h"
+#include "third_party/blink/public/mojom/input/pointer_lock_result.mojom.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_types.h"
@@ -110,12 +111,6 @@ void WebContentsDelegate::CanDownload(const GURL& url,
 
 bool WebContentsDelegate::HandleContextMenu(RenderFrameHost& render_frame_host,
                                             const ContextMenuParams& params) {
-  return false;
-}
-
-bool WebContentsDelegate::PreHandleMouseEvent(
-    WebContents* source,
-    const blink::WebMouseEvent& event) {
   return false;
 }
 

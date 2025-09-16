@@ -77,6 +77,7 @@ class TestNetworkContext : public mojom::NetworkContext {
   void GetTrustTokenQueryAnswerer(
       mojo::PendingReceiver<mojom::TrustTokenQueryAnswerer> receiver,
       const url::Origin& top_frame_origin) override {}
+  void GetIpProxyStatus(GetIpProxyStatusCallback callback) override {}
   void GetStoredTrustTokenCounts(
       GetStoredTrustTokenCountsCallback callback) override {}
   void GetPrivateStateTokenRedemptionRecords(
@@ -331,10 +332,6 @@ class TestNetworkContext : public mojom::NetworkContext {
       const net::AuthCredentials& credentials,
       AddAuthCacheEntryCallback callback) override {}
   void SetCorsNonWildcardRequestHeadersSupport(bool value) override {}
-  void LookupServerBasicAuthCredentials(
-      const GURL& url,
-      const net::NetworkAnonymizationKey& network_anonymization_key,
-      LookupServerBasicAuthCredentialsCallback callback) override {}
 #if BUILDFLAG(IS_CHROMEOS)
   void LookupProxyAuthCredentials(
       const net::ProxyServer& proxy_server,
@@ -395,6 +392,10 @@ class TestNetworkContext : public mojom::NetworkContext {
   void GetDeviceBoundSessionManager(
       mojo::PendingReceiver<network::mojom::DeviceBoundSessionManager>
           device_bound_session_manager) override {}
+  void EnableDurableMessageCollector(
+      const base::UnguessableToken& throttling_profile_id,
+      mojo::PendingReceiver<network::mojom::DurableMessageCollector> receiver)
+      override {}
 };
 
 }  // namespace network

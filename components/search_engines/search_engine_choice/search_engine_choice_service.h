@@ -13,6 +13,7 @@
 #include "base/observer_list_types.h"
 #include "components/country_codes/country_codes.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/regional_capabilities/program_settings.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 
 namespace policy {
@@ -23,6 +24,7 @@ class VariationsService;
 }
 namespace regional_capabilities {
 class RegionalCapabilitiesService;
+struct ChoiceScreenEligibilityConfig;
 }
 namespace TemplateURLPrepopulateData {
 class Resolver;
@@ -105,7 +107,7 @@ class SearchEngineChoiceService : public KeyedService {
   // during a profile's lifetime. Should be checked right before showing a
   // choice screen.
   SearchEngineChoiceScreenConditions GetDynamicChoiceScreenConditions(
-      const TemplateURLService& template_url_service);
+      const TemplateURLService& template_url_service) const;
 
   // Returns the choice screen eligibility condition most relevant for the
   // profile described by `profile_properties`. Only checks static conditions,
@@ -114,13 +116,22 @@ class SearchEngineChoiceService : public KeyedService {
   // ahead of showing a choice screen.
   SearchEngineChoiceScreenConditions GetStaticChoiceScreenConditions(
       const policy::PolicyService& policy_service,
-      const TemplateURLService& template_url_service);
+      const TemplateURLService& template_url_service) const;
 
   // Records the specified choice screen condition at profile initialization.
-  void RecordStaticEligibility(SearchEngineChoiceScreenConditions condition);
+  void RecordProfileLoadEligibility(
+      SearchEngineChoiceScreenConditions condition);
+
+#if BUILDFLAG(IS_IOS)
+  // Records only the legacy static eligibility histograms. Note that on iOS,
+  // the legacy histograms are not recorded by `RecordProfileLoadEligibility()`
+  void RecordLegacyStaticEligibility(
+      SearchEngineChoiceScreenConditions condition);
+#endif  // BUILDFLAG(IS_IOS)
 
   // Records the specified choice screen condition for relevant navigations.
-  void RecordDynamicEligibility(SearchEngineChoiceScreenConditions condition);
+  void RecordTriggeringEligibility(
+      SearchEngineChoiceScreenConditions condition);
 
   // Records the specified choice screen event.
   void RecordChoiceScreenEvent(SearchEngineChoiceScreenEvents event);
@@ -155,11 +166,6 @@ class SearchEngineChoiceService : public KeyedService {
   // Clear state e.g. when a guest session is closed.
   void ResetState();
 
-  // Clears the country id cache to be able to change countries multiple times
-  // in tests.
-  // TODO(crbug.com/328040066): Move to `//components/regional_capabilities`.
-  void ClearCountryIdCacheForTesting();
-
   // Returns a reference to the `SearchEngineChoiceService::Client` owned and
   // used by this service.
   Client& GetClientForTesting();
@@ -177,6 +183,8 @@ class SearchEngineChoiceService : public KeyedService {
     kDefaultSearchDisabled,
     // The current default search provider is set by enterprise policies.
     kCurrentIsSetByPolicy,
+    // The current default search provider is set by an extension.
+    kCurrentIsSetByExtension,
     // The current default search provider is non-Google prepopulated one.
     kCurrentIsNonGooglePrepopulated,
     // The current default search provider is a custom, client-specified URL.
@@ -225,12 +233,26 @@ class SearchEngineChoiceService : public KeyedService {
 
   void ProcessPendingChoiceScreenDisplayState();
 
-  bool IsChoiceRenewalNeeded(
-      const ChoiceCompletionMetadata& completion_metadata,
-      bool include_previous_just_in_time_detection);
+  enum class ChoiceRenewalReason {
+    kOutdated,
+    kIncompatibleProgram,
+
+    kMin = kOutdated,
+    kMax = kIncompatibleProgram,
+  };
+
+  using ChoiceRenewalReasons = base::EnumSet<ChoiceRenewalReason,
+                                             ChoiceRenewalReason::kMin,
+                                             ChoiceRenewalReason::kMax>;
+
+  // Returns the reasons why the current choice should be renewed.
+  ChoiceRenewalReasons GetChoiceRenewalReasons(
+      const regional_capabilities::ChoiceScreenEligibilityConfig&
+          eligibility_config,
+      const ChoiceCompletionMetadata& completion_metadata) const;
 
   ChoiceStatus EvaluateSearchProviderChoice(
-      const TemplateURLService& template_url_service);
+      const TemplateURLService& template_url_service) const;
 
   const std::unique_ptr<Client> client_;
   const raw_ref<PrefService> profile_prefs_;
@@ -249,7 +271,10 @@ class SearchEngineChoiceService : public KeyedService {
   base::WeakPtrFactory<SearchEngineChoiceService> weak_ptr_factory_{this};
 };
 
-void MarkSearchEngineChoiceCompletedForTesting(PrefService& prefs);
+void MarkSearchEngineChoiceCompletedForTesting(
+    PrefService& prefs,
+    regional_capabilities::Program program =
+        regional_capabilities::Program::kWaffle);
 
 }  // namespace search_engines
 

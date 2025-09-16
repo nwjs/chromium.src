@@ -11,6 +11,17 @@ namespace net::device_bound_sessions {
 
 namespace {
 
+std::string FindStringWithDefault(const base::Value::Dict& dict,
+                                  std::string_view key,
+                                  std::string_view default_value) {
+  const std::string* value = dict.FindString(key);
+  if (value) {
+    return *value;
+  }
+
+  return std::string(default_value);
+}
+
 base::expected<SessionParams::Scope, SessionError> ParseScope(
     const base::Value::Dict& scope_dict) {
   SessionParams::Scope scope;
@@ -33,9 +44,10 @@ base::expected<SessionParams::Scope, SessionError> ParseScope(
     }
 
     const std::string* type = specification_dict->FindString("type");
-    const std::string* domain = specification_dict->FindString("domain");
-    const std::string* path = specification_dict->FindString("path");
-    if (!type || !domain || domain->empty() || !path || path->empty()) {
+    std::string domain =
+        FindStringWithDefault(*specification_dict, "domain", "*");
+    std::string path = FindStringWithDefault(*specification_dict, "path", "/");
+    if (!type || domain.empty() || path.empty()) {
       return base::unexpected(
           SessionError{SessionError::ErrorType::kInvalidScopeRule});
     }
@@ -50,8 +62,8 @@ base::expected<SessionParams::Scope, SessionError> ParseScope(
           SessionError{SessionError::ErrorType::kInvalidScopeRule});
     }
 
-    scope.specifications.push_back(
-        SessionParams::Scope::Specification{rule_type, *domain, *path});
+    scope.specifications.push_back(SessionParams::Scope::Specification{
+        rule_type, std::move(domain), std::move(path)});
   }
 
   return scope;
@@ -155,6 +167,33 @@ base::expected<SessionParams, SessionError> ParseSessionInstructionJson(
                        refresh_url ? *refresh_url : "", std::move(scope),
                        std::move(credentials), key_id,
                        std::move(allowed_refresh_initiators));
+}
+
+base::expected<WellKnownParams, SessionError> ParseWellKnownJson(
+    std::string_view response_json) {
+  std::optional<base::Value::Dict> maybe_root = base::JSONReader::ReadDict(
+      response_json, base::JSON_PARSE_RFC, /*max_depth=*/5u);
+  if (!maybe_root) {
+    return base::unexpected(
+        SessionError{SessionError::ErrorType::kWellKnownMalformed});
+  }
+
+  const base::Value::List* registering_origins_list =
+      maybe_root->FindList("registering_origins");
+  std::vector<std::string> registering_origins;
+  registering_origins.reserve(registering_origins_list->size());
+  for (const auto& registering_origin : *registering_origins_list) {
+    const std::string* registering_origin_string =
+        registering_origin.GetIfString();
+    if (!registering_origin_string) {
+      return base::unexpected(
+          SessionError{SessionError::ErrorType::kWellKnownMalformed});
+    }
+
+    registering_origins.push_back(*registering_origin_string);
+  }
+
+  return WellKnownParams{std::move(registering_origins)};
 }
 
 }  // namespace net::device_bound_sessions

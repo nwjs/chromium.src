@@ -9,8 +9,11 @@ import static android.view.KeyEvent.META_ALT_ON;
 import static android.view.KeyEvent.META_CTRL_ON;
 import static android.view.KeyEvent.META_SHIFT_ON;
 
+import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.RootMatchers.isPlatformPopup;
 import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
@@ -161,7 +164,18 @@ public class BookmarkBarTest {
         final String title = "Folder";
         mItemIds = List.of(addFolder(title));
         onViewWaiting(bookmarkBarItemWithText(title)).perform(click());
-        onViewWaiting(bookmarkManagerToolbarWithText(title)).check(matches(isDisplayed()));
+
+        // Check that the Bookmark Manager toolbar does not appear anymore when the folder is
+        // clicked.
+        onView(withClassName(endsWith("BookmarkToolbar"))).check(doesNotExist());
+
+        // When the folder is empty, the list should not be displayed.
+        onView(withId(R.id.menu_list)).inRoot(isPlatformPopup()).check(matches(not(isDisplayed())));
+
+        // The empty view should be displayed.
+        onView(withText(R.string.bookmarks_bar_empty_message))
+                .inRoot(isPlatformPopup())
+                .check(matches(isDisplayed()));
     }
 
     @Test
@@ -252,8 +266,10 @@ public class BookmarkBarTest {
                         .map(Optional::get)
                         .collect(Collectors.toList());
         onViewWaiting(bookmarkBarOverflowButton()).check(matches(isDisplayed())).perform(click());
-        onViewWaiting(bookmarkManagerToolbarWithText("Bookmarks bar"))
-                .check(matches(isDisplayed()));
+        // The full-screen Bookmark Manager should not appear.
+        onView(bookmarkManagerToolbarWithText("Bookmarks bar")).check(doesNotExist());
+        // Check that a popup menu list is displayed.
+        onView(withId(R.id.menu_list)).inRoot(isPlatformPopup()).check(matches(isDisplayed()));
     }
 
     private @Nullable BookmarkId addBookmark(int index, @NonNull String title, @NonNull GURL url)
@@ -335,12 +351,12 @@ public class BookmarkBarTest {
     }
 
     private @Nullable Tab getCurrentTab() {
-        return mCtaTestRule.getActivity().getActivityTab();
+        return mCtaTestRule.getActivityTab();
     }
 
     private @Nullable Tab getLastTab() {
         final var tabModel = mCtaTestRule.getActivity().getCurrentTabModel();
-        return tabModel.getTabAt(tabModel.getCount() - 1);
+        return ThreadUtils.runOnUiThreadBlocking(() -> tabModel.getTabAt(tabModel.getCount() - 1));
     }
 
     private @NonNull GURL getTestServerUrl(@NonNull String relativeUrl) {
@@ -385,7 +401,7 @@ public class BookmarkBarTest {
     private void setBookmarkBarSetting(boolean enabled) {
         final var activity = mCtaTestRule.getActivity();
         final var profile = activity.getProfileProviderSupplier().get().getOriginalProfile();
-        BookmarkBarUtils.setSettingEnabled(profile, enabled);
+        BookmarkBarUtils.setUserPrefsShowBookmarksBar(profile, enabled);
     }
 
     private void waitForBookmarkBarVisibility(boolean visible) {

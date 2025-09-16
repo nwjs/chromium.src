@@ -1057,6 +1057,11 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
   const auto scheduler_loop_quarantine_thread_local_config =
       GetSchedulerLoopQuarantineConfiguration(
           process_type, SchedulerLoopQuarantineBranchType::kThreadLocalDefault);
+  const auto
+      scheduler_loop_quarantine_for_advanced_memory_safety_checks_config =
+          GetSchedulerLoopQuarantineConfiguration(
+              process_type,
+              SchedulerLoopQuarantineBranchType::kAdvancedMemorySafetyChecks);
 
   const bool eventually_zero_freed_memory = base::FeatureList::IsEnabled(
       base::features::kPartitionAllocEventuallyZeroFreedMemory);
@@ -1158,6 +1163,7 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
       memory_tagging_reporting_mode, bucket_distribution,
       scheduler_loop_quarantine_global_config,
       scheduler_loop_quarantine_thread_local_config,
+      scheduler_loop_quarantine_for_advanced_memory_safety_checks_config,
       allocator_shim::EventuallyZeroFreedMemory(eventually_zero_freed_memory),
       allocator_shim::FewerMemoryRegions(fewer_memory_regions));
 
@@ -1283,7 +1289,7 @@ void PartitionAllocSupport::ReconfigureAfterTaskRunnerInit(
     // Devices almost always report less physical memory than what they actually
     // have, so use 3.2GB (a threshold commonly uses throughout code) to avoid
     // accidentally catching devices advertised as 4GB.
-    if (base::SysInfo::AmountOfPhysicalMemoryMB() < 3.2 * 1024) {
+    if (base::SysInfo::AmountOfPhysicalMemory().InGiBF() < 3.2) {
       largest_cached_size_ = size_t(
           base::features::
               GetPartitionAllocLargeThreadCacheSizeValueForLowRAMAndroid());

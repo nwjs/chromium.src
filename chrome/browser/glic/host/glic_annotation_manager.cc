@@ -21,12 +21,14 @@
 #include "components/pdf/common/constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/shared_highlighting/core/common/text_fragment.h"
+#include "content/public/browser/page.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "pdf/buildflags.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
+#include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(ENABLE_PDF)
 #include "components/pdf/browser/pdf_document_helper.h"
@@ -124,8 +126,7 @@ GetVerifiedAnnotationTargetFrame(content::WebContents* focused_contents,
         optimization_guide::DocumentIdentifierUserData::GetForCurrentDocument(
             focused_rfh);
     if (!document_identifier_user_data ||
-        document_identifier_user_data->serialized_token() !=
-            params.document_id) {
+        document_identifier_user_data->token() != params.document_id) {
       return base::unexpected(mojom::ScrollToErrorReason::kNoMatchingDocument);
     }
   }
@@ -494,7 +495,7 @@ void GlicAnnotationManager::AnnotationTask::PrimaryPageChanged(
 // as well.
 void GlicAnnotationManager::AnnotationTask::PanelStateChanged(
     const mojom::PanelState& panel_state,
-    Browser* attached_browser) {
+    const GlicWindowController::PanelStateContext& context) {
   if (panel_state.kind != mojom::PanelState_Kind::kHidden) {
     return;
   }

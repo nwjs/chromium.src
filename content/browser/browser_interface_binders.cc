@@ -62,6 +62,7 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_host.h"
+#include "content/browser/shape_detection/shape_detection_service_host.h"
 #include "content/browser/shared_storage/shared_storage_worklet_host.h"
 #include "content/browser/speech/speech_recognition_dispatcher_host.h"
 #include "content/browser/storage_access/storage_access_handle.h"
@@ -234,12 +235,6 @@
 #include "content/browser/xr/webxr_internals/webxr_internals_ui.h"
 #endif
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && (BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX))
-#include "content/public/browser/service_process_host.h"
-#else
-#include "content/browser/gpu/gpu_process_host.h"
-#endif
-
 #if BUILDFLAG(IS_MAC)
 #include "content/browser/renderer_host/text_input_host_impl.h"
 #include "services/webnn/public/cpp/coreml_initializer.h"
@@ -265,28 +260,6 @@ namespace content {
 namespace internal {
 
 namespace {
-
-shape_detection::mojom::ShapeDetectionService* GetShapeDetectionService() {
-  static base::NoDestructor<
-      mojo::Remote<shape_detection::mojom::ShapeDetectionService>>
-      remote;
-  if (!*remote) {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && (BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX))
-    ServiceProcessHost::Launch<shape_detection::mojom::ShapeDetectionService>(
-        remote->BindNewPipeAndPassReceiver(),
-        ServiceProcessHost::Options()
-            .WithDisplayName("Shape Detection Service")
-            .Pass());
-#else
-    auto* gpu = GpuProcessHost::Get();
-    if (gpu)
-      gpu->RunService(remote->BindNewPipeAndPassReceiver());
-#endif
-    remote->reset_on_disconnect();
-  }
-
-  return remote->get();
-}
 
 void BindBarcodeDetectionProvider(
     mojo::PendingReceiver<shape_detection::mojom::BarcodeDetectionProvider>
@@ -1521,6 +1494,8 @@ void PopulateSharedWorkerBinders(SharedWorkerHost* host, mojo::BinderMap* map) {
 
   map->Add<blink::mojom::WebTransportConnector>(base::BindRepeating(
       &SharedWorkerHost::CreateWebTransportConnector, base::Unretained(host)));
+  map->Add<blink::mojom::WebSocketConnector>(base::BindRepeating(
+      &SharedWorkerHost::CreateWebSocketConnector, base::Unretained(host)));
   map->Add<blink::mojom::CacheStorage>(base::BindRepeating(
       &SharedWorkerHost::BindCacheStorage, base::Unretained(host)));
   map->Add<blink::mojom::CodeCacheHost>(base::BindRepeating(
@@ -1603,8 +1578,6 @@ void PopulateSharedWorkerBinders(SharedWorkerHost* host, mojo::BinderMap* map) {
   map->Add<blink::mojom::IDBFactory>(
       BindWorkerReceiverForStorageKeyAndBucketContext(
           &RenderProcessHostImpl::BindIndexedDB, host));
-  map->Add<blink::mojom::WebSocketConnector>(BindWorkerReceiverForStorageKey(
-      &RenderProcessHostImpl::CreateWebSocketConnector, host));
   map->Add<blink::mojom::LockManager>(BindWorkerReceiverForStorageKey(
       &RenderProcessHostImpl::CreateLockManager, host));
   map->Add<blink::mojom::QuotaManagerHost>(BindWorkerReceiverForStorageKey(
@@ -1689,6 +1662,8 @@ void PopulateServiceWorkerBinders(ServiceWorkerHost* host,
   map->Add<ukm::mojom::UkmRecorderFactory>(&BindUkmRecorderFactory);
 
   // worker host binders
+  map->Add<blink::mojom::WebSocketConnector>(base::BindRepeating(
+      &ServiceWorkerHost::CreateWebSocketConnector, base::Unretained(host)));
   map->Add<blink::mojom::WebTransportConnector>(base::BindRepeating(
       &ServiceWorkerHost::CreateWebTransportConnector, base::Unretained(host)));
   map->Add<blink::mojom::CacheStorage>(base::BindRepeating(
@@ -1805,9 +1780,6 @@ void PopulateBinderMapWithContext(
   map->Add<blink::mojom::FileSystemAccessManager>(
       BindServiceWorkerReceiverForStorageKey(
           &RenderProcessHostImpl::BindFileSystemAccessManager, host));
-  map->Add<blink::mojom::WebSocketConnector>(
-      BindServiceWorkerReceiverForStorageKey(
-          &RenderProcessHostImpl::CreateWebSocketConnector, host));
   map->Add<blink::mojom::LockManager>(BindServiceWorkerReceiverForStorageKey(
       &RenderProcessHostImpl::CreateLockManager, host));
   map->Add<blink::mojom::QuotaManagerHost>(

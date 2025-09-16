@@ -214,7 +214,7 @@ void PredictionBasedPermissionUiSelector::InquireCpssV1OnDeviceModelIfAvailable(
     return;
   }
   VLOG(1) << "[CPSS] On device CPSSv1 model unavailable";
-  std::move(callback_).Run(Decision::UseNormalUiAndShowNoWarning());
+  FinishRequest(Decision::UseNormalUiAndShowNoWarning());
 }
 
 void PredictionBasedPermissionUiSelector::
@@ -284,15 +284,15 @@ void PredictionBasedPermissionUiSelector::
     VLOG(1) << "[PermissionsAI]: PermissionRequest has a relevance of "
             << static_cast<int>(relevance.value());
     last_permission_request_relevance_ = relevance.value();
-    features.permission_relevance = relevance.value();
-
-    PermissionUmaUtil::RecordPermissionRequestRelevance(
-        request_metadata.request_type, features.permission_relevance,
-        model_type);
   } else {
     last_permission_request_relevance_ =
         PermissionRequestRelevance::kUnspecified;
   }
+
+  features.permission_relevance = last_permission_request_relevance_.value();
+
+  PermissionUmaUtil::RecordPermissionRequestRelevance(
+      request_metadata.request_type, features.permission_relevance, model_type);
 
   InquireServerModel(features, std::move(request_metadata));
 }
@@ -349,7 +349,7 @@ void PredictionBasedPermissionUiSelector::SelectUiToUse(
 
   if (prediction_source == PredictionSource::kNoCpssModel) {
     VLOG(1) << "[CPSS] Configuration does not allow CPSS requests";
-    std::move(callback_).Run(Decision::UseNormalUiAndShowNoWarning());
+    FinishRequest(Decision::UseNormalUiAndShowNoWarning());
     return;
   }
 
@@ -362,7 +362,7 @@ void PredictionBasedPermissionUiSelector::SelectUiToUse(
               << features.requested_permission_counts.total()
               << ") is smaller than threshold ("
               << kRequestedPermissionMinimumHistoricalActions << ")";
-      std::move(callback_).Run(Decision::UseNormalUiAndShowNoWarning());
+      FinishRequest(Decision::UseNormalUiAndShowNoWarning());
       return;
     }
   }
@@ -372,11 +372,10 @@ void PredictionBasedPermissionUiSelector::SelectUiToUse(
                "command line";
     if (ShouldPredictionTriggerQuietUi(
             likelihood_override_for_testing_.value())) {
-      std::move(callback_).Run(
-          Decision(QuietUiReason::kServicePredictedVeryUnlikelyGrant,
-                   Decision::ShowNoWarning()));
+      FinishRequest(Decision(QuietUiReason::kServicePredictedVeryUnlikelyGrant,
+                             Decision::ShowNoWarning()));
     } else {
-      std::move(callback_).Run(Decision::UseNormalUiAndShowNoWarning());
+      FinishRequest(Decision::UseNormalUiAndShowNoWarning());
     }
     return;
   }
@@ -410,7 +409,7 @@ void PredictionBasedPermissionUiSelector::SelectUiToUse(
     case PredictionSource::kOnDeviceCpssV1Model:
       VLOG(1) << "[CPSS] Client doesn't support on-device tflite: "
               << static_cast<int>(prediction_source);
-      std::move(callback_).Run(Decision::UseNormalUiAndShowNoWarning());
+      FinishRequest(Decision::UseNormalUiAndShowNoWarning());
       return;
 #endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
     case PredictionSource::kNoCpssModel:
@@ -425,6 +424,11 @@ void PredictionBasedPermissionUiSelector::OnGetInnerTextForOnDeviceModel(
     ModelExecutionCallback model_execution_callback,
     std::unique_ptr<content_extraction::InnerTextResult> result) {
   VLOG(1) << "[PermissionsAI] OnGetInnerTextForOnDeviceModel";
+  if (result) {
+    PermissionUmaUtil::RecordRenderedTextSize(
+        model_data.model_type, model_data.request_metadata.request_type,
+        result->inner_text.size());
+  }
 
   bool rendered_text_useful =
       result && result->inner_text.size() > kPageContentMinLength;
@@ -433,8 +437,12 @@ void PredictionBasedPermissionUiSelector::OnGetInnerTextForOnDeviceModel(
       /*success=*/rendered_text_useful);
 
   if (rendered_text_useful) {
+    VLOG(1) << "[PermissionsAI] OnGetInnerTextForOnDeviceModel: "
+               "rendered_text_useful true";
     std::string inner_text = std::move(result->inner_text);
     if (model_data.model_type == PredictionModelType::kOnDeviceAiV1Model) {
+      VLOG(1) << "[PermissionsAIv1] OnGetInnerTextForOnDeviceModel: "
+                 "Continue AIv1 execution";
       if (inner_text.size() > kPageContentMaxLength) {
         inner_text.resize(kPageContentMaxLength);
       }
@@ -442,6 +450,8 @@ void PredictionBasedPermissionUiSelector::OnGetInnerTextForOnDeviceModel(
       return std::move(model_execution_callback).Run(std::move(model_data));
     }
 
+    VLOG(1) << "[PermissionsAIv4] OnGetInnerTextForOnDeviceModel: "
+               "Continue AIv4 execution";
     // Aiv4.
     auto fallback_callback =
         base::BindOnce(&PredictionBasedPermissionUiSelector::InquireServerModel,
@@ -467,8 +477,21 @@ void PredictionBasedPermissionUiSelector::OnGetInnerTextForOnDeviceModel(
 }
 
 void PredictionBasedPermissionUiSelector::Cancel() {
-  request_.reset();
   callback_.Reset();
+  Cleanup();
+}
+
+void PredictionBasedPermissionUiSelector::FinishRequest(Decision decision) {
+  if (!callback_) {
+    return;
+  }
+
+  VLOG(1) << "[CPSS] Finishing permission prediction request.";
+  std::move(callback_).Run(std::move(decision));
+}
+
+void PredictionBasedPermissionUiSelector::Cleanup() {
+  request_.reset();
   passage_embedder_delegate_->Reset();
   language_detection_observer_->Reset();
 }
@@ -608,7 +631,7 @@ void PredictionBasedPermissionUiSelector::LookupResponseReceived(
             << (!lookup_successful ? "the lookup was not successful."
                                    : (!response ? "the response is empty."
                                                 : "the prediction is empty."));
-    std::move(callback_).Run(Decision::UseNormalUiAndShowNoWarning());
+    FinishRequest(Decision::UseNormalUiAndShowNoWarning());
     return;
   }
 
@@ -618,8 +641,7 @@ void PredictionBasedPermissionUiSelector::LookupResponseReceived(
   if (ShouldHoldBack(request_metadata)) {
     VLOG(1) << "[CPSS] Prediction service decision held back";
     was_decision_held_back_ = true;
-    std::move(callback_).Run(
-        Decision(Decision::UseNormalUi(), Decision::ShowNoWarning()));
+    FinishRequest(Decision(Decision::UseNormalUi(), Decision::ShowNoWarning()));
     return;
   }
   was_decision_held_back_ = false;
@@ -628,7 +650,7 @@ void PredictionBasedPermissionUiSelector::LookupResponseReceived(
           << last_request_grant_likelihood_.value();
 
   if (ShouldPredictionTriggerQuietUi(last_request_grant_likelihood_.value())) {
-    std::move(callback_).Run(
+    FinishRequest(
         Decision(is_on_device_cpss_v1
                      ? QuietUiReason::kOnDevicePredictedVeryUnlikelyGrant
                      : QuietUiReason::kServicePredictedVeryUnlikelyGrant,
@@ -636,8 +658,7 @@ void PredictionBasedPermissionUiSelector::LookupResponseReceived(
     return;
   }
 
-  std::move(callback_).Run(
-      Decision(Decision::UseNormalUi(), Decision::ShowNoWarning()));
+  FinishRequest(Decision(Decision::UseNormalUi(), Decision::ShowNoWarning()));
 }
 
 bool PredictionBasedPermissionUiSelector::ShouldHoldBack(
@@ -801,7 +822,7 @@ void PredictionBasedPermissionUiSelector::TakeSnapshot(
                                     snapshot_for_testing_.value());
   } else if (!host_view) {
     VLOG(1) << "[CPSS] Snapshot cannot be taken because host_view is nullptr.";
-    std::move(callback_).Run(Decision::UseNormalUiAndShowNoWarning());
+    FinishRequest(Decision::UseNormalUiAndShowNoWarning());
   } else {
     host_view->CopyFromSurface(
         gfx::Rect(), gfx::Size(),
@@ -923,6 +944,7 @@ void PredictionBasedPermissionUiSelector::OnPassageEmbeddingsComputed(
     ModelExecutionData model_data,
     ModelExecutionCallback model_execution_callback,
     passage_embeddings::Embedding embedding) {
+  VLOG(1) << "[PermissionsAIv4] OnPassageEmbeddingsComputed";
   model_data.inner_text_embedding = std::move(embedding);
   std::move(model_execution_callback).Run(std::move(model_data));
 }

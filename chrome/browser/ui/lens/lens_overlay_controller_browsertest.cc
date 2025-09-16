@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 // This class runs functional tests for lens overlay. These tests spin up a full
 // web browser, but allow for inspection and modification of internal state of
 // LensOverlayController and other business-logic classes.
@@ -16,6 +11,7 @@
 #include <memory>
 
 #include "base/base64url.h"
+#include "base/compiler_specific.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/memory/raw_ptr_exclusion.h"
@@ -94,6 +90,7 @@
 #include "chrome/browser/ui/webui/feedback/feedback_dialog.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/api/pdf_viewer_private.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/base32/base32.h"
@@ -430,6 +427,11 @@ class LensOverlayPageFake : public lens::mojom::LensPage {
   }
 
   void TextReceived(lens::mojom::TextPtr text) override {
+    last_received_text_ = std::move(text);
+  }
+
+  void RegionTextReceived(lens::mojom::TextPtr text,
+                          bool is_injected_image) override {
     last_received_text_ = std::move(text);
   }
 
@@ -1335,10 +1337,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       static_cast<lens::TestLensOverlayQueryController*>(
           controller->get_lens_overlay_query_controller_for_testing());
   EXPECT_TRUE(fake_query_controller->last_queried_region_bytes());
-  EXPECT_TRUE(
+  UNSAFE_TODO(EXPECT_TRUE(
       memcmp(fake_query_controller->last_queried_region_bytes()->getPixels(),
              initial_bitmap.getPixels(),
-             initial_bitmap.computeByteSize()) == 0);
+             initial_bitmap.computeByteSize()) == 0));
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->width(), 100);
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->height(), 100);
   EXPECT_EQ(fake_query_controller->last_lens_selection_type(),
@@ -3920,10 +3922,10 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(controller->get_selected_text_for_region());
   EXPECT_EQ(fake_query_controller->last_queried_region(), kTestRegion);
   EXPECT_TRUE(fake_query_controller->last_queried_region_bytes());
-  EXPECT_TRUE(
+  UNSAFE_TODO(EXPECT_TRUE(
       memcmp(fake_query_controller->last_queried_region_bytes()->getPixels(),
              initial_bitmap.getPixels(),
-             initial_bitmap.computeByteSize()) == 0);
+             initial_bitmap.computeByteSize()) == 0));
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->width(), 100);
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->height(), 100);
   EXPECT_EQ(fake_query_controller->last_queried_text(), "green");
@@ -3941,10 +3943,10 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(controller->get_selected_text_for_region());
   EXPECT_EQ(fake_query_controller->last_queried_region(), kTestRegion);
   EXPECT_TRUE(fake_query_controller->last_queried_region_bytes());
-  EXPECT_TRUE(
+  UNSAFE_TODO(EXPECT_TRUE(
       memcmp(fake_query_controller->last_queried_region_bytes()->getPixels(),
              initial_bitmap.getPixels(),
-             initial_bitmap.computeByteSize()) == 0);
+             initial_bitmap.computeByteSize()) == 0));
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->width(), 100);
   EXPECT_EQ(fake_query_controller->last_queried_region_bytes()->height(), 100);
   EXPECT_TRUE(fake_query_controller->last_queried_text().empty());
@@ -5374,8 +5376,9 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFTest,
   }));
 }
 
+// TODO(crbug.com/440876016): Re-enable this test
 IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFTest,
-                       PdfBytesExcludedInRequest) {
+                       DISABLED_PdfBytesExcludedInRequest) {
   base::HistogramTester histogram_tester;
   ukm::TestAutoSetUkmRecorder test_ukm_recorder;
   // Open the PDF document and wait for it to finish loading.
@@ -5482,9 +5485,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFTest,
       IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH, ui::EF_NONE,
       base::BindLambdaForTesting([&](RenderViewContextMenu* menu) {
         // Verify the normal region search flow activates.
-        lens::LensRegionSearchController* lens_region_search_controller =
-            menu->GetLensRegionSearchControllerForTesting();
-        ASSERT_NE(lens_region_search_controller, nullptr);
+        ASSERT_TRUE(menu->lens_region_search_controller_started_for_testing());
         run_observed = true;
       }));
 
@@ -6293,9 +6294,7 @@ class LensOverlayControllerBrowserWithPixelsTest
   void SetupFeatureList() override {
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{}, /*disabled_features=*/{
-            lens::features::kLensOverlayVisualSelectionUpdates,
-            lens::features::
-                kLensOverlayVisualSelectionUpdatesForOmniboxSuggestions});
+            lens::features::kLensOverlayVisualSelectionUpdates});
   }
 
   bool IsNotEmptyAndNotTransparentBlack(SkBitmap bitmap) {
@@ -7314,16 +7313,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       static_cast<int64_t>(lens::MimeType::kAnnotatedPageContent));
 }
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_RecordQueryIssuesBeforeZpsShownInSessionHistograms \
-  DISABLED_RecordQueryIssuesBeforeZpsShownInSessionHistograms
-#else
-#define MAYBE_RecordQueryIssuesBeforeZpsShownInSessionHistograms \
-  RecordQueryIssuesBeforeZpsShownInSessionHistograms
-#endif
+// TODO - crbug.com/400650442: Deflake and re-enable this test.
 IN_PROC_BROWSER_TEST_F(
     LensOverlayControllerBrowserTest,
-    MAYBE_RecordQueryIssuesBeforeZpsShownInSessionHistograms) {
+    DISABLED_RecordQueryIssuesBeforeZpsShownInSessionHistograms) {
   base::HistogramTester histogram_tester;
   ukm::TestAutoSetUkmRecorder test_ukm_recorder;
   WaitForPaint(kDocumentWithNonAsciiCharacters);
@@ -8332,9 +8325,7 @@ class LensOverlayControllerContextualFeaturesDisabledTest
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{},
         /*disabled_features=*/{
-            lens::features::kLensOverlayContextualSearchbox,
-            lens::features::
-                kLensOverlayContextualSearchboxForOmniboxSuggestions});
+            lens::features::kLensOverlayContextualSearchbox});
   }
 };
 
@@ -8887,6 +8878,50 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
                    ->IsCapturingBackgroundImageForTesting());
 }
 
+// Regression test for crbug.com/6893132.
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
+                       BackgroundBlurWhenSwitchTabs) {
+  // Load the initial page and ensure it has finished painting.
+  WaitForPaint();
+
+  // State should start in off.
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Grab the index of the currently active tab so we can return to it later.
+  int active_controller_tab_index =
+      browser()->tab_strip_model()->active_index();
+
+  // Showing UI should change the state to screenshot and eventually to overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kStartingWebUI; }));
+
+  // Quickly switch to a new tab.
+  WaitForPaint(kDocumentWithNamedElement,
+               WindowOpenDisposition::NEW_FOREGROUND_TAB,
+               ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB |
+                   ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  // The original tab is now in the background, which should cause the
+  // overlay to transition to kBackground.
+  // Wait for this transition to complete.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kBackground; }));
+
+  // Switch back to the original tab.
+  browser()->tab_strip_model()->ActivateTabAt(active_controller_tab_index);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // The blur layer delegate should exist now, but it should not be actively
+  // capturing since the blur is applied to a static screenshot in a normal tab.
+  ASSERT_TRUE(controller->GetLensOverlayBlurLayerDelegateForTesting());
+  EXPECT_FALSE(controller->GetLensOverlayBlurLayerDelegateForTesting()
+                   ->IsCapturingBackgroundImageForTesting());
+}
+
 // TODO(crbug.com/422479353): Flaky on Linux MSan.
 #if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
 #define MAYBE_BackgroundBlurLiveInitiallyInSplitTab \
@@ -8920,4 +8955,161 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
   // capturing should have been started.
   EXPECT_TRUE(controller->GetLensOverlayBlurLayerDelegateForTesting()
                   ->IsCapturingBackgroundImageForTesting());
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
+                       SidePanelRoundedCornerRegularTab) {
+  WaitForPaint();
+
+  // State should start in off.
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Showing UI should change the state to screenshot and eventually to overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_EQ(controller->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+  ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
+
+  // Open a side panel.
+  controller->IssueTextSelectionRequestForTesting(/*text_query=*/"Apples",
+                                                  /*selection_start_index=*/0,
+                                                  /*selection_end_index=*/0);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlayAndResults; }));
+
+  // Expect the side panel rounded corner to exist.
+  EXPECT_FALSE(controller->GetOverlayViewForTesting()->layer() &&
+               controller->GetOverlayViewForTesting()
+                       ->layer()
+                       ->GetTargetRoundedCornerRadius()
+                       .upper_right() > 0);
+  EXPECT_TRUE(BrowserView::GetBrowserViewForBrowser(browser())
+                  ->GetSidePanelRoundedCornerForTesting()
+                  ->GetVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
+                       SidePanelRoundedCornerSplitTab) {
+  // Create a new split, after which the second tab should be activated.
+  chrome::NewSplitTab(browser(),
+                      split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  WaitForPaint();
+
+  // State should start in off.
+  auto* controller_1 = GetLensOverlayController();
+  ASSERT_EQ(controller_1->state(), State::kOff);
+
+  // Showing UI should change the state to screenshot and eventually to overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_EQ(controller_1->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller_1->state() == State::kOverlay; }));
+  ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
+
+  // Open a side panel.
+  controller_1->IssueTextSelectionRequestForTesting(/*text_query=*/"Apples",
+                                                    /*selection_start_index=*/0,
+                                                    /*selection_end_index=*/0);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller_1->state() == State::kOverlayAndResults; }));
+
+  // Expect overlay view's corners to be rounded.
+  EXPECT_TRUE(controller_1->GetOverlayViewForTesting()->layer() &&
+              controller_1->GetOverlayViewForTesting()
+                      ->layer()
+                      ->GetTargetRoundedCornerRadius()
+                      .upper_right() > 0);
+  EXPECT_FALSE(BrowserView::GetBrowserViewForBrowser(browser())
+                   ->GetSidePanelRoundedCornerForTesting()
+                   ->GetVisible());
+
+  // Switch to the first tab.
+  browser()->tab_strip_model()->ActivateTabAt(0);
+
+  WaitForPaint();
+
+  // State should start in off.
+  auto* controller_0 = GetLensOverlayController();
+  ASSERT_EQ(controller_0->state(), State::kOff);
+
+  // Showing UI should change the state to screenshot and eventually to overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_EQ(controller_0->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller_0->state() == State::kOverlay; }));
+  ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
+
+  // Expect the corners to not be rounded.
+  EXPECT_FALSE(controller_0->GetOverlayViewForTesting()->layer() &&
+               controller_0->GetOverlayViewForTesting()
+                       ->layer()
+                       ->GetTargetRoundedCornerRadius()
+                       .upper_right() > 0);
+  EXPECT_FALSE(BrowserView::GetBrowserViewForBrowser(browser())
+                   ->GetSidePanelRoundedCornerForTesting()
+                   ->GetVisible());
+
+  // Switch back to the second tab.
+  browser()->tab_strip_model()->ActivateTabAt(1);
+
+  // Wait for backgrounded state to be restored.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller_1->state() == State::kOverlayAndResults; }));
+
+  // Expect overlay view's corners to be rounded.
+  EXPECT_TRUE(controller_1->GetOverlayViewForTesting()->layer() &&
+              controller_1->GetOverlayViewForTesting()
+                      ->layer()
+                      ->GetTargetRoundedCornerRadius()
+                      .upper_right() > 0);
+  EXPECT_FALSE(BrowserView::GetBrowserViewForBrowser(browser())
+                   ->GetSidePanelRoundedCornerForTesting()
+                   ->GetVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
+                       SidePanelAlignmentChanged) {
+  chrome::NewSplitTab(browser(),
+                      split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  WaitForPaint();
+
+  // State should start in off.
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Showing UI should change the state to screenshot and eventually to overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_EQ(controller->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+  ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
+
+  // Open a side panel.
+  controller->IssueTextSelectionRequestForTesting(/*text_query=*/"Apples",
+                                                  /*selection_start_index=*/0,
+                                                  /*selection_end_index=*/0);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlayAndResults; }));
+
+  // Expect overlay view's top right corner to be rounded.
+  gfx::RoundedCornersF rounded_corners = controller->GetOverlayViewForTesting()
+                                             ->layer()
+                                             ->GetTargetRoundedCornerRadius();
+  EXPECT_TRUE(rounded_corners.upper_right() > 0);
+  EXPECT_TRUE(rounded_corners.upper_left() == 0);
+
+  // Change side panel to be left aligned.
+  browser()->profile()->GetPrefs()->SetBoolean(
+      prefs::kSidePanelHorizontalAlignment, false);
+
+  // Expect overlay view's top left corner to be rounded.
+  rounded_corners = controller->GetOverlayViewForTesting()
+                        ->layer()
+                        ->GetTargetRoundedCornerRadius();
+  EXPECT_TRUE(rounded_corners.upper_right() == 0);
+  EXPECT_TRUE(rounded_corners.upper_left() > 0);
 }

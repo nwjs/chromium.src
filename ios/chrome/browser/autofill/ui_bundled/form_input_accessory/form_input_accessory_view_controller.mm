@@ -196,6 +196,12 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
 
 #pragma mark - UIViewController
 
+- (void)viewWillAppear:(BOOL)animated {
+  [super viewWillAppear:animated];
+
+  [self.formInputAccessoryView layoutIfNeeded];
+}
+
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
 
@@ -253,6 +259,8 @@ void LogManualFallbackEntryThroughExpandIcon(ManualFillDataType data_type,
       hasSingleManualFillButton;
 
   [self createFormSuggestionViewIfNeeded];
+  [self forceUserInterfaceStyle];
+
   __weak __typeof(self) weakSelf = self;
   auto completion = ^(BOOL finished) {
     // Disable the scroll hint once it's been shown once.
@@ -599,6 +607,7 @@ UIImage* GetManualFillSymbol() {
       case FillingProduct::kIdentityCredential:
       case FillingProduct::kDataList:
       case FillingProduct::kOneTimePassword:
+      case FillingProduct::kPasskey:
       case FillingProduct::kNone:
         // These FillingProduct types are currently not available
         // on iOS. Also, there shouldn't be suggestions of type `kNone`.
@@ -661,6 +670,22 @@ UIImage* GetManualFillSymbol() {
     BOOL isCompact = [self isCompact];
     [self.formInputAccessoryView setIsCompact:isCompact];
     [self.formSuggestionView setIsCompact:isCompact];
+  }
+
+  [self forceUserInterfaceStyle];
+}
+
+- (void)forceUserInterfaceStyle {
+  if (IsLiquidGlassEffectEnabled()) {
+    // Normally, when using liquid glass, the user interface style is controlled
+    // by the color of the background underneath the glass, to maximize
+    // contrast. In this case, since a glass tint is used, the contrast is
+    // maximized by forcing a user interface style which will contrast with the
+    // tint color.
+    self.formSuggestionView.overrideUserInterfaceStyle =
+        self.traitCollection.userInterfaceStyle;
+    self.formInputAccessoryView.trailingView.overrideUserInterfaceStyle =
+        self.traitCollection.userInterfaceStyle;
   }
 }
 

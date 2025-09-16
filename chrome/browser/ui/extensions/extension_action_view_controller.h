@@ -8,6 +8,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "chrome/browser/extensions/commands/command_service.h"
 #include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/permissions/site_permissions_helper.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_hover_card_types.h"
@@ -37,14 +38,17 @@ namespace ui {
 class ImageModel;
 }
 
-// The platform-independent controller for an ExtensionAction that is shown on
-// the toolbar (such as a page or browser action).
-// Since this class doesn't own the extension or extension action in question,
-// be sure to check for validity using ExtensionIsValid() before using those
-// members (see also comments above ExtensionIsValid()).
+// The Views controller for an ExtensionAction that is shown on the toolbar
+// (such as a page or browser action). Since this class doesn't own the
+// extension or extension action in question, be sure to check for validity
+// using ExtensionIsValid() before using those members (see also comments above
+// ExtensionIsValid()).
+// TODO(crbug.com/437774758): Remove Browser dependency so this class can be
+// platform-agnostic and enabled on Desktop Android.
 class ExtensionActionViewController
     : public ToolbarActionViewController,
       public extensions::ExtensionActionIconFactory::Observer,
+      public extensions::CommandService::Observer,
       public extensions::ExtensionContextMenuModel::PopupDelegate,
       public extensions::ExtensionHostObserver {
  public:
@@ -97,6 +101,13 @@ class ExtensionActionViewController
                        ToolbarActionHoverCardUpdateType update_type) override;
   void RegisterCommand() override;
   void UnregisterCommand() override;
+
+  // extensions::CommandService::Observer:
+  void OnExtensionCommandAdded(const std::string& extension_id,
+                               const extensions::Command& command) override;
+  void OnExtensionCommandRemoved(const std::string& extension_id,
+                                 const extensions::Command& command) override;
+  void OnCommandServiceDestroying() override;
 
   // ExtensionContextMenuModel::PopupDelegate:
   void InspectPopup() override;
@@ -177,7 +188,10 @@ class ExtensionActionViewController
   scoped_refptr<const extensions::Extension> extension_;
 
   // The corresponding browser.
+  // TODO(crbug.com/437774758): To be removed in favor of profile_ (or browser
+  // window interface) so controller can be compiled on Desktop Android.
   const raw_ptr<Browser> browser_;
+  const raw_ptr<Profile> profile_;
 
   // The browser action this view represents. The ExtensionAction is not owned
   // by this class.
@@ -217,6 +231,10 @@ class ExtensionActionViewController
   base::ScopedObservation<extensions::ExtensionHost,
                           extensions::ExtensionHostObserver>
       popup_host_observation_{this};
+
+  base::ScopedObservation<extensions::CommandService,
+                          extensions::CommandService::Observer>
+      command_service_observation_{this};
 
   base::WeakPtrFactory<ExtensionActionViewController> weak_factory_{this};
 };

@@ -81,7 +81,7 @@ RenderWidgetHostViewChildFrame::~RenderWidgetHostViewChildFrame() {
     DetachFromTouchSelectionClientManagerIfNecessary();
 
   if (is_frame_sink_id_owner() && GetHostFrameSinkManager()) {
-    GetHostFrameSinkManager()->InvalidateFrameSinkId(frame_sink_id_, this);
+    GetHostFrameSinkManager()->InvalidateFrameSinkId(frame_sink_id_, this, {});
   }
 }
 
@@ -839,7 +839,7 @@ void RenderWidgetHostViewChildFrame::SetWindowFrameInScreen(
 void RenderWidgetHostViewChildFrame::ShowSharePicker(
     const std::string& title,
     const std::string& text,
-    const std::string& url,
+    const GURL& url,
     const std::vector<std::string>& file_paths,
     blink::mojom::ShareService::ShareCallback callback) {}
 

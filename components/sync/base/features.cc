@@ -16,6 +16,10 @@ BASE_FEATURE(kSyncAutofillLoyaltyCard,
              "SyncAutofillLoyaltyCard",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kSyncMoveValuablesToProfileDb,
+             "SyncMoveValuablesToProfileDb",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSyncSharedTabGroupAccountData,
              "SyncSharedTabGroupAccountData",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -151,7 +155,7 @@ BASE_FEATURE(kSyncEnablePasswordsSyncErrorMessageAlternative,
 #if BUILDFLAG(IS_IOS)
 BASE_FEATURE(kSyncTrustedVaultInfobarImprovements,
              "SyncTrustedVaultInfobarImprovements",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_IOS)
@@ -159,5 +163,24 @@ BASE_FEATURE(kSyncTrustedVaultInfobarMessageImprovements,
              "SyncTrustedVaultInfobarMessageImprovements",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_IOS)
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+BASE_FEATURE(kSyncWalletFlightReservations,
+             "SyncWalletFlightReservations",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSyncWalletVehicleRegistrations,
+             "SyncWalletVehicleRegistrations",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
+BASE_FEATURE(kSyncDetermineAccountManagedStatus,
+             "SyncDetermineAccountManagedStatus",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kSyncDetermineAccountManagedStatusTimeout,
+                   &kSyncDetermineAccountManagedStatus,
+                   "account_managed_status_timeout",
+                   base::Seconds(5));
 
 }  // namespace syncer

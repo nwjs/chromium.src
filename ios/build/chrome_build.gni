@@ -63,8 +63,8 @@ declare_args() {
   # Overridden when using the Google-internal repository to build Chrome on iOS.
   ios_push_notification_service_extension_target = "//ios/chrome/push_notification_service_extension:push_notification_service_extension_implementation"
 
-  # Enable passkey capabilities in the Credential Provider Extension (CPE).
-  ios_cpe_enable_passkey_capabilities = true
+  # Enable credential exchange capability in the Credential Provider Extension (CPE).
+  ios_cpe_enable_credential_exchange = false
 
   # The API key to query Google services in the Credential Provider Extension.
   ios_credential_provider_extension_api_key = ""
@@ -76,7 +76,7 @@ declare_args() {
   ios_enable_background_mode = true
 
   # Enable iOS 17 widgets improvements to support multi profile.
-  ios_enable_widgets_for_mim = false
+  ios_enable_widgets_for_mim = true
 
   # Enable iOS 26 liquid glass.
   ios_enable_liquid_glass = true

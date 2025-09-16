@@ -52,8 +52,8 @@ class TextEncoding;
 //
 // KURL is Blink's URL class and is the analog to GURL in other Chromium
 // code. KURL and GURL both share the same underlying URL parser, whose code is
-// located in //url, but KURL is backed by Blink specific WTF::Strings. This
-// means that KURLs are usually cheap to copy due to WTF::Strings being
+// located in //url, but KURL is backed by Blink specific blink::Strings. This
+// means that KURLs are usually cheap to copy due to blink::Strings being
 // internally ref-counted. However, please don't copy KURLs if you can use a
 // const ref, since the size of the parsed structure and related metadata is
 // non-trivial.
@@ -203,7 +203,8 @@ class PLATFORM_EXPORT KURL {
 
   void RemovePort();
   void SetPort(uint16_t);
-  void SetPort(const String&);
+  // Returns false if the port string is invalid and true otherwise.
+  bool SetPort(const String&);
 
   // Input is like "foo.com" or "foo.com:8000".
   void SetHostAndPort(const String&);

@@ -22,7 +22,6 @@ import android.view.View;
 import android.widget.ViewFlipper;
 
 import org.chromium.base.ResettersForTesting;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.feed.FeedFeatures;
@@ -41,6 +40,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * A mediator class that manages the view flipper and {@link BottomSheetContent} of NTP
@@ -250,11 +250,12 @@ public class NtpCustomizationMediator {
      */
     @VisibleForTesting
     List<Integer> buildListContent() {
-        if (!mProfileSupplier.hasValue()) {
+        Profile profile = mProfileSupplier.get();
+        if (profile == null) {
             return List.of(NTP_CARDS);
         }
 
-        mProfile = mProfileSupplier.get().getOriginalProfile();
+        mProfile = profile.getOriginalProfile();
         List<Integer> content = new ArrayList<>();
         if (ChromeFeatureList.sNewTabPageCustomizationForMvt.isEnabled()) {
             content.add(MVT);

@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/barrier_closure.h"
 #include "base/check_is_test.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
@@ -292,7 +293,7 @@ void WebAppCommandScheduler::ScheduleNavigateAndTriggerInstallDialog(
 void WebAppCommandScheduler::InstallIsolatedWebApp(
     const IsolatedWebAppUrlInfo& url_info,
     const IsolatedWebAppInstallSource& install_source,
-    const std::optional<base::Version>& expected_version,
+    const std::optional<IwaVersion>& expected_version,
     std::unique_ptr<ScopedKeepAlive> optional_keep_alive,
     std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive,
     InstallIsolatedWebAppCallback callback,
@@ -348,9 +349,8 @@ void WebAppCommandScheduler::ApplyPendingIsolatedWebAppUpdate(
     const IsolatedWebAppUrlInfo& url_info,
     std::unique_ptr<ScopedKeepAlive> optional_keep_alive,
     std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive,
-    base::OnceCallback<
-        void(base::expected<IsolatedWebAppApplyUpdateCommandSuccess,
-                            IsolatedWebAppApplyUpdateCommandError>)> callback,
+    base::OnceCallback<void(
+        base::expected<void, IsolatedWebAppApplyUpdateCommandError>)> callback,
     const base::Location& call_location) {
   provider_->command_manager().ScheduleCommand(
       std::make_unique<IsolatedWebAppApplyUpdateCommand>(
@@ -371,7 +371,7 @@ void WebAppCommandScheduler::ApplyPendingIsolatedWebAppUpdate(
 void WebAppCommandScheduler::CheckIsolatedWebAppBundleInstallability(
     const SignedWebBundleMetadata& bundle_metadata,
     base::OnceCallback<void(IsolatedInstallabilityCheckResult,
-                            std::optional<base::Version>)> callback,
+                            std::optional<IwaVersion>)> callback,
     const base::Location& call_location) {
   provider_->command_manager().ScheduleCommand(
       std::make_unique<CheckIsolatedWebAppBundleInstallabilityCommand>(
@@ -382,7 +382,7 @@ void WebAppCommandScheduler::CheckIsolatedWebAppBundleInstallability(
 #if BUILDFLAG(IS_CHROMEOS)
 void WebAppCommandScheduler::GetIsolatedWebAppBundleCachePath(
     const IsolatedWebAppUrlInfo& url_info,
-    const std::optional<base::Version>& version,
+    const std::optional<IwaVersion>& version,
     IwaCacheClient::SessionType session_type,
     base::OnceCallback<void(base::expected<GetBundleCachePathSuccess,
                                            GetBundleCachePathError>)> callback,
@@ -749,6 +749,68 @@ void WebAppCommandScheduler::InstallAppFromUrl(
 
 base::WeakPtr<WebAppCommandScheduler> WebAppCommandScheduler::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+void WebAppCommandScheduler::GetAllAppsForFilter(
+    const WebAppFilter& filter,
+    base::OnceCallback<void(std::vector<webapps::AppId>)> callback) {
+  if (IsShuttingDown()) {
+    std::move(callback).Run({});
+    return;
+  }
+
+  provider_->scheduler().ScheduleCallbackWithResult(
+      "GetAllAppsForFilter", AllAppsLockDescription(),
+      base::BindOnce(
+          [](const WebAppFilter& filter, AllAppsLock& lock,
+             base::Value::Dict& debug_value) {
+            std::vector<webapps::AppId> apps;
+            // GetAppIds() automatically excludes some things like stubs and
+            // uninstalling. If those are needed, the filter should likely
+            // be just integrated into the GetApps() system directly.
+            for (const webapps::AppId& app_id : lock.registrar().GetAppIds()) {
+              if (lock.registrar().AppMatches(app_id, filter)) {
+                apps.push_back(app_id);
+              }
+            }
+            return apps;
+          },
+          filter),
+      /*on_complete=*/std::move(callback),
+      /*arg_for_shutdown=*/std::vector<webapps::AppId>());
+}
+
+void WebAppCommandScheduler::SynchronizeOsIntegrationForAllApps(
+    const WebAppFilter& filter,
+    base::OnceClosure callback) {
+  if (IsShuttingDown()) {
+    std::move(callback).Run();
+    return;
+  }
+
+  auto synchronize_apps = base::BindOnce(
+      [](base::WeakPtr<WebAppCommandScheduler> scheduler,
+         base::OnceClosure final_callback,
+         std::vector<webapps::AppId> app_ids) {
+        if (app_ids.empty()) {
+          std::move(final_callback).Run();
+          return;
+        }
+
+        base::RepeatingClosure barrier =
+            base::BarrierClosure(app_ids.size(), std::move(final_callback));
+
+        for (const auto& app_id : app_ids) {
+          // TODO(crbug.com/436584118): Add an option to pass WebAppFilter in
+          // `synchronize_options`.
+          scheduler->SynchronizeOsIntegration(app_id, barrier,
+                                              /*synchronize_options=*/
+                                              std::nullopt);
+        }
+      },
+      weak_ptr_factory_.GetWeakPtr(), std::move(callback));
+
+  GetAllAppsForFilter(filter, std::move(synchronize_apps));
 }
 
 void WebAppCommandScheduler::LaunchApp(apps::AppLaunchParams params,

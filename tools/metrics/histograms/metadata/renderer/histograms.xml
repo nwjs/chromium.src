@@ -433,14 +433,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Layout.TextWrapBalance" units="ms"
-    expires_after="2025-11-30">
+    expires_after="2026-02-01">
   <owner>kojii@chromium.org</owner>
   <owner>layout-dev@chromium.org</owner>
   <summary>The time spent to balance lines of paragraphs.</summary>
 </histogram>
 
 <histogram name="Renderer.Layout.TextWrapPretty" units="ms"
-    expires_after="2025-11-30">
+    expires_after="2026-02-01">
   <owner>kojii@chromium.org</owner>
   <owner>layout-dev@chromium.org</owner>
   <summary>The time spent to optimize line breaks.</summary>
@@ -503,7 +503,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Preload.UnusedResource2{Trigger}" enum="ResourceType"
-    expires_after="2025-12-14">
+    expires_after="2026-02-15">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -532,7 +532,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.ProcessLifetime3{RendererHostedContentType}"
-    units="ms" expires_after="2025-12-14">
+    units="ms" expires_after="2026-02-22">
   <owner>fdoray@chromium.org</owner>
   <owner>olivierli@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
@@ -541,6 +541,28 @@ chromium-metrics-reviews@google.com.
     Recorded for {RendererHostedContentType}.
   </summary>
   <token key="RendererHostedContentType" variants="RendererHostedContentType"/>
+</histogram>
+
+<histogram name="Renderer.ProcessReadyWaitRequired.{ProcessType}"
+    enum="Boolean" expires_after="2026-08-08">
+  <owner>toyoshim@chromium.org</owner>
+  <owner>wangsongjin@microsoft.com</owner>
+  <owner>lzhao@microsoft.com</owner>
+  <summary>
+    Whether the caller has to wait for the corresponding {ProcessType} to become
+    ready. Records true when security settings have not yet been applied to the
+    {ProcessType}, requiring a wait. Records false when the {ProcessType} is
+    already ready. Extension processes may require waiting more frequently than
+    regular processes.
+
+    Currently, this is used when service worker threads start and must wait for
+    the corresponding renderer process to become ready. This metric is emitted
+    right before the {ProcessType} starts a service worker thread.
+  </summary>
+  <token key="ProcessType">
+    <variant name="ExtensionProcess" summary="extension renderer process"/>
+    <variant name="RegularProcess" summary="non extension renderer process"/>
+  </token>
 </histogram>
 
 <histogram name="Renderer.ReduceSubresourceResponseIPC.DidNotifyBrowser"
@@ -567,7 +589,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Unresponsive.Reason{WidgetVisibility}"
-    enum="RendererIsUnresponsiveReason" expires_after="2025-12-14">
+    enum="RendererIsUnresponsiveReason" expires_after="2026-02-22">
   <owner>pmonette@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -593,7 +615,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Renderer.Unresponsive.{UIElementVisible}.RenderProcessHostPriority"
-    enum="RenderProcessHostPriority" expires_after="2025-12-14">
+    enum="RenderProcessHostPriority" expires_after="2026-02-22">
   <owner>pmonette@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -604,6 +626,29 @@ chromium-metrics-reviews@google.com.
   <token key="UIElementVisible">
     <variant name="PageVisible" summary="The WebContents is visible"/>
     <variant name="WidgetVisible" summary="The RenderWidgetHost is visible"/>
+  </token>
+</histogram>
+
+<histogram name="Renderer.WaitTimeForProcessReady.{ProcessType}" units="ms"
+    expires_after="2026-08-08">
+  <owner>toyoshim@chromium.org</owner>
+  <owner>wangsongjin@microsoft.com</owner>
+  <owner>lzhao@microsoft.com</owner>
+  <summary>
+    The time taken for the corresponding {ProcessType} to become ready when a
+    wait is required. Records the duration from when the caller requests the
+    {ProcessType} to be ready until security settings are fully processed and
+    the {ProcessType} becomes ready. Extension processes are likely to show
+    longer wait times than regular processes.
+
+    Currently, this measures the time from when a service worker attempts to
+    start its thread until the corresponding renderer process becomes ready.
+    This metric is emitted right before the {ProcessType} starts a service
+    worker thread.
+  </summary>
+  <token key="ProcessType">
+    <variant name="ExtensionProcess" summary="extension renderer process"/>
+    <variant name="RegularProcess" summary="non extension renderer process"/>
   </token>
 </histogram>
 
@@ -678,7 +723,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RendererScheduler.RendererMainThreadLoad6" units="%"
-    expires_after="2025-12-21">
+    expires_after="2026-02-22">
   <owner>lizeb@chromium.org</owner>
   <owner>shaseley@chromium.org</owner>
   <summary>
@@ -693,7 +738,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RendererScheduler.RendererMainThreadLoad6.Foreground"
-    units="%" expires_after="2025-12-21">
+    units="%" expires_after="2026-02-22">
   <owner>lizeb@chromium.org</owner>
   <owner>shaseley@chromium.org</owner>
   <summary>

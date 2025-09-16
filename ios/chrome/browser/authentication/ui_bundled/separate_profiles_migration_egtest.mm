@@ -29,6 +29,7 @@
 
 - (void)setUp {
   [super setUp];
+  ClearHistorySyncPrefs();
   // Reset the force migration timestamp pref.
   [ChromeEarlGrey
            setTimeValue:base::Time()
@@ -40,6 +41,9 @@
   [ChromeEarlGrey
            setTimeValue:base::Time()
       forLocalStatePref:prefs::kWaitingForMultiProfileForcedMigrationTimestamp];
+  ClearHistorySyncPrefs();
+  // Make sure any pending prefs changes are written to disk.
+  [ChromeEarlGrey commitPendingUserPrefsWrite];
   [super tearDownHelper];
 }
 
@@ -73,11 +77,6 @@
 }
 
 - (void)testMigrateWithConsumerPrimaryAccount {
-  // Separate profiles are only available in iOS 17+.
-  if (!@available(iOS 17, *)) {
-    return;
-  }
-
   // A personal and a managed identity exist on the device.
   FakeSystemIdentity* const personalIdentity =
       [FakeSystemIdentity fakeIdentity1];
@@ -122,11 +121,6 @@
 
 // TODO(crbug.com/433320893): Re-enable this test.
 - (void)DISABLED_testMigrateWithManagedPrimaryAccount {
-  // Separate profiles are only available in iOS 17+.
-  if (!@available(iOS 17, *)) {
-    return;
-  }
-
   // A personal and a managed identity exist on the device.
   FakeSystemIdentity* const personalIdentity =
       [FakeSystemIdentity fakeIdentity1];
@@ -185,11 +179,6 @@
 }
 
 - (void)testForceMigrationPrefSetForManagedPrimaryAccount {
-  // Separate profiles are only available in iOS 17+.
-  if (!@available(iOS 17, *)) {
-    return;
-  }
-
   // Reset `kWaitingForMultiProfileForcedMigrationTimestamp`.
   [ChromeEarlGrey resetDataForLocalStatePref:
                       prefs::kWaitingForMultiProfileForcedMigrationTimestamp];
@@ -288,11 +277,6 @@
 }
 
 - (void)testForceMigrationPrefNotSetForConsumerPrimaryAccount {
-  // Separate profiles are only available in iOS 17+.
-  if (!@available(iOS 17, *)) {
-    return;
-  }
-
   // Reset `kWaitingForMultiProfileForcedMigrationTimestamp`.
   [ChromeEarlGrey resetDataForLocalStatePref:
                       prefs::kWaitingForMultiProfileForcedMigrationTimestamp];
@@ -337,11 +321,6 @@
 }
 
 - (void)testForceMigrationPrefClearedWhenFeatureIsDisabled {
-  // Separate profiles are only available in iOS 17+.
-  if (!@available(iOS 17, *)) {
-    return;
-  }
-
   // Reset `kWaitingForMultiProfileForcedMigrationTimestamp`.
   [ChromeEarlGrey resetDataForLocalStatePref:
                       prefs::kWaitingForMultiProfileForcedMigrationTimestamp];
@@ -422,11 +401,6 @@
 }
 
 - (void)testForceMigration {
-  // Separate profiles are only available in iOS 17+.
-  if (!@available(iOS 17, *)) {
-    return;
-  }
-
   // Reset `kWaitingForMultiProfileForcedMigrationTimestamp`.
   [ChromeEarlGrey resetDataForLocalStatePref:
                       prefs::kWaitingForMultiProfileForcedMigrationTimestamp];

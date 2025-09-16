@@ -6,13 +6,12 @@ package org.chromium.android_webview.robolectric;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.webview.chromium.WebViewCachedFlags;
-
-import org.chromium.android_webview.common.AwFeatures;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.android_webview.common.AwFeatures;
+import org.chromium.android_webview.common.WebViewCachedFlags;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
@@ -123,8 +122,6 @@ public class WebViewCachedFlagsTest {
         WebViewCachedFlags cachedFlags = new WebViewCachedFlags(sharedPrefs, Map.of());
 
         // The flags should be enabled if the prefs were present.
-        Assert.assertTrue(
-                cachedFlags.isCachedFeatureEnabled(AwFeatures.WEBVIEW_SEPARATE_RESOURCE_CONTEXT));
         Assert.assertTrue(cachedFlags.isCachedFeatureEnabled(AwFeatures.WEBVIEW_DISABLE_CHIPS));
         Assert.assertTrue(
                 cachedFlags.isCachedFeatureEnabled(AwFeatures.WEBVIEW_USE_STARTUP_TASKS_LOGIC));

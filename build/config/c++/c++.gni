@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/clang/clang.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/toolchain/rbe.gni")
 import("//build_overrides/build.gni")
@@ -99,7 +100,7 @@ if (is_android && export_libcxxabi_from_executables) {
 }
 
 if (use_clang_modules) {
-  libcxx_prefix = "${root_gen_dir}/third_party/libc++/src"
+  libcxx_prefix = "${root_build_dir}/gen/third_party/libc++/src"
   libcxx_modulemap_in =
       read_file("//third_party/libc++/src/include/module.modulemap.in",
                 "string")
@@ -111,7 +112,6 @@ if (use_clang_modules) {
   libcxx_prefix = "//third_party/libc++/src"
 }
 libcxxabi_prefix = "//third_party/libc++abi/src"
-libcxx_module_prefix = "$root_gen_dir/libcxx"
 
 assert(!(is_ios && libcxx_is_shared),
        "Can't build libc++ as a shared library on iOS.")

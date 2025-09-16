@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include "content/renderer/render_process_impl.h"
 
 #include "build/build_config.h"
@@ -173,10 +168,6 @@ RenderProcessImpl::RenderProcessImpl()
     SetV8FlagIfOverridden(features::kWebAssemblyDynamicTiering,
                           "--wasm-dynamic-tiering",
                           "--no-wasm-dynamic-tiering");
-
-    SetV8FlagIfOverridden(blink::features::kWebAssemblyJSStringBuiltins,
-                          "--experimental-wasm-imported-strings",
-                          "--no-experimental-wasm-imported-strings");
 
     SetV8FlagIfOverridden(blink::features::kJavaScriptSourcePhaseImports,
                           "--js-source-phase-imports",

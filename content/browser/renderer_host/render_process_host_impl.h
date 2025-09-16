@@ -394,6 +394,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
 
   void InterruptJavaScriptIsolateAndCollectCallStack();
 
+  // Helper method to safely collect JavaScript call stack on a delay.
+  void CollectDelayedJavaScriptCallStack();
+
   // HistogramChildProcess implementation:
   void BindChildHistogramFetcherFactory(
       mojo::PendingReceiver<metrics::mojom::ChildHistogramFetcherFactory>
@@ -844,16 +847,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
       mojo::PendingReceiver<blink::mojom::NotificationService> receiver)
       override;
 
-  // Used for shared workers and service workers to create a websocket.
-  // In other cases, RenderFrameHostImpl for documents or DedicatedWorkerHost
-  // for dedicated workers handles interface requests in order to associate
-  // websockets with a frame. Shared workers and service workers don't have to
-  // do it because they don't have a frame.
-  void CreateWebSocketConnector(
-      const blink::StorageKey& storage_key,
-      mojo::PendingReceiver<blink::mojom::WebSocketConnector> receiver)
-      override;
-
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
   void CreateOOPVideoDecoder(
       mojo::PendingReceiver<media::mojom::VideoDecoder> receiver) override;
@@ -888,6 +881,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
   using VideoDecoderEventCB = base::RepeatingCallback<void(VideoDecoderEvent)>;
   static void SetVideoDecoderEventCBForTesting(VideoDecoderEventCB cb);
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+
+  // Returns whether the process is only hosting RFHs in prerendered pages
+  // or no RFHs at all.
+  bool IsOnlyHostingPrerenderedFramesOrEmpty();
 
   void GetBoundInterfacesForTesting(std::vector<std::string>& out);
 
@@ -1269,6 +1266,13 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void ResetVideoDecoderFactory();
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
+  // The callback for handling the prerender state change of each
+  // RFH in the process. The prerender state of all the RFHs in
+  // the process is tracked to determine IsOnlyHostingPrerenderedFramesOrEmpty.
+  void OnRenderFrameHostPrerenderStateChanged(
+      const GlobalRenderFrameHostId& render_frame_host_id,
+      bool is_prerendering);
+
   mojo::OutgoingInvitation mojo_invitation_;
 
   // These cover mutually-exclusive cases. While keep-alive is time-based,
@@ -1388,6 +1392,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
 
   std::set<GlobalRenderFrameHostId> render_frame_host_id_set_;
 
+  std::set<GlobalRenderFrameHostId> prerendering_frame_host_id_set_;
+
   // The observers watching our lifetime.
   base::ObserverList<RenderProcessHostObserver> observers_;
 
@@ -1433,6 +1439,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // Indicates whether RenderProcessHostImpl::ProcessDied is currently iterating
   // and calling through RenderProcessHostObserver::RenderProcessExited.
   bool within_process_died_observer_ = false;
+
+  // Indicates whether OnRendererProcessLockedStateUpdated() has been called for
+  // the renderer process.
+  bool did_update_renderer_locked_state_ = false;
 
   std::unique_ptr<P2PSocketDispatcherHost> p2p_socket_dispatcher_host_;
 

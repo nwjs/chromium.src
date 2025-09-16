@@ -117,6 +117,19 @@ chromium-metrics-reviews@google.com.
   <variant name="_FullScan" summary="Using WPA_supplicant to scan."/>
 </variants>
 
+<!-- LINT.IfChange(RequestPriority) -->
+
+<variants name="RequestPriority">
+  <variant name="HIGHEST"/>
+  <variant name="IDLE"/>
+  <variant name="LOW"/>
+  <variant name="LOWEST"/>
+  <variant name="MEDIUM"/>
+  <variant name="THROTTLED"/>
+</variants>
+
+<!-- LINT.ThenChange(//net/base/request_priority.cc:RequestPriorityToString) -->
+
 <variants name="RoamSecurityType">
   <variant name=".EAP"
       summary="Records roams in a network using 802.1X authentication without
@@ -1794,7 +1807,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Network.ContentDecodingInterceptor.CreateDataPipeSuccess.{ContentDecodingInterceptorClientType}"
-    enum="Boolean" expires_after="2025-12-14">
+    enum="Boolean" expires_after="2026-02-22">
   <owner>horo@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -2384,8 +2397,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Network.SharedDictionary.CreateBrotliSourceStreamWithDictionary"
-    units="microseconds" expires_after="2025-08-24">
-  <owner>horo@chromium.org</owner>
+    units="microseconds" expires_after="2026-07-01">
+  <owner>pmeenan@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
     The time spent creating a brotli source stream with a dictionary. Logged
@@ -2398,8 +2411,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.SharedDictionary.CreateZstdSourceStreamWithDictionary"
-    units="microseconds" expires_after="2025-06-08">
-  <owner>horo@chromium.org</owner>
+    units="microseconds" expires_after="2026-07-01">
+  <owner>pmeenan@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
     The time spent creating a zstd source stream with a dictionary. Logged when
@@ -2408,6 +2421,9 @@ chromium-metrics-reviews@google.com.
 
     Note that clients without high-resolution clocks will report 0 for very
     short times.
+
+    Warning: this histogram was expired from 2025-06-08 to 2024-08-27; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -2428,7 +2444,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Network.SharedDictionary.EncodingType"
-    enum="SharedDictionaryEncodingType" expires_after="2025-12-07">
+    enum="SharedDictionaryEncodingType" expires_after="2026-02-09">
   <owner>nidhijaju@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -5212,7 +5228,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="NetworkService.IpProtection.GeoChangeTokenPresence"
     enum="BooleanAvailable" expires_after="2026-01-07">
-  <owner>abhipatel@chromium.org</owner>
+  <owner>awillia@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
     This histogram is emitted to when changing to a new geo, and tracks whether
@@ -5252,7 +5268,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="NetworkService.IpProtection.GetAuthTokenResultForGeo"
     enum="IpProtectionGetAuthTokenResultForGeo" expires_after="2026-01-07">
-  <owner>abhipatel@chromium.org</owner>
+  <owner>awillia@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
     This metric tracks the effectiveness of token caching in IpProtection,
@@ -5384,7 +5400,10 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the elapsed time for successful requests by
     IpProtectionProbabilisticRevealTokenFetcher for a batch of probabilistic
-    reveal tokens.
+    reveal tokens. This represents the total time taken from the moment we call
+    the TokenFetcher until PRTs are available in the browser. This includes the
+    IPC between the browser and the network service, the network request itself
+    (including any scheduling/queuing delay), and the token validation checks.
   </summary>
 </histogram>
 
@@ -5707,7 +5726,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.MaskedDomainList.Size2" units="KB"
-    expires_after="2025-12-14">
+    expires_after="2026-02-22">
   <owner>aakallam@chromium.org</owner>
   <owner>src/components/ip_protection/OWNERS</owner>
   <summary>
@@ -5720,7 +5739,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="NetworkService.NetworkLoaderCompletionTime2.{Source}"
     units="ms" expires_after="2025-12-28">
-  <owner>bashi@chromium.org</owner>
+  <owner>hayato@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
     The time taken to finish a network URLLoader to complete. A network
@@ -5736,8 +5755,29 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram
+    name="NetworkService.NetworkLoaderCompletionTime2.{Source}.{Priority}"
+    units="ms" expires_after="2025-12-28">
+  <owner>hayato@chromium.org</owner>
+  <owner>blink-network-stack@google.com</owner>
+  <summary>
+    The time taken to finish a network URLLoader to complete. A network
+    URLLoader is a URLLoader that a CorsURLLoader used internally to load an
+    HTTP response from the underlying layer. The underlying layer serves the
+    response from either the disk cache backend or the network.
+
+    This histogram is recorded for requests of {Priority} priority served from
+    {Source}.
+  </summary>
+  <token key="Source">
+    <variant name="DiskCache"/>
+    <variant name="Network"/>
+  </token>
+  <token key="Priority" variants="RequestPriority"/>
+</histogram>
+
 <histogram name="NetworkService.ParsedHeaders.IPCHandleTime"
-    units="microseconds" expires_after="2025-11-30">
+    units="microseconds" expires_after="2026-02-01">
   <owner>yyanagisawa@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -5751,7 +5791,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Requests.{Multiplexed}.{RequestType}.{Method}.{Result}.TotalHeadersSize"
-    units="bytes" expires_after="2025-12-07">
+    units="bytes" expires_after="2026-02-09">
   <owner>ortuno@chromium.org</owner>
   <owner>navtracking-team@google.com</owner>
   <summary>
@@ -5768,7 +5808,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Requests.{Multiplexed}.{RequestType}.{Method}.{Result}.TotalRequestSize"
-    units="bytes" expires_after="2025-12-07">
+    units="bytes" expires_after="2026-02-09">
   <owner>ortuno@chromium.org</owner>
   <owner>navtracking-team@google.com</owner>
   <summary>
@@ -5785,7 +5825,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="NetworkService.Requests.{Multiplexed}.{RequestType}.{Method}.{Result}.TotalUrlSize"
-    units="bytes" expires_after="2025-12-07">
+    units="bytes" expires_after="2026-02-09">
   <owner>ortuno@chromium.org</owner>
   <owner>navtracking-team@google.com</owner>
   <summary>
@@ -5866,7 +5906,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.SlopBucket.DisabledReason"
-    enum="SlopBucketDisabledReason" expires_after="2025-12-23">
+    enum="SlopBucketDisabledReason" expires_after="2026-02-22">
   <owner>ricea@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -5881,7 +5921,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.SlopBucket.PeakChunksAllocated" units="chunks"
-    expires_after="2025-12-23">
+    expires_after="2026-02-22">
   <owner>ricea@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -5894,7 +5934,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.SlopBucket.RequestedPriority"
-    enum="NetRequestPriority" expires_after="2025-12-23">
+    enum="NetRequestPriority" expires_after="2026-02-22">
   <owner>ricea@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -5957,8 +5997,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NetworkService.TimeToGrantSharedDictionaryAccess" units="ms"
-    expires_after="2026-03-01">
-  <owner>horo@chromium.org</owner>
+    expires_after="2026-07-01">
+  <owner>pmeenan@chromium.org</owner>
   <owner>src/net/extras/shared_dictionary/OWNERS</owner>
   <summary>
     The time taken to permit the sandbox access to the shared dictionary

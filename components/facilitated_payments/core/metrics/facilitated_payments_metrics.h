@@ -25,6 +25,16 @@ enum class FacilitatedPaymentsType {
   kPix = 1,
 };
 
+// Different types of payment link fop selector option available.
+enum class PaymentLinkFopSelectorTypes {
+  // Only eWallets are available.
+  kEwalletOnly = 0,
+  // Only A2A payment methods are available.
+  kA2AOnly = 1,
+  // Both eWallets and A2A payment methods are available.
+  kEwalletAndA2A = 2
+};
+
 // Available ewallet accounts type for this current profile. Indicates the count
 // of available eWallets and whether they’re device bound or not.
 enum class AvailableEwalletsConfiguration {
@@ -35,6 +45,33 @@ enum class AvailableEwalletsConfiguration {
   // Mutilple eWallets are available..
   kMultipleEwallets = 2,
 };
+
+// Reasons for why the A2A payflow was exited early. These only include the
+// reasons after the renderer has detected a valid payment link and sent the
+// signal to the browser process.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(A2AFlowExitedReason)
+enum class A2AFlowExitedReason {
+  // The domain of the website is not allowlisted.
+  kNotInAllowlist = 0,
+  // The user has opted out of the payflow.
+  kUserOptedOut = 1,
+  // The user has no supported payment apps available for the payflow.
+  kNoSupportedPaymentApp = 2,
+  // The FOP selector either wasn't shown, or was dismissed not as a result of a
+  // user action.
+  kFopSelectorClosedNotByUser = 3,
+  // The FOP selector was dismissed by a user action e.g., swiping down, tapping
+  // on the webpage behind the FOP selector, or tapping on the omnibox.
+  kFopSelectorClosedByUser = 4,
+  // Another type of FOP selected.
+  kOtherFopSelected = 5,
+  // The A2A payment flag is not enabled.
+  kFlagNotEnabled = 6,
+  kMaxValue = kFlagNotEnabled
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/facilitated_payments/enums.xml:FacilitatedPayments.A2AFlowExitedReason)
 
 // Reasons for why the eWallet payflow was exited early. These only include the
 // reasons after the renderer has detected a valid payment link and sent the
@@ -120,7 +157,11 @@ enum class PixFlowExitedReason {
   kAutofillPaymentMethodsDisabled = 14,
   // Pix code was copied on a merchant website that wasn't allowlisted.
   kMerchantNotAllowlisted = 15,
-  kMaxValue = kMerchantNotAllowlisted
+  // Pix code was copied within an iframe.
+  kPixCodeInIFrame = 16,
+  // Pix code was copied in an inactive frame.
+  kFrameNotActive = 17,
+  kMaxValue = kFrameNotActive
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/facilitated_payments/enums.xml:FacilitatedPayments.PixFlowExitedReason)
 
@@ -175,6 +216,12 @@ void LogPixFopSelectedAndLatency(base::TimeDelta duration);
 // Log when user selects an eWallet FOP to pay with.
 void LogEwalletFopSelected(AvailableEwalletsConfiguration type);
 
+// Log when user selects a FOP to pay with from the non-card FOP selector.
+void LogNonCardPaymentMethodsFopSelected(
+    PaymentLinkFopSelectorTypes non_card_fop_selector_fop_type,
+    PaymentLinkFopSelectorAction payment_link_fop_selector_action,
+    std::optional<PaymentLinkValidator::Scheme> scheme);
+
 // Log the result and latency for validating a payment code using
 // `data_decoder::DataDecoder`.
 void LogPaymentCodeValidationResultAndLatency(
@@ -219,6 +266,13 @@ void LogGetClientTokenResultAndLatency(
 // payment link has been found.
 void LogEwalletFlowExitedReason(
     EwalletFlowExitedReason reason,
+    std::optional<PaymentLinkValidator::Scheme> scheme = std::nullopt);
+
+// Log the reason for the A2A flow was exited early. This includes all the
+// reasons after receiving a signal from the renderer process that a valid
+// payment link has been found.
+void LogA2APayflowExitedReason(
+    A2AFlowExitedReason reason,
     std::optional<PaymentLinkValidator::Scheme> scheme = std::nullopt);
 
 // Log the reason for the Pix flow was exited early. This includes all the
@@ -293,6 +347,24 @@ void LogFopSelectorShownLatency(
     FacilitatedPaymentsType payment_type,
     base::TimeDelta latency,
     std::optional<PaymentLinkValidator::Scheme> scheme = std::nullopt);
+
+// Logs the latency for displaying the payment link FOP selector
+//   - EwalletAndA2A: Latency when both eWallet and
+//     payment app are available.
+//   - A2AOnly: Latency when only payment app is available.
+//   - EwalletOnly: Latency when only eWallet is
+//   available.
+void LogPaymentLinkFopSelectorShownLatency(
+    PaymentLinkFopSelectorTypes payment_link_fop_selector_type,
+    base::TimeDelta latency,
+    std::optional<PaymentLinkValidator::Scheme> scheme = std::nullopt);
+
+// Logs the result and latency for invoking a payment app after a payment link
+// was detected.
+void LogInvokePaymentAppResultAndLatency(
+    bool result,
+    base::TimeDelta latency,
+    std::optional<PaymentLinkValidator::Scheme> scheme);
 
 // Logs that the Pix account linking prompt was shown.
 void LogPixAccountLinkingPromptShown();

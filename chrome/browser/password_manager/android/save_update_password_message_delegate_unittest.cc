@@ -31,7 +31,6 @@
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_form_metrics_recorder.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
-#include "components/password_manager/core/browser/split_stores_and_local_upm.h"
 #include "components/password_manager/core/browser/stub_password_manager_client.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
@@ -195,8 +194,8 @@ class SaveUpdatePasswordMessageDelegateTest
   void CommitPasswordFormMetrics();
   void VerifyUkmMetrics(const ukm::TestUkmRecorder& ukm_recorder,
                         PasswordFormMetricsRecorder::BubbleDismissalReason
-                            expected_dismissal_reason);
-  void EnableUseUPMLocalAndSeparateStores();
+                            expected_dismissal_reason,
+                        bool update_password);
 
   messages::MockMessageDispatcherBridge* message_dispatcher_bridge() {
     return &message_dispatcher_bridge_;
@@ -251,10 +250,6 @@ void SaveUpdatePasswordMessageDelegateTest::SetUp() {
 
   messages::MessageDispatcherBridge::SetInstanceForTesting(
       &message_dispatcher_bridge_);
-
-  ON_CALL(*(password_manager_client_.GetPasswordFeatureManager()),
-          ShouldUpdateGmsCore)
-      .WillByDefault(Return(false));
 }
 
 void SaveUpdatePasswordMessageDelegateTest::TearDown() {
@@ -461,28 +456,35 @@ void SaveUpdatePasswordMessageDelegateTest::CommitPasswordFormMetrics() {
 void SaveUpdatePasswordMessageDelegateTest::VerifyUkmMetrics(
     const ukm::TestUkmRecorder& ukm_recorder,
     PasswordFormMetricsRecorder::BubbleDismissalReason
-        expected_dismissal_reason) {
+        expected_dismissal_reason,
+    bool update_password) {
   const auto& entries =
       ukm_recorder.GetEntriesByName(ukm::builders::PasswordForm::kEntryName);
   EXPECT_EQ(1u, entries.size());
   for (const ukm::mojom::UkmEntry* entry : entries) {
     EXPECT_EQ(ukm_source_id_, entry->source_id);
-    ukm_recorder.ExpectEntryMetric(
-        entry, ukm::builders::PasswordForm::kSaving_Prompt_ShownName, 1);
-    ukm_recorder.ExpectEntryMetric(
-        entry, ukm::builders::PasswordForm::kSaving_Prompt_TriggerName,
-        static_cast<int64_t>(PasswordFormMetricsRecorder::BubbleTrigger::
-                                 kPasswordManagerSuggestionAutomatic));
-    ukm_recorder.ExpectEntryMetric(
-        entry, ukm::builders::PasswordForm::kSaving_Prompt_InteractionName,
-        static_cast<int64_t>(expected_dismissal_reason));
+    if (update_password) {
+      ukm_recorder.ExpectEntryMetric(
+          entry, ukm::builders::PasswordForm::kUpdating_Prompt_ShownName, 1);
+      ukm_recorder.ExpectEntryMetric(
+          entry, ukm::builders::PasswordForm::kUpdating_Prompt_TriggerName,
+          static_cast<int64_t>(PasswordFormMetricsRecorder::BubbleTrigger::
+                                   kPasswordManagerSuggestionAutomatic));
+      ukm_recorder.ExpectEntryMetric(
+          entry, ukm::builders::PasswordForm::kUpdating_Prompt_InteractionName,
+          static_cast<int64_t>(expected_dismissal_reason));
+    } else {
+      ukm_recorder.ExpectEntryMetric(
+          entry, ukm::builders::PasswordForm::kSaving_Prompt_ShownName, 1);
+      ukm_recorder.ExpectEntryMetric(
+          entry, ukm::builders::PasswordForm::kSaving_Prompt_TriggerName,
+          static_cast<int64_t>(PasswordFormMetricsRecorder::BubbleTrigger::
+                                   kPasswordManagerSuggestionAutomatic));
+      ukm_recorder.ExpectEntryMetric(
+          entry, ukm::builders::PasswordForm::kSaving_Prompt_InteractionName,
+          static_cast<int64_t>(expected_dismissal_reason));
+    }
   }
-}
-
-void SaveUpdatePasswordMessageDelegateTest::
-    EnableUseUPMLocalAndSeparateStores() {
-  password_manager::SetLegacySplitStoresPrefForTest(profile()->GetPrefs(),
-                                                    true);
 }
 
 // Tests that secondary menu icon is set for the save password message
@@ -564,116 +566,11 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest, SaveOnActionClick) {
   CommitPasswordFormMetrics();
   VerifyUkmMetrics(
       test_ukm_recorder,
-      PasswordFormMetricsRecorder::BubbleDismissalReason::kAccepted);
+      PasswordFormMetricsRecorder::BubbleDismissalReason::kAccepted,
+      /*update_password=*/false);
   histogram_tester.ExpectUniqueSample(
       kSaveUIDismissalReasonHistogramName,
       password_manager::metrics_util::CLICKED_ACCEPT, 1);
-}
-
-// Tests that the message to update GMSCore will show when the user
-// clicks the "Save" button if the GMSCore version is too low to save account
-// passwords.
-TEST_F(SaveUpdatePasswordMessageDelegateTest,
-       NudgeToUpdateGmsCore_OnSaveClicked) {
-  auto form_manager =
-      CreateFormManager(GURL(kDefaultUrl), empty_best_matches());
-  EXPECT_CALL(*form_manager, Save());
-  EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
-                 /*update_password=*/false);
-  EXPECT_NE(nullptr, GetMessageWrapper());
-  EXPECT_CALL(*GetClient(),
-              ShowPasswordManagerErrorMessage(
-                  password_manager::ErrorMessageFlowType::kSaveFlow,
-                  password_manager::PasswordStoreBackendErrorType::
-                      kGMSCoreOutdatedSavingPossible));
-  EXPECT_CALL(*(GetClient()->GetPasswordFeatureManager()), ShouldUpdateGmsCore)
-      .WillOnce(Return(true));
-  TriggerActionClick();
-
-  // Fast forward, since Update message is shown with a delay.
-  FastForward();
-  EXPECT_EQ(nullptr, GetMessageWrapper());
-}
-
-// Tests that the message to update GMSCore will not show when the user
-// clicks the "Save" button.
-TEST_F(SaveUpdatePasswordMessageDelegateTest,
-       DontNudgeToUpdateGmsCore_OnSaveClicked) {
-  auto form_manager =
-      CreateFormManager(GURL(kDefaultUrl), empty_best_matches());
-  EXPECT_CALL(*form_manager, Save());
-  EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
-                 /*update_password=*/false);
-  EXPECT_NE(nullptr, GetMessageWrapper());
-  EXPECT_CALL(*GetClient(),
-              ShowPasswordManagerErrorMessage(
-                  password_manager::ErrorMessageFlowType::kSaveFlow,
-                  password_manager::PasswordStoreBackendErrorType::
-                      kGMSCoreOutdatedSavingPossible))
-      .Times(0);
-  EXPECT_CALL(*(GetClient()->GetPasswordFeatureManager()), ShouldUpdateGmsCore)
-      .WillOnce(Return(false));
-  TriggerActionClick();
-
-  // Fast forward, since Update message is shown with a delay.
-  FastForward();
-  EXPECT_EQ(nullptr, GetMessageWrapper());
-}
-
-// Tests that the message to update GMSCore will show when the user accepts the
-// update password message in case when there is no confirmation
-// dialog.
-TEST_F(SaveUpdatePasswordMessageDelegateTest,
-       NudgeToUpdateGmsCore_OnUpdatePasswordWithSingleForm) {
-  SetPendingCredentials(kUsername, kPassword);
-  std::vector<PasswordForm> single_form_best_matches = {
-      CreatePasswordForm(kUsername, kPassword)};
-  auto form_manager =
-      CreateFormManager(GURL(kDefaultUrl), single_form_best_matches);
-  EXPECT_CALL(*form_manager, Save());
-  EnqueueMessage(std::move(form_manager), /*user_signed_in=*/true,
-                 /*update_password=*/true);
-  EXPECT_NE(nullptr, GetMessageWrapper());
-  EXPECT_CALL(*GetClient(),
-              ShowPasswordManagerErrorMessage(
-                  password_manager::ErrorMessageFlowType::kSaveFlow,
-                  password_manager::PasswordStoreBackendErrorType::
-                      kGMSCoreOutdatedSavingPossible));
-  EXPECT_CALL(*(GetClient()->GetPasswordFeatureManager()), ShouldUpdateGmsCore)
-      .WillOnce(Return(true));
-  TriggerActionClick();
-
-  // Fast forward, since Update message is shown with a delay.
-  FastForward();
-  EXPECT_EQ(nullptr, GetMessageWrapper());
-}
-
-// Tests that the message to update GMSCore will not show when the user accepts
-// the update password message in case when there is no confirmation dialog.
-TEST_F(SaveUpdatePasswordMessageDelegateTest,
-       DontNudgeToUpdateGmsCore_OnUpdatePasswordWithSingleForm) {
-  SetPendingCredentials(kUsername, kPassword);
-  std::vector<PasswordForm> single_form_best_matches = {
-      CreatePasswordForm(kUsername, kPassword)};
-  auto form_manager =
-      CreateFormManager(GURL(kDefaultUrl), single_form_best_matches);
-  EXPECT_CALL(*form_manager, Save());
-  EnqueueMessage(std::move(form_manager), /*user_signed_in=*/true,
-                 /*update_password=*/true);
-  EXPECT_NE(nullptr, GetMessageWrapper());
-  EXPECT_CALL(*GetClient(),
-              ShowPasswordManagerErrorMessage(
-                  password_manager::ErrorMessageFlowType::kSaveFlow,
-                  password_manager::PasswordStoreBackendErrorType::
-                      kGMSCoreOutdatedSavingPossible))
-      .Times(0);
-  EXPECT_CALL(*(GetClient()->GetPasswordFeatureManager()), ShouldUpdateGmsCore)
-      .WillOnce(Return(false));
-  TriggerActionClick();
-
-  // Fast forward, since Update message is shown with a delay.
-  FastForward();
-  EXPECT_EQ(nullptr, GetMessageWrapper());
 }
 
 // Tests that password form is not saved and metrics recorded correctly when the
@@ -694,7 +591,8 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest, DontSaveOnDismiss) {
   CommitPasswordFormMetrics();
   VerifyUkmMetrics(
       test_ukm_recorder,
-      PasswordFormMetricsRecorder::BubbleDismissalReason::kDeclined);
+      PasswordFormMetricsRecorder::BubbleDismissalReason::kDeclined,
+      /*update_password=*/false);
   histogram_tester.ExpectUniqueSample(
       kSaveUIDismissalReasonHistogramName,
       password_manager::metrics_util::CLICKED_CANCEL, 1);
@@ -716,9 +614,9 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest, MetricOnAutodismissTimer) {
   EXPECT_EQ(nullptr, GetMessageWrapper());
 
   CommitPasswordFormMetrics();
-  VerifyUkmMetrics(
-      test_ukm_recorder,
-      PasswordFormMetricsRecorder::BubbleDismissalReason::kIgnored);
+  VerifyUkmMetrics(test_ukm_recorder,
+                   PasswordFormMetricsRecorder::BubbleDismissalReason::kIgnored,
+                   /*update_password=*/false);
   histogram_tester.ExpectUniqueSample(
       kSaveUIDismissalReasonHistogramName,
       password_manager::metrics_util::NO_DIRECT_INTERACTION, 1);
@@ -745,7 +643,8 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest, UpdatePasswordWithSingleForm) {
   CommitPasswordFormMetrics();
   VerifyUkmMetrics(
       test_ukm_recorder,
-      PasswordFormMetricsRecorder::BubbleDismissalReason::kAccepted);
+      PasswordFormMetricsRecorder::BubbleDismissalReason::kAccepted,
+      /*update_password=*/true);
   histogram_tester.ExpectUniqueSample(
       kUpdateUIDismissalReasonHistogramName,
       password_manager::metrics_util::CLICKED_ACCEPT, 1);
@@ -778,7 +677,8 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest,
   CommitPasswordFormMetrics();
   VerifyUkmMetrics(
       test_ukm_recorder,
-      PasswordFormMetricsRecorder::BubbleDismissalReason::kAccepted);
+      PasswordFormMetricsRecorder::BubbleDismissalReason::kAccepted,
+      /*update_password=*/true);
   histogram_tester.ExpectUniqueSample(
       kUpdateUIDismissalReasonHistogramName,
       password_manager::metrics_util::CLICKED_ACCEPT, 1);
@@ -816,7 +716,8 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest,
   CommitPasswordFormMetrics();
   VerifyUkmMetrics(
       test_ukm_recorder,
-      PasswordFormMetricsRecorder::BubbleDismissalReason::kAccepted);
+      PasswordFormMetricsRecorder::BubbleDismissalReason::kAccepted,
+      /*update_password=*/false);
   histogram_tester.ExpectUniqueSample(
       kSaveUIDismissalReasonHistogramName,
       password_manager::metrics_util::CLICKED_ACCEPT, 1);
@@ -842,7 +743,8 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest,
   CommitPasswordFormMetrics();
   VerifyUkmMetrics(
       test_ukm_recorder,
-      PasswordFormMetricsRecorder::BubbleDismissalReason::kDeclined);
+      PasswordFormMetricsRecorder::BubbleDismissalReason::kDeclined,
+      /*update_password=*/false);
   histogram_tester.ExpectUniqueSample(
       kSaveUIDismissalReasonHistogramName,
       password_manager::metrics_util::CLICKED_NEVER, 1);
@@ -882,7 +784,8 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest,
   CommitPasswordFormMetrics();
   VerifyUkmMetrics(
       test_ukm_recorder,
-      PasswordFormMetricsRecorder::BubbleDismissalReason::kAccepted);
+      PasswordFormMetricsRecorder::BubbleDismissalReason::kAccepted,
+      /*update_password=*/true);
   histogram_tester.ExpectUniqueSample(
       kUpdateUIDismissalReasonHistogramName,
       password_manager::metrics_util::CLICKED_ACCEPT, 1);
@@ -914,7 +817,8 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest,
   CommitPasswordFormMetrics();
   VerifyUkmMetrics(
       test_ukm_recorder,
-      PasswordFormMetricsRecorder::BubbleDismissalReason::kDeclined);
+      PasswordFormMetricsRecorder::BubbleDismissalReason::kDeclined,
+      /*update_password=*/false);
   histogram_tester.ExpectUniqueSample(
       kSaveUIDismissalReasonHistogramName,
       password_manager::metrics_util::CLICKED_CANCEL, 1);
@@ -1149,10 +1053,6 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest,
 // the password in the local store.
 TEST_F(SaveUpdatePasswordMessageDelegateTest,
        SignedInDescription_UpdatePasswordInAccountStore) {
-  // Enables using split storages (local and account).
-  password_manager::SetLegacySplitStoresPrefForTest(profile()->GetPrefs(),
-                                                    true);
-
   SetPendingCredentials(kUsername, kPassword, /*is_account_store=*/true);
   std::vector<PasswordForm> single_form_best_matches = {
       CreatePasswordForm(kUsername, kPassword, true)};
@@ -1174,9 +1074,6 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest,
 // the password in the local store.
 TEST_F(SaveUpdatePasswordMessageDelegateTest,
        SignedOutDescription_UpdatePasswordInLocalStore) {
-  // Enables using split storages (local and account).
-  EnableUseUPMLocalAndSeparateStores();
-
   SetPendingCredentials(kUsername, kPassword, /*is_account_store=*/false);
   std::vector<PasswordForm> single_form_best_matches = {
       CreatePasswordForm(kUsername, kPassword, false)};
@@ -1237,8 +1134,6 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest, RecordsPromptShownWhenEnqueuing) {
 // if the credential comes from the profile store.
 TEST_F(SaveUpdatePasswordMessageDelegateTest,
        LocalCredentialNotUsingAccountStorage) {
-  password_manager::SetLegacySplitStoresPrefForTest(profile()->GetPrefs(),
-                                                    false);
   SetPendingCredentials(kUsername, kPassword, /*is_account_store=*/false);
   auto form_manager =
       CreateFormManager(GURL(kDefaultUrl), empty_best_matches());
@@ -1255,8 +1150,6 @@ TEST_F(SaveUpdatePasswordMessageDelegateTest,
 // Tests `IsUsingAccountStorage` returns true if the crential comes from
 // the account store.
 TEST_F(SaveUpdatePasswordMessageDelegateTest, CredentialUsingAccountStorage) {
-  password_manager::SetLegacySplitStoresPrefForTest(profile()->GetPrefs(),
-                                                    false);
   SetPendingCredentials(kUsername, kPassword, /*is_account_store=*/true);
   auto form_manager =
       CreateFormManager(GURL(kDefaultUrl), empty_best_matches());

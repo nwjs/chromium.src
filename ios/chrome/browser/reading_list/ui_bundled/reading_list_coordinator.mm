@@ -27,6 +27,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_reading_list_continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/enterprise/enterprise_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_presenter.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_promo_view_mediator.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
@@ -298,7 +299,7 @@
   self.navigationController.toolbarHidden = !hasItems;
 }
 
-#pragma mark - ReadingListTableViewControllerDelegate
+#pragma mark - ReadingListListViewControllerDelegate
 
 - (void)dismissReadingListListViewController:(UIViewController*)viewController {
   CHECK_EQ(self.tableViewController, viewController);
@@ -378,7 +379,9 @@
 }
 
 - (BOOL)canDismiss {
-  return !_signinPromoViewMediator.signinInProgress;
+  // In case we don’t know, allow the view to be dismissed in order not to block
+  // the user on a frozen view if sign-in is acciddentally stopped.
+  return _signinPromoViewMediator.signinInProgress != signin::Tribool::kTrue;
 }
 
 #pragma mark - URL Loading Helpers
@@ -587,6 +590,10 @@
 - (void)showSignin:(SigninPromoViewMediator*)mediator
            command:(ShowSigninCommand*)command {
   CHECK_EQ(mediator, _signinPromoViewMediator);
+  if (_signinCoordinator.viewWillPersist) {
+    return;
+  }
+  [_signinCoordinator stop];
   __weak __typeof(self) weakSelf = self;
   [command addSigninCompletion:^(SigninCoordinatorResult result,
                                  id<SystemIdentity>) {

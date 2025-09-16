@@ -41,7 +41,6 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
@@ -74,12 +73,12 @@ import org.chromium.chrome.browser.undo_tab_close_snackbar.UndoBarThrottle;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
-import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.collaboration.ServiceStatus;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -89,6 +88,7 @@ import org.chromium.ui.widget.ViewRectProvider;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /** Coordinator for a {@link TabSwitcherPaneBase}'s UI. */
 @NullMarked
@@ -793,13 +793,18 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                 });
     }
 
-    private @Nullable View getTabGridDialogAnimationSourceView(int tabId) {
+    private @Nullable View getTabGridDialogAnimationSourceView(Token tabGroupId) {
         // Returning null causes the animation to be a fade.
         // Do so if we are animating to show or hide the HubLayout or this is a low end device.
         if (mIsAnimatingSupplier.get() || SysUtils.isLowEndDevice()) return null;
 
+        TabGroupModelFilter filter = mTabGroupModelFilterSupplier.get();
+        assumeNonNull(filter);
+        int tabId = filter.getGroupLastShownTabId(tabGroupId);
+        if (tabId == Tab.INVALID_TAB_ID) return null;
+
         TabListCoordinator coordinator = mTabListCoordinator;
-        int index = coordinator.getTabIndexFromTabId(tabId);
+        int index = coordinator.getIndexForTabIdWithRelatedTabs(tabId);
         ViewHolder sourceViewHolder =
                 coordinator.getContainerView().findViewHolderForAdapterPosition(index);
         // TODO(crbug.com/41479135): This is band-aid fix that will show basic fade-in/fade-out
@@ -852,7 +857,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
         assert mContextMenuCoordinator != null;
         return onLongPressOnTabCard(
                 mContextMenuCoordinator,
-                mTabListCoordinator.getTabListGroupMenuCoordinator(),
+                assumeNonNull(mTabListCoordinator.getTabListGroupMenuCoordinator()),
                 tabId,
                 cardView);
     }

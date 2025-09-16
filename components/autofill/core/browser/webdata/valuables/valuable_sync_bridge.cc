@@ -9,13 +9,12 @@
 
 #include "base/check.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
+#include "components/autofill/core/browser/webdata/autofill_ai/entity_sync_util.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/browser/webdata/valuables/valuables_sync_util.h"
 #include "components/sync/base/data_type.h"
-#include "components/sync/base/deletion_origin.h"
 #include "components/sync/base/features.h"
 #include "components/sync/model/client_tag_based_data_type_processor.h"
-#include "components/sync/model/in_memory_metadata_change_list.h"
 #include "components/sync/model/sync_metadata_store_change_list.h"
 #include "components/sync/protocol/autofill_valuable_specifics.pb.h"
 #include "components/sync/protocol/entity_data.h"
@@ -23,6 +22,9 @@
 
 namespace autofill {
 namespace {
+
+using ValuableDatabaseOperationResult =
+    ValuableSyncBridge::ValuableDatabaseOperationResult;
 
 // The address of this variable is used as the user data key.
 static const int kAutofillValuableSyncBridgeUserDataKey = 0;
@@ -35,6 +37,39 @@ bool AreAnyItemsDifferent(const std::vector<Item>& old_data,
   }
 
   return base::MakeFlatSet<Item>(old_data) != base::MakeFlatSet<Item>(new_data);
+}
+
+// Tests if the valuable `specifics` are valid and can be converted into an
+// Autofill class instance using `CreateAutofillLoyaltyCardFromSpecifics()`.
+bool AreAutofillLoyaltyCardSpecificsValid(
+    const sync_pb::AutofillValuableSpecifics& specifics) {
+  const auto HasEmptyOrValidProgramLogo =
+      [](const sync_pb::AutofillValuableSpecifics& specifics) {
+        return !specifics.loyalty_card().has_program_logo() ||
+               specifics.loyalty_card().program_logo().empty() ||
+               GURL(specifics.loyalty_card().program_logo()).is_valid();
+      };
+
+  return !specifics.id().empty() && specifics.has_loyalty_card() &&
+         !specifics.loyalty_card().loyalty_card_number().empty() &&
+         !specifics.loyalty_card().merchant_name().empty() &&
+         HasEmptyOrValidProgramLogo(specifics);
+}
+
+bool IsSyncWalletFlightReservationsEnabled() {
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  return base::FeatureList::IsEnabled(syncer::kSyncWalletFlightReservations);
+#else
+  return false;
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+}
+
+bool IsSyncWalletVehicleRegistrationsEnabled() {
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  return base::FeatureList::IsEnabled(syncer::kSyncWalletVehicleRegistrations);
+#else
+  return false;
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 }
 
 }  // namespace
@@ -148,6 +183,14 @@ bool ValuableSyncBridge::IsEntityDataValid(
   switch (autofill_valuable.valuable_data_case()) {
     case sync_pb::AutofillValuableSpecifics::kLoyaltyCard:
       return AreAutofillLoyaltyCardSpecificsValid(autofill_valuable);
+    case sync_pb::AutofillValuableSpecifics::kFlightReservation:
+      // TODO(crbug.com/436547381): Add stronger validation for flight
+      // reservation.
+      return IsSyncWalletVehicleRegistrationsEnabled();
+    case sync_pb::AutofillValuableSpecifics::kVehicleRegistration:
+      // TODO(crbug.com/436547381): Add stronger validation for vehicle
+      // registration.
+      return IsSyncWalletFlightReservationsEnabled();
     case sync_pb::AutofillValuableSpecifics::VALUABLE_DATA_NOT_SET:
       // Ignore new entry types that the client doesn't know about.
       return false;
@@ -238,12 +281,55 @@ void ValuableSyncBridge::LoadMetadata() {
   change_processor()->ModelReadyToSync(std::move(batch));
 }
 
+ValuableDatabaseOperationResult ValuableSyncBridge::SetLoyaltyCards(
+    std::vector<LoyaltyCard> loyalty_cards) {
+  const bool valuables_data_changed = AreAnyItemsDifferent(
+      GetValuablesTable()->GetLoyaltyCards(), loyalty_cards);
+
+  if (!valuables_data_changed) {
+    return ValuableDatabaseOperationResult::kNoChange;
+  }
+
+  if (!GetValuablesTable()->SetLoyaltyCards(std::move(loyalty_cards))) {
+    return ValuableDatabaseOperationResult::kDatabaseError;
+  }
+
+  return ValuableDatabaseOperationResult::kDataChanged;
+}
+
+ValuableDatabaseOperationResult ValuableSyncBridge::SetEntities(
+    std::vector<EntityInstance> entities) {
+  if (entities.empty() ||
+      !base::FeatureList::IsEnabled(syncer::kSyncMoveValuablesToProfileDb)) {
+    return ValuableDatabaseOperationResult::kNoChange;
+  }
+
+  EntityTable* entity_table = GetEntityTable();
+  bool success = entity_table->DeleteEntityInstances(
+      EntityInstance::RecordType::kServerWallet);
+
+  const bool is_sync_wallet_vehicle_registrations_enabled =
+      IsSyncWalletVehicleRegistrationsEnabled();
+
+  for (const EntityInstance& entity : entities) {
+    if (entity.type().name() == EntityTypeName::kVehicle &&
+        is_sync_wallet_vehicle_registrations_enabled) {
+      success &= entity_table->AddOrUpdateEntityInstance(entity);
+    }
+    // TODO(crbug.com/436547381): Add flight reservations.
+  }
+
+  return success ? ValuableDatabaseOperationResult::kDataChanged
+                 : ValuableDatabaseOperationResult::kDatabaseError;
+}
+
 std::optional<syncer::ModelError> ValuableSyncBridge::SetSyncData(
     const syncer::EntityChangeList& entity_data) {
   std::unique_ptr<sql::Transaction> transaction =
       web_data_backend_->GetDatabase()->AcquireTransaction();
 
   std::vector<LoyaltyCard> loyalty_cards;
+  std::vector<EntityInstance> entities;
   for (const std::unique_ptr<syncer::EntityChange>& change : entity_data) {
     switch (change->type()) {
       case syncer::EntityChange::ACTION_ADD: {
@@ -257,6 +343,15 @@ std::optional<syncer::ModelError> ValuableSyncBridge::SetSyncData(
                 CreateAutofillLoyaltyCardFromSpecifics(autofill_valuable));
             break;
           }
+          case sync_pb::AutofillValuableSpecifics::kVehicleRegistration:
+            if (std::optional<EntityInstance> entity =
+                    CreateEntityInstanceFromSpecifics(autofill_valuable)) {
+              entities.push_back(std::move(*entity));
+            }
+            break;
+          case sync_pb::AutofillValuableSpecifics::kFlightReservation:
+            // TODO(crbug.com/436547381): Handle flight reservation.
+            break;
           case sync_pb::AutofillValuableSpecifics::VALUABLE_DATA_NOT_SET:
             // Ignore new entry types that the client doesn't know about.
             break;
@@ -274,15 +369,20 @@ std::optional<syncer::ModelError> ValuableSyncBridge::SetSyncData(
     }
   }
 
-  const bool valuables_data_changed = AreAnyItemsDifferent(
-      GetValuablesTable()->GetLoyaltyCards(), loyalty_cards);
+  const ValuableDatabaseOperationResult set_loyalty_cards_result =
+      SetLoyaltyCards(std::move(loyalty_cards));
+  const ValuableDatabaseOperationResult set_entities_result =
+      SetEntities(std::move(entities));
 
-  if (valuables_data_changed &&
-      !GetValuablesTable()->SetLoyaltyCards(std::move(loyalty_cards))) {
+  const bool set_valuables_error =
+      set_loyalty_cards_result ==
+          ValuableDatabaseOperationResult::kDatabaseError ||
+      set_entities_result == ValuableDatabaseOperationResult::kDatabaseError;
+
+  if (set_valuables_error) {
     return syncer::ModelError(
         FROM_HERE,
-        syncer::ModelError::Type::kAutofillValuableFailedToSetLoyaltyCards);
-    ;
+        syncer::ModelError::Type::kAutofillValuableFailedToWriteToDatabase);
   }
 
   // Commits changes through CommitChanges(...) or through the scoped
@@ -292,6 +392,12 @@ std::optional<syncer::ModelError> ValuableSyncBridge::SetSyncData(
   if (transaction) {
     transaction->Commit();
   }
+
+  const bool valuables_data_changed =
+      set_loyalty_cards_result ==
+          ValuableDatabaseOperationResult::kDataChanged ||
+      set_entities_result == ValuableDatabaseOperationResult::kDataChanged;
+
   if (valuables_data_changed) {
     web_data_backend_->NotifyOnAutofillChangedBySync(syncer::AUTOFILL_VALUABLE);
   }
@@ -300,6 +406,10 @@ std::optional<syncer::ModelError> ValuableSyncBridge::SetSyncData(
 
 ValuablesTable* ValuableSyncBridge::GetValuablesTable() {
   return ValuablesTable::FromWebDatabase(web_data_backend_->GetDatabase());
+}
+
+EntityTable* ValuableSyncBridge::GetEntityTable() {
+  return EntityTable::FromWebDatabase(web_data_backend_->GetDatabase());
 }
 
 }  // namespace autofill

@@ -307,6 +307,17 @@
       '$$MAGIC_SUBSTITUTION_GPUWebGLRuntimeFile',
     ],
   },
+  'gpu_intel_arc_140v_linux_experimental': {
+    'fail_if_unused': False,
+    'swarming': {
+      'dimensions': {
+        'display_attached': '1',
+        'gpu': '8086:64a0',
+        'os': 'Ubuntu',
+        'pool': 'chromium.tests.gpu.experimental',
+      },
+    },
+  },
   'gpu_nvidia_shield_tv_stable': {
     'fail_if_unused': False,
     'swarming': {
@@ -734,9 +745,9 @@
       'cros_test_max_in_shard': 40
     },
   },
-  'skylab-shards-20': {
+  'skylab-50-tests-per-shard': {
     'skylab': {
-      'shards': 20,
+      'cros_test_max_in_shard': 50
     },
   },
   'skylab-shards-30': {
@@ -886,12 +897,23 @@
       },
     },
   },
+  'win11_nvidia_rtx_4070_super_experimental': {
+    'fail_if_unused': False,
+    'swarming': {
+      'dimensions': {
+        'display_attached': '1',
+        'gpu': '10de:2783-32.0.15.8088',
+        'os': 'Windows-11',
+        'pool': 'chromium.tests.gpu',
+      },
+    },
+  },
   'win11_nvidia_rtx_4070_super_stable': {
     'fail_if_unused': False,
     'swarming': {
       'dimensions': {
         'display_attached': '1',
-        'gpu': '10de:2783-32.0.15.6070',
+        'gpu': '10de:2783-32.0.15.6070|10de:2783-32.0.15.8088',
         'os': 'Windows-11',
         'pool': 'chromium.tests.gpu',
       },
@@ -918,15 +940,15 @@
       },
     },
   },
-  'xcode_16_main': {
+  'xcode_26_main': {
     'args': [
       '--xcode-build-version',
-      '16c5032a',
+      '17a5305f',
     ],
     'swarming': {
       'named_caches': [
         {
-          'name': 'xcode_ios_16c5032a',
+          'name': 'xcode_ios_17a5305f',
           'path': 'Xcode.app',
         },
       ],

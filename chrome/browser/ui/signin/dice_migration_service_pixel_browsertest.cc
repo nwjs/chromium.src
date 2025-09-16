@@ -221,8 +221,7 @@ DICE_MIGRATION_TEST_F(DiceMigrationServicePixelBrowserTest, IdentityPill) {
       // NOTE: This is only done to introduce some delay to finish collapsing
       // the expanded identity pill and avoid flakiness.
       // TODO(crbug.com/440020019): Look for a way to avoid this workaround.
-      EnterText(kOmniboxElementId, kNewUrl2),
-      Confirm(kOmniboxElementId),
+      EnterText(kOmniboxElementId, kNewUrl2), Confirm(kOmniboxElementId),
       WaitForWebContentsNavigation(kActiveTab, GURL(kNewUrl2)),
 
       // The identity pill is collapsed again.

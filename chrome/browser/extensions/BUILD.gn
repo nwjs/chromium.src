@@ -170,6 +170,8 @@ source_set("extensions") {
     "api/tabs/tabs_constants.h",
     "api/tabs/tabs_windows_api.cc",
     "api/tabs/tabs_windows_api.h",
+    "api/tabs/windows_event_router.cc",
+    "api/tabs/windows_event_router.h",
     "api/tabs/windows_util.cc",
     "api/tabs/windows_util.h",
     "api/top_sites/top_sites_api.cc",
@@ -230,6 +232,9 @@ source_set("extensions") {
     "chrome_extension_web_contents_observer.h",
     "chrome_extensions_browser_api_provider.cc",
     "chrome_extensions_browser_api_provider.h",
+    "chrome_extensions_browser_interface_binders.cc",
+    "chrome_extensions_browser_interface_binders.h",
+    "chrome_kiosk_delegate.h",
     "chrome_url_request_util.cc",
     "chrome_url_request_util.h",
     "chrome_zipfile_installer.cc",
@@ -513,6 +518,7 @@ source_set("extensions") {
     "//chrome/app/theme:chrome_unscaled_resources",
     "//chrome/browser:browser_process",
     "//chrome/browser:shell_integration",
+    "//chrome/browser/app_mode",
     "//chrome/browser/apps:user_type_filter",
     "//chrome/browser/bitmap_fetcher",
     "//chrome/browser/content_settings:content_settings_factory",
@@ -536,6 +542,7 @@ source_set("extensions") {
     "//chrome/browser/safe_browsing",
     "//chrome/browser/safe_browsing:metrics_collector",
     "//chrome/browser/signin",
+    "//chrome/browser/tab_group_sync:factories",
     "//chrome/browser/ui:browser_navigator_params_headers",
     "//chrome/browser/ui/autofill",
     "//chrome/browser/ui/browser_window",
@@ -639,7 +646,10 @@ source_set("extensions") {
       "chrome_extension_host_delegate_non_android.cc",
     ]
     public_deps += [ "//components/app_icon_loader" ]
-    deps += [ "//chrome/browser/ui/user_education" ]
+    deps += [
+      "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/web_applications:launch_utils",
+    ]
   }
 
   if (!is_chromeos) {
@@ -652,6 +662,7 @@ source_set("extensions") {
       "api/messaging/native_messaging_launch_from_native.h",
       "api/messaging/native_process_launcher.cc",
       "api/messaging/native_process_launcher.h",
+      "chrome_kiosk_delegate_non_chromeos.cc",
     ]
     if (is_posix) {
       sources += [ "api/messaging/launch_context_posix.cc" ]
@@ -771,21 +782,12 @@ source_set("extensions") {
       "api/system_private/system_private_api.h",
       "api/tab_capture/tab_capture_registry.cc",
       "api/tab_capture/tab_capture_registry.h",
-      "api/tabs/app_base_window.cc",
-      "api/tabs/app_base_window.h",
-      "api/tabs/app_window_controller.cc",
-      "api/tabs/app_window_controller.h",
       "api/tabs/tabs_event_router.cc",
       "api/tabs/tabs_event_router.h",
-      "api/tabs/windows_event_router.cc",
-      "api/tabs/windows_event_router.h",
       "app_tab_helper.cc",
       "app_tab_helper.h",
       "chrome_app_sorting.cc",
       "chrome_app_sorting.h",
-      "chrome_extensions_browser_interface_binders.cc",
-      "chrome_extensions_browser_interface_binders.h",
-      "chrome_kiosk_delegate.h",
       "chrome_process_manager_delegate.cc",
       "chrome_process_manager_delegate.h",
       "device_permissions_dialog_controller.cc",
@@ -803,6 +805,8 @@ source_set("extensions") {
       "external_install_error_desktop.h",
       "file_handlers/file_handling_launch_utils.cc",
       "file_handlers/file_handling_launch_utils.h",
+      "initial_external_extension_loader.cc",
+      "initial_external_extension_loader.h",
       "menu_icon_loader.h",
       "navigation_extension_enabler.cc",
       "navigation_extension_enabler.h",
@@ -877,6 +881,7 @@ source_set("extensions") {
       "//chrome/browser/ui:browser_tab_strip",
       "//chrome/browser/ui/bookmarks",
       "//chrome/browser/ui/global_error",
+      "//chrome/browser/ui/passwords/settings",
       "//chrome/browser/ui/tab_contents",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs:tab_strip_model_observer",
@@ -1038,6 +1043,7 @@ source_set("extensions") {
       "//components/sync_preferences",
       "//components/sync_sessions",
       "//components/tab_groups",
+      "//components/themes:prefs",
       "//components/translate/content/browser",
       "//components/translate/core/browser",
       "//components/translate/core/common",
@@ -1216,7 +1222,6 @@ source_set("extensions") {
         "api/enterprise_reporting_private/chrome_desktop_report_request_helper.cc",
         "api/enterprise_reporting_private/chrome_desktop_report_request_helper.h",
         "api/image_writer_private/operation_nonchromeos.cc",
-        "chrome_kiosk_delegate.cc",
         "preinstalled_apps.cc",
         "preinstalled_apps.h",
       ]
@@ -1293,6 +1298,7 @@ source_set("extensions") {
         "//chrome/browser/ash/arc/extensions",
         "//chrome/browser/ash/arc/optin",
         "//chrome/browser/ash/attestation",
+        "//chrome/browser/ash/boca/on_task",
         "//chrome/browser/ash/bruschetta",
         "//chrome/browser/ash/child_accounts",
         "//chrome/browser/ash/child_accounts/time_limits",
@@ -1557,6 +1563,17 @@ source_set("extensions") {
       deps += [ "//chrome/browser/ui/toasts" ]
     }
   }  # if (enable_extensions)
+
+  if (enable_platform_apps) {
+    sources += [
+      "api/tabs/app_base_window.cc",
+      "api/tabs/app_base_window.h",
+      "api/tabs/app_window_controller.cc",
+      "api/tabs/app_window_controller.h",
+      "api/tabs/app_window_helper.cc",
+      "api/tabs/app_window_helper.h",
+    ]
+  }
 }
 
 if (enable_extensions_core) {
@@ -1585,6 +1602,8 @@ static_library("test_support") {
     "load_error_waiter.h",
     "mock_extension_special_storage_policy.cc",
     "mock_extension_special_storage_policy.h",
+    "mock_window_controller_list_observer.cc",
+    "mock_window_controller_list_observer.h",
     "scoped_database_manager_for_test.cc",
     "scoped_database_manager_for_test.h",
     "scoped_test_mv2_enabler.cc",
@@ -1602,6 +1621,7 @@ static_library("test_support") {
     "//chrome/browser",
     "//chrome/browser:test_support",
     "//chrome/browser/extensions",
+    "//chrome/browser/tab_group_sync:factories",
     "//chrome/browser/ui/toolbar",
     "//components/crx_file",
     "//components/policy/core/common:test_support",
@@ -1690,6 +1710,7 @@ source_set("chrome_extensions_browser_client") {
   ]
 
   deps = [
+    "//chrome/browser/app_mode",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/extensions",
     "//chrome/browser/media/webrtc",

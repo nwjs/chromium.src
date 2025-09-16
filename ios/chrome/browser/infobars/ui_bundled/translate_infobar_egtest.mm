@@ -295,6 +295,17 @@ void TestResponseProvider::GetLanguageResponse(
 
 @implementation TranslateInfobarTestCase
 
+- (AppLaunchConfiguration)appConfigurationForTestCase {
+  AppLaunchConfiguration config;
+  config.features_enabled.push_back(kEnableReaderModeTranslation);
+
+  if ([self isRunningTest:@selector(testTranslateInReaderMode)]) {
+    config.features_enabled.push_back(kEnableReaderMode);
+  }
+
+  return config;
+}
+
 - (void)setUp {
   [super setUp];
 
@@ -1281,9 +1292,9 @@ void TestResponseProvider::GetLanguageResponse(
   [ChromeEarlGrey loadURL:URL];
 
   // Open Reader Mode.
-  [ChromeEarlGrey showReaderMode];
-  GREYAssertTrue([ChromeEarlGrey waitUntilReaderModeWebStateIsReady],
-                 @"Reader mode content could not be loaded.");
+  GREYAssertTrue(
+      [ChromeEarlGrey showReaderModeAndWaitUntilReaderModeWebStateIsReady],
+      @"Reader mode content could not be loaded.");
 
   // Verify Reader Mode is active.
   [ChromeEarlGrey
@@ -1314,6 +1325,78 @@ void TestResponseProvider::GetLanguageResponse(
   // Verify page is translated.
   GREYAssertTrue([self isAfterTranslateBannerVisible],
                  @"Show Original Banner was not found.");
+  [ChromeEarlGrey waitForWebStateContainingText:"Translated"];
+}
+
+// Tests that translation applied prior to Reader Mode is displayed and that
+// translate infobars are suppressed when reader mode is activated.
+- (void)testTranslateInReaderMode {
+#if !TARGET_OS_SIMULATOR
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Disabled on iPad devices");
+  }
+#endif
+  // Set up server with a French page.
+  std::unique_ptr<web::DataResponseProvider> provider(new TestResponseProvider);
+  web::test::SetUpHttpServer(std::move(provider));
+
+  GURL URL = web::test::HttpServer::MakeUrl(
+      base::StringPrintf("http://%s", kFrenchPageDistillablePath));
+
+  // Load URL.
+  [ChromeEarlGrey loadURL:URL];
+
+  // Check Translate banner is presented.
+  GREYAssertTrue([self isBeforeTranslateBannerVisible],
+                 @"Before Translate banner was not found");
+  // Tap banner button to translate.
+  GREYAssertTrue([self selectTranslateButton],
+                 @"Could not tap on Translate banner action button");
+
+  // Open Reader Mode.
+  GREYAssertTrue(
+      [ChromeEarlGrey showReaderModeAndWaitUntilReaderModeWebStateIsReady],
+      @"Reader mode content could not be loaded.");
+
+  // Verify Reader Mode is active.
+  [ChromeEarlGrey
+      waitForSufficientlyVisibleElementWithMatcher:
+          grey_accessibilityID(kReaderModeViewAccessibilityIdentifier)];
+
+  // Verify the Translate banner is automatically dismissed.
+  GREYAssertFalse([self isBeforeTranslateBannerVisible],
+                  @"Before Translate banner was found");
+
+  // Verify translation is not available in the tools menu.
+  [ChromeEarlGreyUI openToolsMenu];
+
+  id<GREYMatcher> tableViewMatcher =
+      [ChromeEarlGrey isNewOverflowMenuEnabled]
+          ? grey_accessibilityID(kPopupMenuToolsMenuActionListId)
+          : grey_accessibilityID(kPopupMenuToolsMenuTableViewId);
+  [[[EarlGrey
+      selectElementWithMatcher:grey_allOf(
+                                   grey_accessibilityID(kToolsMenuTranslateId),
+                                   grey_sufficientlyVisible(), nil)]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 150)
+      onElementWithMatcher:tableViewMatcher]
+      assertWithMatcher:grey_accessibilityTrait(
+                            UIAccessibilityTraitNotEnabled)];
+
+  // Verify page is translated.
+  [ChromeEarlGrey waitForWebStateContainingText:"Translated"];
+
+  // Close Reader Mode.
+  [ChromeEarlGrey hideReaderMode];
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:
+          grey_accessibilityID(kReaderModeViewAccessibilityIdentifier)];
+
+  // Verify badge is shown and page is translated.
+  [[EarlGrey selectElementWithMatcher:
+                 grey_accessibilityID(
+                     kBadgeButtonTranslateAcceptedAccessibilityIdentifier)]
+      assertWithMatcher:grey_notNil()];
   [ChromeEarlGrey waitForWebStateContainingText:"Translated"];
 }
 

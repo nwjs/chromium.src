@@ -18,7 +18,6 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneShotCallback;
 import org.chromium.base.supplier.OneshotSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
@@ -45,6 +44,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
 import org.chromium.chrome.browser.toolbar.back_button.BackButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.extensions.ExtensionToolbarCoordinator;
+import org.chromium.chrome.browser.toolbar.forward_button.ForwardButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButton;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonDataProvider;
@@ -63,6 +63,7 @@ import org.chromium.ui.util.TokenHolder;
 import org.chromium.ui.util.XrUtils;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /** A coordinator for the top toolbar component. */
 @NullMarked
@@ -182,6 +183,7 @@ public class TopToolbarCoordinator implements Toolbar {
             ObservableSupplier<@Nullable Tab> tabSupplier,
             ObservableSupplier<Boolean> toolbarNavControlsEnabledSupplier,
             @Nullable BackButtonCoordinator backButtonCoordinator,
+            @Nullable ForwardButtonCoordinator forwardButtonCoordinator,
             @Nullable HomeButtonDisplay homeButtonDisplay,
             @Nullable ExtensionToolbarCoordinator extensionToolbarCoordinator) {
         mToolbarLayout = toolbarLayout;
@@ -224,6 +226,7 @@ public class TopToolbarCoordinator implements Toolbar {
                             mNtpLoadingSupplier,
                             toolbarNavControlsEnabledSupplier,
                             normalThemeColorProvider,
+                            incognitoStateProvider,
                             /* isWebApp= */ false);
         }
 
@@ -248,6 +251,7 @@ public class TopToolbarCoordinator implements Toolbar {
                 progressBar,
                 mReloadButtonCoordinator,
                 mBackButtonCoordinator,
+                forwardButtonCoordinator,
                 homeButtonDisplay,
                 extensionToolbarCoordinator,
                 normalThemeColorProvider,
@@ -393,6 +397,17 @@ public class TopToolbarCoordinator implements Toolbar {
         mTabStripTransitionCoordinator.removeObserver(observer);
     }
 
+    /**
+     * Set the Bookmark Bar height supplier for the current TopToolbarOverlayCoordinator.
+     *
+     * @param bookmarkBarHeightSupplier Supplier of the current Bookmark Bar height.
+     */
+    public void setBookmarkBarHeightSupplier(
+            @Nullable Supplier<Integer> bookmarkBarHeightSupplier) {
+        if (mOverlayCoordinator == null) return;
+        mOverlayCoordinator.setBookmarkBarHeightSupplier(bookmarkBarHeightSupplier);
+    }
+
     /** Cleans up any code as necessary. */
     @SuppressWarnings("NullAway")
     public void destroy() {
@@ -516,15 +531,6 @@ public class TopToolbarCoordinator implements Toolbar {
      */
     public void setOptionalButtonDelegate(OptionalBrowsingModeButtonController.Delegate delegate) {
         mOptionalButtonController.setDelegate(delegate);
-    }
-
-    /**
-     * Gives inheriting classes the chance to update the visibility of the forward button.
-     *
-     * @param canGoForward Whether or not the current tab has any history to go forward to.
-     */
-    public void updateForwardButtonVisibility(boolean canGoForward) {
-        mToolbarLayout.updateForwardButtonVisibility(canGoForward);
     }
 
     @Override

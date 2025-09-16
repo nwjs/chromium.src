@@ -20,14 +20,14 @@
 #include "third_party/blink/renderer/core/layout/early_break.h"
 #include "third_party/blink/renderer/core/layout/floats_utils.h"
 #include "third_party/blink/renderer/core/layout/fragmentation_utils.h"
+#include "third_party/blink/renderer/core/layout/inline/fit_text_scale.h"
+#include "third_party/blink/renderer/core/layout/inline/fit_text_utils.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_cursor.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_node.h"
 #include "third_party/blink/renderer/core/layout/inline/physical_line_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/inline/ruby_utils.h"
-#include "third_party/blink/renderer/core/layout/layout_multi_column_flow_thread.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_result.h"
-#include "third_party/blink/renderer/core/layout/legacy_layout_tree_walking.h"
 #include "third_party/blink/renderer/core/layout/length_utils.h"
 #include "third_party/blink/renderer/core/layout/list/unpositioned_list_marker.h"
 #include "third_party/blink/renderer/core/layout/logical_box_fragment.h"
@@ -56,24 +56,20 @@ bool HasLineEvenIfEmpty(LayoutBox* box) {
   // Note: |block_flow->NeedsCollectInline()| is true after removing all
   // children from block[1].
   // [1] editing/inserting/insert_after_delete.html
-  if (!GetLayoutObjectForFirstChildNode(block_flow)) {
+  if (!block_flow->FirstChild()) {
     // Note: |block_flow->ChildrenInline()| can be both true or false:
     //  - true: just after construction, <div></div>
     //  - true: one of child is inline them remove all, <div>abc</div>
     //  - false: all children are block then remove all, <div><p></p></div>
     return block_flow->HasLineIfEmpty();
   }
-  if (AreNGBlockFlowChildrenInline(block_flow)) {
+  if (block_flow->ChildrenInline()) {
     return block_flow->HasLineIfEmpty() &&
            InlineNode(block_flow).IsBlockLevel();
   }
   const LayoutBlockFlow* fragmentation_context_root = nullptr;
-  if (RuntimeEnabledFeatures::FlowThreadLessEnabled()) {
-    if (block_flow->IsMulticolContainer()) {
-      fragmentation_context_root = block_flow;
-    }
-  } else {
-    fragmentation_context_root = block_flow->MultiColumnFlowThread();
+  if (block_flow->IsMulticolContainer()) {
+    fragmentation_context_root = block_flow;
   }
   if (fragmentation_context_root) {
     DCHECK(!fragmentation_context_root->ChildrenInline());
@@ -357,8 +353,7 @@ void BlockLayoutAlgorithm::SetupRelayoutData(
     line_clamp_data_.data.state = LineClampData::kClampAfterLayoutObject;
     line_clamp_data_.data.clamp_after_layout_object =
         previous.line_clamp_data_.last_layout_object;
-  } else if (previous.line_clamp_data_.data.state ==
-             LineClampData::kClampByLines) {
+  } else if (previous.line_clamp_data_.data.IsClampByLines()) {
     line_clamp_data_.data.state = LineClampData::kClampByLines;
     line_clamp_data_.data.lines_until_clamp =
         line_clamp_data_.initial_lines_until_clamp =
@@ -622,7 +617,9 @@ BlockLayoutAlgorithm::HandleNonsuccessfulLayoutResult(
           *result->GetEarlyBreak());
     }
     case LayoutResult::kNeedsLineClampRelayout:
-      if (line_clamp_data_.data.state == LineClampData::kClampByLines) {
+      if (!line_clamp_data_.data.IsMeasureUntilBfcOffset()) {
+        DCHECK(line_clamp_data_.data.IsClampByLines());
+        DCHECK_EQ(result->LinesUntilClamp(), 0);
         return RelayoutIgnoringLineClamp();
       }
       if (GetConstraintSpace().IsNewFormattingContext()) {
@@ -630,7 +627,17 @@ BlockLayoutAlgorithm::HandleNonsuccessfulLayoutResult(
           return RelayoutClampingAfterLayoutObject(
               result->LineClampAfterLayoutObject());
         }
-        return RelayoutClampingByLines(result->LinesUntilClamp());
+        int lines_to_relayout;
+        if (!line_clamp_data_.data.IsClampByLines()) {
+          lines_to_relayout = result->LinesUntilClamp();
+        } else {
+          // If we're clamping by both lines and height, result->LinesUntilClamp
+          // is the last line number before clamp, counting down from
+          // Style().LineClamp().
+          DCHECK_GT(Style().LineClamp(), 0);
+          lines_to_relayout = Style().LineClamp() - result->LinesUntilClamp();
+        }
+        return RelayoutClampingByLines(lines_to_relayout);
       }
       // Propagate the error upwards until we reach the BFC root.
       return result;
@@ -644,47 +651,88 @@ BlockLayoutAlgorithm::HandleNonsuccessfulLayoutResult(
   }
 }
 
-NOINLINE const LayoutResult* BlockLayoutAlgorithm::LayoutInlineChild(
+const LayoutResult* BlockLayoutAlgorithm::LayoutInlineChild(
     const InlineNode& node) {
+  float paragraph_scale = 1.0f;
+  if (RuntimeEnabledFeatures::CssFitWidthTextConsistentEnabled()) {
+    const bool grow_consistent =
+        Style().TextGrow().Target() == FitTextTarget::kConsistent;
+    const bool shrink_consistent =
+        Style().TextShrink().Target() == FitTextTarget::kConsistent;
+    if (grow_consistent || shrink_consistent) {
+      // Compute the paragraph scaling factor with a cloned
+      // BlockLayoutAlgorithm.
+      // TODO(crbug.com/417306102): This approach is an inefficient because it
+      // handles all layout processes, and is a temporary hack until we can
+      // implement a production-ready solution. Ideally we should introduce a
+      // new phase separate from minmax and layout to skip unnecessary
+      // processing.
+      // Additionally, this feature is not currently intended to be used with
+      // multi-column layouts.
+      LayoutAlgorithmParams cloned_param(
+          Node(), container_builder_.InitialFragmentGeometry(),
+          GetConstraintSpace(), GetBreakToken(), early_break_,
+          additional_early_breaks_);
+      cloned_param.column_spanner_path = column_spanner_path_;
+      cloned_param.previous_result = previous_result_;
+      BlockLayoutAlgorithm cloned_algorithm(cloned_param);
+      const LayoutResult* result =
+          cloned_algorithm.LayoutInlineChild(node, std::nullopt);
+      paragraph_scale = MeasurePerBlockScale(
+          InlineNode(To<LayoutBlockFlow>(Node().GetLayoutBox())),
+          result->GetPhysicalFragment(), ChildAvailableSize().inline_size);
+      if ((paragraph_scale < 1.0f && !shrink_consistent) ||
+          (paragraph_scale > 1.0f && !grow_consistent)) {
+        paragraph_scale = 1.0f;
+      }
+    }
+  }
+  return LayoutInlineChild(node, paragraph_scale);
+}
+
+NOINLINE const LayoutResult* BlockLayoutAlgorithm::LayoutInlineChild(
+    const InlineNode& node,
+    std::optional<float> paragraph_scale) {
   const TextWrapStyle wrap = node.Style().GetTextWrapStyle();
   if (wrap == TextWrapStyle::kPretty) [[unlikely]] {
     UseCounter::Count(node.GetDocument(), WebFeature::kTextWrapPretty);
     if (!node.IsScoreLineBreakDisabled()) {
       return LayoutWithOptimalInlineChildLayoutContext<kMaxLinesForOptimal>(
-          node);
+          node, paragraph_scale);
     }
   } else if (wrap == TextWrapStyle::kBalance) [[unlikely]] {
     UseCounter::Count(node.GetDocument(), WebFeature::kTextWrapBalance);
     if (!node.IsScoreLineBreakDisabled()) {
       return LayoutWithOptimalInlineChildLayoutContext<kMaxLinesForBalance>(
-          node);
+          node, paragraph_scale);
     }
   } else {
     DCHECK(ShouldWrapLineGreedy(wrap));
   }
 
   SimpleInlineChildLayoutContext context(node, &container_builder_);
+  context.EnableMeasuringModeIfNecessary(paragraph_scale);
   return Layout(&context);
 }
 
 template <wtf_size_t capacity>
 NOINLINE const LayoutResult*
 BlockLayoutAlgorithm::LayoutWithOptimalInlineChildLayoutContext(
-    const InlineNode& child) {
+    const InlineNode& child,
+    std::optional<float> paragraph_scale) {
   OptimalInlineChildLayoutContext<capacity> context(child, &container_builder_);
-  const LayoutResult* result = Layout(&context);
-  return result;
+  context.EnableMeasuringModeIfNecessary(paragraph_scale);
+  return Layout(&context);
 }
 
 NOINLINE const LayoutResult* BlockLayoutAlgorithm::RelayoutIgnoringLineClamp() {
-  DCHECK_EQ(line_clamp_data_.data.state, LineClampData::kClampByLines);
+  DCHECK(line_clamp_data_.data.IsClampByLines());
   return Relayout<BlockLayoutAlgorithm>(kRelayoutIgnoringLineClamp);
 }
 
 NOINLINE const LayoutResult* BlockLayoutAlgorithm::RelayoutClampingByLines(
     int lines_until_clamp) {
-  DCHECK_EQ(line_clamp_data_.data.state,
-            LineClampData::kMeasureLinesUntilBfcOffset);
+  DCHECK(line_clamp_data_.data.IsMeasureUntilBfcOffset());
   line_clamp_data_.data.lines_until_clamp = std::max(0, lines_until_clamp);
   return Relayout<BlockLayoutAlgorithm>(kRelayoutClampingByLines);
 }
@@ -692,8 +740,7 @@ NOINLINE const LayoutResult* BlockLayoutAlgorithm::RelayoutClampingByLines(
 NOINLINE const LayoutResult*
 BlockLayoutAlgorithm::RelayoutClampingAfterLayoutObject(
     const LayoutObject* layout_object) {
-  DCHECK_EQ(line_clamp_data_.data.state,
-            LineClampData::kMeasureLinesUntilBfcOffset);
+  DCHECK(line_clamp_data_.data.IsMeasureUntilBfcOffset());
   DCHECK(layout_object);
   line_clamp_data_.last_layout_object = layout_object;
   return Relayout<BlockLayoutAlgorithm>(kRelayoutClampingAfterLayoutObject);
@@ -741,7 +788,7 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
     abort_when_bfc_block_offset_updated_ = true;
   }
 
-  if (Style().HasAutoLineClamp()) {
+  if (Style().HasLineClamp()) {
     if (!line_clamp_data_.data.IsLineClampContext()) {
       LayoutUnit clamp_bfc_offset = ChildAvailableSize().block_size;
       if (clamp_bfc_offset == kIndefiniteSize) {
@@ -757,11 +804,25 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
             (BorderScrollbarPadding().block_start + clamp_bfc_offset)
                 .ClampNegativeToZero();
       }
-      line_clamp_data_.UpdateClampOffsetFromStyle(clamp_bfc_offset);
-    }
-  } else if (Style().HasLineClamp()) {
-    if (!line_clamp_data_.data.IsLineClampContext()) {
-      line_clamp_data_.UpdateLinesFromStyle(Style().LineClamp());
+
+      if (clamp_bfc_offset != kIndefiniteSize) {
+        if (!RuntimeEnabledFeatures::CSSLineClampEnabled()) {
+          clamp_bfc_offset = kIndefiniteSize;
+        }
+
+        WebFeature use_counter_feature;
+        if (Style().WebkitLineClamp() != 0 ||
+            Style().Continue() == EContinue::kWebkitLegacy) {
+          use_counter_feature = WebFeature::kWebkitLineClampWithHeight;
+        } else if (Style().LineClamp() == 0) {
+          use_counter_feature = WebFeature::kLineClampAuto;
+        } else {
+          use_counter_feature = WebFeature::kLineClampByLinesAndHeight;
+        }
+        UseCounter::Count(Node().GetDocument(), use_counter_feature);
+      }
+
+      line_clamp_data_.UpdateFromStyle(Style().LineClamp(), clamp_bfc_offset);
     }
   } else {
     if (Style().WebkitLineClamp() != 0) {
@@ -772,8 +833,7 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
     // If we're clamping by BFC offset, we need to subtract the bottom bmp to
     // leave room for it. This doesn't apply if we're relaying out to fix the
     // offset, because that already accounts for the bmp.
-    if (line_clamp_data_.data.state ==
-        LineClampData::kMeasureLinesUntilBfcOffset) {
+    if (line_clamp_data_.data.IsMeasureUntilBfcOffset()) {
       MarginStrut end_margin_strut = constraint_space.LineClampEndMarginStrut();
       end_margin_strut.Append(
           ComputeMarginsForSelf(constraint_space, Style()).block_end,
@@ -880,7 +940,6 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
   // max-height: 0).
   if (constraint_space.IsNewFormattingContext() &&
       line_clamp_data_.IsPastClampPoint()) {
-    DCHECK(Style().HasLineClamp() && Style().LineClamp() == 0);
     line_clamp_data_.previous_inflow_position_when_clamped =
         previous_inflow_position;
   }
@@ -1475,10 +1534,9 @@ bool BlockLayoutAlgorithm::TryReuseFragmentsFromCache(
   DCHECK_GT(result.line_count, 0u);
   if (max_lines) {
     DCHECK(result.line_count <= max_lines);
-    DCHECK_EQ(line_clamp_data_.data.state, LineClampData::kClampByLines);
+    DCHECK(line_clamp_data_.data.IsClampByLines());
     line_clamp_data_.data.lines_until_clamp -= result.line_count;
-  } else if (line_clamp_data_.data.state ==
-             LineClampData::kMeasureLinesUntilBfcOffset) {
+  } else if (line_clamp_data_.data.IsMeasureUntilBfcOffset()) {
     line_clamp_data_.data.lines_until_clamp += result.line_count;
   }
 
@@ -2235,8 +2293,7 @@ LayoutResult::EStatus BlockLayoutAlgorithm::FinishInflow(
   // HandleNonSuccessfulLayoutResult, it needs to be propagated upwards until
   // the BFC root.
   if (layout_result->Status() == LayoutResult::kNeedsLineClampRelayout) {
-    DCHECK_EQ(line_clamp_data_.data.state,
-              LineClampData::kMeasureLinesUntilBfcOffset);
+    DCHECK(line_clamp_data_.data.IsMeasureUntilBfcOffset());
     container_builder_.SetLinesUntilClamp(layout_result->LinesUntilClamp());
     container_builder_.SetLineClampAfterLayoutObject(
         line_clamp_data_.PropagateClampAfterLayoutObject(layout_result));
@@ -2442,8 +2499,7 @@ LayoutResult::EStatus BlockLayoutAlgorithm::FinishInflow(
     // HandleNonSuccessfulLayoutResult, it needs to be propagated upwards until
     // the BFC root.
     if (layout_result->Status() == LayoutResult::kNeedsLineClampRelayout) {
-      DCHECK_EQ(line_clamp_data_.data.state,
-                LineClampData::kMeasureLinesUntilBfcOffset);
+      DCHECK(line_clamp_data_.data.IsMeasureUntilBfcOffset());
       container_builder_.SetLinesUntilClamp(layout_result->LinesUntilClamp());
       container_builder_.SetLineClampAfterLayoutObject(
           line_clamp_data_.PropagateClampAfterLayoutObject(layout_result));
@@ -2526,9 +2582,9 @@ LayoutResult::EStatus BlockLayoutAlgorithm::FinishInflow(
     }
 
     if (inline_child_layout_context) {
-      for (auto token :
+      for (const auto& token :
            inline_child_layout_context->ParallelFlowBreakTokens()) {
-        container_builder_.AddBreakToken(std::move(token),
+        container_builder_.AddBreakToken(token.Get(),
                                          /* is_in_parallel_flow */ true);
       }
     }
@@ -2658,8 +2714,7 @@ void BlockLayoutAlgorithm::UpdateTextBoxTrim(
     }
   }
   if (container_builder_.ShouldTextBoxTrimNodeEnd()) {
-    if (line_clamp_data_.data.state ==
-            LineClampData::kMeasureLinesUntilBfcOffset &&
+    if (line_clamp_data_.data.IsMeasureUntilBfcOffset() &&
         layout_result->TrimBlockEndBy() &&
         layout_result->GetPhysicalFragment().GetBreakToken()) {
       // If we trimmed the end only because we're in the first layout of a
@@ -3864,6 +3919,126 @@ LogicalOffset BlockLayoutAlgorithm::AdjustSliderThumbInlineOffset(
       To<HTMLInputElement>(Node().GetDOMNode()->OwnerShadowHost());
   LayoutUnit offset(input->RatioValue().ToDouble() * available_extent);
   return {logical_offset.inline_offset + offset, logical_offset.block_offset};
+}
+
+void BlockLineClampData::UpdateFromStyle(int lines_until_clamp,
+                                         LayoutUnit clamp_bfc_offset) {
+  if (ignore_line_clamp) {
+    DCHECK_EQ(data.state, LineClampData::kDisabled);
+    return;
+  }
+
+  DCHECK_EQ(data.state, LineClampData::kDisabled);
+  DCHECK_GE(lines_until_clamp, 0);
+  if (!lines_until_clamp) {
+    if (clamp_bfc_offset == kIndefiniteSize) {
+      data.state = LineClampData::kDisabled;
+    } else {
+      data.state = LineClampData::kMeasureLinesUntilBfcOffset;
+      data.lines_until_clamp = 0;
+      data.clamp_bfc_offset = clamp_bfc_offset;
+    }
+  } else {
+    if (clamp_bfc_offset == kIndefiniteSize) {
+      data.state = LineClampData::kClampByLines;
+      data.lines_until_clamp = lines_until_clamp;
+    } else {
+      data.state = LineClampData::kClampByLinesWithBfcOffset;
+      data.lines_until_clamp = lines_until_clamp;
+      data.clamp_bfc_offset = clamp_bfc_offset;
+    }
+  }
+}
+
+bool BlockLineClampData::UpdateAfterLayout(
+    const LayoutResult* layout_result,
+    LayoutUnit bfc_block_offset,
+    const PreviousInflowPosition& previous_inflow_position,
+    LayoutUnit block_end_padding) {
+  const PhysicalFragment& fragment = layout_result->GetPhysicalFragment();
+
+  int old_lines_until_clamp = 0;
+  if (data.IsClampByLines() || data.IsMeasureUntilBfcOffset()) {
+    old_lines_until_clamp = data.lines_until_clamp;
+    if (!fragment.IsFormattingContextRoot() && !ignore_further_lines) {
+      data.lines_until_clamp = layout_result->LinesUntilClamp();
+    }
+  }
+
+  if (data.IsMeasureUntilBfcOffset() &&
+      !previous_inflow_position_when_clamped.has_value()) {
+    // We compute the margin strut we'd have after this block if we were to
+    // clamp here.
+    MarginStrut collapsed_strut = previous_inflow_position.margin_strut;
+    collapsed_strut.positive_margin = std::max(
+        collapsed_strut.positive_margin, end_margin_strut.positive_margin);
+    collapsed_strut.quirky_positive_margin =
+        std::max(collapsed_strut.quirky_positive_margin,
+                 end_margin_strut.quirky_positive_margin);
+    collapsed_strut.negative_margin = std::max(
+        collapsed_strut.negative_margin, end_margin_strut.negative_margin);
+
+    // The extra space after the current box that would be added by ruby
+    // annotations, considering that the annotations eat into the following
+    // padding if it exists, and that we have already subtracted the block end
+    // padding from the clamp BFC offset.
+    LayoutUnit padding_annotation_overflow;
+    if (previous_inflow_position.block_end_annotation_space < LayoutUnit()) {
+      padding_annotation_overflow =
+          std::max(previous_inflow_position.block_end_annotation_space,
+                   -block_end_padding);
+    }
+
+    LayoutUnit bfc_offset = bfc_block_offset +
+                            previous_inflow_position.logical_block_offset +
+                            padding_annotation_overflow +
+                            (collapsed_strut.Sum() - end_margin_strut.Sum());
+
+    if (bfc_offset > data.clamp_bfc_offset) {
+      data.lines_until_clamp = old_lines_until_clamp;
+      return false;
+    }
+
+    if (old_lines_until_clamp == data.lines_until_clamp ||
+        layout_result->LineClampAfterLayoutObject()) {
+      // Empty line boxes should be ignored, they shouldn't even set
+      // last_layout_object to null. Other fragments shouldn't have a null
+      // layout object.
+      if (!fragment.IsLineBox()) {
+        last_layout_object = fragment.GetLayoutObject();
+        DCHECK(last_layout_object);
+      }
+    } else {
+      last_layout_object = nullptr;
+    }
+  }
+
+  if (data.IsClampByLines()) {
+    if (layout_result->WouldBeLastLineIfNotForEllipsis()) {
+      DCHECK(fragment.IsLineBox());
+      DCHECK_EQ(data.lines_until_clamp, 0);
+      ignore_further_lines = true;
+    }
+
+    if (IsPastClampPoint() &&
+        !previous_inflow_position_when_clamped.has_value()) {
+      previous_inflow_position_when_clamped = previous_inflow_position;
+    }
+  }
+
+  // With kClampAfterLayoutObject, if we've found the layout object, then we
+  // switch states to kClampByLines with negative lines. If the child layout
+  // result has negative lines, then the layout object was found there.
+  if (data.state == LineClampData::kClampAfterLayoutObject &&
+      (layout_result->LinesUntilClamp() < 0 ||
+       data.clamp_after_layout_object == fragment.GetLayoutObject())) {
+    DCHECK(!previous_inflow_position_when_clamped);
+    data.state = LineClampData::kClampByLines;
+    data.lines_until_clamp = -1;
+    previous_inflow_position_when_clamped = previous_inflow_position;
+  }
+
+  return true;
 }
 
 }  // namespace blink

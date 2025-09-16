@@ -36,7 +36,11 @@ public class ContentFeatureList {
 
     public static final String ANDROID_CAPTURE_KEY_EVENTS = "AndroidCaptureKeyEvents";
 
+    public static final String ANDROID_DEV_TOOLS_FRONTEND = "AndroidDevToolsFrontend";
+
     public static final String ANDROID_OPEN_PDF_INLINE = "AndroidOpenPdfInline";
+
+    public static final String DESKTOP_UA_ON_CONNECTED_DISPLAY = "DesktopUAOnConnectedDisplay";
 
     public static final String HIDE_PASTE_POPUP_ON_GSB = "HidePastePopupOnGSB";
 
@@ -55,9 +59,6 @@ public class ContentFeatureList {
 
     public static final String WEB_IDENTITY_DIGITAL_CREDENTIALS_CREATION =
             "WebIdentityDigitalCredentialsCreation";
-
-    public static final String PREFETCH_BROWSER_INITIATED_TRIGGERS =
-            "PrefetchBrowserInitiatedTriggers";
 
     public static final String DIPS_TTL = "DIPSTtl";
 
@@ -79,12 +80,6 @@ public class ContentFeatureList {
             new MutableFlagWithSafeDefault(
                     ContentFeatureMap.getInstance(),
                     ContentInternalFeatures.STRICT_HIGH_RANK_PROCESS_LRU,
-                    false);
-
-    public static final MutableFlagWithSafeDefault sGroupRebindingForGroupImportance =
-            new MutableFlagWithSafeDefault(
-                    ContentFeatureMap.getInstance(),
-                    ContentFeatures.GROUP_REBINDING_FOR_GROUP_IMPORTANCE,
                     false);
 
     public static final MutableFlagWithSafeDefault sSpareRendererProcessPriority =

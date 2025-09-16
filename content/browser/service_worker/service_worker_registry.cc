@@ -48,22 +48,17 @@ namespace {
 // Another switch for `kServiceWorkerBackgroundUpdateForRegisteredStorageKeys`
 // intended to be controlled from Field Trial (e.g. kill-switch). The original
 // flag may be overridden by `AwFieldTrials::RegisterFeatureOverrides`.
-BASE_FEATURE(
-    kServiceWorkerBackgroundUpdateForRegisteredStorageKeysFieldTrialControlled,
-    "ServiceWorkerBackgroundUpdateForRegisteredStorageKeysFieldTrialControlled",
+BASE_FEATURE(ServiceWorkerBackgroundUpdateForRegisteredStorageKeysFieldTrialControlled,
     base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kServiceWorkerBackgroundUpdateForServiceWorkerScopeCache,
-             "ServiceWorkerBackgroundUpdateForServiceWorkerScopeCache",
+BASE_FEATURE(ServiceWorkerBackgroundUpdateForServiceWorkerScopeCache,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kServiceWorkerBackgroundUpdateForFindRegistrationForClientUrl,
-             "ServiceWorkerBackgroundUpdateForFindRegistrationForClientUrl",
+BASE_FEATURE(ServiceWorkerBackgroundUpdateForFindRegistrationForClientUrl,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kReduceCallingServiceWorkerRegisteredStorageKeysOnStartup,
-             "ReduceCallingServiceWorkerRegisteredStorageKeysOnStartup",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(ReduceCallingServiceWorkerRegisteredStorageKeysOnStartup,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool ReduceCallingServiceWorkerRegisteredStorageKeysOnStartupEnabled() {
   static const bool enabled = base::FeatureList::IsEnabled(
@@ -133,31 +128,32 @@ void CheckForClientWriteFailure(
 void FindRegistrationForClientUrlTraceEventBegin(int64_t trace_event_id,
                                                  const GURL& client_url) {
   CHECK(client_url.is_valid());
-  TRACE_EVENT_NESTABLE_ASYNC_BEGIN1(
-      "ServiceWorker", "ServiceWorkerRegistry::FindRegistrationForClientUrl",
-      TRACE_ID_WITH_SCOPE("ServiceWorkerRegistry::FindRegistrationForClientUrl",
-                          trace_event_id),
-      "URL", client_url.spec());
+  TRACE_EVENT_BEGIN("ServiceWorker",
+                    "ServiceWorkerRegistry::FindRegistrationForClientUrl",
+                    perfetto::NamedTrack(
+                        "ServiceWorkerRegistry::FindRegistrationForClientUrl",
+                        trace_event_id),
+                    "URL", client_url.spec());
 }
 
 void FindRegistrationForClientUrlTraceEventEnd(
     int64_t trace_event_id,
     blink::ServiceWorkerStatusCode status,
     std::optional<std::string> info) {
+  // ServiceWorkerRegistry::FindRegistrationForClientUrl
   if (info) {
-    TRACE_EVENT_NESTABLE_ASYNC_END2(
-        "ServiceWorker", "ServiceWorkerRegistry::FindRegistrationForClientUrl",
-        TRACE_ID_WITH_SCOPE(
-            "ServiceWorkerRegistry::FindRegistrationForClientUrl",
-            trace_event_id),
-        "Status", blink::ServiceWorkerStatusToString(status), "Info", *info);
+    TRACE_EVENT_END("ServiceWorker",
+                    perfetto::NamedTrack(
+                        "ServiceWorkerRegistry::FindRegistrationForClientUrl",
+                        trace_event_id),
+                    "Status", blink::ServiceWorkerStatusToString(status),
+                    "Info", *info);
   } else {
-    TRACE_EVENT_NESTABLE_ASYNC_END1(
-        "ServiceWorker", "ServiceWorkerRegistry::FindRegistrationForClientUrl",
-        TRACE_ID_WITH_SCOPE(
-            "ServiceWorkerRegistry::FindRegistrationForClientUrl",
-            trace_event_id),
-        "Status", blink::ServiceWorkerStatusToString(status));
+    TRACE_EVENT_END("ServiceWorker",
+                    perfetto::NamedTrack(
+                        "ServiceWorkerRegistry::FindRegistrationForClientUrl",
+                        trace_event_id),
+                    "Status", blink::ServiceWorkerStatusToString(status));
   }
 }
 
@@ -179,8 +175,7 @@ constexpr size_t kServiceWorkerRegistrationCacheSize = 100;
 }  // namespace
 
 // Enables merging duplicate calls of FindRegistrationForClientUrl.
-BASE_FEATURE(kServiceWorkerMergeFindRegistrationForClientUrl,
-             "ServiceWorkerMergeFindRegistrationForClientUrl",
+BASE_FEATURE(ServiceWorkerMergeFindRegistrationForClientUrl,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 template <typename... ReplyArgs>

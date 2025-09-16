@@ -31,7 +31,7 @@
 #include "ui/base/ui_base_switches.h"
 #include "ui/native_theme/features/native_theme_features.h"
 #include "ui/native_theme/native_theme_utils.h"
-#include "ui/native_theme/overlay_scrollbar_constants_aura.h"
+#include "ui/native_theme/overlay_scrollbar_constants.h"
 
 namespace blink {
 
@@ -40,9 +40,7 @@ namespace {
 // When enabled, scrollbar fade animations' delay and duration are scaled
 // according to `kFadeDelayScalingFactor` and `kFadeDurationScalingFactor`
 // below, respectively. For more context, please see https://crbug.com/1245964.
-BASE_FEATURE(kScaleScrollbarAnimationTiming,
-             "ScaleScrollbarAnimationTiming",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(ScaleScrollbarAnimationTiming, base::FEATURE_DISABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<double> kFadeDelayScalingFactor{
     &kScaleScrollbarAnimationTiming, "fade_delay_scaling_factor",
@@ -117,9 +115,7 @@ std::pair<int, int> GetTilingInterestAreaSizes() {
 #if !BUILDFLAG(IS_ANDROID)
 // Adjusting tile memory size in case a lot more websites need more tile
 // memory than the current calculation.
-BASE_FEATURE(kAdjustTileGpuMemorySize,
-             "AdjustTileGpuMemorySize",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(AdjustTileGpuMemorySize, base::FEATURE_DISABLED_BY_DEFAULT);
 
 constexpr size_t kLargeResolutionMemoryMB = 1152;
 constexpr size_t kDefaultMemoryMB = 512;
@@ -177,7 +173,7 @@ cc::ManagedMemoryPolicy GetGpuMemoryPolicy(
 
 #if BUILDFLAG(IS_ANDROID)
   if (base::SysInfo::IsLowEndDevice() ||
-      base::SysInfo::AmountOfPhysicalMemoryMB() < 2000) {
+      base::SysInfo::AmountOfPhysicalMemory().InMiB() < 2000) {
     actual.bytes_limit_when_visible = 96 * 1024 * 1024;
   } else {
     actual.bytes_limit_when_visible = 256 * 1024 * 1024;
@@ -206,7 +202,7 @@ cc::ManagedMemoryPolicy GetGpuMemoryPolicy(
   // consume too much of the system memory. Still keep the minimum to the
   // default of 512MB.
   size_t default_memory_mb = GetDefaultMemoryMB();
-  size_t memory_cap_mb = base::SysInfo::AmountOfPhysicalMemoryMB() / 4;
+  size_t memory_cap_mb = base::SysInfo::AmountOfPhysicalMemory().InMiB() / 4;
   if (mb_limit_when_visible > memory_cap_mb) {
     mb_limit_when_visible = memory_cap_mb;
   } else if (mb_limit_when_visible < default_memory_mb) {
@@ -245,11 +241,6 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
       !cmd.HasSwitch(::switches::kDisableCheckerImaging) && is_threaded;
 
 #if BUILDFLAG(IS_ANDROID)
-  // WebView should always raster in the default color space.
-  // Synchronous compositing indicates WebView.
-  if (!platform->IsSynchronousCompositingEnabledForAndroidWebView())
-    settings.prefer_raster_in_srgb = ::features::IsDynamicColorGamutEnabled();
-
   // We can use a more aggressive limit on Android since decodes tend to take
   // longer on these devices.
   settings.min_image_bytes_to_checker = 512 * 1024;  // 512kB
@@ -496,8 +487,17 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
     settings.scrollbar_animator = cc::LayerTreeSettings::AURA_OVERLAY;
     settings.scrollbar_thinning_duration =
         ui::kOverlayScrollbarThinningDuration;
-    settings.scrollbar_flash_after_any_scroll_update =
-        !settings.enable_fluent_overlay_scrollbar;
+    if (!settings.enable_fluent_overlay_scrollbar) {
+      // Set scrollbar flash behavior based on feature flags
+      const bool flash_once_enabled = base::FeatureList::IsEnabled(
+          ::features::kOverlayScrollbarFlashOnlyOnceVisibleOnViewport);
+      settings.scrollbar_flash_once_after_scroll_update = flash_once_enabled;
+      settings.scrollbar_flash_after_any_scroll_update = !flash_once_enabled;
+      settings.scrollbar_flash_once_visible_on_viewport =
+          settings.scrollbar_flash_once_after_scroll_update;
+      settings.scrollbar_flash_when_mouse_enter = base::FeatureList::IsEnabled(
+          ::features::kOverlayScrollbarFlashWhenMouseEnter);
+    }
     // Avoid animating in web tests to improve reliability.
     if (settings.enable_fluent_overlay_scrollbar) {
       settings.scrollbar_thinning_duration =
@@ -533,7 +533,7 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
     // TODO(crbug.com/398868042): Instead of Graphite/Vulkan feature checks, add
     // appropriate shared image capability and check for its support.
     if (!cmd.HasSwitch(switches::kDisableRGBA4444Textures) &&
-        base::SysInfo::AmountOfPhysicalMemoryMB() <= 512 &&
+        base::SysInfo::AmountOfPhysicalMemory().InMiB() <= 512 &&
         !::features::IsUsingVulkan() &&
         !::features::IsSkiaGraphiteEnabled(
             base::CommandLine::ForCurrentProcess())) {

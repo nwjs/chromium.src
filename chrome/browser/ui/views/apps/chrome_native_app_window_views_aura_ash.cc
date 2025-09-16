@@ -483,7 +483,7 @@ bool ChromeNativeAppWindowViewsAuraAsh::IsFullscreen() const {
 void ChromeNativeAppWindowViewsAuraAsh::EnterFullscreen(
     const url::Origin& origin,
     ExclusiveAccessBubbleType bubble_type,
-    const int64_t display_id) {
+    FullscreenTabParams fullscreen_tab_params) {
   // This codepath is never hit for Chrome Apps.
   NOTREACHED();
 }
@@ -666,7 +666,7 @@ bool ChromeNativeAppWindowViewsAuraAsh::ShouldEnableImmersiveMode() const {
   // is no need for immersive mode.
   // TODO(crbug.com/41364538): This adds a little extra animation
   // when minimizing or unminimizing window.
-  return display::Screen::GetScreen()->InTabletMode() && CanResize() &&
+  return display::Screen::Get()->InTabletMode() && CanResize() &&
          !IsMinimized() &&
          GetNativeWindow()->GetProperty(chromeos::kWindowStateTypeKey) !=
              chromeos::WindowStateType::kFloated;

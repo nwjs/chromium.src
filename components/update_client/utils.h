@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback_forward.h"
 #include "base/time/time.h"
 #include "base/values.h"
@@ -97,10 +98,19 @@ std::string GetArchitecture();
 bool RetryDeletePathRecursively(const base::FilePath& path);
 
 // Similar to `RetryDeletePathRecursively`above, but allows specifying the
-// number of `tries` and the `seconds_between_tries`.
+// number of `tries` and the `time_between_tries`.
 bool RetryDeletePathRecursivelyCustom(const base::FilePath& path,
                                       size_t tries,
-                                      base::TimeDelta seconds_between_tries);
+                                      base::TimeDelta time_between_tries);
+
+// Creates a temporary directory, with platform specific overrides
+// for ChromeOS where `/tmp` can have insufficient space.
+bool CreateTempDirectory(const base::FilePath::StringType& prefix,
+                         base::FilePath* new_temp_path);
+
+// Creates a temporary directory with a ScopedTempDir, with platform specific
+// overrides for ChromeOS where `/tmp` can have insufficient space.
+bool CreateScopedTempDirectory(base::ScopedTempDir& dir);
 
 }  // namespace update_client
 

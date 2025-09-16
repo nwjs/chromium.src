@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/containers/extend.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
@@ -24,7 +25,7 @@
 #include "base/types/zip.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_utils.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
@@ -273,9 +274,8 @@ bool EntityShouldProduceSuggestion(
     return false;
   }
   std::u16string trigger_value = trigger_attribute->GetInfo(
-      trigger_field.field->Type().GetAutofillAiTypeAndResolveTagTypes(
-          entity.type()),
-      app_locale, trigger_field.field->format_string());
+      trigger_field.field->Type().GetAutofillAiType(entity.type()), app_locale,
+      trigger_field.field->format_string());
   if (trigger_value.empty()) {
     return false;
   }
@@ -284,10 +284,9 @@ bool EntityShouldProduceSuggestion(
   // use the existence of suggestions to guess a user's data.
   if (!trigger_field.type.is_obfuscated()) {
     const std::u16string normalized_attribute =
-        AutofillProfileComparator::NormalizeForComparison(trigger_value);
+        normalization::NormalizeForComparison(trigger_value);
     const std::u16string normalized_field_content =
-        AutofillProfileComparator::NormalizeForComparison(
-            trigger_field.field->value());
+        normalization::NormalizeForComparison(trigger_field.field->value());
     if (!normalized_attribute.starts_with(normalized_field_content)) {
       return false;
     }
@@ -309,10 +308,8 @@ bool CanFillSomeField(const EntityInstance& entity,
             entity.attribute(f.type);
         return attribute &&
                !attribute
-                    ->GetInfo(
-                        f.field->Type().GetAutofillAiTypeAndResolveTagTypes(
-                            entity.type()),
-                        app_locale, f.field->format_string())
+                    ->GetInfo(f.field->Type().GetAutofillAiType(entity.type()),
+                              app_locale, f.field->format_string())
                     .empty();
       });
 }
@@ -335,9 +332,9 @@ SuggestionWithMetadata GetSuggestionForEntity(
       continue;
     }
 
-    std::u16string attribute_value = attribute->GetInfo(
-        field->Type().GetAutofillAiTypeAndResolveTagTypes(entity.type()),
-        app_locale, field->format_string());
+    std::u16string attribute_value =
+        attribute->GetInfo(field->Type().GetAutofillAiType(entity.type()),
+                           app_locale, field->format_string());
 
     if (attribute_value.empty()) {
       continue;
@@ -357,12 +354,12 @@ SuggestionWithMetadata GetSuggestionForEntity(
                                          std::move(full_attribute_value));
   }
 
-  Suggestion suggestion = Suggestion(
-      trigger_attribute.GetInfo(
-          trigger_field.field->Type().GetAutofillAiTypeAndResolveTagTypes(
-              trigger_attribute.type().entity_type()),
-          app_locale, trigger_field.field->format_string()),
-      SuggestionType::kFillAutofillAi);
+  Suggestion suggestion =
+      Suggestion(trigger_attribute.GetInfo(
+                     trigger_field.field->Type().GetAutofillAiType(
+                         trigger_attribute.type().entity_type()),
+                     app_locale, trigger_field.field->format_string()),
+                 SuggestionType::kFillAutofillAi);
   suggestion.payload = Suggestion::AutofillAiPayload(entity.guid());
   suggestion.icon = GetSuggestionIcon(entity.type());
   return SuggestionWithMetadata(suggestion, raw_ref(entity), trigger_field.type,
@@ -381,30 +378,59 @@ std::vector<Suggestion> CreateAutofillAiFillingSuggestions(
   AttributeTypeAssignment assignment =
       AttributeTypeAssignment(form.fields(), trigger_field->section());
 
+  // Sort entities based on their frecency.
+  std::vector<const EntityInstance*> sorted_entities_by_frecency =
+      base::ToVector(entities,
+                     [](const EntityInstance& entity) { return &entity; });
+  std::ranges::sort(sorted_entities_by_frecency,
+                    [comp = EntityInstance::FrecencyOrder(base::Time::Now())](
+                        const EntityInstance* lhs, const EntityInstance* rhs) {
+                      return comp(*lhs, *rhs);
+                    });
+  // Group entities based on their entity type.
+  std::map<EntityType, std::vector<const EntityInstance*>>
+      sorted_entities_by_type;
+  for (const EntityInstance* entity : sorted_entities_by_frecency) {
+    sorted_entities_by_type[entity->type()].push_back(entity);
+  }
+
+  // Entities are grouped so that the most “frecent” suggestion
+  // will be shown first, then all suggestions of the same type, then the next
+  // most “frecent” suggestion, and so on.
+  std::vector<const EntityInstance*> sorted_entities;
+  sorted_entities.reserve(sorted_entities_by_frecency.size());
+  for (const EntityInstance* entity : sorted_entities_by_frecency) {
+    base::Extend(sorted_entities,
+                 std::move(sorted_entities_by_type[entity->type()]));
+    sorted_entities_by_type[entity->type()].clear();
+  }
+
   std::vector<SuggestionWithMetadata> suggestions_with_metadata;
-  for (const EntityInstance& entity : entities) {
+  for (const EntityInstance* entity : sorted_entities) {
     base::span<const AutofillFieldWithAttributeType> fields_with_types =
-        assignment.Find(entity.type());
+        assignment.Find(entity->type());
     base::optional_ref<const AutofillFieldWithAttributeType>
         trigger_field_with_type =
             FindField(fields_with_types, trigger_field->global_id());
     if (!trigger_field_with_type ||
-        !EntityShouldProduceSuggestion(entity, *trigger_field_with_type,
+        !EntityShouldProduceSuggestion(*entity, *trigger_field_with_type,
                                        app_locale)) {
       continue;
     }
     suggestions_with_metadata.push_back(GetSuggestionForEntity(
-        entity, fields_with_types, *trigger_field_with_type, app_locale));
+        *entity, fields_with_types, *trigger_field_with_type, app_locale));
   }
 
   if (suggestions_with_metadata.empty()) {
     return {};
   }
 
-  auto entities_used_to_build_suggestions = base::MakeFlatSet<base::Uuid>(
-      suggestions_with_metadata, {}, [](const SuggestionWithMetadata& s) {
-        return s.suggestion.GetPayload<Suggestion::AutofillAiPayload>().guid;
-      });
+  auto entities_used_to_build_suggestions =
+      base::MakeFlatSet<EntityInstance::EntityId>(
+          suggestions_with_metadata, {}, [](const SuggestionWithMetadata& s) {
+            return s.suggestion.GetPayload<Suggestion::AutofillAiPayload>()
+                .guid;
+          });
 
   // Labels need to be consistent across the whole fill group. That is, as the
   // user clicks around fields they need to see the same set of attributes as a

@@ -56,7 +56,7 @@ public class TabImplTest {
     private TabImpl createFrozenTab() {
         String url = mActivityTestRule.getTestServer().getURL(TEST_PATH);
         WebPageStation testPage = mInitialPage.openFakeLinkToWebPage(url);
-        Tab tab = testPage.loadedTabElement.get();
+        Tab tab = testPage.loadedTabElement.value();
 
         return ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -101,8 +101,8 @@ public class TabImplTest {
                 DEFAULT_MAX_TIME_TO_WAIT_IN_MS,
                 CriteriaHelper.DEFAULT_POLLING_INTERVAL);
 
-        assertFalse(mActivityTestRule.getActivity().getActivityTab().isTabInPWA());
-        assertTrue(mActivityTestRule.getActivity().getActivityTab().isTabInBrowser());
+        assertFalse(mActivityTestRule.getActivityTab().isTabInPWA());
+        assertTrue(mActivityTestRule.getActivityTab().isTabInBrowser());
     }
 
     @Test
@@ -112,7 +112,7 @@ public class TabImplTest {
     public void testOnProvideVirtualStructure() {
         var url = mActivityTestRule.getTestServer().getURL(TEST_PATH);
         mActivityTestRule.loadUrl(url);
-        TabImpl tabImpl = (TabImpl) mActivityTestRule.getActivity().getActivityTab();
+        TabImpl tabImpl = (TabImpl) mActivityTestRule.getActivityTab();
         TestViewStructure viewStructure = new TestViewStructure();
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -121,7 +121,13 @@ public class TabImplTest {
                 });
 
         CriteriaHelper.pollUiThread(
-                () -> Criteria.checkThat(viewStructure.getChildCount(), Matchers.equalTo(1)),
+                () -> {
+                    if (viewStructure.getChildCount() != 1) return false;
+                    var rootNode = viewStructure.getChild(0);
+                    if (!rootNode.hasExtras()) return false;
+                    return rootNode.getExtras()
+                            .containsKey("org.chromium.chrome.browser.AnnotatedPageContents");
+                },
                 DEFAULT_MAX_TIME_TO_WAIT_IN_MS,
                 CriteriaHelper.DEFAULT_POLLING_INTERVAL);
 

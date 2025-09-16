@@ -26,11 +26,8 @@
 #include "chrome/browser/notifications/notification_display_service_tester.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/push_messaging/push_messaging_app_identifier.h"
-#include "chrome/browser/push_messaging/push_messaging_constants.h"
-#include "chrome/browser/push_messaging/push_messaging_features.h"
 #include "chrome/browser/push_messaging/push_messaging_service_factory.h"
 #include "chrome/browser/push_messaging/push_messaging_service_impl.h"
-#include "chrome/browser/push_messaging/push_messaging_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -56,6 +53,9 @@
 #include "components/gcm_driver/fake_gcm_profile_service.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/permissions/permission_uma_util.h"
+#include "components/push_messaging/push_messaging_constants.h"
+#include "components/push_messaging/push_messaging_features.h"
+#include "components/push_messaging/push_messaging_utils.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "components/webapps/browser/test/service_worker_registration_waiter.h"
 #include "content/public/browser/push_messaging_service.h"
@@ -646,7 +646,14 @@ IN_PROC_BROWSER_TEST_F(IsolatedWebAppBrowserTest,
 IN_PROC_BROWSER_TEST_F(IsolatedWebAppBrowserTest, UseCounters) {
   base::HistogramTester histogram_tester;
   std::unique_ptr<ScopedBundledIsolatedWebApp> app =
-      IsolatedWebAppBuilder(ManifestBuilder()).BuildBundle();
+      IsolatedWebAppBuilder(
+          ManifestBuilder()
+              .AddPermissionsPolicyWildcard(
+                  network::mojom::PermissionsPolicyFeature::kDirectSockets)
+              .AddPermissionsPolicyWildcard(
+                  network::mojom::PermissionsPolicyFeature::
+                      kDirectSocketsPrivate))
+          .BuildBundle();
   ASSERT_OK_AND_ASSIGN(IsolatedWebAppUrlInfo url_info, app->Install(profile()));
 
   histogram_tester.ExpectBucketCount("Blink.UseCounter.Features",
@@ -657,6 +664,22 @@ IN_PROC_BROWSER_TEST_F(IsolatedWebAppBrowserTest, UseCounters) {
 
   histogram_tester.ExpectBucketCount("Blink.UseCounter.Features",
                                      blink::mojom::WebFeature::kPageVisits, 1);
+
+  EXPECT_THAT(
+      content::EvalJs(app_frame,
+                      "(new UDPSocket({ localAddress: '127.0.0.1' })).opened"),
+      content::EvalJsResult::IsOk());
+
+  // Wait for all the socket histograms to propagate.
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return std::ranges::all_of(
+        std::to_array({blink::mojom::WebFeature::kUDPSocketConstructor,
+                       blink::mojom::WebFeature::kUDPSocketOpenedAttribute}),
+        [&](blink::mojom::WebFeature feature) {
+          return histogram_tester.GetBucketCount("Blink.UseCounter.Features",
+                                                 feature) > 0;
+        });
+  }));
 }
 
 IN_PROC_BROWSER_TEST_F(IsolatedWebAppBrowserTest,

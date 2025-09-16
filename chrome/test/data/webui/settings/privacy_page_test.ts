@@ -5,10 +5,9 @@
 // clang-format off
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import type {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {CrToastElement} from 'chrome://settings/lazy_load.js';
-import {ClearBrowsingDataBrowserProxyImpl, ContentSetting, ContentSettingsTypes, CookieControlsMode, SiteSettingsPrefsBrowserProxyImpl} from 'chrome://settings/lazy_load.js';
+import {ClearBrowsingDataBrowserProxyImpl, ContentSetting, CookieControlsMode, SiteSettingsPrefsBrowserProxyImpl} from 'chrome://settings/lazy_load.js';
 import type {CrLinkRowElement, Route, SettingsPrefsElement, SettingsPrivacyPageElement, SyncStatus} from 'chrome://settings/settings.js';
 import {CrSettingsPrefs, HatsBrowserProxyImpl, MetricsBrowserProxyImpl, PrivacyGuideInteractions, PrivacyPageBrowserProxyImpl, resetRouterForTesting, Router, routes, StatusAction, TrustSafetyInteraction} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue, assertThrows} from 'chrome://webui-test/chai_assert.js';
@@ -162,24 +161,6 @@ suite('PrivacyPage', function() {
     assertFalse(!!page.shadowRoot!.querySelector('settings-security-page'));
   });
 
-  test('NotificationPage', async function() {
-    await createPage();
-
-    Router.getInstance().navigateTo(routes.SITE_SETTINGS_NOTIFICATIONS);
-    await flushTasks();
-
-    assertTrue(isChildVisible(page, 'settings-notifications-page'));
-  });
-
-  test('GeolocationPage', async function() {
-    await createPage();
-
-    Router.getInstance().navigateTo(routes.SITE_SETTINGS_LOCATION);
-    await flushTasks();
-
-    assertTrue(isChildVisible(page, 'settings-geolocation-page'));
-  });
-
   test('privacySandboxRestricted', function() {
     assertFalse(isChildVisible(page, '#privacySandboxLinkRow'));
   });
@@ -236,19 +217,6 @@ suite('PrivacyPage', function() {
     assertEquals(
         ContentSetting.ALLOW, categorySettingExceptions[1]!.categorySubtype);
   });
-
-  test('AutomaticFullscreenPage', async function() {
-    Router.getInstance().navigateTo(routes.SITE_SETTINGS_AUTOMATIC_FULLSCREEN);
-    await flushTasks();
-
-    const categorySettingExceptions =
-        page.shadowRoot!.querySelector('category-setting-exceptions');
-    assertTrue(!!categorySettingExceptions);
-    assertTrue(isVisible(categorySettingExceptions));
-    assertEquals(
-        ContentSettingsTypes.AUTOMATIC_FULLSCREEN,
-        categorySettingExceptions.category);
-  });
 });
 
 // Isolated ContentSettingsVisibility test suite due to significantly higher
@@ -281,12 +249,10 @@ suite('ContentSettingsVisibility', function() {
     // except
     //   1. protocol handlers,
     //   2. pdf documents,
-    //   3. protected content (except on chromeos and win),
+    //   3. protected content (is in its own element),
     //   4. notifications (is in its own element)
-    let expectedPagesCount = redesignedPages.length - 4;
-    // <if expr="is_chromeos or is_win">
-    expectedPagesCount += 1;
-    // </if>
+    //   5. geolocation (is in its own element)
+    const expectedPagesCount = redesignedPages.length - 4;
 
     assertEquals(
         page.shadowRoot!
@@ -392,23 +358,6 @@ suite(`CookiesSubpage`, function() {
     return flushTasks();
   });
 
-  test('cookiesSubpageAttributes', async function() {
-    // The subpage is only in the DOM if the corresponding route is open.
-    page.shadowRoot!
-        .querySelector<CrLinkRowElement>('#thirdPartyCookiesLinkRow')!.click();
-    await flushTasks();
-
-    const cookiesSubpage =
-        page.shadowRoot!.querySelector<PolymerElement>('#cookies');
-    assertTrue(!!cookiesSubpage);
-    assertEquals(
-        page.i18n('thirdPartyCookiesPageTitle'),
-        cookiesSubpage.getAttribute('page-title'));
-    const associatedControl = cookiesSubpage.get('associatedControl');
-    assertTrue(!!associatedControl);
-    assertEquals('thirdPartyCookiesLinkRow', associatedControl.id);
-  });
-
   test('clickCookiesRow', async function() {
     const thirdPartyCookiesLinkRow =
         page.shadowRoot!.querySelector<HTMLElement>(
@@ -440,11 +389,9 @@ suite('CookiesSubpageRedesignDisabled', function() {
   }
 
   test(
-      'cookiesLinkRowSublabelAlwaysBlock3pcsIncognitoDisabled',
-      async function() {
+      'cookiesLinkRowSublabel', async function() {
         loadTimeData.overrideValues({
           is3pcdCookieSettingsRedesignEnabled: false,
-          isAlwaysBlock3pcsIncognitoEnabled: false,
         });
         resetRouterForTesting();
 
@@ -464,7 +411,7 @@ suite('CookiesSubpageRedesignDisabled', function() {
             'prefs.profile.cookie_controls_mode.value',
             CookieControlsMode.INCOGNITO_ONLY);
         assertEquals(
-            page.i18n('thirdPartyCookiesLinkRowSublabelDisabledIncognito'),
+            page.i18n('thirdPartyCookiesLinkRowSublabelEnabled'),
             thirdPartyCookiesLinkRow.subLabel,
         );
 
@@ -475,27 +422,6 @@ suite('CookiesSubpageRedesignDisabled', function() {
             page.i18n('thirdPartyCookiesLinkRowSublabelDisabled'),
             thirdPartyCookiesLinkRow.subLabel);
       });
-
-  test('cookiesLinkRowSublabel', async function() {
-    loadTimeData.overrideValues({
-      is3pcdCookieSettingsRedesignEnabled: false,
-      isAlwaysBlock3pcsIncognitoEnabled: true,
-    });
-    resetRouterForTesting();
-
-    await createPage();
-
-    page.set(
-        'prefs.profile.cookie_controls_mode.value',
-        CookieControlsMode.INCOGNITO_ONLY);
-    const thirdPartyCookiesLinkRow =
-        page.shadowRoot!.querySelector<CrLinkRowElement>(
-            '#thirdPartyCookiesLinkRow');
-    assertTrue(!!thirdPartyCookiesLinkRow);
-    assertEquals(
-        page.i18n('thirdPartyCookiesLinkRowSublabelEnabled'),
-        thirdPartyCookiesLinkRow.subLabel);
-  });
 });
 
 suite(`IncognitoTrackingProtectionsSubpage`, function() {
@@ -560,53 +486,6 @@ suite(`IncognitoTrackingProtectionsSubpage`, function() {
     await flushTasks();
 
     assertFalse(isChildVisible(page, '#incognitoTrackingProtectionsLinkRow'));
-  });
-});
-
-suite(`AllSitesSubpage`, function() {
-  let page: SettingsPrivacyPageElement;
-  let settingsPrefs: SettingsPrefsElement;
-
-  suiteSetup(function() {
-    resetRouterForTesting();
-
-    settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
-  });
-
-  setup(function() {
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-
-    page = document.createElement('settings-privacy-page');
-    page.prefs = settingsPrefs.prefs!;
-    document.body.appendChild(page);
-    return flushTasks();
-  });
-
-  test('allSitesViewShowsAllSitesTitle', async function() {
-    Router.getInstance().navigateTo(routes.SITE_SETTINGS_ALL);
-    await flushTasks();
-
-    const allSitesSubpage =
-        page.shadowRoot!.querySelector<PolymerElement>('#allSites');
-    assertTrue(!!allSitesSubpage);
-    assertEquals(
-        page.i18n('siteSettingsAllSites'),
-        allSitesSubpage.getAttribute('page-title'));
-  });
-
-  test('rwsFilterViewShowsRwsTitle', async function() {
-    const searchParams =
-        new URLSearchParams('searchSubpage=related:foobar.com');
-    Router.getInstance().navigateTo(routes.SITE_SETTINGS_ALL, searchParams);
-    await flushTasks();
-
-    const allSitesSubpage =
-        page.shadowRoot!.querySelector<PolymerElement>('#allSites');
-    assertTrue(!!allSitesSubpage);
-    assertEquals(
-        loadTimeData.getStringF('allSitesRwsFilterViewTitle', 'foobar.com'),
-        allSitesSubpage.getAttribute('page-title'));
   });
 });
 

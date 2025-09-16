@@ -106,7 +106,10 @@
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/html_li_element.h"
 #include "third_party/blink/renderer/core/html/html_map_element.h"
+#include "third_party/blink/renderer/core/html/html_menu_bar_element.h"
 #include "third_party/blink/renderer/core/html/html_menu_element.h"
+#include "third_party/blink/renderer/core/html/html_menu_item_element.h"
+#include "third_party/blink/renderer/core/html/html_menu_list_element.h"
 #include "third_party/blink/renderer/core/html/html_meter_element.h"
 #include "third_party/blink/renderer/core/html/html_olist_element.h"
 #include "third_party/blink/renderer/core/html/html_paragraph_element.h"
@@ -154,6 +157,7 @@
 #include "third_party/blink/renderer/core/navigation_api/navigation_api.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/style/computed_style_base_constants.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/svg/svg_a_element.h"
 #include "third_party/blink/renderer/core/svg/svg_desc_element.h"
@@ -580,17 +584,6 @@ bool IsAddedOnlyViaSpecialTraversal(const Node* node) {
       node->IsScrollButtonPseudoElement()) {
     return true;
   }
-
-  if (RuntimeEnabledFeatures::SelectAccessibilityReparentInputEnabled()) {
-    // The first descendant <input> in a <select> gets taken out of the listbox
-    // because it is not an <option>. It controls the listbox.
-    if (auto* input = DynamicTo<HTMLInputElement>(node)) {
-      if (input->IsFirstTextInputInAncestorSelect()) {
-        return true;
-      }
-    }
-  }
-
   return false;
 }
 
@@ -740,7 +733,7 @@ void AXNodeObject::AlterSliderOrSpinButtonValue(bool increase) {
       ->GetTaskRunner(TaskType::kUserInteraction)
       ->PostDelayedTask(
           FROM_HERE,
-          WTF::BindOnce(
+          BindOnce(
               [](Node* node, KeyboardEvent* evt) {
                 if (node) {
                   node->DispatchEvent(*evt);
@@ -1022,14 +1015,12 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
 
   // Don't ignored legends, because JAWS uses them to determine redundant text.
   if (IsA<HTMLLegendElement>(node)) {
-    if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
-      // When a <legend> is used inside an <optgroup>, it is used to set the
-      // name of the <optgroup> and shouldn't be redundantly repeated.
-      for (auto* ancestor = node->parentNode(); ancestor;
-           ancestor = ancestor->parentNode()) {
-        if (IsA<HTMLOptGroupElement>(ancestor)) {
-          return kIgnoreObject;
-        }
+    // When a <legend> is used inside an <optgroup>, it is used to set the
+    // name of the <optgroup> and shouldn't be redundantly repeated.
+    for (auto* ancestor = node->parentNode(); ancestor;
+         ancestor = ancestor->parentNode()) {
+      if (IsA<HTMLOptGroupElement>(ancestor)) {
+        return kIgnoreObject;
       }
     }
     return kIncludeObject;
@@ -1255,7 +1246,6 @@ bool AXNodeObject::ComputeIsIgnored(IgnoredReasons* ignored_reasons) const {
       // them aren't ignored, then they will make it into the mappings. The
       // button can't be pruned from the tree because it is used to compute the
       // value of the MenuList.
-      if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
         for (const AXObject* ancestor = this;
              ancestor && ancestor != ax_menu_list;
              ancestor = ancestor->ParentObject()) {
@@ -1263,14 +1253,13 @@ bool AXNodeObject::ComputeIsIgnored(IgnoredReasons* ignored_reasons) const {
             return true;
           }
         }
-      }
 
       return ax_menu_list->IsIgnored();
     }
 
     // Fallback elements inside of a <canvas> are invisible, but are not ignored
-    if (IsHiddenViaStyle() || !node || !node->parentElement() ||
-        !node->parentElement()->IsCanvasOrInCanvasSubtree()) {
+    if (IsHiddenViaStyle() || !node || !node->ParentOrShadowHostElement() ||
+        !node->ParentOrShadowHostElement()->IsCanvasOrInCanvasSubtree()) {
       return true;
     }
   }
@@ -1289,6 +1278,15 @@ bool AXNodeObject::ComputeIsIgnored(IgnoredReasons* ignored_reasons) const {
     // explicitly hidden, e.g. is in a <canvas> fallback or is display locked.
     if (IsA<Text>(node)) {
       return false;
+    }
+    // Similarly, elements in <canvas> fallback should not be ignored.
+    if (node->ParentOrShadowHostElement() &&
+        node->ParentOrShadowHostElement()->IsCanvasOrInCanvasSubtree()) {
+      // TODO: We should not exclude display: contents (crbug.com/41384724) in
+      // canvas.
+      if (!GetElement() || !GetElement()->HasDisplayContentsStyle()) {
+        return false;
+      }
     }
     if (ignored_reasons) {
       ignored_reasons->push_back(IgnoredReason(kAXUninteresting));
@@ -1341,11 +1339,14 @@ bool AXNodeObject::ComputeIsIgnored(IgnoredReasons* ignored_reasons) const {
 
     // A 1x1 canvas is too small for the user to see and thus ignored.
     const auto* canvas = DynamicTo<LayoutHTMLCanvas>(GetLayoutObject());
-    if (canvas && (canvas->Size().height <= 1 || canvas->Size().width <= 1)) {
-      if (ignored_reasons) {
-        ignored_reasons->push_back(IgnoredReason(kAXProbablyPresentational));
+    if (canvas) {
+      PhysicalSize size = canvas->StitchedSize();
+      if (size.height <= 1 || size.width <= 1) {
+        if (ignored_reasons) {
+          ignored_reasons->push_back(IgnoredReason(kAXProbablyPresentational));
+        }
+        return true;
       }
-      return true;
     }
 
     // Otherwise fall through; use presence of help text, title, or description
@@ -1991,8 +1992,8 @@ bool AXNodeObject::IsDataTable() const {
 
       const LayoutBlock* cell_layout_block =
           To<LayoutBlock>(cell_layout_object);
-      if (cell_layout_block->Size().width < 1 ||
-          cell_layout_block->Size().height < 1) {
+      PhysicalSize size = cell_layout_block->StitchedSize();
+      if (size.width < 1 || size.height < 1) {
         continue;
       }
 
@@ -2237,6 +2238,18 @@ ax::mojom::blink::Role AXNodeObject::RoleFromLayoutObjectOrNode() const {
     return ax::mojom::blink::Role::kButton;
   }
 
+  if (IsA<HTMLMenuBarElement>(node)) {
+    return ax::mojom::blink::Role::kMenuBar;
+  }
+
+  if (IsA<HTMLMenuItemElement>(node)) {
+    return ax::mojom::blink::Role::kMenuItem;
+  }
+
+  if (IsA<HTMLMenuListElement>(node)) {
+    return ax::mojom::blink::Role::kMenu;
+  }
+
   // Anything that needs to be exposed but doesn't have a more specific role
   // should be considered a generic container. Examples are layout blocks with
   // no node, in-page link targets, and plain elements such as a <span> with
@@ -2429,8 +2442,7 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
 
   if (ParentObjectIfPresent() && ParentObjectIfPresent()->RoleValue() ==
                                      ax::mojom::blink::Role::kComboBoxSelect) {
-    if (!RuntimeEnabledFeatures::CustomizableSelectEnabled() ||
-        HTMLSelectElement::IsPopoverPickerElement(GetNode())) {
+    if (HTMLSelectElement::IsPopoverPickerElement(GetNode())) {
       return ax::mojom::blink::Role::kMenuListPopup;
     }
   }
@@ -3287,24 +3299,34 @@ AccessibilityExpanded AXNodeObject::IsExpanded() const {
     return is_expanded ? kExpandedExpanded : kExpandedCollapsed;
   }
 
-  // For button elements that act as commandFor triggers, aria-expanded may be
-  // set depending on the command type. This results in the same mapping as
-  // popovertarget, but takes precedence in the case of conflicting markup as
-  // the HTML spec invokers commandfor functionality first, and only
-  // popovertarget after, if commandfor was not executed.
+  HTMLElement* command_for_element = nullptr;
   if (auto* button = DynamicTo<HTMLButtonElement>(element)) {
-    if (HTMLElement* command_for =
-            DynamicTo<HTMLElement>(button->commandForElement())) {
-      const AtomicString& action =
-          button->FastGetAttribute(html_names::kCommandAttr);
-      bool is_valid_popover_command = command_for->IsValidBuiltinPopoverCommand(
-          *button, HTMLButtonElement::GetCommandEventType(action));
-      bool is_child = button->IsDescendantOrShadowDescendantOf(command_for);
-      // Buttons for popovers should indicate the expanded/collapsed state.
-      if (is_valid_popover_command && !is_child) {
-        return command_for->popoverOpen() ? kExpandedExpanded
-                                          : kExpandedCollapsed;
-      }
+    command_for_element = DynamicTo<HTMLElement>(button->commandForElement());
+  } else if (auto* menuitem = DynamicTo<HTMLMenuItemElement>(element)) {
+    DCHECK(RuntimeEnabledFeatures::MenuElementsEnabled());
+    command_for_element = DynamicTo<HTMLElement>(menuitem->commandForElement());
+  }
+
+  // For menuitem and button elements that act as commandFor triggers,
+  // aria-expanded may be set depending on the command type. This results in the
+  // same mapping as popovertarget, but takes precedence in the case of
+  // conflicting markup as the HTML spec invokers commandfor functionality
+  // first, and only.
+  if (command_for_element) {
+    const AtomicString& action =
+        element->FastGetAttribute(html_names::kCommandAttr);
+    bool is_valid_popover_command =
+        command_for_element->IsValidBuiltinPopoverCommand(
+            *DynamicTo<HTMLElement>(element),
+            HTMLButtonElement::GetCommandEventType(
+                action,
+                command_for_element->GetDocument().GetExecutionContext()));
+    bool is_child =
+        element->IsDescendantOrShadowDescendantOf(command_for_element);
+    // Popover invokers should indicate the expanded/collapsed state.
+    if (is_valid_popover_command && !is_child) {
+      return command_for_element->popoverOpen() ? kExpandedExpanded
+                                                : kExpandedCollapsed;
     }
   }
 
@@ -3988,6 +4010,10 @@ ax::mojom::blink::TextAlign AXNodeObject::GetTextAlign() const {
       return ax::mojom::blink::TextAlign::kCenter;
     case ETextAlign::kJustify:
       return ax::mojom::blink::TextAlign::kJustify;
+    case ETextAlign::kMatchParent:
+      return style->IsLeftToRightDirection()
+                 ? ax::mojom::blink::TextAlign::kLeft
+                 : ax::mojom::blink::TextAlign::kRight;
   }
 }
 
@@ -4202,6 +4228,19 @@ ax::mojom::blink::AriaCurrentState AXNodeObject::GetAriaCurrentState() const {
   const AtomicString& attribute_value =
       AriaTokenAttribute(html_names::kAriaCurrentAttr);
   if (attribute_value.IsNull()) {
+    if (RuntimeEnabledFeatures::CSSScrollTargetGroupAriaCurrentEnabled()) {
+      // If aria-current is not set, check if the anchor element is selected
+      // in a scroll marker group (it's now a :target-current). If so, set
+      // aria-current="true" on the element.
+      if (auto* anchor_element = DynamicTo<HTMLAnchorElement>(GetNode())) {
+        if (ScrollMarkerGroupData* data =
+                anchor_element->GetScrollTargetGroupContainerData()) {
+          if (data->Selected() == anchor_element) {
+            return ax::mojom::blink::AriaCurrentState::kTrue;
+          }
+        }
+      }
+    }
     return ax::mojom::blink::AriaCurrentState::kNone;
   }
   if (EqualIgnoringASCIICase(attribute_value, "false")) {
@@ -4530,23 +4569,6 @@ KURL AXNodeObject::Url() const {
 }
 
 AXObject* AXNodeObject::ChooserPopup() const {
-  if (RuntimeEnabledFeatures::SelectAccessibilityReparentInputEnabled() ||
-      RuntimeEnabledFeatures::SelectAccessibilityNestedInputEnabled()) {
-    // The first input inside of a select filters the listbox, and therefore
-    // controls it.
-    if (auto* input = DynamicTo<HTMLInputElement>(GetNode())) {
-      if (input->IsTextField()) {
-        if (auto* select = input->FirstAncestorSelectElement()) {
-          if (auto* popover = select->PopoverPickerElement()) {
-            if (auto* axobject = AXObjectCache().Get(popover)) {
-              return axobject;
-            }
-          }
-        }
-      }
-    }
-  }
-
   // When color & date chooser popups are visible, they can be found in the tree
   // as a group child of the <input> control itself.
   switch (native_role_) {
@@ -4609,8 +4631,7 @@ String AXNodeObject::GetValueForControl(AXObjectSet& visited) const {
     // If the author replaced the button by providing their own <button> on a
     // customizable select, then use the text inside that button:
     // https://github.com/openui/open-ui/issues/1117
-    if (RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
-        select_element->IsAppearanceBase()) {
+    if (select_element->IsAppearanceBase()) {
       if (auto* button = select_element->SlottedButton()) {
         if (AXObject* button_object = AXObjectCache().Get(button)) {
           return button_object->TextFromDescendants(visited, nullptr, false);
@@ -4934,7 +4955,14 @@ String AXNodeObject::GetName(ax::mojom::blink::NameFrom& name_from,
     // Prioritize alt text if available.
     std::optional<String> alt_text = GetCSSAltText(element);
     if (alt_text && !alt_text->empty()) {
+      name_from = ax::mojom::blink::NameFrom::kCssAltText;
       return *alt_text;
+    }
+
+    if (!name.empty()) {
+      // Scroll button has a non-empty name, so there is no need to use a
+      // fallback.
+      return name;
     }
 
     // If the alt text is not available, return a "Scroll [direction]" name,
@@ -4954,6 +4982,8 @@ String AXNodeObject::GetName(ax::mojom::blink::NameFrom& name_from,
         NOTREACHED()
             << "ScrollButtonPseudoElement must be one of known directions";
       }
+
+      name_from = ax::mojom::blink::NameFrom::kCssAltText;
 
       switch (physical) {
         case PhysicalDirection::kRight:
@@ -4976,11 +5006,13 @@ String AXNodeObject::GetName(ax::mojom::blink::NameFrom& name_from,
   if (element && element->IsScrollMarkerPseudoElement()) {
     std::optional<String> alt_text = GetCSSAltText(element);
     if (alt_text && !alt_text->empty()) {
+      name_from = ax::mojom::blink::NameFrom::kCssAltText;
       return *alt_text;
     }
 
     std::optional<String> content = GetCSSContentText(element);
     if (content && !content->empty()) {
+      name_from = ax::mojom::blink::NameFrom::kContents;
       return *content;
     }
 
@@ -5525,8 +5557,8 @@ void AXNodeObject::GetRelativeBounds(AXObject** out_container,
   Element* element = GetElement();
   // If it's in a canvas but doesn't have an explicit rect, or has display:
   // contents set, get the bounding rect of its children.
-  if ((GetNode()->parentElement() &&
-       GetNode()->parentElement()->IsCanvasOrInCanvasSubtree()) ||
+  if ((GetNode()->ParentOrShadowHostElement() &&
+       GetNode()->ParentOrShadowHostElement()->IsCanvasOrInCanvasSubtree()) ||
       (element && element->HasDisplayContentsStyle())) {
     Vector<gfx::RectF> rects;
     for (Node& child : NodeTraversal::ChildrenOf(*GetNode())) {
@@ -5750,7 +5782,7 @@ void AXNodeObject::LoadInlineTextBoxes() {
       continue;
     }
 
-    if (CanHaveInlineTextBoxChildren(work_obj)) {
+    if (CanHaveInlineTextBoxChildren(work_obj) && HasLayoutText(work_obj)) {
       if (work_obj->CachedChildrenIncludingIgnored().empty()) {
         // We only need to add inline textbox children if they aren't present.
         // Although some platforms (e.g. Android), load inline text boxes
@@ -5994,19 +6026,6 @@ void AXNodeObject::AddNodeChildren() {
   }
 }
 
-void AXNodeObject::AddSelectChildren() {
-  auto* select = DynamicTo<HTMLSelectElement>(GetNode());
-  if (RuntimeEnabledFeatures::SelectAccessibilityReparentInputEnabled() &&
-      select) {
-    if (auto* input = select->FirstDescendantTextInput()) {
-      // Reparent the first descendant <input> element of this <select> to be
-      // adjacent to the listbox in the a11y tree.
-      AddNodeChild(input);
-    }
-  }
-  AddNodeChildren();
-}
-
 void AXNodeObject::AddOwnedChildren() {
   AXObjectVector owned_children;
   AXObjectCache().ValidatedAriaOwnedChildren(this, owned_children);
@@ -6056,9 +6075,7 @@ void AXNodeObject::AddChildrenImpl() {
     AddValidationMessageChild();
   CHECK_ATTACHED();
 
-  if (IsA<HTMLSelectElement>(GetNode())) {
-    AddSelectChildren();
-  } else if (HasValidHTMLTableStructureAndLayout()) {
+  if (HasValidHTMLTableStructureAndLayout()) {
     AddTableChildren();
   } else if (GetNode() && GetNode()->IsScrollMarkerGroupPseudoElement()) {
     AddScrollMarkerGroupChildren();
@@ -6331,14 +6348,10 @@ bool AXNodeObject::CanHaveChildren() const {
   bool result = !GetElement() || AXObject::CanHaveChildren(*GetElement());
   switch (native_role_) {
     case ax::mojom::blink::Role::kListBoxOption:
-      if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
-        // When CustomizableSelect is enabled, then options are allowed to have
-        // children as per the new content model.
-        break;
-      }
-      [[fallthrough]];
+      // Option elements are allowed to have children according to the content
+      // model in the HTML spec.
+      break;
     case ax::mojom::blink::Role::kCheckBox:
-    case ax::mojom::blink::Role::kMenuItem:
     case ax::mojom::blink::Role::kMenuItemCheckBox:
     case ax::mojom::blink::Role::kMenuItemRadio:
     case ax::mojom::blink::Role::kProgressIndicator:
@@ -6354,6 +6367,7 @@ bool AXNodeObject::CanHaveChildren() const {
                       << "\n* Aria role: " << RawAriaRole();
       break;
     case ax::mojom::blink::Role::kComboBoxSelect:
+    case ax::mojom::blink::Role::kMenuItem:
     case ax::mojom::blink::Role::kPopUpButton:
     case ax::mojom::blink::Role::kStaticText:
       // Note: these can have AXInlineTextBox children, but when adding them, we

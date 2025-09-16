@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include "chrome/browser/extensions/extension_management.h"
 
 #include <memory>
@@ -173,16 +168,14 @@ ManagedInstallationMode ExtensionManagement::GetInstallationMode(
 
 #if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
 bool ExtensionManagement::ExtensionsEnabledForDesktopAndroid() const {
-  if (enterprise_util::IsBrowserManaged(profile_)) {
-    // Disable extensions only for specific managed accounts.
-    // This check keeps many tests from failing.
-    std::string user_name = profile_->GetProfileUserName();
-    // Crude check to avoid passing invalid strings to `ExtractDomainName`.
-    if (base::Contains(user_name, "@")) {
-      std::string domain = gaia::ExtractDomainName(user_name);
-      if (domain == "google.com" || domain == "managedchrome.com") {
-        return false;
-      }
+  // Disable extensions only for specific domains.
+  // This check keeps many tests from failing.
+  std::string user_name = profile_->GetProfileUserName();
+  // Crude check to avoid passing invalid strings to `ExtractDomainName`.
+  if (base::Contains(user_name, "@")) {
+    std::string domain = gaia::ExtractDomainName(user_name);
+    if (domain == "google.com" || domain == "managedchrome.com") {
+      return false;
     }
   }
   return true;

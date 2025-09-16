@@ -59,7 +59,9 @@ PageStabilityMonitor::PageStabilityMonitor(RenderFrame& frame)
       render_frame()->GetWebFrame()->GetDocument().ActiveResourceRequestCount();
 }
 
-PageStabilityMonitor::~PageStabilityMonitor() = default;
+PageStabilityMonitor::~PageStabilityMonitor() {
+  start_monitoring_delayed_handle_.CancelTask();
+}
 
 void PageStabilityMonitor::WaitForStable(const ToolBase& tool,
                                          int32_t task_id,
@@ -88,13 +90,15 @@ void PageStabilityMonitor::DidCommitProvisionalLoad(
       "DidCommitProvisionalLoad",
       absl::StrFormat("transition[%s]",
                       PageTransitionGetCoreTransitionString(transition)));
-  MoveToState(State::kMaybeDelayCallback);
+  start_monitoring_delayed_handle_.CancelTask();
+  MoveToState(State::kNavigationCommitted);
 }
 
 void PageStabilityMonitor::DidFailProvisionalLoad() {
   if (state_ == State::kWaitForNavigation) {
+    // TODO(b/436573891): Should this go back to `kStartMonitoring`?
     journal_entry_->Log("DidFailProvisionalLoad");
-    MoveToState(State::kInvokeCallback);
+    MoveToState(State::kNavigationFailed);
   }
 }
 
@@ -121,8 +125,10 @@ void PageStabilityMonitor::MoveToState(State new_state) {
           "MonitorStartDelay",
           absl::StrFormat("delay[%dms]",
                           monitoring_start_delay_.InMilliseconds()));
-      PostMoveToStateClosure(State::kStartMonitoring, monitoring_start_delay_)
-          .Run();
+      start_monitoring_delayed_handle_ =
+          PostCancelableMoveToStateClosure(State::kStartMonitoring,
+                                           monitoring_start_delay_)
+              .Run();
       break;
     }
     case State::kStartMonitoring: {
@@ -152,23 +158,26 @@ void PageStabilityMonitor::MoveToState(State new_state) {
     }
     case State::kWaitForNetworkIdle: {
       network_idle_callback_.Reset(
-          PostMoveToStateClosure(State::kWaitForMainThreadIdle));
+          MoveToStateClosure(State::kWaitForMainThreadIdle));
       render_frame()->GetWebFrame()->RequestNetworkIdleCallback(
           network_idle_callback_.callback());
       break;
     }
     case State::kWaitForMainThreadIdle: {
       SetTimeout(State::kTimeoutMainThread, GetMainThreadTimeoutDelay());
-      render_frame()
-          ->GetTaskRunner(blink::TaskType::kIdleTask)
-          ->PostTask(FROM_HERE,
-                     PostMoveToStateClosure(State::kWaitForVisualStateRequest));
+      render_frame()->GetWebFrame()->PostIdleTask(
+          FROM_HERE,
+          base::BindOnce(
+              [](base::OnceClosure callback, base::TimeTicks unused_deadline) {
+                std::move(callback).Run();
+              },
+              MoveToStateClosure(State::kWaitForVisualStateRequest)));
       break;
     }
     case State::kWaitForVisualStateRequest: {
       WebFrameWidget* widget = render_frame()->GetWebFrame()->FrameWidget();
       if (!widget->InsertVisualStateRequest(
-              PostMoveToStateClosure(State::kMaybeDelayCallback))) {
+              MoveToStateClosure(State::kMaybeDelayCallback))) {
         journal_entry_->EndEntry(
             "Failed to wait for new frame presentation due to no "
             "compositor.");
@@ -208,6 +217,14 @@ void PageStabilityMonitor::MoveToState(State new_state) {
       MoveToState(State::kDone);
       break;
     }
+    case State::kNavigationCommitted: {
+      MoveToState(State::kMaybeDelayCallback);
+      break;
+    }
+    case State::kNavigationFailed: {
+      MoveToState(State::kInvokeCallback);
+      break;
+    }
     case State::kDone: {
       CHECK(!is_stable_callback_);
       break;
@@ -215,18 +232,35 @@ void PageStabilityMonitor::MoveToState(State new_state) {
   }
 }
 
+base::OnceClosure PageStabilityMonitor::MoveToStateClosure(State new_state) {
+  return base::BindOnce(&PageStabilityMonitor::MoveToState,
+                        weak_ptr_factory_.GetWeakPtr(), new_state);
+}
+
 base::OnceClosure PageStabilityMonitor::PostMoveToStateClosure(
     State new_state,
     base::TimeDelta delay) {
-  base::OnceClosure task =
-      base::BindOnce(&PageStabilityMonitor::MoveToState,
-                     weak_ptr_factory_.GetWeakPtr(), new_state);
   return base::BindOnce(
       [](scoped_refptr<base::SequencedTaskRunner> task_runner,
          base::OnceClosure task, base::TimeDelta delay) {
         task_runner->PostDelayedTask(FROM_HERE, std::move(task), delay);
       },
-      base::SequencedTaskRunner::GetCurrentDefault(), std::move(task), delay);
+      base::SequencedTaskRunner::GetCurrentDefault(),
+      MoveToStateClosure(new_state), delay);
+}
+
+base::OnceCallback<base::DelayedTaskHandle()>
+PageStabilityMonitor::PostCancelableMoveToStateClosure(State new_state,
+                                                       base::TimeDelta delay) {
+  return base::BindOnce(
+      [](scoped_refptr<base::SequencedTaskRunner> task_runner,
+         base::OnceClosure task, base::TimeDelta delay) {
+        return task_runner->PostCancelableDelayedTask(
+            base::subtle::PostDelayedTaskPassKey(), FROM_HERE, std::move(task),
+            delay);
+      },
+      base::SequencedTaskRunner::GetCurrentDefault(),
+      MoveToStateClosure(new_state), delay);
 }
 
 void PageStabilityMonitor::SetTimeout(State timeout_type,
@@ -246,22 +280,25 @@ void PageStabilityMonitor::DCheckStateTransition(State old_state,
               {State::kMonitorStartDelay}},
           {State::kMonitorStartDelay, {
               State::kStartMonitoring,
-              State::kTimeoutGlobal}},
+              State::kTimeoutGlobal,
+              State::kNavigationCommitted}},
           {State::kStartMonitoring, {
               State::kWaitForNavigation,
               State::kWaitForNetworkIdle,
               State::kWaitForMainThreadIdle}},
           {State::kWaitForNavigation, {
-              State::kMaybeDelayCallback,
-              State::kInvokeCallback,
+              State::kNavigationCommitted,
+              State::kNavigationFailed,
               State::kTimeoutGlobal}},
           {State::kWaitForNetworkIdle, {
               State::kWaitForMainThreadIdle,
-              State::kTimeoutGlobal}},
+              State::kTimeoutGlobal,
+              State::kNavigationCommitted}},
           {State::kWaitForMainThreadIdle, {
               State::kWaitForVisualStateRequest,
               State::kTimeoutMainThread,
-              State::kTimeoutGlobal}},
+              State::kTimeoutGlobal,
+              State::kNavigationCommitted}},
           {State::kWaitForVisualStateRequest, {
               State::kMaybeDelayCallback,
               State::kInvokeCallback,
@@ -274,7 +311,12 @@ void PageStabilityMonitor::DCheckStateTransition(State old_state,
           {State::kMaybeDelayCallback, {
               State::kInvokeCallback,
               State::kTimeoutMainThread,
-              State::kTimeoutGlobal}},
+              State::kTimeoutGlobal,
+              State::kNavigationCommitted}},
+          {State::kNavigationCommitted, {
+              State::kMaybeDelayCallback}},
+          {State::kNavigationFailed, {
+              State::kInvokeCallback}},
           {State::kInvokeCallback, {
               State::kDone}}
 

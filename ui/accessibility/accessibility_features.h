@@ -154,6 +154,12 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityOnScreenMode);
 AX_BASE_EXPORT bool IsAccessibilityOnScreenAXModeEnabled();
 
 #if BUILDFLAG(IS_WIN)
+// When enabled, modify the exposed UIA accessibility tree to match Narrator's
+// expectations. This fixes a bug keeping Narrator's cursor contained within
+// the web content.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kFixNarratorWebContentContainment);
+AX_BASE_EXPORT bool IsFixNarratorWebContentContainmentEnabled();
+
 // Use Chrome-specific accessibility COM API.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kIChromeAccessible);
 AX_BASE_EXPORT bool IsIChromeAccessibleEnabled();
@@ -184,10 +190,6 @@ AX_BASE_EXPORT bool IsAccessibilityAcceleratorEnabled();
 // Adds option to limit the movement on the screen.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityReducedAnimations);
 AX_BASE_EXPORT bool IsAccessibilityReducedAnimationsEnabled();
-
-// Integrate with FaceGaze.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFaceGaze);
-AX_BASE_EXPORT bool IsAccessibilityFaceGazeEnabled();
 
 // Adds reduced animations toggle to kiosk quick settings.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityReducedAnimationsInKiosk);
@@ -309,6 +311,10 @@ AX_BASE_EXPORT bool IsReadAnythingReadAloudEnabled();
 // Enable phrase highlighting in Read Anything Read Aloud.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloudPhraseHighlighting);
 AX_BASE_EXPORT bool IsReadAnythingReadAloudPhraseHighlightingEnabled();
+
+// Enable TypeScript-based text segmentation in Read Anything Read Aloud.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloudTSTextSegmentation);
+AX_BASE_EXPORT bool IsReadAnythingReadAloudTSTextSegmentationEnabled();
 
 // Enable images to be distilled via algorithm. Should be disabled by
 // default.

@@ -362,4 +362,210 @@ public class DisplayUtilTest {
                 expectedResult,
                 DisplayUtil.getLocalCoordinatesPx(globalCoordinates, mDisplayAndroid).second);
     }
+
+    @Test
+    public void testDpToPx() {
+        // Trivial test with density = 1, value = 0, expected = 0
+        when(mDisplayAndroid.getDipScale()).thenReturn(1.0f);
+        assertEquals(
+                "The value returned is incorrect (0)", 0, DisplayUtil.dpToPx(mDisplayAndroid, 0));
+
+        // Trivial test with density = 1, value = 100, expected = 100
+        when(mDisplayAndroid.getDipScale()).thenReturn(1.0f);
+        assertEquals(
+                "The value returned is incorrect (1)",
+                100,
+                DisplayUtil.dpToPx(mDisplayAndroid, 100));
+
+        // Rounding test with density = 1.375, value = 100, expected = 138
+        when(mDisplayAndroid.getDipScale()).thenReturn(1.375f);
+        assertEquals(
+                "The value returned is incorrect (2)",
+                138,
+                DisplayUtil.dpToPx(mDisplayAndroid, 100));
+
+        // Rounding test with density = 0.499, value = 100, expected = 50
+        when(mDisplayAndroid.getDipScale()).thenReturn(0.499f);
+        assertEquals(
+                "The value returned is incorrect (3)",
+                50,
+                DisplayUtil.dpToPx(mDisplayAndroid, 100));
+
+        // Rounding test with density = 0.4949, value = 100, expected = 49
+        when(mDisplayAndroid.getDipScale()).thenReturn(0.4949f);
+        assertEquals(
+                "The value returned is incorrect (4)",
+                49,
+                DisplayUtil.dpToPx(mDisplayAndroid, 100));
+
+        // Negative trivial test with density = 1, value = -100, expected = -100
+        when(mDisplayAndroid.getDipScale()).thenReturn(1.0f);
+        assertEquals(
+                "The value returned is incorrect (5)",
+                -100,
+                DisplayUtil.dpToPx(mDisplayAndroid, -100));
+
+        // Negative rounding test with density = 1.375, value = -100, expected = -137 (tie-break
+        // from -137.5 towards positive infinity)
+        when(mDisplayAndroid.getDipScale()).thenReturn(1.375f);
+        assertEquals(
+                "The value returned is incorrect (6)",
+                -137,
+                DisplayUtil.dpToPx(mDisplayAndroid, -100));
+
+        // Negative rounding test with density = 0.499, value = -100, expected = -50
+        when(mDisplayAndroid.getDipScale()).thenReturn(0.499f);
+        assertEquals(
+                "The value returned is incorrect (7)",
+                -50,
+                DisplayUtil.dpToPx(mDisplayAndroid, -100));
+
+        // Negative rounding test with density = 0.4949, value = -100, expected = -49
+        when(mDisplayAndroid.getDipScale()).thenReturn(0.4949f);
+        assertEquals(
+                "The value returned is incorrect (8)",
+                -49,
+                DisplayUtil.dpToPx(mDisplayAndroid, -100));
+    }
+
+    @Test
+    public void testPxToDp() {
+        // Trivial test with density = 1, value = 0, expected = 0
+        when(mDisplayAndroid.getDipScale()).thenReturn(1.0f);
+        assertEquals(
+                "The value returned is incorrect (0)", 0, DisplayUtil.pxToDp(mDisplayAndroid, 0));
+
+        // Trivial test with density = 1, value = 100, expected = 100
+        when(mDisplayAndroid.getDipScale()).thenReturn(1.0f);
+        assertEquals(
+                "The value returned is incorrect (1)",
+                100,
+                DisplayUtil.pxToDp(mDisplayAndroid, 100));
+
+        // Rounding test with density = 1.6, value = 100, expected = 63
+        when(mDisplayAndroid.getDipScale()).thenReturn(1.6f);
+        assertEquals(
+                "The value returned is incorrect (2)",
+                63,
+                DisplayUtil.pxToDp(mDisplayAndroid, 100));
+
+        // Rounding test with density = 2.02, value = 100, expected = 50
+        when(mDisplayAndroid.getDipScale()).thenReturn(2.02f);
+        assertEquals(
+                "The value returned is incorrect (3)",
+                50,
+                DisplayUtil.pxToDp(mDisplayAndroid, 100));
+
+        // Rounding test with density = 2.0205, value = 100, expected = 49
+        when(mDisplayAndroid.getDipScale()).thenReturn(2.0205f);
+        assertEquals(
+                "The value returned is incorrect (4)",
+                49,
+                DisplayUtil.pxToDp(mDisplayAndroid, 100));
+
+        // Negative trivial test with density = 1, value = -100, expected = -100
+        when(mDisplayAndroid.getDipScale()).thenReturn(1.0f);
+        assertEquals(
+                "The value returned is incorrect (5)",
+                -100,
+                DisplayUtil.pxToDp(mDisplayAndroid, -100));
+
+        // Negative rounding test with density = 1.6, value = -100, expected = -62 (tie-break from
+        // -62.5 towards positive infinity)
+        when(mDisplayAndroid.getDipScale()).thenReturn(1.6f);
+        assertEquals(
+                "The value returned is incorrect (6)",
+                -62,
+                DisplayUtil.pxToDp(mDisplayAndroid, -100));
+
+        // Negative rounding test with density = 2.02, value = -100, expected = -50
+        when(mDisplayAndroid.getDipScale()).thenReturn(2.02f);
+        assertEquals(
+                "The value returned is incorrect (7)",
+                -50,
+                DisplayUtil.pxToDp(mDisplayAndroid, -100));
+
+        // Negative rounding test with density = 2.0205, value = -100, expected = -49
+        when(mDisplayAndroid.getDipScale()).thenReturn(2.0205f);
+        assertEquals(
+                "The value returned is incorrect (8)",
+                -49,
+                DisplayUtil.pxToDp(mDisplayAndroid, -100));
+    }
+
+    @Test
+    public void testClampWindowToDisplay_boundsInsideDisplay() {
+        when(mDisplayAndroid.getBounds()).thenReturn(new Rect(0, 0, 1920, 1080));
+        final Rect testBounds = new Rect(100, 200, 700, 800);
+        assertEquals(
+                "The bounds should have been preserved as they were already inside display",
+                testBounds,
+                DisplayUtil.clampWindowToDisplay(testBounds, mDisplayAndroid));
+    }
+
+    @Test
+    public void testClampWindowToDisplay_boundsPartiallyOffscreen() {
+        when(mDisplayAndroid.getBounds()).thenReturn(new Rect(0, 0, 1000, 1000));
+        final Rect testBounds = new Rect(-100, 200, 700, 800);
+        // Size can be preserved, there is exactly one Rect with given size distant by 100 px in
+        // Manhattan metric that fits inside the display, and there is no valid Rect with given size
+        // closer than 100 px.
+        final Rect expectedBounds = new Rect(0, 200, 800, 800);
+        assertEquals(
+                "The bounds were partially off-screen",
+                expectedBounds,
+                DisplayUtil.clampWindowToDisplay(testBounds, mDisplayAndroid));
+    }
+
+    @Test
+    public void testClampWindowToDisplay_boundsPartiallyOffscreen2() {
+        when(mDisplayAndroid.getBounds()).thenReturn(new Rect(0, 0, 1000, 1000));
+        final Rect testBounds = new Rect(200, -100, 800, 700);
+        // Size can be preserved, there is exactly one Rect with given size distant by 100 px in
+        // Manhattan metric that fits inside the display, and there is no valid Rect with given size
+        // closer than 100 px.
+        final Rect expectedBounds = new Rect(200, 0, 800, 800);
+        assertEquals(
+                "The bounds were partially off-screen",
+                expectedBounds,
+                DisplayUtil.clampWindowToDisplay(testBounds, mDisplayAndroid));
+    }
+
+    @Test
+    public void testClampWindowToDisplay_boundsFullyOffscreen() {
+        when(mDisplayAndroid.getBounds()).thenReturn(new Rect(0, 0, 1000, 1000));
+        final Rect testBounds = new Rect(1100, 1200, 1600, 1800);
+        // Size can be preserved, there is exactly one Rect with given size distant by 1400 px in
+        // Manhattan metric that fits inside the display, and there is no valid Rect with given size
+        // closer than 1400 px.
+        final Rect expectedBounds = new Rect(500, 400, 1000, 1000);
+        assertEquals(
+                "The bounds were fully off-screen",
+                expectedBounds,
+                DisplayUtil.clampWindowToDisplay(testBounds, mDisplayAndroid));
+    }
+
+    @Test
+    public void testClampWindowToDisplay_boundsFullyOffscreenAndWiderThanDisplay() {
+        when(mDisplayAndroid.getBounds()).thenReturn(new Rect(0, 0, 1100, 1200));
+        final Rect testBounds = new Rect(-100, 1400, 1200, 1800);
+        // Size cannot be preserved in horizontal axis. The least displacement in the vertical axis
+        // to get a Rect inside the display is 400px.
+        final Rect expectedBounds = new Rect(0, 800, 1100, 1200);
+        assertEquals(
+                "The bounds were fully off-screen and wider than the display",
+                expectedBounds,
+                DisplayUtil.clampWindowToDisplay(testBounds, mDisplayAndroid));
+    }
+
+    @Test
+    public void testClampWindowToDisplay_boundsBiggerThanDisplay() {
+        final Rect displayBounds = new Rect(0, 0, 1400, 1200);
+        when(mDisplayAndroid.getBounds()).thenReturn(displayBounds);
+        final Rect testBounds = new Rect(-100, 1400, 1400, 3000);
+        assertEquals(
+                "The bounds were bigger in both dimensions than the display",
+                displayBounds,
+                DisplayUtil.clampWindowToDisplay(testBounds, mDisplayAndroid));
+    }
 }

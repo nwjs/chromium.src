@@ -8,14 +8,16 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
 
-import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.dom_distiller.DomDistillerTabUtils;
+import org.chromium.chrome.browser.dom_distiller.ReaderModeActionRateLimiter;
 import org.chromium.chrome.browser.dom_distiller.ReaderModeManager;
 import org.chromium.chrome.browser.dom_distiller.ReaderModeManager.DistillationStatus;
+import org.chromium.chrome.browser.dom_distiller.ReaderModeMetrics;
 import org.chromium.chrome.browser.dom_distiller.TabDistillabilityProvider;
 import org.chromium.chrome.browser.dom_distiller.TabDistillabilityProvider.DistillabilityObserver;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
@@ -28,23 +30,10 @@ import org.chromium.components.ukm.UkmRecorder;
 import org.chromium.url.GURL;
 
 import java.util.Objects;
-import java.util.function.BooleanSupplier;
 
 /** Provides reader mode signal for showing contextual page action for a given tab. */
 @NullMarked
 public class ReaderModeActionProvider implements ContextualPageActionController.ActionProvider {
-    /** Histogram name for if any distillation signal was in time for the CPA timeout. */
-    public static final String SIGNAL_ACCUMULATOR_WITHIN_TIMEOUT_HISTOGRAM =
-            "DomDistiller.Android.AnyPageSignalWithinTimeout";
-
-    /** Histogram name for if a positive distillation signal was in time for the CPA timeout. */
-    public static final String SIGNAL_ACCUMULATOR_DISTILLABLE_WITHIN_TIMEOUT_HISTOGRAM =
-            "DomDistiller.Android.DistillablePageSignalWithinTimeout";
-
-    /** Histogram name that records how long it takes to get a reader mode result. */
-    public static final String READER_MODE_SIGNAL_TIME_HISTOGRAM =
-            "DomDistiller.Time.TimeToProvideResultToAccumulator";
-
     // DistillabilityObserver which automatically un/registers itself as an observer when there is a
     // result.
     private class OneshotDistillabilityObserver extends EmptyTabObserver
@@ -144,9 +133,9 @@ public class ReaderModeActionProvider implements ContextualPageActionController.
 
     private @Nullable OneshotDistillabilityObserver mDistillabilityObserver;
     private @Nullable GURL mLastSeenUrl;
-    private final BooleanSupplier mButtonVisibilitySupplier;
+    private final OneshotSupplier<Boolean> mButtonVisibilitySupplier;
 
-    public ReaderModeActionProvider(BooleanSupplier buttonVisibilitySupplier) {
+    public ReaderModeActionProvider(OneshotSupplier<Boolean> buttonVisibilitySupplier) {
         mButtonVisibilitySupplier = buttonVisibilitySupplier;
     }
 
@@ -179,12 +168,11 @@ public class ReaderModeActionProvider implements ContextualPageActionController.
 
     @Override
     public void onActionShown(@Nullable Tab tab, @AdaptiveToolbarButtonVariant int action) {
-        if (tab == null || tab.isLoading()) return;
-        final boolean isReaderMode =
-                action == AdaptiveToolbarButtonVariant.READER_MODE
-                        && mButtonVisibilitySupplier.getAsBoolean();
+        if (action != AdaptiveToolbarButtonVariant.READER_MODE || tab == null || tab.isLoading()) {
+            return;
+        }
 
-        // When on a distilled page, return immediately and don't set reader mode as shown
+        // When on a distilled page, don't count the action as shown and return immediately.
         if (DomDistillerFeatures.sReaderModeDistillInApp.isEnabled()
                 && DomDistillerUrlUtils.isDistilledPage(tab.getUrl())) {
             return;
@@ -199,7 +187,9 @@ public class ReaderModeActionProvider implements ContextualPageActionController.
                                     tab.getUserDataHost()
                                             .getUserData(ReaderModeManager.USER_DATA_KEY);
                             if (readerModeManager != null) {
-                                readerModeManager.onContextualPageActionShown(isReaderMode);
+                                readerModeManager.onContextualPageActionShown(
+                                        mButtonVisibilitySupplier);
+                                ReaderModeActionRateLimiter.getInstance().onActionShown();
                             }
                         },
                         /* delayMillis= */ 500);
@@ -214,17 +204,17 @@ public class ReaderModeActionProvider implements ContextualPageActionController.
 
     private void notifyActionAvailable(
             Tab tab, boolean isDistillable, SignalAccumulator signalAccumulator) {
+        if (ReaderModeActionRateLimiter.getInstance().isActionSuppressed()) return;
         signalAccumulator.setSignal(AdaptiveToolbarButtonVariant.READER_MODE, isDistillable);
 
         long latency = System.currentTimeMillis() - signalAccumulator.getSignalStartTimeMs();
         boolean signalAvailable = !signalAccumulator.hasTimedOut();
-        RecordHistogram.recordBooleanHistogram(
-                SIGNAL_ACCUMULATOR_WITHIN_TIMEOUT_HISTOGRAM, signalAvailable);
-        RecordHistogram.recordLongTimesHistogram(READER_MODE_SIGNAL_TIME_HISTOGRAM, latency);
+        ReaderModeMetrics.recordAnyPageSignalWithinTimeout(signalAvailable);
+        ReaderModeMetrics.recordTimeToProvideResultToAccumulator(latency);
+
         // Record if the signal counted when a page was distillable.
         if (isDistillable) {
-            RecordHistogram.recordBooleanHistogram(
-                    SIGNAL_ACCUMULATOR_DISTILLABLE_WITHIN_TIMEOUT_HISTOGRAM, signalAvailable);
+            ReaderModeMetrics.recordDistillablePageSignalWithinTimeout(signalAvailable);
         }
         if (tab.getWebContents() != null) {
             new UkmRecorder(tab.getWebContents(), "DomDistiller.Android.DistillabilityLatency")

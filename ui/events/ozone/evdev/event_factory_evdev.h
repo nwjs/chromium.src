@@ -72,6 +72,11 @@ class COMPONENT_EXPORT(EVDEV) EventFactoryEvdev : public DeviceEventObserver,
   void WarpCursorTo(gfx::AcceleratedWidget widget,
                     const gfx::PointF& location);
 
+  // Creates and dispatches a synthesized mouse move event. This event is used
+  // to notify the logical location has been changed even if a user didn't move
+  // the mouse, such as display configuration change.
+  void SynthesizeMouseMove(const gfx::PointF& location);
+
   std::unique_ptr<SystemInputInjector> CreateSystemInputInjector();
 
   InputControllerEvdev* input_controller() { return &input_controller_; }

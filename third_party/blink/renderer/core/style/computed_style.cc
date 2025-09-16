@@ -552,7 +552,7 @@ bool ComputedStyle::HighlightPseudoElementStylesDependOnRelativeUnits() const {
   }
   const CustomHighlightsStyleMap& custom_highlights =
       highlight_data.CustomHighlights();
-  for (auto custom_highlight : custom_highlights) {
+  for (const auto& custom_highlight : custom_highlights) {
     if (custom_highlight.value->HasAnyRelativeUnits()) {
       return true;
     }
@@ -581,7 +581,7 @@ bool ComputedStyle::HighlightPseudoElementStylesDependOnContainerUnits() const {
   }
   const CustomHighlightsStyleMap& custom_highlights =
       highlight_data.CustomHighlights();
-  for (auto custom_highlight : custom_highlights) {
+  for (const auto& custom_highlight : custom_highlights) {
     if (custom_highlight.value->HasContainerRelativeValue()) {
       return true;
     }
@@ -610,7 +610,7 @@ bool ComputedStyle::HighlightPseudoElementStylesDependOnViewportUnits() const {
   }
   const CustomHighlightsStyleMap& custom_highlights =
       highlight_data.CustomHighlights();
-  for (auto custom_highlight : custom_highlights) {
+  for (const auto& custom_highlight : custom_highlights) {
     if (custom_highlight.value->HasViewportUnits()) {
       return true;
     }
@@ -639,7 +639,7 @@ bool ComputedStyle::HighlightPseudoElementStylesHaveVariableReferences() const {
   }
   const CustomHighlightsStyleMap& custom_highlights =
       highlight_data.CustomHighlights();
-  for (auto custom_highlight : custom_highlights) {
+  for (const auto& custom_highlight : custom_highlights) {
     if (custom_highlight.value->HasVariableReference()) {
       return true;
     }
@@ -921,10 +921,6 @@ StyleDifference ComputedStyle::VisualInvalidationDiff(
 bool ComputedStyle::DiffNeedsReshape(const ComputedStyle& other,
                                      uint64_t field_diff) const {
   if (field_diff & kReshape) {
-    return true;
-  }
-
-  if (ShouldWrapLine() != other.ShouldWrapLine()) {
     return true;
   }
 
@@ -1918,6 +1914,8 @@ ETextAlign ComputedStyle::GetTextAlign(bool is_last_line) const {
       return ETextAlign::kCenter;
     case ETextAlignLast::kJustify:
       return ETextAlign::kJustify;
+    case ETextAlignLast::kMatchParent:
+      return ETextAlign::kMatchParent;
     case ETextAlignLast::kAuto:
       ETextAlign text_align = GetTextAlign();
       if (text_align == ETextAlign::kJustify) {
@@ -2529,11 +2527,6 @@ Color ComputedStyle::VisitedDependentColor(const Longhand& color_property,
 
   blink::Color unvisited_color =
       color_property.ColorIncludingFallback(false, *this, is_current_color);
-  if (RuntimeEnabledFeatures::CSSDoNotHideVisitedColorEnabled()) {
-    // Under this flag, we treat :visited like any other pseudo-class,
-    // and we never touch the -internal-visited-* properties.
-    return unvisited_color;
-  }
   if (InsideLink() != EInsideLink::kInsideVisitedLink) {
     return unvisited_color;
   }
@@ -3006,6 +2999,19 @@ bool ComputedStyle::ApplyControlFixedSize(const Node* node) const {
     control = DynamicTo<HTMLFormControlElement>(node->OwnerShadowHost());
   }
   return control && control->GetAutofillState() != WebAutofillState::kNotFilled;
+}
+
+bool ComputedStyle::HasAnimationTrigger() const {
+  CSSAnimationData* data = Animations();
+  if (!data) {
+    return false;
+  }
+
+  return std::any_of(data->TriggerNamesList().begin(),
+                     data->TriggerNamesList().end(),
+                     [](std::optional<Vector<AtomicString>> name_list) {
+                       return name_list.has_value();
+                     });
 }
 
 ComputedStyleBuilder::ComputedStyleBuilder(const ComputedStyle& style)

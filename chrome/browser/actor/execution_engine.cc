@@ -20,14 +20,17 @@
 #include "base/notimplemented.h"
 #include "base/state_transitions.h"
 #include "base/types/id_type.h"
+#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/browser_action_util.h"
 #include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/actor/task_id.h"
+#include "chrome/browser/actor/tools/navigate_tool_request.h"
 #include "chrome/browser/actor/tools/tool_controller.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
+#include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/password_manager/actor_login/actor_login_service.h"
 #include "chrome/browser/password_manager/actor_login/actor_login_service_impl.h"
 #include "chrome/browser/profiles/profile.h"
@@ -36,6 +39,7 @@
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/chrome_features.h"
+#include "components/keyed_service/core/service_access_type.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/tabs/public/tab_interface.h"
@@ -62,14 +66,17 @@ namespace actor {
 
 namespace {
 
-void PostTaskForActCallback(ActorTask::ActCallback callback,
-                            mojom::ActionResultPtr result,
-                            std::optional<size_t> index_of_failed_action) {
+void PostTaskForActCallback(
+    ActorTask::ActCallback callback,
+    mojom::ActionResultPtr result,
+    std::optional<size_t> index_of_failed_action,
+    std::vector<ActionResultWithLatencyInfo> action_results) {
   UMA_HISTOGRAM_ENUMERATION("Actor.ExecutionEngine.Action.ResultCode",
                             result->code);
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback), std::move(result),
-                                index_of_failed_action));
+      FROM_HERE,
+      base::BindOnce(std::move(callback), std::move(result),
+                     index_of_failed_action, std::move(action_results)));
 }
 
 }  // namespace
@@ -80,8 +87,6 @@ ExecutionEngine::ExecutionEngine(Profile* profile)
       ui_event_dispatcher_(ui::NewUiEventDispatcher(
           ActorKeyedService::Get(profile)->GetActorUiStateManager())) {
   CHECK(profile_);
-  // Idempotent. Enables the action blocklist if it isn't already enabled.
-  InitActionBlocklist(profile_.get());
 }
 
 ExecutionEngine::ExecutionEngine(
@@ -91,8 +96,6 @@ ExecutionEngine::ExecutionEngine(
       journal_(ActorKeyedService::Get(profile)->GetJournal().GetSafeRef()),
       ui_event_dispatcher_(std::move(ui_event_dispatcher)) {
   CHECK(profile_);
-  // Idempotent. Enables the action blocklist if it isn't already enabled.
-  InitActionBlocklist(profile_.get());
 }
 
 std::unique_ptr<ExecutionEngine> ExecutionEngine::CreateForTesting(
@@ -155,8 +158,24 @@ std::string ExecutionEngine::StateToString(State state) {
   }
 }
 
-void ExecutionEngine::RegisterWithProfile(Profile* profile) {
-  InitActionBlocklist(profile);
+bool ExecutionEngine::ShouldGateNavigation(
+    content::NavigationHandle& navigation_handle) {
+  if (!base::FeatureList::IsEnabled(kGlicCrossOriginNavigationGating)) {
+    return false;
+  }
+
+  const GURL& navigation_url = navigation_handle.GetURL();
+
+  for (const auto& origin : allowed_navigation_origins_) {
+    if (origin.IsSameOriginWith(navigation_url)) {
+      return false;
+    }
+  }
+
+  const std::optional<url::Origin>& initiator_origin =
+      navigation_handle.GetInitiatorOrigin();
+  return initiator_origin &&
+         !initiator_origin->IsSameOriginWith(navigation_url);
 }
 
 void ExecutionEngine::CancelOngoingActions(mojom::ActionResultCode reason) {
@@ -190,7 +209,7 @@ void ExecutionEngine::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
     PostTaskForActCallback(std::move(callback),
                            MakeResult(mojom::ActionResultCode::kError,
                                       "Task already has action in progress"),
-                           std::nullopt);
+                           std::nullopt, {});
     return;
   }
 
@@ -200,38 +219,23 @@ void ExecutionEngine::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
   absl::flat_hash_set<int32_t> acting_tab_handles;
 
   action_sequence_ = std::move(actions);
+  bool origin_gating_enabled =
+      base::FeatureList::IsEnabled(kGlicCrossOriginNavigationGating);
   for (const std::unique_ptr<ToolRequest>& action : action_sequence_) {
     CHECK(action);
     if (action->GetTabHandle() != tabs::TabHandle::Null()) {
       acting_tab_handles.insert(action->GetTabHandle().raw_value());
     }
+    if (origin_gating_enabled) {
+      if (std::optional<url::Origin> maybe_origin =
+              action->AssociatedOriginGrant();
+          maybe_origin) {
+        allowed_navigation_origins_.insert(maybe_origin.value());
+      }
+    }
   }
 
-  if (state_ == State::kInit) {
-    // This is the first Act() by this ExecutionEngine, so we should notify
-    // the UI, then kickoff the first action.
-    //
-    // TODO(crbug.com/411462297): Make sure we're property dispatching
-    // StartingToActOnTab UiEvents when tasks aren't scoped to a single tab.
-    // This won't work if the first action sequence is creating the tab on which
-    // following sequences will act.
-    // TODO(crbug.com/420669167): This needs to support taking multiple tabs. Is
-    // it even the right interface? Different sets of tabs might be acted on in
-    // followup sequences...
-    ui_event_dispatcher_->OnPreFirstAct(
-        ui::UiEventDispatcher::FirstActInfo{
-            .task_id = task_->id(),
-            .tab_handle = acting_tab_handles.empty()
-                              ? std::nullopt
-                              : std::make_optional(tabs::TabHandle(
-                                    *acting_tab_handles.begin()))},
-        base::BindOnce(&ExecutionEngine::KickOffNextAction, GetWeakPtr()));
-  } else {
-    // We previously notified the UI, so just kickoff the first action.
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&ExecutionEngine::KickOffNextAction,
-                                  GetWeakPtr(), MakeOkResult()));
-  }
+  KickOffNextAction(MakeOkResult());
 }
 
 void ExecutionEngine::KickOffNextAction(
@@ -331,10 +335,11 @@ void ExecutionEngine::ExecuteNextAction() {
   CHECK(tool_controller_);
 
   ++next_action_index_;
+  action_start_time_ = base::TimeTicks::Now();
 
   SetState(State::kToolCreateAndVerify);
   tool_controller_->CreateToolAndValidate(
-      GetInProgressAction(), last_observed_page_content_.get(),
+      GetInProgressAction(),
       base::BindOnce(&ExecutionEngine::PostToolCreate, GetWeakPtr()));
 }
 
@@ -371,11 +376,16 @@ void ExecutionEngine::FinishedToolInvoke(mojom::ActionResultPtr result) {
                     InProgressActionIndex());
     return;
   }
+
   if (!IsOk(*result)) {
+    action_results_.emplace_back(action_start_time_, base::TimeTicks::Now(),
+                                 result->Clone());
     CompleteActions(std::move(result), InProgressActionIndex());
     return;
   }
 
+  action_results_.emplace_back(action_start_time_, base::TimeTicks::Now(),
+                               std::move(result));
   SetState(State::kUiPostInvoke);
   ui_event_dispatcher_->OnPostTool(
       GetInProgressAction(),
@@ -417,27 +427,20 @@ void ExecutionEngine::CompleteActions(mojom::ActionResultPtr result,
 
   // TODO(crbug.com/411462297): Populate observation.
   PostTaskForActCallback(std::move(act_callback_), std::move(result),
-                         action_index);
+                         action_index, std::move(action_results_));
 
   action_sequence_.clear();
   next_action_index_ = 0;
   actions_weak_ptr_factory_.InvalidateWeakPtrs();
-  // TODO(crbug.com/409559623): Conceptually this should also reset
-  // `last_observed_page_content_`.
-}
-
-void ExecutionEngine::DidObserveContext(
-    const mojo_base::ProtoWrapper& apc_proto) {
-  last_observed_page_content_ = std::make_unique<AnnotatedPageContent>(
-      apc_proto.As<AnnotatedPageContent>().value());
-}
-
-const AnnotatedPageContent* ExecutionEngine::GetLastObservedPageContent() {
-  return last_observed_page_content_.get();
 }
 
 base::WeakPtr<ExecutionEngine> ExecutionEngine::GetWeakPtr() {
   return actions_weak_ptr_factory_.GetWeakPtr();
+}
+
+favicon::FaviconService* ExecutionEngine::GetFaviconService() {
+  return FaviconServiceFactory::GetForProfile(
+      profile_, ServiceAccessType::EXPLICIT_ACCESS);
 }
 
 AggregatedJournal& ExecutionEngine::GetJournal() {
@@ -448,9 +451,33 @@ actor_login::ActorLoginService& ExecutionEngine::GetActorLoginService() {
   return *actor_login_service_;
 }
 
-void ExecutionEngine::SetActorLoginServiceForTesting(
-    std::unique_ptr<actor_login::ActorLoginService> test_service) {
-  actor_login_service_ = std::move(test_service);
+void ExecutionEngine::PromptToSelectCredential(
+    const std::vector<actor_login::Credential>& credentials,
+    const base::flat_map<GURL, gfx::Image>& favicons,
+    ToolDelegate::CredentialSelectedCallback callback) {
+  CHECK(!credentials.empty());
+
+  // In the same task, another login attempt is made before the previous one
+  // responds. Cancel the previous one.
+  if (credential_selected_callback_) {
+    // TODO(crbug.com/427817882): Explicit error reason (kNewLonginAttempt).
+    std::move(credential_selected_callback_)
+        .Run(/*selected_credential=*/webui::mojom::
+                 SelectCredentialDialogResponse::New());
+  }
+  credential_selected_callback_ = std::move(callback);
+
+  // TODO(crbug.com/438710031): Surface the favicons to the WebClient.
+
+  ActorKeyedService::Get(profile_)
+      ->NotifyRequestToShowCredentialSelectionDialog(task_->id(), credentials);
+}
+
+void ExecutionEngine::OnCredentialSelected(
+    webui::mojom::SelectCredentialDialogResponsePtr response) {
+  if (credential_selected_callback_) {
+    std::move(credential_selected_callback_).Run(std::move(response));
+  }
 }
 
 const ToolRequest& ExecutionEngine::GetNextAction() const {

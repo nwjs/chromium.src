@@ -17,9 +17,12 @@
 #include "base/android/jni_string.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/autofill/android/android_autofill_availability_status.h"
-#include "chrome/browser/autofill/android/jni_headers/AutofillClientProviderUtils_jni.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "components/android_autofill/browser/android_autofill_client.h"
+#include "components/prefs/android/pref_service_android.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "chrome/browser/autofill/android/jni_headers/AutofillClientProviderUtils_jni.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace autofill {
@@ -55,18 +58,15 @@ std::string GetTrialGroupForPackage() {
 void SetSharedPrefForDeepLink() {
   Java_AutofillClientProviderUtils_setAutofillOptionsDeepLinkPref(
       base::android::AttachCurrentThread(),
+
       base::FeatureList::IsEnabled(
-          autofill::features::kAutofillVirtualViewStructureAndroid) &&
-          base::FeatureList::IsEnabled(
-              autofill::features::kAutofillDeepLinkAutofillOptions));
+          autofill::features::kAutofillDeepLinkAutofillOptions));
 }
 
 // Sets a shared pref that allows external apps to use a ContentResolver to
 // figure out whether Chrome is using platform autofill over the default.
 void SetSharedPrefForSettingsContentProvider(bool uses_platform_autofill) {
   if (base::FeatureList::IsEnabled(
-          autofill::features::kAutofillVirtualViewStructureAndroid) &&
-      base::FeatureList::IsEnabled(
           autofill::features::kAutofillThirdPartyModeContentProvider)) {
     Java_AutofillClientProviderUtils_setThirdPartyModePref(
         base::android::AttachCurrentThread(), uses_platform_autofill);
@@ -78,35 +78,9 @@ void SetSharedPrefForSettingsContentProvider(bool uses_platform_autofill) {
 
 AndroidAutofillAvailabilityStatus GetAndroidAutofillAvailabilityStatus(
     PrefService& prefs) {
-  AndroidAutofillAvailabilityStatus availability = static_cast<
-      AndroidAutofillAvailabilityStatus>(
+  return static_cast<AndroidAutofillAvailabilityStatus>(
       Java_AutofillClientProviderUtils_getAndroidAutofillFrameworkAvailability(
-          base::android::AttachCurrentThread(), prefs.GetJavaObject()));
-  // Check whether the returned availability is affected by feature parameters
-  // that skip some checks on this client.
-  switch (availability) {
-    case AndroidAutofillAvailabilityStatus::kAndroidAutofillServiceIsGoogle:
-      if (features::kAutofillVirtualViewStructureAndroidSkipsCompatibilityCheck
-              .Get() ==
-          features::VirtualViewStructureSkipChecks::kOnlySkipAwGCheck) {
-        availability = AndroidAutofillAvailabilityStatus::kAvailable;
-      }
-      ABSL_FALLTHROUGH_INTENDED;  // No skip-awg-check but skip-all may apply.
-    case AndroidAutofillAvailabilityStatus::kAndroidAutofillManagerNotAvailable:
-    case AndroidAutofillAvailabilityStatus::kAndroidAutofillNotSupported:
-    case AndroidAutofillAvailabilityStatus::kUnknownAndroidAutofillService:
-      if (features::kAutofillVirtualViewStructureAndroidSkipsCompatibilityCheck
-              .Get() ==
-          features::VirtualViewStructureSkipChecks::kSkipAllChecks) {
-        availability = AndroidAutofillAvailabilityStatus::kAvailable;
-      }
-      return availability;
-    case AndroidAutofillAvailabilityStatus::kAvailable:
-    case AndroidAutofillAvailabilityStatus::kSettingTurnedOff:
-    case AndroidAutofillAvailabilityStatus::kNotAllowedByPolicy:
-      return availability;
-  }
-  NOTREACHED();
+          base::android::AttachCurrentThread(), &prefs));
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 

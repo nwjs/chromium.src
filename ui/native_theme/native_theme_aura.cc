@@ -29,11 +29,10 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/image/image_skia.h"
-#include "ui/native_theme/common_theme.h"
 #include "ui/native_theme/features/native_theme_features.h"
 #include "ui/native_theme/native_theme_fluent.h"
 #include "ui/native_theme/native_theme_utils.h"
-#include "ui/native_theme/overlay_scrollbar_constants_aura.h"
+#include "ui/native_theme/overlay_scrollbar_constants.h"
 
 namespace ui {
 
@@ -80,13 +79,6 @@ NativeTheme* NativeTheme::GetInstanceForNativeUi() {
       /*should_only_use_dark_colors=*/false,
       /*system_theme=*/ui::SystemTheme::kDefault,
       /*configure_web_instance=*/true);
-  return s_native_theme.get();
-}
-
-NativeTheme* NativeTheme::GetInstanceForDarkUI() {
-  static base::NoDestructor<NativeThemeAura> s_native_theme(
-      /*use_overlay_scrollbars=*/false,
-      /*should_only_use_dark_colors=*/true);
   return s_native_theme.get();
 }
 #endif  // !BUILDFLAG(IS_WIN)
@@ -179,17 +171,6 @@ void NativeThemeAura::PaintMenuPopupBackground(
   } else {
     canvas->drawColor(color, SkBlendMode::kSrc);
   }
-}
-
-void NativeThemeAura::PaintMenuItemBackground(
-    cc::PaintCanvas* canvas,
-    const ColorProvider* color_provider,
-    State state,
-    const gfx::Rect& rect,
-    const MenuItemExtraParams& menu_item,
-    ColorScheme color_scheme) const {
-  CommonThemePaintMenuItemBackground(this, color_provider, canvas, state, rect,
-                                     menu_item);
 }
 
 void NativeThemeAura::PaintArrowButton(

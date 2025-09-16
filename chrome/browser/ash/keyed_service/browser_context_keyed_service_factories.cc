@@ -18,13 +18,14 @@
 #include "chrome/browser/ash/app_list/arc/arc_vpn_provider_manager_factory.h"
 #include "chrome/browser/ash/app_list/search/local_image_search/local_image_search_service_factory.h"
 #include "chrome/browser/ash/app_mode/arcvm_app/kiosk_arcvm_app_service_factory.h"
-#include "chrome/browser/ash/app_mode/kiosk_app_update_service.h"
+#include "chrome/browser/ash/app_mode/kiosk_app_update_service_factory.h"
 #include "chrome/browser/ash/app_restore/app_restore_arc_task_handler_factory.h"
 #include "chrome/browser/ash/app_restore/full_restore_service_factory.h"
 #include "chrome/browser/ash/apps/apk_web_app_service_factory.h"
 #include "chrome/browser/ash/arc/session/arc_service_launcher.h"
 #include "chrome/browser/ash/bluetooth/debug_logs_manager_factory.h"
 #include "chrome/browser/ash/boca/boca_manager_factory.h"
+#include "chrome/browser/ash/boca/on_task/locked_quiz_session_manager_factory.h"
 #include "chrome/browser/ash/boca/on_task/locked_session_window_tracker_factory.h"
 #include "chrome/browser/ash/borealis/borealis_service_factory.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_service_factory.h"
@@ -153,6 +154,7 @@ void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   ax::AccessibilityServiceRouterFactory::EnsureFactoryBuilt();
   BirchKeyedServiceFactory::GetInstance();
   bluetooth::DebugLogsManagerFactory::GetInstance();
+  boca::LockedQuizSessionManagerFactory::GetInstance();
   BocaManagerFactory::GetInstance();
   borealis::BorealisServiceFactory::GetInstance();
   BrowserProcessPlatformPart::EnsureFactoryBuilt();

@@ -22,7 +22,6 @@
 #include "url/scheme_host_port.h"
 
 using testing::_;
-using testing::Invoke;
 
 namespace net {
 
@@ -103,7 +102,6 @@ class MockHttpStreamFactoryJob : public HttpStreamFactory::Job {
       ProxyInfo proxy_info,
       const std::vector<SSLConfig::CertAndStatus>& allowed_bad_certs,
       url::SchemeHostPort destination,
-      GURL origin_url,
       NextProto alternative_protocol,
       quic::ParsedQuicVersion quic_version,
       bool is_websocket,
@@ -135,7 +133,6 @@ class TestJobFactory : public HttpStreamFactory::JobFactory {
       const ProxyInfo& proxy_info,
       const std::vector<SSLConfig::CertAndStatus>& allowed_bad_certs,
       url::SchemeHostPort destination,
-      GURL origin_url,
       bool is_websocket,
       bool enable_ip_based_pooling_for_h2,
       NetLog* net_log,

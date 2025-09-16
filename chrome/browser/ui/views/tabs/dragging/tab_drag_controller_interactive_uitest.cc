@@ -2,11 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ui/tabs/split_tab_metrics.h"
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
+#include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller_interactive_uitest.h"
 
 #include <stddef.h>
 
@@ -20,6 +16,7 @@
 #include <vector>
 
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/dcheck_is_on.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -44,6 +41,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
@@ -51,10 +49,9 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/native_browser_frame_factory.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/tab_strip_view_interface.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller_interactive_test_mixin.h"
-#include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller_interactive_uitest.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/tabs/window_finder.h"
@@ -449,7 +446,8 @@ std::string IDString(TabStripModel* model) {
 
 TabStrip* GetTabStripForBrowser(Browser* browser) {
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  return browser_view->tabstrip();
+  return static_cast<TabStripRegionView*>(browser_view->tab_strip_view())
+      ->tab_strip();
 }
 
 TabDragController* GetTabDragController(TabStrip* tab_strip) {
@@ -538,7 +536,7 @@ TabDragControllerTest::TabDragControllerTest()
 TabDragControllerTest::~TabDragControllerTest() = default;
 
 void TabDragControllerTest::StopAnimating(TabStrip* tab_strip) {
-  tab_strip->StopAnimating(true);
+  tab_strip->StopAnimating();
 }
 
 void TabDragControllerTest::AddTabsAndResetBrowser(Browser* browser,
@@ -567,7 +565,7 @@ Browser* TabDragControllerTest::CreateAnotherBrowserAndResize() {
   // handle space, preventing us from resizing or moving it.
   const gfx::NativeWindow window = browser()->window()->GetNativeWindow();
   gfx::Rect work_area =
-      display::Screen::GetScreen()->GetDisplayNearestWindow(window).work_area();
+      display::Screen::Get()->GetDisplayNearestWindow(window).work_area();
   const gfx::Size size(work_area.width() / 3, work_area.height() / 2);
   gfx::Rect browser_rect(work_area.origin() + gfx::Vector2d(50, 50), size);
 
@@ -820,7 +818,7 @@ class DetachToBrowserTabDragControllerTest
   }
 
   InputSource input_source() override {
-    return strstr(std::get<2>(GetParam()), "mouse")
+    return UNSAFE_TODO(strstr(std::get<2>(GetParam()), "mouse"))
                ? InputSource::INPUT_SOURCE_MOUSE
                : InputSource::INPUT_SOURCE_TOUCH;
   }
@@ -971,7 +969,7 @@ class DetachToBrowserTabDragControllerTest
                                   int drag_x_offset = 0) {
     test::QuitDraggingObserver observer(tab_strip);
     // Move to the tab and drag it enough so that it detaches.
-    TabGroupHeader* group_header = tab_strip->group_header(group);
+    views::View* group_header = tab_strip->group_header(group);
     ASSERT_TRUE(PressInputAtCenter(group_header));
     ASSERT_TRUE(DragInputToCenterNotifyWhenDone(
         group_header, std::move(task),
@@ -2576,7 +2574,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
                        DetachFromFullsizeWindow) {
   // Resize the browser window so that it is as big as the work area.
   gfx::Rect work_area =
-      display::Screen::GetScreen()
+      display::Screen::Get()
           ->GetDisplayNearestWindow(browser()->window()->GetNativeWindow())
           .work_area();
   ui_test_utils::SetAndWaitForBounds(*browser(), work_area);
@@ -4288,7 +4286,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
       BrowserView::GetBrowserViewForBrowser(browser2);
   const gfx::Rect tabstrip_region2_bounds =
       browser_view2->frame()->GetBoundsForTabStripRegion(
-          browser_view2->tab_strip_region_view()->GetMinimumSize());
+          browser_view2->tab_strip_view()->GetMinimumSize());
   gfx::Rect bounds = initial_bounds;
   bounds.Offset(0, tabstrip_region2_bounds.bottom());
   browser()->window()->SetBounds(bounds);
@@ -4456,14 +4454,16 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
 
 namespace {
 
-TabStrip* GetAttachedTabstrip() {
+TabStripViewInterface* GetAttachedTabstripView() {
   for (Browser* browser : *BrowserList::GetInstance()) {
     BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
+
     if (TabDragController::IsAttachedTo(
-            browser_view->tabstrip()->GetDragContext())) {
-      return browser_view->tabstrip();
+            browser_view->tab_strip_view()->GetDragContext())) {
+      return browser_view->tab_strip_view();
     }
   }
+
   return nullptr;
 }
 
@@ -4492,12 +4492,12 @@ void DragWindowAndVerifyOffset(DetachToBrowserTabDragControllerTest* test,
         // makes sure the window is positioned correctly.
         ASSERT_TRUE(test->DragInputToNotifyWhenDone(
             second_move, base::BindLambdaForTesting([&]() {
-              TabStrip* attached = GetAttachedTabstrip();
+              TabStripViewInterface* attached = GetAttachedTabstripView();
               // Same computation for drag offset. This operation drags a single
               // tab, so the target tab index should be always 0.
               gfx::Vector2d drag_offset(
                   second_move.x() -
-                      attached->tab_at(0)->GetBoundsInScreen().x(),
+                      attached->GetTabAnchorViewAt(0)->GetBoundsInScreen().x(),
                   second_move.y() -
                       attached->GetWidget()->GetWindowBoundsInScreen().y());
               EXPECT_EQ(press_offset, drag_offset);
@@ -4892,7 +4892,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestWithTabbedSystemApp,
   ResetIDs(app_browser2->tab_strip_model(), 100);
 
   gfx::Rect work_area =
-      display::Screen::GetScreen()
+      display::Screen::Get()
           ->GetDisplayNearestWindow(app_browser1->window()->GetNativeWindow())
           .work_area();
   const gfx::Size size(work_area.width() / 3, work_area.height() / 2);
@@ -4975,7 +4975,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserInSeparateDisplayTabDragControllerTest,
 
   // Move to the first tab and drag it enough so that it detaches.
   // Then drag it to the final destination on the second screen.
-  display::Screen* const screen = display::Screen::GetScreen();
+  display::Screen* const screen = display::Screen::Get();
   display::Display second_display = ui_test_utils::GetSecondaryDisplay(screen);
   const gfx::Point start = GetCenterInScreenCoordinates(tab_strip->tab_at(0));
   ASSERT_FALSE(second_display.bounds().Contains(start));
@@ -5058,7 +5058,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserInSeparateDisplayTabDragControllerTest,
   ResetIDs(browser2->tab_strip_model(), 100);
 
   // Move the second browser to the second display.
-  display::Screen* screen = display::Screen::GetScreen();
+  display::Screen* screen = display::Screen::Get();
   Display second_display = ui_test_utils::GetSecondaryDisplay(screen);
   ui_test_utils::SetAndWaitForBounds(*browser2, second_display.work_area());
   EXPECT_EQ(
@@ -5097,7 +5097,7 @@ IN_PROC_BROWSER_TEST_P(
   // Set the browser's window bounds such that the majority of its bounds
   // resides in the second display.
   const std::pair<Display, Display> displays =
-      GetDisplays(display::Screen::GetScreen());
+      GetDisplays(display::Screen::Get());
 
   TabStrip* tab_strip = GetTabStripForBrowser(browser());
   {
@@ -5176,7 +5176,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserInSeparateDisplayTabDragControllerTest,
   ResetIDs(browser2->tab_strip_model(), 100);
 
   // Move both browsers to be side by side on the second display.
-  display::Screen* screen = display::Screen::GetScreen();
+  display::Screen* screen = display::Screen::Get();
   Display second_display = ui_test_utils::GetSecondaryDisplay(screen);
   gfx::Rect work_area = second_display.work_area();
   work_area.set_width(work_area.width() / 2);
@@ -5242,7 +5242,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserInSeparateDisplayTabDragControllerTest,
   TabStrip* tab_strip = GetTabStripForBrowser(browser());
 
   // Create another browser on the second display.
-  display::Screen* screen = display::Screen::GetScreen();
+  display::Screen* screen = display::Screen::Get();
   ASSERT_EQ(2, screen->GetNumDisplays());
   const std::pair<Display, Display> displays = GetDisplays(screen);
   gfx::Rect work_area = displays.second.work_area();
@@ -5310,7 +5310,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserInSeparateDisplayTabDragControllerTest,
   ResetIDs(browser2->tab_strip_model(), 100);
 
   // Move the second browser to the second display.
-  display::Screen* screen = display::Screen::GetScreen();
+  display::Screen* screen = display::Screen::Get();
   const std::pair<Display, Display> displays = GetDisplays(screen);
   ui_test_utils::SetAndWaitForBounds(*browser2, displays.second.work_area());
   EXPECT_EQ(
@@ -5467,7 +5467,7 @@ IN_PROC_BROWSER_TEST_P(DifferentDeviceScaleFactorDisplayTabDragControllerTest,
   TabStrip* tab_strip = GetTabStripForBrowser(browser());
 
   // Move the second browser to the second display.
-  ASSERT_EQ(2, display::Screen::GetScreen()->GetNumDisplays());
+  ASSERT_EQ(2, display::Screen::Get()->GetNumDisplays());
 
   // Move to the first tab and drag it enough so that it detaches.
   DragTabAndNotify(tab_strip, base::BindOnce(&CursorDeviceScaleFactorStep, this,
@@ -5520,7 +5520,7 @@ void CancelDragTabToWindowInSeparateDisplayStep2(
   Browser* new_browser = test->browser_list()->get(num_browsers - 1);
   EXPECT_EQ(
       current_display.id(),
-      display::Screen::GetScreen()
+      display::Screen::Get()
           ->GetDisplayNearestWindow(new_browser->window()->GetNativeWindow())
           .id());
 
@@ -5554,7 +5554,7 @@ IN_PROC_BROWSER_TEST_P(
 
   // Move the second browser to the second display.
   const std::pair<Display, Display> displays =
-      GetDisplays(display::Screen::GetScreen());
+      GetDisplays(display::Screen::Get());
   gfx::Point final_destination = displays.second.work_area().CenterPoint();
 
   // Move to the first tab and drag it enough so that it detaches, but not
@@ -5587,7 +5587,7 @@ IN_PROC_BROWSER_TEST_P(
 IN_PROC_BROWSER_TEST_P(
     DetachToBrowserInSeparateDisplayAndCancelTabDragControllerTest,
     MAYBE_CancelDragTabToWindowIn1stDisplay) {
-  display::Screen* screen = display::Screen::GetScreen();
+  display::Screen* screen = display::Screen::Get();
   const std::pair<Display, Display> displays = GetDisplays(screen);
 
   AddTabsAndResetBrowser(browser(), 1);
@@ -5726,7 +5726,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestTouch,
   DragTabAndNotify(
       tab_strip, base::BindLambdaForTesting([&]() {
         const gfx::Rect display_bounds =
-            display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
+            display::Screen::Get()->GetPrimaryDisplay().bounds();
         const gfx::Point target(display_bounds.x(),
                                 display_bounds.CenterPoint().y());
         ASSERT_TRUE(DragInputToNotifyWhenDone(
@@ -5868,7 +5868,7 @@ using DetachToBrowserTabDragControllerTestWithOnTaskLocked =
     DetachToBrowserTabDragControllerTestWithTabbedSystemApp;
 
 IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestWithOnTaskLocked,
-                       MoveTabOnDrag) {
+                       DoesNotMoveTabOnDrag) {
   // Install and launch mock app that can be locked for OnTask.
   const webapps::AppId tabbed_app_id = InstallMockApp();
   Browser* const app_browser = LaunchWebAppBrowser(tabbed_app_id);
@@ -5887,17 +5887,17 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestWithOnTaskLocked,
   TabStripModel* const tab_strip_model = browser()->tab_strip_model();
   ASSERT_EQ("0 1 2 3", IDString(tab_strip_model));
 
-  // Drag tab in the second index to the tab in the third index to switch tab
-  // positioning.
+  // Attempt to drag tab in the second index to the tab in the third index to
+  // switch tab positioning.
   TabStrip* const tab_strip = GetTabStripForBrowser(browser());
   ASSERT_TRUE(PressInputAtCenter(tab_strip->tab_at(1)));
   ASSERT_TRUE(DragInputToCenter(tab_strip->tab_at(2)));
   ASSERT_TRUE(ReleaseInput());
   StopAnimating(tab_strip);
 
-  // Verify tab is not detached and its position is updated.
+  // Verify tab is not detached and its position remains unchanged.
   ASSERT_EQ(1u, browser_list()->size());
-  EXPECT_EQ("0 2 1 3", IDString(tab_strip_model));
+  EXPECT_EQ("0 1 2 3", IDString(tab_strip_model));
 }
 
 IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestWithOnTaskLocked,
@@ -5926,6 +5926,36 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestWithOnTaskLocked,
   ASSERT_TRUE(ReleaseInput());
   StopAnimating(tab_strip);
   EXPECT_EQ(1u, browser_list()->size());
+}
+
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestWithOnTaskLocked,
+                       WindowDoesNotMoveOnTabDrag) {
+  // Install and launch mock app that can be locked for OnTask.
+  const webapps::AppId tabbed_app_id = InstallMockApp();
+  Browser* const app_browser = LaunchWebAppBrowser(tabbed_app_id);
+  ASSERT_EQ(2u, browser_list()->size());
+
+  // Close normal browser.
+  CloseBrowserSynchronously(browser());
+  ASSERT_EQ(1u, browser_list()->size());
+  SelectFirstBrowser();
+  ASSERT_EQ(app_browser, browser());
+  EXPECT_EQ(Browser::Type::TYPE_APP, browser_list()->get(0)->type());
+
+  // Lock the app for OnTask.
+  browser()->SetLockedForOnTask(true);
+  const gfx::Rect& initial_bounds =
+      browser()->window()->GetNativeWindow()->bounds();
+
+  // Drag tab away from tab strip and verify the window bounds remain unchanged.
+  TabStrip* const tab_strip = GetTabStripForBrowser(browser());
+  ASSERT_TRUE(PressInputAtCenter(tab_strip->tab_at(0)));
+  ASSERT_TRUE(DragInputToCenter(tab_strip->tab_at(0),
+                                gfx::Vector2d(0, GetDetachY(tab_strip) + 1)));
+  ASSERT_TRUE(ReleaseInput());
+  StopAnimating(tab_strip);
+  EXPECT_EQ(1u, browser_list()->size());
+  EXPECT_EQ(browser()->window()->GetNativeWindow()->bounds(), initial_bounds);
 }
 
 INSTANTIATE_TEST_SUITE_P(

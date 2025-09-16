@@ -70,6 +70,12 @@
   [_syncPopupCoordinator start];
 }
 
+#pragma mark - BuggyAuthenticationViewOwner
+
+- (BOOL)viewWillPersist {
+  return YES;
+}
+
 #pragma mark - AnimatedCoordinator
 
 - (void)stopAnimated:(BOOL)animated {

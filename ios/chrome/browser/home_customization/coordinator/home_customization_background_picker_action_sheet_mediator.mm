@@ -4,15 +4,35 @@
 
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_background_picker_action_sheet_mediator.h"
 
-#import "ios/chrome/browser/home_customization/model/background_customization_configuration.h"
-#import "ios/chrome/browser/home_customization/model/background_customization_configuration_item.h"
+#import "base/strings/sys_string_conversions.h"
+#import "components/sync/protocol/theme_types.pb.h"
+#import "ios/chrome/browser/home_customization/coordinator/background_customization_configuration_item.h"
+#import "ios/chrome/browser/home_customization/coordinator/home_customization_data_conversion.h"
 #import "ios/chrome/browser/home_customization/model/home_background_customization_service.h"
+#import "ios/chrome/browser/home_customization/model/home_background_customization_service_observer_bridge.h"
+#import "ios/chrome/browser/home_customization/model/home_background_data.h"
+#import "ios/chrome/browser/home_customization/ui/background_customization_configuration.h"
+#import "ios/chrome/browser/home_customization/ui/home_customization_background_picker_action_sheet_consumer.h"
+#import "ios/chrome/browser/home_customization/ui/home_customization_background_picker_presentation_delegate.h"
+#import "ios/chrome/browser/home_customization/ui/home_customization_framing_coordinates.h"
 #import "ios/chrome/browser/ntp/ui_bundled/theme_utils.h"
 #import "skia/ext/skia_utils_ios.h"
+
+@interface HomeCustomizationBackgroundPickerActionSheetMediator () <
+    HomeBackgroundCustomizationServiceObserving>
+
+// Redefine public property as readwrite
+@property(nonatomic, readwrite, assign) BOOL themeHasChanged;
+
+@end
 
 @implementation HomeCustomizationBackgroundPickerActionSheetMediator {
   raw_ptr<HomeBackgroundCustomizationService>
       _homeBackgroundCustomizationService;
+
+  // Observer for the customization service.
+  std::unique_ptr<HomeBackgroundCustomizationServiceObserverBridge>
+      _backgroundCustomizationServiceObserverBridge;
 }
 
 - (instancetype)initWithHomeBackgroundCustomizationService:
@@ -20,6 +40,9 @@
   self = [super init];
   if (self) {
     _homeBackgroundCustomizationService = homeBackgroundCustomizationService;
+    _backgroundCustomizationServiceObserverBridge =
+        std::make_unique<HomeBackgroundCustomizationServiceObserverBridge>(
+            _homeBackgroundCustomizationService, self);
   }
   return self;
 }
@@ -47,16 +70,46 @@
       [self applyBackgroundColor:backgroundConfiguration];
       break;
     case HomeCustomizationBackgroundStyle::kDefault:
+      [self applyDefaultBackground];
       break;
     default:
       NOTREACHED();
   }
 }
 
-- (void)addBackgroundToRecentlyUsed:
-    (id<BackgroundCustomizationConfiguration>)backgroundConfiguration {
-  // TODO(crbug.com/408243803): Add the selected background configuration to the
-  // recently used list.
+- (void)saveCurrentTheme {
+  if (self.themeHasChanged) {
+    _homeBackgroundCustomizationService->StoreCurrentTheme();
+    self.themeHasChanged = NO;
+  }
+}
+
+- (void)cancelThemeSelection {
+  self.themeHasChanged = NO;
+  _homeBackgroundCustomizationService->RestoreCurrentTheme();
+}
+
+#pragma mark - HomeBackgroundCustomizationServiceObserving
+
+- (void)onBackgroundChanged {
+  if (self.consumer.navigationItem.leftBarButtonItem) {
+    return;
+  }
+
+  self.themeHasChanged = YES;
+
+  UIBarButtonItem* cancelButton = [[UIBarButtonItem alloc]
+      initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
+                           target:self
+                           action:@selector(discardBackground)];
+
+  UIBarButtonItem* doneButton = [[UIBarButtonItem alloc]
+      initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                           target:self
+                           action:@selector(confirmBackground)];
+
+  self.consumer.navigationItem.leftBarButtonItem = cancelButton;
+  self.consumer.navigationItem.rightBarButtonItem = doneButton;
 }
 
 #pragma mark - Private
@@ -64,7 +117,12 @@
 // Applies the user-uploaded photo background to the NTP.
 - (void)applyUserUploadedBackground:
     (BackgroundCustomizationConfigurationItem*)configurationItem {
-  // TODO(crbug.com/427973907): Add applyUserUploadedBackground Implementation.
+  FramingCoordinates coordinates =
+      FramingCoordinatesFromHomeCustomizationFramingCoordinates(
+          configurationItem.userUploadedFramingCoordinates);
+  _homeBackgroundCustomizationService->SetCurrentUserUploadedBackground(
+      base::SysNSStringToUTF8(configurationItem.userUploadedImagePath),
+      coordinates);
 }
 
 // Applies the preset gallery background for the given collection image.
@@ -100,9 +158,29 @@
       static_cast<BackgroundCustomizationConfigurationItem*>(
           backgroundConfiguration);
 
+  if (!configurationItem.backgroundColor) {
+    [self applyDefaultBackground];
+    return;
+  }
+
   _homeBackgroundCustomizationService->SetBackgroundColor(
       skia::UIColorToSkColor(configurationItem.backgroundColor),
       SchemeVariantToProtoEnum(configurationItem.colorVariant));
+}
+
+- (void)applyDefaultBackground {
+  _homeBackgroundCustomizationService->ClearCurrentBackground();
+}
+
+// Discards customization changes and cancels the menu.
+- (void)discardBackground {
+  [self cancelThemeSelection];
+  [self.delegate cancelBackgroundPicker];
+}
+
+// Dismiss the menu. The current background will be saved on menu dismiss.
+- (void)confirmBackground {
+  [self.delegate dismissBackgroundPicker];
 }
 
 @end

@@ -18,7 +18,7 @@ import androidx.annotation.StringDef;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.BuildInfo;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.Promise;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
@@ -92,8 +92,6 @@ public class SyncPromoController {
     @VisibleForTesting
     static final int NTP_SYNC_PROMO_NTP_SINCE_FIRST_TIME_SHOWN_LIMIT_HOURS =
             336; // 14 days in hours.
-
-    @VisibleForTesting static final String GMAIL_DOMAIN = "gmail.com";
 
     /** Strings used for promo shown count histograms. */
     @StringDef({UserAction.CONTINUED, UserAction.DISMISSED, UserAction.SHOWN})
@@ -504,7 +502,7 @@ public class SyncPromoController {
         }
 
         // Hide secondary button on automotive devices, as they only support one account per device
-        if (BuildInfo.getInstance().isAutomotive) {
+        if (DeviceInfo.isAutomotive()) {
             view.getSecondaryButton().setVisibility(View.GONE);
         } else {
             view.getSecondaryButton().setText(R.string.signin_promo_choose_another_account);

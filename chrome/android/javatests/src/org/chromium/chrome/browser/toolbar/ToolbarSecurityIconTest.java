@@ -28,11 +28,12 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.UserDataHost;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifier;
 import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifierJni;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
@@ -44,7 +45,6 @@ import org.chromium.chrome.browser.tab.TrustedCdn;
 import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.test.util.ToolbarUnitTestUtils;
-import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.components.security_state.SecurityStateModelJni;
@@ -58,6 +58,7 @@ import java.util.concurrent.ExecutionException;
 /** Instrumentation tests for the toolbar security icon. */
 @RunWith(BaseJUnit4ClassRunner.class)
 @Batch(Batch.UNIT_TESTS)
+@SuppressWarnings("DirectInvocationOnMock")
 public final class ToolbarSecurityIconTest {
     private static final boolean IS_SMALL_DEVICE = true;
     private static final boolean IS_OFFLINE_PAGE = true;
@@ -76,7 +77,7 @@ public final class ToolbarSecurityIconTest {
 
     @Mock SecurityStateModel.Natives mSecurityStateMocks;
 
-    @Mock private LocationBarModel mLocationBarModel;
+    private LocationBarModel mLocationBarModel;
 
     @Mock private LocationBarModel.Natives mLocationBarModelJni;
 
@@ -117,7 +118,8 @@ public final class ToolbarSecurityIconTest {
                                 context,
                                 NewTabPageDelegate.EMPTY,
                                 (url) -> url.getSpec(),
-                                ToolbarUnitTestUtils.OFFLINE_STATUS));
+                                ToolbarUnitTestUtils.OFFLINE_STATUS,
+                                new ObservableSupplierImpl(ControlsPosition.TOP)));
         ProfileManager.setLastUsedProfileForTesting(mMockProfile);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -461,7 +463,6 @@ public final class ToolbarSecurityIconTest {
     @Test
     @SmallTest
     @UiThreadTest
-    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MOBILE_PARITY_UPDATE)
     public void testGetSecurityIconForIncognitoInfoPage() {
         doReturn(true).when(mMockProfile).isIncognitoBranded();
         assertEquals(

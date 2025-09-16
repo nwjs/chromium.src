@@ -81,6 +81,7 @@ void LogSelectedSuggestionIndexMetric(SuggestionType suggestion_type,
     case FillingProduct::kDataList:
       filling_product_bucket = FillingProductToString(filling_product);
       break;
+    case FillingProduct::kPasskey:
     case FillingProduct::kCompose:
     case FillingProduct::kAutofillAi:
     case FillingProduct::kMerchantPromoCode:
@@ -272,7 +273,7 @@ void LogSelectedSuggestionIndexMetric(SuggestionType suggestion_type,
   UIView* wrapperContainer = [[UIView alloc] init];
   wrapperContainer.translatesAutoresizingMaskIntoConstraints = NO;
   UIView* separator = [[UIView alloc] init];
-  separator.backgroundColor = [UIColor colorNamed:kTextSecondaryColor];
+  separator.backgroundColor = [UIColor colorNamed:kSeparatorColor];
   separator.translatesAutoresizingMaskIntoConstraints = NO;
   [wrapperContainer addSubview:separator];
   [NSLayoutConstraint activateConstraints:@[
@@ -316,7 +317,7 @@ void LogSelectedSuggestionIndexMetric(SuggestionType suggestion_type,
     FormSuggestionLabel* label = [[FormSuggestionLabel alloc]
            initWithSuggestion:suggestion
                         index:idx
-               numSuggestions:[self.suggestions count]
+          numberOfSuggestions:[self.suggestions count]
         accessoryTrailingView:self.accessoryTrailingView
                      delegate:self];
     [self addFormSuggestionLabel:label atIndex:idx];

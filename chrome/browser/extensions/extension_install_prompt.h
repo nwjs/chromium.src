@@ -149,8 +149,8 @@ class ExtensionInstallPrompt {
     std::u16string GetRatingCount() const;
     std::u16string GetUserCount() const;
     size_t GetPermissionCount() const;
+    extensions::InstallPromptPermissions GetPermissions() const;
     std::u16string GetPermission(size_t index) const;
-    std::u16string GetPermissionsDetails(size_t index) const;
 
     const extensions::Extension* extension() const { return extension_; }
     void set_extension(const extensions::Extension* extension) {
@@ -217,9 +217,6 @@ class ExtensionInstallPrompt {
     // Whether or not this prompt has been populated with data from the
     // webstore.
     bool has_webstore_data_;
-
-    std::vector<base::FilePath> retained_files_;
-    std::vector<std::u16string> retained_device_messages_;
 
     base::ObserverList<Observer> observers_;
   };

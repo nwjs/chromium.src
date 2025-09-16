@@ -750,8 +750,13 @@ bool Element::IsFocusableStyle(UpdateBehavior update_behavior) const {
       return false;
     }
 
-    const HTMLCanvasElement* canvas =
-        Traversal<HTMLCanvasElement>::FirstAncestorOrSelf(*this);
+    const HTMLCanvasElement* canvas = nullptr;
+    for (const Element* element = this; element;
+         element = element->ParentOrShadowHostElement()) {
+      if ((canvas = DynamicTo<HTMLCanvasElement>(element))) {
+        break;
+      }
+    }
     DCHECK(canvas);
     if (LayoutObject* layout_object = canvas->GetLayoutObject()) {
       return layout_object->IsCanvas() &&
@@ -854,18 +859,34 @@ int Element::GetComputedHeadingOffset(int max_offset) {
 Node* Element::Clone(Document& factory,
                      NodeCloningData& data,
                      ContainerNode* append_to,
+                     CustomElementRegistry* fallback_registry,
                      ExceptionState& append_exception_state) const {
   Element* copy;
+  CustomElementRegistry* registry = nullptr;
+  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
+    // 2-1. Let registry be node's custom element registry.
+    // 2-2. If registry is null, then set registry to fallbackRegistry
+    if (auto* node_registry = customElementRegistry()) {
+      registry = node_registry;
+    } else {
+      registry = fallback_registry;
+    }
+    // 2-3. If registry is a global custom element registry, then set
+    // registry to document's effective global custom element registry.
+    if (registry && registry->IsGlobalRegistry()) {
+      registry = factory.customElementRegistry();
+    }
+  }
   if (!data.Has(CloneOption::kIncludeDescendants)) {
-    copy = &CloneWithoutChildren(data, &factory);
+    copy = &CloneWithoutChildren(data, registry, &factory);
     if (append_to) {
       append_to->AppendChild(copy, append_exception_state);
     }
   } else {
-    copy =
-        &CloneWithChildren(data, &factory, append_to, append_exception_state);
+    copy = &CloneWithChildren(data, &factory, append_to, registry,
+                              append_exception_state);
   }
-  // 7. If node is a shadow host whose shadow root’s clonable is true:
+  // 6. If node is a shadow host whose shadow root’s clonable is true:
   auto* shadow_root = GetShadowRoot();
   if (!shadow_root) {
     return copy;
@@ -873,7 +894,21 @@ Node* Element::Clone(Document& factory,
   if (shadow_root->clonable()) {
     if (shadow_root->GetMode() == ShadowRootMode::kOpen ||
         shadow_root->GetMode() == ShadowRootMode::kClosed) {
-      // 7.1 Run attach a shadow root with copy, node’s shadow root’s mode,
+      CustomElementRegistry* shadow_root_registry = nullptr;
+      if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
+        // 6.2 Let shadowRootRegistry be node's shadow root's custom element
+        // registry
+        if (auto* node_registry = shadow_root->customElementRegistry()) {
+          shadow_root_registry = node_registry;
+        }
+        // 6.3 If shadowRootRegistry is a global custom element registry, then
+        // set shadowRootRegistry to document's effective global custom element
+        // registry
+        if (shadow_root_registry && shadow_root_registry->IsGlobalRegistry()) {
+          shadow_root_registry = factory.customElementRegistry();
+        }
+      }
+      // 6.4 Run attach a shadow root with copy, node's shadow root's mode,
       // true, node’s shadow root’s delegates focus, and node’s shadow root’s
       // slot assignment.
       // TODO(crbug.com/1523816): it seems like the `registry` parameter should
@@ -882,11 +917,11 @@ Node* Element::Clone(Document& factory,
           shadow_root->GetMode(),
           shadow_root->delegatesFocus() ? FocusDelegation::kDelegateFocus
                                         : FocusDelegation::kNone,
-          shadow_root->GetSlotAssignmentMode(), /*registry*/ nullptr,
+          shadow_root->GetSlotAssignmentMode(), shadow_root_registry,
           shadow_root->serializable(),
           /*clonable*/ true, shadow_root->referenceTarget());
 
-      // 7.2 Set copy’s shadow root’s declarative to node’s shadow root’s
+      // 6.5 Set copy’s shadow root’s declarative to node’s shadow root’s
       // declarative.
       cloned_shadow_root.SetIsDeclarativeShadowRoot(
           shadow_root->IsDeclarativeShadowRoot());
@@ -895,11 +930,12 @@ Node* Element::Clone(Document& factory,
       cloned_shadow_root.SetAvailableToElementInternals(
           shadow_root->IsAvailableToElementInternals());
 
-      // 7.3 If the clone children flag is set, then for each child child of
+      // 6.6 If the clone children flag is set, then for each child child of
       // node’s shadow root, in tree order: append the result of cloning child
       // with document and the clone children flag set, to copy’s shadow root.
       NodeCloningData shadow_data{CloneOption::kIncludeDescendants};
-      cloned_shadow_root.CloneChildNodesFrom(*shadow_root, shadow_data);
+      cloned_shadow_root.CloneChildNodesFrom(*shadow_root, shadow_data,
+                                             /*fallback_registry*/ nullptr);
     }
   }
   return copy;
@@ -909,10 +945,11 @@ Element& Element::CloneWithChildren(
     NodeCloningData& data,
     Document* nullable_factory,
     ContainerNode* append_to,
+    CustomElementRegistry* registry,
     ExceptionState& append_exception_state) const {
   InvalidateNodeListCachesScope deferred_invalidation_scope(GetDocument());
   Element& clone = CloneWithoutAttributesAndChildren(
-      nullable_factory ? *nullable_factory : GetDocument());
+      nullable_factory ? *nullable_factory : GetDocument(), registry);
   // This will catch HTML elements in the wrong namespace that are not correctly
   // copied.  This is a sanity check as HTML overloads some of the DOM methods.
   DCHECK_EQ(IsHTMLElement(), clone.IsHTMLElement());
@@ -932,19 +969,20 @@ Element& Element::CloneWithChildren(
   if (append_to) {
     append_to->AppendChild(&clone, append_exception_state);
   }
-  clone.CloneChildNodesFrom(*this, data);
+  clone.CloneChildNodesFrom(*this, data, registry);
   return clone;
 }
 
 Element& Element::CloneWithoutChildren() const {
   NodeCloningData data;
-  return CloneWithoutChildren(data);
+  return CloneWithoutChildren(data, /*registry*/ nullptr);
 }
 
 Element& Element::CloneWithoutChildren(NodeCloningData& data,
+                                       CustomElementRegistry* registry,
                                        Document* nullable_factory) const {
   Element& clone = CloneWithoutAttributesAndChildren(
-      nullable_factory ? *nullable_factory : GetDocument());
+      nullable_factory ? *nullable_factory : GetDocument(), registry);
   // This will catch HTML elements in the wrong namespace that are not correctly
   // copied.  This is a sanity check as HTML overloads some of the DOM methods.
   DCHECK_EQ(IsHTMLElement(), clone.IsHTMLElement());
@@ -960,9 +998,11 @@ Element& Element::CloneWithoutChildren(NodeCloningData& data,
   return clone;
 }
 
-Element& Element::CloneWithoutAttributesAndChildren(Document& factory) const {
+Element& Element::CloneWithoutAttributesAndChildren(
+    Document& factory,
+    CustomElementRegistry* registry) const {
   return *factory.CreateElement(TagQName(), CreateElementFlags::ByCloneNode(),
-                                IsValue(), /*registry*/ nullptr);
+                                IsValue(), registry);
 }
 
 Attr* Element::DetachAttribute(wtf_size_t index) {
@@ -1215,16 +1255,17 @@ GCedHeapVector<Member<Element>>* Element::GetAttrAssociatedElements(
       GetExplicitlySetElementsForAttr(name);
   if (explicitly_set_elements) {
     // 3. If reflectedTarget's explicitly set attr-elements is not null:
-    for (auto attr_element : *explicitly_set_elements) {
+    for (const auto& attr_element : *explicitly_set_elements) {
       // 3.1. If attrElement is not a descendant of any of element's
       // shadow-including ancestors, then continue.
       if (ElementIsDescendantOfShadowIncludingAncestor(*this, *attr_element)) {
         // 3.NEW. Resolve the referenceTarget of attr_element
-        attr_element = attr_element->GetShadowReferenceTargetOrSelf(name);
+        Element* reference_target =
+            attr_element->GetShadowReferenceTargetOrSelf(name);
 
         // 3.2. Append attrElement to elements.
-        if (attr_element) {
-          result_elements->push_back(attr_element);
+        if (reference_target) {
+          result_elements->push_back(reference_target);
         }
       }
     }
@@ -1259,7 +1300,7 @@ GCedHeapVector<Member<Element>>* Element::GetAttrAssociatedElements(
     attribute_value = attribute_value.SimplifyWhiteSpace();
     attribute_value.Split(' ', tokens);
 
-    for (auto id : tokens) {
+    for (const auto& id : tokens) {
       // 4.3.1. Let candidate be the first element, in tree order, that meets
       // [certain criteria].
       Element* candidate =
@@ -1372,7 +1413,7 @@ void Element::SetElementArrayAttribute(
     stored_elements->clear();
   }
 
-  for (auto element : *given_elements) {
+  for (const auto& element : *given_elements) {
     stored_elements->insert(element);
   }
 
@@ -1609,7 +1650,7 @@ bool Element::InterestGained(Element& target, InterestState new_state) {
   }
 
   // This is now the target's interest invoker
-  CHECK(!target.GetInterestInvoker());
+  CHECK(!target.SourceInterestInvoker());
   target.EnsureElementRareData()
       .EnsureInterestInvokerTargetData()
       .setInterestInvoker(this);
@@ -1641,7 +1682,7 @@ bool Element::InterestLost(Element& target) {
   }
 
   // If the target still thinks this invoker is its invoker, remove it.
-  if (auto* targets_invoker = target.GetInterestInvoker();
+  if (auto* targets_invoker = target.SourceInterestInvoker();
       targets_invoker && targets_invoker == this) {
     ChangeInterestState(&target, InterestState::kNoInterest);
   }
@@ -1665,7 +1706,7 @@ bool Element::InterestLost(Element& target) {
 void Element::DefaultEventHandler(Event& event) {
   if (RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
           GetDocument().GetExecutionContext()) &&
-      (InterestForElement() || GetInterestInvoker() ||
+      (InterestForElement() || SourceInterestInvoker() ||
        GetInterestState() != InterestState::kNoInterest)) [[unlikely]] {
     // Handle new `interestfor` activation via mouse, keyboard, or long-
     // press.
@@ -3740,6 +3781,11 @@ Node::InsertionNotificationRequest Element::InsertedInto(
 
   RecomputeDirectionFromParent();
 
+  auto* parent = ParentOrShadowHostElement();
+  if (parent && parent->IsCanvasOrInCanvasSubtree()) {
+    SetIsCanvasOrInCanvasSubtree(true);
+  }
+
   if (AnchorElementObserver* observer = GetAnchorElementObserver()) {
     observer->Notify();
   }
@@ -3821,10 +3867,6 @@ Node::InsertionNotificationRequest Element::InsertedInto(
     edit_context->SetExecutionContext(context);
   }
 
-  if (parentElement() && parentElement()->IsCanvasOrInCanvasSubtree()) {
-    SetIsCanvasOrInCanvasSubtree(true);
-  }
-
   if (GetDocument().StatePreservingAtomicMoveInProgress() &&
       Fullscreen::IsFullscreenElement(*this)) {
     // We don't actually need to cross frame boundaries, but we do need to mark
@@ -3836,7 +3878,7 @@ Node::InsertionNotificationRequest Element::InsertedInto(
 }
 
 // https://github.com/WICG/declarative-partial-updates
-DOMPatchStatus* Element::currentPatch() {
+Patch* Element::currentPatch() {
   PatchSupplement* supplement = PatchSupplement::FromIfExists(GetDocument());
   if (!supplement) {
     return nullptr;
@@ -4368,6 +4410,10 @@ const ComputedStyle* Element::StyleForLayoutObject(
     style = HasCustomStyleCallbacks()
                 ? CustomStyleForLayoutObject(new_style_recalc_context)
                 : OriginalStyleForLayoutObject(new_style_recalc_context);
+    if (!style) {
+      DCHECK(IsPseudoElement());
+      return nullptr;
+    }
   }
 
   DisplayLockContext* context = GetDisplayLockContext();
@@ -4385,7 +4431,8 @@ const ComputedStyle* Element::StyleForLayoutObject(
   }
 
   if (style->DependsOnSizeContainerQueries() ||
-      style->GetPositionTryFallbacks() || style->HasAnchorFunctions()) {
+      style->GetPositionTryFallbacks() || style->HasAnchorFunctions() ||
+      style->HasAnimationTrigger()) {
     GetDocument().GetStyleEngine().SetStyleAffectedByLayout();
   }
 
@@ -4515,7 +4562,10 @@ void Element::MarkNonSlottedHostChildrenForStyleRecalc() {
 
 const ComputedStyle* Element::ParentComputedStyle() const {
   Element* parent = LayoutTreeBuilderTraversal::ParentElement(*this);
-  if (parent && parent->ChildrenCanHaveStyle()) {
+  const bool is_rendered_as_sibling = IsBackdropPseudoElement() ||
+                                      IsScrollButtonPseudoElement() ||
+                                      IsScrollMarkerGroupPseudoElement();
+  if (parent && (parent->ChildrenCanHaveStyle() || is_rendered_as_sibling)) {
     const ComputedStyle* parent_style = parent->GetComputedStyle();
     if (parent_style && !parent_style->IsEnsuredInDisplayNone()) {
       return parent_style;
@@ -4681,11 +4731,9 @@ void Element::RecalcStyle(const StyleRecalcChange change,
                           child_recalc_context);
     }
 
-    if (HTMLSelectElement::CustomizableSelectEnabled(this)) {
-      if (DynamicTo<HTMLOptionElement>(this)) {
-        UpdatePseudoElement(kPseudoIdCheckMark, child_change,
-                            child_recalc_context);
-      }
+    if (DynamicTo<HTMLOptionElement>(this)) {
+      UpdatePseudoElement(kPseudoIdCheckMark, child_change,
+                          child_recalc_context);
     }
 
     UpdatePseudoElement(kPseudoIdBefore, child_change, child_recalc_context);
@@ -4713,11 +4761,16 @@ void Element::RecalcStyle(const StyleRecalcChange change,
   if (child_change.TraversePseudoElements(*this)) {
     UpdatePseudoElement(kPseudoIdAfter, child_change, child_recalc_context);
 
-    if (HTMLSelectElement::CustomizableSelectEnabled(this)) {
-      if (IsA<HTMLSelectElement>(this)) {
-        UpdatePseudoElement(kPseudoIdPickerIcon, child_change,
-                            child_recalc_context);
-      }
+    if (IsA<HTMLSelectElement>(this)) {
+      UpdatePseudoElement(kPseudoIdPickerIcon, child_change,
+                          child_recalc_context);
+    }
+
+    if (RuntimeEnabledFeatures::HTMLInterestForInterestHintPseudoEnabled(
+            GetExecutionContext()) &&
+        InterestForElement()) {
+      UpdatePseudoElement(kPseudoIdInterestHint, child_change,
+                          child_recalc_context);
     }
 
     UpdateLayoutSiblingPseudoElement(kPseudoIdScrollMarkerGroupAfter,
@@ -5198,10 +5251,16 @@ StyleRecalcChange Element::RecalcOwnStyle(
       // anchor_evaluator is reset for children so that that elements
       // recalculated for anchored() queries will be invalidates as normal.
       apply_changes = LayoutObject::ApplyStyleChanges::kNo;
-    } else if (new_style->HasAnchorFunctionsWithoutEvaluator()) {
+    } else if (new_style->HasAnchorFunctionsWithoutEvaluator() ||
+               (IsFirstLetterPseudoElement() &&
+                !layout_style->InitialLetter().IsNormal())) {
       // For regular (non-interleaved) recalcs that depend on anchor*()
       // functions, we need to invalidate layout even without a diff,
       // see ComputedStyle::HasAnchorFunctionsWithoutEvaluator.
+      //
+      // For ::first-letter pseudo elements with initial-letter, we may need to
+      // compute new font styling for the initial letter text box if a new font
+      // was available.
       apply_changes = LayoutObject::ApplyStyleChanges::kYes;
     }
     layout_object->SetStyle(layout_style, apply_changes);
@@ -5303,6 +5362,7 @@ void Element::RebuildLayoutTree(WhitespaceAttacher& whitespace_attacher) {
     }
     RebuildPseudoElementLayoutTree(kPseudoIdAfter, *child_attacher);
     RebuildPseudoElementLayoutTree(kPseudoIdPickerIcon, *child_attacher);
+    RebuildPseudoElementLayoutTree(kPseudoIdInterestHint, *child_attacher);
     if (GetShadowRoot()) {
       RebuildShadowRootLayoutTree(*child_attacher);
     } else {
@@ -6205,7 +6265,7 @@ void Element::RecalcCustomHighlightPseudoStyle(
   }
 
   StyleHighlightData& highlights = builder.AccessHighlightData();
-  for (auto highlight_name : *highlight_names) {
+  for (const auto& highlight_name : *highlight_names) {
     const ComputedStyle* highlight_parent =
         parent_highlights ? parent_highlights->CustomHighlight(highlight_name)
                           : nullptr;
@@ -6486,7 +6546,9 @@ CustomElementDefinition* Element::GetCustomElementDefinition() const {
 }
 
 CustomElementRegistry* Element::customElementRegistry() const {
-  DCHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
+  if (!RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
+    return nullptr;
+  }
   // TODO(crbug.com/429140221) Need to evaluate if storing registry
   // in element whenever needed is too memory consuming. For now
   // we'll take the naive approach and assume an element using its tree
@@ -6634,16 +6696,15 @@ ShadowRoot* Element::attachShadow(const ShadowRootInit* shadow_root_init_dict,
           ? AtomicString(shadow_root_init_dict->referenceTarget())
           : g_null_atom;
 
-  CustomElementRegistry* registry = nullptr;
-  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
-    // 1. Let registry be this's custom element registry
-    registry = customElementRegistry();
-    // 2. If init["customElementRegistry"] is not null, then set registry to it
-    if (shadow_root_init_dict->hasCustomElementRegistry() &&
-        shadow_root_init_dict->customElementRegistry()) {
-      registry = shadow_root_init_dict->customElementRegistry();
-    }
-  }
+  // 1. Let registry be this's custom element registry.
+  // 2. If init["customElementRegistry"] is not null, then set registry to it.
+  bool scoped_registry =
+      RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
+      shadow_root_init_dict->hasCustomElementRegistry() &&
+      shadow_root_init_dict->customElementRegistry();
+  auto* registry = scoped_registry
+                       ? shadow_root_init_dict->customElementRegistry()
+                       : customElementRegistry();
 
   ShadowRootMode mode;
   if (const char* error_message = ErrorMessageForAttachShadow(
@@ -6695,7 +6756,8 @@ bool Element::AttachDeclarativeShadowRoot(
     SlotAssignmentMode slot_assignment,
     bool serializable,
     bool clonable,
-    const AtomicString& reference_target) {
+    const AtomicString& reference_target,
+    const bool waiting_for_scoped_registry) {
   // 12. Run attach a shadow root with shadow host equal to declarative shadow
   // host element, mode equal to declarative shadow mode, and delegates focus
   // equal to declarative shadow delegates focus. If an exception was thrown by
@@ -6710,11 +6772,22 @@ bool Element::AttachDeclarativeShadowRoot(
   }
   CHECK(mode == ShadowRootMode::kOpen || mode == ShadowRootMode::kClosed);
 
-  // TODO(crbug.com/1523816): Declarative shadow roots should set the registry
-  // argument here.
+  CustomElementRegistry* registry = nullptr;
+  // Get global registry of the document by default.
+  if (auto* window = GetDocument().domWindow()) {
+    registry = window->customElements();
+  }
+
+  // If the declarative shadow root is waiting a scoped registry, set
+  // the current registry to null explicitly.
+  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
+      waiting_for_scoped_registry) {
+    registry = nullptr;
+  }
+
   ShadowRoot& shadow_root = AttachShadowRootInternal(
-      mode, focus_delegation, slot_assignment,
-      /*registry*/ nullptr, serializable, clonable, reference_target);
+      mode, focus_delegation, slot_assignment, registry, serializable, clonable,
+      reference_target);
   // 13.1. Set declarative shadow host element's shadow host's "is declarative
   // shadow root" property to true.
   shadow_root.SetIsDeclarativeShadowRoot(true);
@@ -6789,6 +6862,15 @@ ShadowRoot& Element::AttachShadowRootInternal(
 
   // 8. Set this’s shadow root to shadow.
   return shadow_root;
+}
+
+ShadowRoot& Element::AttachShadowRootForTesting(ShadowRootMode type) {
+  return AttachShadowRootInternal(type, FocusDelegation::kNone,
+                                  SlotAssignmentMode::kNamed,
+                                  /*registry*/ nullptr,
+                                  /*serializable*/ false,
+                                  /*clonable*/ false,
+                                  /*reference_target*/ g_null_atom);
 }
 
 ShadowRoot* Element::OpenShadowRoot() const {
@@ -7198,11 +7280,7 @@ Element* Element::GetFocusableArea(bool in_descendant_traversal) const {
   }
 
   DCHECK(GetShadowRoot());
-  if (RuntimeEnabledFeatures::NewGetFocusableAreaBehaviorEnabled()) {
-    return GetFocusDelegate(in_descendant_traversal);
-  } else {
-    return FocusController::FindFocusableElementInShadowHost(*this);
-  }
+  return GetFocusDelegate(in_descendant_traversal);
 }
 
 Element* Element::GetFocusDelegate(bool in_descendant_traversal) const {
@@ -7513,8 +7591,7 @@ void Element::UpdateSelectionOnFocus(
     if (this == frame->Selection()
                     .ComputeVisibleSelectionInDOMTreeDeprecated()
                     .RootEditableElement()) {
-      if (!options->preventScroll() &&
-          RuntimeEnabledFeatures::RevealSelectionInIframeEnabled()) {
+      if (!options->preventScroll()) {
         frame->Selection().RevealSelection();
       }
       return;
@@ -7713,11 +7790,12 @@ void Element::ShowInterestNow() {
   GainOrLoseInterest(this, target, InterestState::kFullInterest);
 }
 
-void Element::LoseInterestNow(Element* target) {
+void Element::LoseInterestNow() {
   DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
       GetDocument().GetExecutionContext()));
-  DCHECK_EQ(InterestForElement(), target);
+  Element* target = InterestForElement();
   DCHECK_EQ(GetInvokerData()->ActiveInterestTarget(), target);
+  DCHECK_EQ(GetInterestState(), InterestState::kFullInterest);
   GainOrLoseInterest(this, target, InterestState::kNoInterest);
 }
 
@@ -9080,6 +9158,11 @@ bool Element::ShouldStoreComputedStyle(const ComputedStyle& style) const {
   return style.Display() == EDisplay::kContents;
 }
 
+bool Element::IsInCanvasSubtree() const {
+  auto* parent = ParentOrShadowHostElement();
+  return parent && parent->IsCanvasOrInCanvasSubtree();
+}
+
 AtomicString Element::ComputeInheritedLanguage() const {
   const Node* n = this;
   AtomicString value;
@@ -9633,7 +9716,6 @@ bool Element::PseudoElementStylesDependOnFontMetrics() const {
 }
 
 bool Element::PseudoElementStylesDependOnAttr() const {
-  DCHECK(RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled());
 
   auto func = [](const ComputedStyle& style) {
     return style.HasAttrFunction();
@@ -9730,7 +9812,8 @@ const ComputedStyle* Element::StyleForPseudoElement(
 
   const bool is_before_or_after_like =
       pseudo_id == kPseudoIdCheckMark || pseudo_id == kPseudoIdBefore ||
-      pseudo_id == kPseudoIdAfter || pseudo_id == kPseudoIdPickerIcon;
+      pseudo_id == kPseudoIdAfter || pseudo_id == kPseudoIdPickerIcon ||
+      pseudo_id == kPseudoIdInterestHint;
 
   if (is_before_or_after_like) {
     DCHECK(request.parent_override);
@@ -11210,9 +11293,9 @@ void Element::ChangeInterestState(Element* target, InterestState new_state) {
     invoker_data->SetInterestState(new_state);
     invoker_data->SetActiveInterestTarget(target);
   }
-  PseudoStateChanged(CSSSelector::kPseudoHasInterest);
+  PseudoStateChanged(CSSSelector::kPseudoInterestSource);
   if (target) {
-    target->PseudoStateChanged(CSSSelector::kPseudoTargetOfInterest);
+    target->PseudoStateChanged(CSSSelector::kPseudoInterestTarget);
   }
 }
 
@@ -11226,7 +11309,7 @@ bool Element::GainOrLoseInterest(Element* invoker,
       !invoker->GetDocument().IsActive() ||
       invoker->InterestForElement() != target ||
       (new_state == InterestState::kNoInterest &&
-       target->GetInterestInvoker() != invoker)) {
+       target->SourceInterestInvoker() != invoker)) {
     return false;
   }
 
@@ -11234,7 +11317,7 @@ bool Element::GainOrLoseInterest(Element* invoker,
   // gained or lost. Fire the event and run any default actions.
   switch (new_state) {
     case InterestState::kFullInterest:
-      if (Element* existing_invoker = target->GetInterestInvoker()) {
+      if (Element* existing_invoker = target->SourceInterestInvoker()) {
         // We're gaining interest, but the target already has an active interest
         // invoker. There are two cases:
         //  1. This is the same invoker. An example case is that the gain
@@ -11295,7 +11378,7 @@ void Element::ScheduleInterestGainedTask(InterestState new_state) {
   invoker_data.SetInterestGainedTask(PostDelayedCancellableTask(
       *GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI),
       FROM_HERE,
-      WTF::BindOnce(
+      BindOnce(
           [](Element* invoker, Element* target, InterestState new_state) {
             GainOrLoseInterest(invoker, target, new_state);
           },
@@ -11322,7 +11405,7 @@ void Element::ScheduleInterestLostTask() {
   invoker_data.SetInterestLostTask(PostDelayedCancellableTask(
       *GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI),
       FROM_HERE,
-      WTF::BindOnce(
+      BindOnce(
           [](Element* invoker, Element* target) {
             GainOrLoseInterest(invoker, target, InterestState::kNoInterest);
           },
@@ -11331,7 +11414,7 @@ void Element::ScheduleInterestLostTask() {
       base::Seconds(hide_delay_seconds)));
 }
 
-Element* Element::GetInterestInvoker() const {
+Element* Element::SourceInterestInvoker() const {
   if (!RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
           GetDocument().GetExecutionContext())) {
     return nullptr;
@@ -11400,7 +11483,7 @@ void Element::HandleInterestForHoverOrFocus(InterestSource source,
   }
 
   InvokerData* invoker_data = GetInvokerData();
-  Element* upstream_invoker = GetInterestInvoker();
+  Element* upstream_invoker = SourceInterestInvoker();
   InvokerData* upstream_data =
       upstream_invoker ? upstream_invoker->GetInvokerData() : nullptr;
   DCHECK(!upstream_invoker ||
@@ -12296,6 +12379,7 @@ Element* Element::ImplicitAnchorElement() const {
       case kPseudoIdBefore:
       case kPseudoIdAfter:
       case kPseudoIdPickerIcon:
+      case kPseudoIdInterestHint:
       case kPseudoIdBackdrop:
       case kPseudoIdScrollMarkerGroupBefore:
       case kPseudoIdScrollMarkerGroupAfter:
@@ -12440,6 +12524,35 @@ void Element::setHTML(const String& html,
   SetInnerHTMLInternal(html, ParseDeclarativeShadowRoots::kParse,
                        ForceHtml::kForce, exception_state);
   SanitizerAPI::SanitizeSafeInternal(this, options, exception_state);
+}
+
+void Element::SetNamedTriggers(NamedAnimationTriggerMap&& named_triggers) {
+  EnsureElementRareData().EnsureAnimationTriggerData().SetNamedTriggers(
+      named_triggers);
+}
+
+NamedAnimationTriggerMap* Element::NamedTriggers() const {
+  ElementRareDataVector* data = GetElementRareData();
+  if (!data) {
+    return nullptr;
+  }
+
+  ElementAnimationTriggerData* trigger_data = data->AnimationTriggerData();
+  if (!trigger_data) {
+    return nullptr;
+  }
+
+  return &trigger_data->NamedTriggers();
+}
+
+AnimationTrigger* Element::NamedTrigger(const ScopedCSSName* name) const {
+  NamedAnimationTriggerMap* trigger_map = NamedTriggers();
+  if (!trigger_map) {
+    return nullptr;
+  }
+
+  auto it = trigger_map->find(name);
+  return it == trigger_map->end() ? nullptr : it->value.Get();
 }
 
 }  // namespace blink

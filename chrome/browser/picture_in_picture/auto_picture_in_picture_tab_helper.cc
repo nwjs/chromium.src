@@ -15,9 +15,11 @@
 #include "chrome/browser/media/webrtc/media_stream_capture_indicator.h"
 #include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
 #include "chrome/browser/picture_in_picture/auto_picture_in_picture_tab_observer_helper_base.h"
+#include "chrome/browser/picture_in_picture/auto_pip_setting_helper.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
+#include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/permissions/permission_decision_auto_blocker.h"
 #include "content/public/browser/media_session.h"
@@ -26,12 +28,6 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/frame/user_activation_state.h"
-
-// TODO(crbug.com/421608904): integrate setting helper with auto-pip on Android
-// once permission UX is finalized.
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/picture_in_picture/auto_pip_setting_helper.h"
-#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
@@ -288,13 +284,23 @@ void AutoPictureInPictureTabHelper::MediaSessionInfoChanged(
 
 void AutoPictureInPictureTabHelper::MediaSessionActionsChanged(
     const std::vector<media_session::mojom::MediaSessionAction>& actions) {
+  bool was_available = is_enter_auto_picture_in_picture_available_;
   is_enter_auto_picture_in_picture_available_ =
       std::ranges::find(actions,
                         media_session::mojom::MediaSessionAction::
                             kEnterAutoPictureInPicture) != actions.end();
 
-  if (is_enter_auto_picture_in_picture_available_) {
+  if (is_enter_auto_picture_in_picture_available_ && !was_available) {
     has_ever_registered_for_auto_picture_in_picture_ = true;
+    // Inform PageSpecificContentSettings that this page now has auto
+    // picture-in-picture support. This will cause the UI to update. This is
+    // done so that the UI is updated if the page info menu is already open when
+    // the status changes.
+    auto* pscs = content_settings::PageSpecificContentSettings::GetForFrame(
+        web_contents()->GetPrimaryMainFrame());
+    if (pscs) {
+      pscs->OnRegisteredForAutoPictureInPictureChanged();
+    }
   }
   MaybeStartOrStopObservingTabStrip();
 }
@@ -302,10 +308,15 @@ void AutoPictureInPictureTabHelper::MediaSessionActionsChanged(
 void AutoPictureInPictureTabHelper::MaybeEnterAutoPictureInPicture() {
   if (!IsEligibleForAutoPictureInPicture(
           /*should_record_blocking_metrics=*/true)) {
-    if (content::MediaSession* media_session =
-            content::MediaSession::GetIfExists(web_contents())) {
-      media_session->ReportAutoPictureInPictureInfoChanged();
+    if (base::FeatureList::IsEnabled(
+            media::kAutoPictureInPictureForVideoPlayback) &&
+        !IsUsingCameraOrMicrophone() && !has_safe_url_) {
+      // This is a media playback case, but we have not checked for URL safety
+      // yet. Do not report info changed, as an async check will be triggered
+      // which will call this function again.
+      return;
     }
+    MaybeReportAutoPictureInPictureInfoChanged();
     return;
   }
   auto_picture_in_picture_activation_time_ =
@@ -324,21 +335,32 @@ void AutoPictureInPictureTabHelper::MaybeScheduleAsyncTasks() {
 
   // Prevent scheduling asynchronous checks if we are already in picture in
   // picture, picture in picture was blocked due to content setting/incognito,
-  // or a media session does not exist. Also prevent these checks if we are
-  // already eligible for auto picture in picture, since auto picture in picture
-  // requests will succeed anyways.
+  // we are using camera or microphone, or a media session does not exist. Also
+  // prevent these checks if we are already eligible for auto picture in
+  // picture, since auto picture in picture requests will succeed anyways.
   //
   // The `blocked_due_to_content_setting_` check is performed to prevent
   // recording duplicate entries for blocking metrics.
   if (is_in_picture_in_picture_ ||
       !(content::MediaSession::GetIfExists(web_contents())) ||
-      blocked_due_to_content_setting_ ||
+      blocked_due_to_content_setting_ || IsUsingCameraOrMicrophone() ||
       IsEligibleForAutoPictureInPicture(
           /*should_record_blocking_metrics=*/false)) {
     return;
   }
 
   ScheduleUrlSafetyCheck();
+}
+
+void AutoPictureInPictureTabHelper::MaybeReportAutoPictureInPictureInfoChanged()
+    const {
+  content::MediaSession* media_session =
+      content::MediaSession::GetIfExists(web_contents());
+  if (!media_session) {
+    return;
+  }
+
+  media_session->ReportAutoPictureInPictureInfoChanged();
 }
 
 void AutoPictureInPictureTabHelper::StopAndResetAsyncTasks() {
@@ -414,10 +436,6 @@ bool AutoPictureInPictureTabHelper::IsEligibleForAutoPictureInPicture(
   // Since nobody has a pip window, we shouldn't think we do.
   CHECK(!is_in_picture_in_picture_);
 
-// TODO(crbug.com/421606013): skip permission check for Android for now. Once
-// the permission model for Android is finalized, we'll enable the permission
-// checking logic here.
-#if !BUILDFLAG(IS_ANDROID)
   // The user may block autopip via a content setting. Also, if we're in an
   // incognito window, then we should treat "ask" as "block". This should be the
   // final check before triggering autopip since it will record metrics about
@@ -443,7 +461,6 @@ bool AutoPictureInPictureTabHelper::IsEligibleForAutoPictureInPicture(
     }
     return false;
   }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
   return true;
 }
@@ -474,15 +491,10 @@ bool AutoPictureInPictureTabHelper::WasRecentlyAudible() const {
 }
 
 bool AutoPictureInPictureTabHelper::MeetsMediaEngagementConditions() const {
-  // TODO(crbug.com/421606013): Android as autoPiP hasn't been registered for
-  // Android platform. We'll register it and implement a no-permission model for
-  // Android as a follow-up.
-#if !BUILDFLAG(IS_ANDROID)
   // Skip checking media engagement when content setting is set to allow.
   if (GetCurrentContentSetting() == CONTENT_SETTING_ALLOW) {
     return true;
   }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
   std::optional<content::RenderFrameHost*> rfh = GetPrimaryMainRoutedFrame();
   if (!rfh) {
@@ -525,6 +537,9 @@ void AutoPictureInPictureTabHelper::OnUrlSafetyResult(bool has_safe_url) {
   has_safe_url_ = has_safe_url;
 
   if (!has_safe_url_) {
+    // If URL is not safe, we are not eligible. Report the auto
+    // picture-in-picture information change.
+    MaybeReportAutoPictureInPictureInfoChanged();
     return;
   }
 
@@ -560,14 +575,12 @@ void AutoPictureInPictureTabHelper::ScheduleUrlSafetyCheck() {
 #endif
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 void AutoPictureInPictureTabHelper::EnsureAutoPipSettingHelper() {
   if (!auto_pip_setting_helper_) {
     auto_pip_setting_helper_ = AutoPipSettingHelper::CreateForWebContents(
         web_contents(), host_content_settings_map_, auto_blocker_);
   }
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 std::optional<content::RenderFrameHost*>
 AutoPictureInPictureTabHelper::GetPrimaryMainRoutedFrame() const {

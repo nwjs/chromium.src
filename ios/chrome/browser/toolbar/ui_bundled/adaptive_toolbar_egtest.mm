@@ -309,9 +309,11 @@ void CheckCurrentURLContainsString(std::string string) {
         performAction:grey_tap()];
 
   } else {
+    id<GREYMatcher> cancelButton =
+        grey_accessibilityID(kToolbarCancelOmniboxEditButtonIdentifier);
     [[EarlGrey
-        selectElementWithMatcher:grey_accessibilityID(
-                                     kToolbarCancelOmniboxEditButtonIdentifier)]
+        selectElementWithMatcher:grey_allOf(cancelButton,
+                                            grey_sufficientlyVisible(), nil)]
         performAction:grey_tap()];
   }
 }
@@ -629,6 +631,10 @@ id<GREYMatcher> FormInputAccessoryOmniboxTypingShield() {
   [[EarlGrey selectElementWithMatcher:chrome_test_util::
                                           TabGridIncognitoTabsPanelButton()]
       performAction:grey_tap()];
+
+  // Synchronization off due to an infinite spinner.
+  ScopedSynchronizationDisabler disabler;
+
   [[EarlGrey
       selectElementWithMatcher:chrome_test_util::TabGridNewIncognitoTabButton()]
       performAction:grey_tap()];

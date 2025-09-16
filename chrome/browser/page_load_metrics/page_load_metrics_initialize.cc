@@ -34,6 +34,7 @@
 #include "chrome/browser/page_load_metrics/observers/optimization_guide_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/page_anchors_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/prefetch_page_load_metrics_observer.h"
+#include "chrome/browser/page_load_metrics/observers/preload_serving_metrics_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/preview_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/protocol_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/scheme_page_load_metrics_observer.h"
@@ -77,6 +78,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/page_load_metrics/observers/serp_page_load_metrics_observer.h"
 #include "extensions/common/constants.h"
 #endif
 
@@ -239,12 +241,19 @@ void PageLoadMetricsEmbedder::RegisterObservers(
     tracker->AddObserver(
         std::make_unique<ThirdPartyCookieDeprecationMetricsObserver>(
             web_contents()->GetBrowserContext()));
+    if (PreloadServingMetricsPageLoadMetricsObserver::IsEnabled()) {
+      tracker->AddObserver(
+          std::make_unique<PreloadServingMetricsPageLoadMetricsObserver>());
+    }
   }
   tracker->AddObserver(
       std::make_unique<OmniboxSuggestionUsedMetricsObserver>());
   tracker->AddObserver(
       SecurityStatePageLoadMetricsObserver::MaybeCreateForProfile(
           web_contents()->GetBrowserContext()));
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  tracker->AddObserver(std::make_unique<SerpPageLoadMetricsObserver>());
+#endif
   tracker->AddObserver(
       std::make_unique<PageAnchorsMetricsObserver>(tracker->GetWebContents()));
 #if 0

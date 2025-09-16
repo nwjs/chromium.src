@@ -99,7 +99,24 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
         mHomepageStateListener =
                 new NtpCustomizationConfigManager.HomepageStateListener() {
                     @Override
-                    public void onBackgroundChanged(@Nullable Drawable backgroundDrawable) {
+                    public void onBackgroundChanged(
+                            Drawable backgroundDrawable, boolean fromInitialization) {
+                        if (fromInitialization) return;
+
+                        refreshWindowInsets(/* consumeTopInset= */ true);
+                    }
+
+                    @Override
+                    public void onBackgroundColorChanged(
+                            int backgroundColor, boolean fromInitialization) {
+                        if (fromInitialization) return;
+
+                        refreshWindowInsets(/* consumeTopInset= */ false);
+                    }
+
+                    @Override
+                    public void refreshWindowInsets(boolean consumeTopInset) {
+                        mConsumeTopInset = consumeTopInset;
                         mInsetObserver.retriggerOnApplyWindowInsets();
                     }
                 };

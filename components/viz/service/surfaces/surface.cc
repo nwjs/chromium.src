@@ -14,6 +14,8 @@
 #include <vector>
 
 #include "base/containers/contains.h"
+#include "base/debug/alias.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/time/tick_clock.h"
@@ -29,6 +31,7 @@
 #include "components/viz/service/surfaces/surface_client.h"
 #include "components/viz/service/surfaces/surface_manager.h"
 #include "components/viz/service/viz_service_export.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "ui/gfx/presentation_feedback.h"
 #include "ui/gfx/swap_result.h"
 
@@ -50,10 +53,6 @@ void RequestCopyOfOutputOnRenderPass(std::unique_ptr<CopyOutputRequest> request,
                   });
   }
   render_pass.copy_requests.push_back(std::move(request));
-}
-
-bool ShouldBlockActivationOnDependenciesWhenInteractive() {
-  return !features::ShouldDrawImmediatelyWhenInteractive();
 }
 
 }  // namespace
@@ -95,9 +94,9 @@ Surface::Surface(const SurfaceInfo& surface_info,
       pending_copy_surface_id_(pending_copy_surface_id),
       allocation_group_(allocation_group),
       max_uncommitted_frames_(max_uncommitted_frames) {
-  TRACE_EVENT_ASYNC_BEGIN1(TRACE_DISABLED_BY_DEFAULT("viz.surface_lifetime"),
-                           "Surface", this, "surface_info",
-                           surface_info.ToString());
+  TRACE_EVENT_BEGIN(TRACE_DISABLED_BY_DEFAULT("viz.surface_lifetime"),
+                    "Surface", perfetto::Track::FromPointer(this),
+                    "surface_info", surface_info.ToString());
   allocation_group_->RegisterSurface(this);
   is_fallback_ =
       allocation_group_->GetLastReference().IsNewerThan(surface_id());
@@ -125,9 +124,10 @@ Surface::~Surface() {
   DCHECK(deadline_);
   deadline_->Cancel();
 
-  TRACE_EVENT_ASYNC_END1(TRACE_DISABLED_BY_DEFAULT("viz.surface_lifetime"),
-                         "Surface", this, "surface_info",
-                         surface_info_.ToString());
+  TRACE_EVENT_END(
+      TRACE_DISABLED_BY_DEFAULT("viz.surface_lifetime"), /* Surface */
+      perfetto::Track::FromPointer(this), "surface_info",
+      surface_info_.ToString());
   allocation_group_->UnregisterSurface(this);
   if (surface_client_) {
     surface_client_->OnSurfaceDestroyed(this);
@@ -195,7 +195,7 @@ void Surface::ActivateIfDeadlinePassed() {
 
 Surface::QueueFrameResult Surface::QueueFrame(
     CompositorFrame frame,
-    uint64_t frame_index,
+    uint32_t frame_index,
     base::ScopedClosureRunner frame_rejected_callback) {
   if (frame.size_in_pixels() != surface_info_.size_in_pixels() ||
       frame.device_scale_factor() != surface_info_.device_scale_factor()) {
@@ -274,10 +274,10 @@ Surface::QueueFrameResult Surface::CommitFrame(FrameData frame) {
     for (auto& it : activation_dependencies_)
       traced_value->AppendString(it.ToString());
     traced_value->EndArray();
-    TRACE_EVENT_NESTABLE_ASYNC_BEGIN2(
-        "viz", "SurfaceQueuedPending", TRACE_ID_LOCAL(this), "LocalSurfaceId",
-        surface_info_.id().ToString(), "ActivationDependencies",
-        std::move(traced_value));
+    TRACE_EVENT_BEGIN("viz", "SurfaceQueuedPending",
+                      perfetto::Track::FromPointer(this), "LocalSurfaceId",
+                      surface_info_.id().ToString(), "ActivationDependencies",
+                      std::move(traced_value));
 
     deadline_->Set(ResolveFrameDeadline(pending_frame_data_->frame));
     if (deadline_->HasDeadlinePassed()) {
@@ -366,8 +366,8 @@ void Surface::OnActivationDependencyResolved(
   if (!activation_dependencies_.empty())
     return;
 
-  TRACE_EVENT_NESTABLE_ASYNC_END0("viz", "SurfaceQueuedPending",
-                                  TRACE_ID_LOCAL(this));
+  TRACE_EVENT_END(
+      "viz", /* SurfaceQueuedPending */ perfetto::Track::FromPointer(this));
 
   // All blockers have been cleared. The surface can be activated now.
   ActivatePendingFrame();
@@ -378,8 +378,8 @@ void Surface::ActivatePendingFrameForDeadline() {
     return;
 
   if (!activation_dependencies_.empty()) {
-    TRACE_EVENT_NESTABLE_ASYNC_END0("viz", "SurfaceQueuedPending",
-                                    TRACE_ID_LOCAL(this));
+    TRACE_EVENT_END(
+        "viz", /* SurfaceQueuedPending */ perfetto::Track::FromPointer(this));
   }
 
   // If a frame is being activated because of a deadline, then clear its set
@@ -389,7 +389,7 @@ void Surface::ActivatePendingFrameForDeadline() {
   ActivatePendingFrame();
 }
 
-Surface::FrameData::FrameData(CompositorFrame&& frame, uint64_t frame_index)
+Surface::FrameData::FrameData(CompositorFrame&& frame, uint32_t frame_index)
     : frame(std::move(frame)), frame_index(frame_index) {}
 
 Surface::FrameData::FrameData(FrameData&& other) = default;
@@ -468,14 +468,14 @@ void Surface::CommitFramesRecursively(const CommitPredicate& predicate) {
   }
 }
 
-std::optional<uint64_t> Surface::GetFirstUncommitedFrameIndex() {
+std::optional<uint32_t> Surface::GetFirstUncommitedFrameIndex() {
   if (uncommitted_frames_.empty())
     return std::nullopt;
   return uncommitted_frames_.front().frame_index;
 }
 
-std::optional<uint64_t> Surface::GetUncommitedFrameIndexNewerThan(
-    uint64_t frame_index) {
+std::optional<uint32_t> Surface::GetUncommitedFrameIndexNewerThan(
+    uint32_t frame_index) {
   for (auto& frame : uncommitted_frames_) {
     if (frame.frame_index > frame_index) {
       return frame.frame_index;
@@ -625,8 +625,17 @@ void Surface::ActivateFrame(FrameData frame_data) {
   // Defer notifying the embedder of an updated token until the frame has been
   // completely processed.
   const auto& metadata = GetActiveFrameMetadata();
-  if (surface_client_ && metadata.send_frame_token_to_embedder)
+  if (surface_client_ && metadata.send_frame_token_to_embedder) {
+    if (!FrameTokenGT(metadata.frame_token, last_sent_frame_token_)) {
+      uint32_t current_token = metadata.frame_token;
+      uint32_t last_token = last_sent_frame_token_;
+      base::debug::Alias(&current_token);
+      base::debug::Alias(&last_token);
+      base::debug::DumpWithoutCrashing();
+    }
+    last_sent_frame_token_ = metadata.frame_token;
     surface_client_->OnFrameTokenChanged(metadata.frame_token);
+  }
 }
 
 FrameDeadline Surface::ResolveFrameDeadline(
@@ -677,7 +686,6 @@ void Surface::UpdateActivationDependencies(
     return;
 
   bool should_block_on_dependencies =
-      ShouldBlockActivationOnDependenciesWhenInteractive() ||
       !current_frame.metadata.is_handling_interaction;
 
   if (!should_block_on_dependencies) {
@@ -924,11 +932,6 @@ void Surface::ActivatePendingFrameForInheritedDeadline() {
   // so there shouldn't be an active frame.
   DCHECK(!HasActiveFrame());
   ActivatePendingFrameForDeadline();
-}
-
-std::unique_ptr<gfx::DelegatedInkMetadata> Surface::TakeDelegatedInkMetadata() {
-  DCHECK(active_frame_data_);
-  return active_frame_data_->TakeDelegatedInkMetadata();
 }
 
 }  // namespace viz

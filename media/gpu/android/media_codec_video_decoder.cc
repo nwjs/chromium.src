@@ -7,7 +7,7 @@
 #include <memory>
 #include <variant>
 
-#include "base/android/build_info.h"
+#include "base/android/android_info.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -54,11 +54,6 @@ void OutputBufferReleased(base::RepeatingClosure pump_cb, bool has_work) {
   if (has_work) {
     pump_cb.Run();
   }
-}
-
-bool IsSurfaceControlEnabled(const gpu::GpuFeatureInfo& info) {
-  return info.status_values[gpu::GPU_FEATURE_TYPE_ANDROID_SURFACE_CONTROL] ==
-         gpu::kGpuFeatureStatusEnabled;
 }
 
 std::vector<SupportedVideoDecoderConfig> GenerateSupportedConfigs(
@@ -231,7 +226,7 @@ MediaCodecVideoDecoder::GetSupportedConfigs() {
 
 MediaCodecVideoDecoder::MediaCodecVideoDecoder(
     const gpu::GpuPreferences& gpu_preferences,
-    const gpu::GpuFeatureInfo& gpu_feature_info,
+    bool is_surface_control_enabled,
     std::unique_ptr<MediaLog> media_log,
     DeviceInfo* device_info,
     CodecAllocator* codec_allocator,
@@ -244,7 +239,7 @@ MediaCodecVideoDecoder::MediaCodecVideoDecoder(
       media_log_(std::move(media_log)),
       codec_allocator_(codec_allocator),
       request_overlay_info_cb_(std::move(request_overlay_info_cb)),
-      is_surface_control_enabled_(IsSurfaceControlEnabled(gpu_feature_info)),
+      is_surface_control_enabled_(is_surface_control_enabled),
       surface_chooser_helper_(
           std::move(surface_chooser),
           base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -259,7 +254,7 @@ MediaCodecVideoDecoder::MediaCodecVideoDecoder(
       allow_nonsecure_overlays_(
           base::FeatureList::IsEnabled(media::kAllowNonSecureOverlays)),
       use_block_model_(device_info_->SdkVersion() >=
-                           base::android::SDK_VERSION_V &&
+                           base::android::android_info::SDK_VERSION_V &&
                        base::FeatureList::IsEnabled(kMediaCodecBlockModel)) {
   DVLOG(2) << __func__;
   surface_chooser_helper_.chooser()->SetClientCallbacks(
@@ -271,7 +266,7 @@ MediaCodecVideoDecoder::MediaCodecVideoDecoder(
 
 std::unique_ptr<VideoDecoder> MediaCodecVideoDecoder::Create(
     const gpu::GpuPreferences& gpu_preferences,
-    const gpu::GpuFeatureInfo& gpu_feature_info,
+    bool is_surface_control_enabled,
     std::unique_ptr<MediaLog> media_log,
     DeviceInfo* device_info,
     CodecAllocator* codec_allocator,
@@ -281,8 +276,8 @@ std::unique_ptr<VideoDecoder> MediaCodecVideoDecoder::Create(
     std::unique_ptr<VideoFrameFactory> video_frame_factory,
     scoped_refptr<gpu::RefCountedLock> drdc_lock) {
   auto* decoder = new MediaCodecVideoDecoder(
-      gpu_preferences, gpu_feature_info, std::move(media_log), device_info,
-      codec_allocator, std::move(surface_chooser),
+      gpu_preferences, is_surface_control_enabled, std::move(media_log),
+      device_info, codec_allocator, std::move(surface_chooser),
       std::move(overlay_factory_cb), std::move(request_overlay_info_cb),
       std::move(video_frame_factory), std::move(drdc_lock));
   return std::make_unique<AsyncDestroyVideoDecoder<MediaCodecVideoDecoder>>(
@@ -769,7 +764,8 @@ void MediaCodecVideoDecoder::OnCodecConfigured(
   // surface.  If we're in one of those cases, then retry codec allocation.
   // This only happens on R and S, so skip it otherwise.
   if (!codec && should_retry_codec_allocation &&
-      device_info_->SdkVersion() >= base::android::SDK_VERSION_R &&
+      device_info_->SdkVersion() >=
+          base::android::android_info::SDK_VERSION_R &&
       device_info_->SdkVersion() <= 32 /* SDK_VERSION_S_V2 */
   ) {
     // We might want to post this with a short delay, but there is already quite
@@ -1398,7 +1394,8 @@ bool MediaCodecVideoDecoder::CodecNeedsReallocation(int new_width) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return !use_block_model_ && new_width > last_width_ * kReallocateThreshold &&
          device_info_ &&
-         device_info_->SdkVersion() > base::android::SDK_VERSION_P;
+         device_info_->SdkVersion() >
+             base::android::android_info::SDK_VERSION_P;
 }
 
 std::vector<SupportedVideoDecoderConfig>

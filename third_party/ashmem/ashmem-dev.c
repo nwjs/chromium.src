@@ -27,12 +27,15 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>  /* for fdstat() */
+#include <sys/syscall.h>
 #include <fcntl.h>
 
+#include <android/log.h>
 #include <linux/ashmem.h>
 #include <sys/system_properties.h>
 
 #define ASHMEM_DEVICE  "/dev/ashmem"
+#define LOG_E(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "chromium-ashmem", __VA_ARGS__))
 
 /* Technical note regarding reading system properties.
  *
@@ -75,6 +78,13 @@ static int device_api_level() {
   return s_api_level;
 }
 
+static int vendor_api_level() {
+  static int v_api_level = -1;
+  if (v_api_level < 0)
+    v_api_level = system_property_get_int("ro.vendor.api_level");
+  return v_api_level;
+}
+
 typedef enum {
   ASHMEM_STATUS_INIT,
   ASHMEM_STATUS_NOT_SUPPORTED,
@@ -83,6 +93,7 @@ typedef enum {
 
 static AshmemStatus s_ashmem_status = ASHMEM_STATUS_INIT;
 static dev_t s_ashmem_dev;
+static bool s_use_memfd;
 
 /* Return the dev_t of a given file path, or 0 if not available, */
 static dev_t ashmem_find_dev(const char* path) {
@@ -172,7 +183,10 @@ static size_t ashmem_dev_get_size_region(int fd) {
 }
 
 // Starting with API level 26, the following functions from
-// libandroid.so should be used to create shared memory regions.
+// libandroid.so should be used to create shared memory regions,
+// unless the device's vendor.api_level is 202604 (Android 17)
+// or newer, in which case, use memfd directly instead of
+// the ASharedMemory API.
 typedef int(*ASharedMemory_createFunc)(const char*, size_t);
 typedef size_t(*ASharedMemory_getSizeFunc)(int fd);
 typedef int(*ASharedMemory_setProtFunc)(int fd, int prot);
@@ -187,11 +201,102 @@ typedef struct {
 static ASharedMemoryFuncs s_ashmem_funcs = {};
 static pthread_once_t s_ashmem_funcs_once = PTHREAD_ONCE_INIT;
 
+static int memfd_create_region(const char *name, size_t size) {
+  int fd = syscall(__NR_memfd_create, name, MFD_CLOEXEC | MFD_ALLOW_SEALING);
+  if (fd < 0) {
+    LOG_E("memfd_create(%s, %zd) failed: %m", name, size);
+    return fd;
+  }
+
+  int ret = ftruncate(fd, size);
+  if (ret < 0) {
+    LOG_E("ftruncate(%s, %zd) failed: %m", name, size);
+    goto error;
+  }
+
+  ret = fcntl(fd, F_ADD_SEALS, F_SEAL_GROW | F_SEAL_SHRINK);
+  if (ret < 0) {
+    LOG_E("memfd_create(%s, %zd) fcntl(F_ADD_SEALS) failed: %m", name, size);
+    goto error;
+  }
+
+  return fd;
+
+error:
+  close(fd);
+  return ret;
+}
+
+static int memfd_get_size_region(int fd) {
+  struct stat sb;
+  if (fstat(fd, &sb) == -1) {
+    LOG_E("memfd_get_size_region(%d): fstat failed: %m", fd);
+    return -1;
+  }
+
+  return sb.st_size;
+}
+
+static int memfd_set_prot_region(int fd, int prot) {
+  int seals = fcntl(fd, F_GET_SEALS);
+  if (seals == -1) {
+    LOG_E("memfd_set_prot_region(%d, %d): F_GET_SEALS failed: %m", fd, prot);
+    return -1;
+  }
+
+  if (prot & PROT_WRITE) {
+    /*
+     * Now we want the buffer to be read-write, let's check if the buffer
+     * has been previously marked as read-only before, if so return error
+     */
+    if (seals & F_SEAL_FUTURE_WRITE) {
+      LOG_E("memfd_set_prot_region(%d, %d): region is write protected", fd, prot);
+      // Inline with ashmem error code, if already in read-only mode.
+      errno = EINVAL;
+      return -1;
+    }
+
+    return 0;
+  }
+
+  // We would only allow read-only for any future file operations
+  if (fcntl(fd, F_ADD_SEALS, F_SEAL_FUTURE_WRITE) == -1) {
+    LOG_E("memfd_set_prot_region(%d, %d): F_SEAL_FUTURE_WRITE seal failed: %m", fd, prot);
+    return -1;
+  }
+
+  return 0;
+}
+
+static int memfd_get_prot_region(int fd) {
+  int prot = PROT_READ;
+  int seals = fcntl(fd, F_GET_SEALS);
+  if (seals == -1)
+    LOG_E("memfd_get_prot_region(%d): F_GET_SEALS failed: %m", fd);
+  else if (!(seals & (F_SEAL_FUTURE_WRITE | F_SEAL_WRITE)))
+    prot |= PROT_WRITE;
+  return prot;
+}
+
 static void ashmem_init_funcs() {
   ASharedMemoryFuncs* funcs = &s_ashmem_funcs;
   if (device_api_level() >= __ANDROID_API_O__) {
     /* Leaked intentionally! */
     void* lib = dlopen("libandroid.so", RTLD_NOW);
+    /*
+     * When a device conforms to the VSR for API level 202604 (Android 17),
+     * ASharedMemory will allocate memfds and attempt to relabel them by using
+     * fsetxattr() to workaround how SELinux handles memfds.
+     *
+     * fsetxattr() is not allowlisted in our seccomp filter, and allowlisting
+     * it may be unsafe. Since memfds from Chromium should be accessible with
+     * the existing sepolicy for appdomain_tmpfs files, just allocate memfds
+     * directly if the device conforms to the VSR for API level 202604.
+     */
+    if (vendor_api_level() >= 202604) {
+      s_use_memfd = true;
+      return;
+    }
     funcs->create =
         (ASharedMemory_createFunc)dlsym(lib, "ASharedMemory_create");
     funcs->getSize =
@@ -211,15 +316,23 @@ static const ASharedMemoryFuncs* ashmem_get_funcs() {
 }
 
 int ashmem_create_region(const char* name, size_t size) {
+  if (s_use_memfd)
+    return memfd_create_region(name, size);
+
   return ashmem_get_funcs()->create(name, size);
 }
 
 int ashmem_set_prot_region(int fd, int prot) {
+  if (s_use_memfd)
+    return memfd_set_prot_region(fd, prot);
+
   return ashmem_get_funcs()->setProt(fd, prot);
 }
 
 int ashmem_get_prot_region(int fd) {
-  if (ashmem_dev_fd_check(fd))
+  if (s_use_memfd)
+    return memfd_get_prot_region(fd);
+  else if (ashmem_dev_fd_check(fd))
     return ashmem_dev_get_prot_region(fd);
   /* There are only two practical values to return here: either
    * PROT_READ|PROT_WRITE or just PROT_READ, so try to determine
@@ -252,6 +365,9 @@ int ashmem_unpin_region(int fd, size_t offset, size_t len) {
 }
 
 int ashmem_get_size_region(int fd) {
+  if (s_use_memfd)
+    return memfd_get_size_region(fd);
+
   /* NOTE: Original API returns an int. Avoid breaking it. */
   return (int)ashmem_get_funcs()->getSize(fd);
 }

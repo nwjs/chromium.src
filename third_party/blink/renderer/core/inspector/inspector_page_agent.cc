@@ -795,7 +795,7 @@ void InspectorPageAgent::getResourceContent(
   }
   inspector_resource_content_loader_->EnsureResourcesContentLoaded(
       resource_content_loader_client_id_,
-      WTF::BindOnce(
+      BindOnce(
           &InspectorPageAgent::GetResourceContentAfterResourcesContentLoaded,
           WrapPersistent(this), frame_id, url, std::move(callback)));
 }
@@ -890,11 +890,10 @@ void InspectorPageAgent::searchInResource(
   }
   inspector_resource_content_loader_->EnsureResourcesContentLoaded(
       resource_content_loader_client_id_,
-      WTF::BindOnce(
-          &InspectorPageAgent::SearchContentAfterResourcesContentLoaded,
-          WrapPersistent(this), frame_id, url, query,
-          optional_case_sensitive.value_or(false),
-          optional_is_regex.value_or(false), std::move(callback)));
+      BindOnce(&InspectorPageAgent::SearchContentAfterResourcesContentLoaded,
+               WrapPersistent(this), frame_id, url, query,
+               optional_case_sensitive.value_or(false),
+               optional_is_regex.value_or(false), std::move(callback)));
 }
 
 protocol::Response InspectorPageAgent::setBypassCSP(bool enabled) {

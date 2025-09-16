@@ -16,7 +16,6 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.ColorInt;
 
 import org.chromium.base.supplier.OneshotSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -51,6 +50,7 @@ import org.chromium.ui.modaldialog.ModalDialogProperties.ButtonType;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /** Responsible of showing the correct sub-component of the sign-in and history opt-in flow. */
 @NullMarked
@@ -66,7 +66,7 @@ public class BottomSheetSigninAndHistorySyncCoordinator
     private final DeviceLockActivityLauncher mDeviceLockActivityLauncher;
     private final OneshotSupplier<Profile> mProfileSupplier;
     private final @SigninAccessPoint int mSigninAccessPoint;
-    private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
+    private final Supplier<@Nullable ModalDialogManager> mModalDialogManagerSupplier;
     private final BottomSheetSigninAndHistorySyncConfig mConfig;
 
     private @Nullable SigninBottomSheetCoordinator mSigninBottomSheetCoordinator;
@@ -114,7 +114,7 @@ public class BottomSheetSigninAndHistorySyncCoordinator
             Delegate delegate,
             DeviceLockActivityLauncher deviceLockActivityLauncher,
             OneshotSupplier<Profile> profileSupplier,
-            Supplier<ModalDialogManager> modalDialogManagerSupplier,
+            Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
             BottomSheetSigninAndHistorySyncConfig config,
             @SigninAccessPoint int signinAccessPoint) {
         mWindowAndroid = windowAndroid;

@@ -4,16 +4,17 @@
 
 import {assert} from '//resources/js/assert.js';
 
-import {getCurrentSpeechRate, isRectVisible} from '../common.js';
+import {isRectVisible} from '../common.js';
 import {NodeStore} from '../node_store.js';
-import {isEspeak} from '../voice_language_util.js';
 
+import {getReadAloudModel} from './read_aloud_model_browser_proxy.js';
+import type {ReadAloudModelBrowserProxy} from './read_aloud_model_browser_proxy.js';
+import {AxReadAloudNode} from './read_aloud_types.js';
+import type {Segment} from './read_aloud_types.js';
+import {getCurrentSpeechRate, isInvalidHighlightForWordHighlighting} from './speech_presentation_rules.js';
 import {VoiceLanguageController} from './voice_language_controller.js';
+import {isEspeak} from './voice_language_conversions.js';
 import {WordBoundaries} from './word_boundaries.js';
-
-// Characters that should be ignored for word highlighting when not accompanied
-// by other characters.
-const IGNORED_HIGHLIGHT_CHARACTERS_REGEX: RegExp = /^[.,!?'"(){}\[\]]+$/;
 
 export const previousReadHighlightClass = 'previous-read-highlight';
 export const currentReadHighlightClass = 'current-read-highlight';
@@ -32,6 +33,7 @@ export class ReadAloudHighlighter {
   private nodeStore_: NodeStore = NodeStore.getInstance();
   private allowAutoScroll_ = true;
   private voiceLanguageController_ = VoiceLanguageController.getInstance();
+  private readAloudModel_: ReadAloudModelBrowserProxy = getReadAloudModel();
 
   hasCurrentHighlights(): boolean {
     return this.previousHighlights_.some(
@@ -61,7 +63,7 @@ export class ReadAloudHighlighter {
   }
 
   highlightCurrentGranularity(
-      axNodeIds: number[], scrollIntoView: boolean,
+      segments: Segment[], scrollIntoView: boolean,
       shouldUpdateSentenceHighlight: boolean): void {
     const highlightGranularity = this.getEffectiveHighlightingGranularity_();
     switch (highlightGranularity) {
@@ -75,7 +77,7 @@ export class ReadAloudHighlighter {
       // highlights have already been calculated.
       case chrome.readingMode.sentenceHighlighting:
         if (shouldUpdateSentenceHighlight) {
-          this.highlightCurrentSentence_(axNodeIds, scrollIntoView);
+          this.highlightCurrentSentence_(segments, scrollIntoView);
         }
         break;
       case chrome.readingMode.wordHighlighting:
@@ -91,12 +93,26 @@ export class ReadAloudHighlighter {
     }
   }
 
+  onWillMoveToNextGranularity(segments: Segment[]) {
+    const highlightGranularity = this.getEffectiveHighlightingGranularity_();
+    if (highlightGranularity === chrome.readingMode.sentenceHighlighting) {
+      return;
+    }
+
+    // When we're about to move to the next granularity, ensure the rest of the
+    // sentence we are about to skip is still highlighted for previous
+    // highlight formatting.
+    this.highlightCurrentSentence_(
+        segments, /*scrollIntoView=*/ false,
+        /* previousHighlightOnly=*/ true);
+  }
+
   // Resets formatting on the current highlight, including previous highlight
   // formatting.
-  removeCurrentHighlight() {
+  removeCurrentHighlight(segments: Segment[]) {
     // The most recent highlight could have been spread across multiple
     // segments so clear the formatting for all of the segments.
-    for (let i = 0; i < chrome.readingMode.getCurrentText().length; i++) {
+    for (let i = 0; i < segments.length; i++) {
       const lastElement = this.previousHighlights_.pop();
       if (lastElement) {
         lastElement.classList.remove(currentReadHighlightClass);
@@ -124,15 +140,6 @@ export class ReadAloudHighlighter {
       }
     });
     this.previousHighlights_ = [];
-  }
-
-
-  isInvalidHighlightForWordHighlighting(textToHighlight?: string): boolean {
-    // If a highlight is just white space or punctuation, we can skip
-    // highlighting.
-    const text = textToHighlight?.trim();
-    return !text || text === '' ||
-        IGNORED_HIGHLIGHT_CHARACTERS_REGEX.test(text);
   }
 
   private getCurrentHighlightBounds_(): DOMRect {
@@ -229,15 +236,19 @@ export class ReadAloudHighlighter {
     } = this.wordBoundaries_.state;
     const index = speechUtteranceStartIndex + previouslySpokenIndex;
     const highlightSegments =
-        chrome.readingMode.getHighlightForCurrentSegmentIndex(
+        this.readAloudModel_.getHighlightForCurrentSegmentIndex(
             index, highlightPhrases);
     let accumulatedHighlightLength = 0;
     let didApplyHighlight = false;
     for (const segment of highlightSegments) {
-      const {nodeId, start, length: segmentLength} = segment;
+      const {node, start, length: segmentLength} = segment;
+      if (!(node instanceof AxReadAloudNode)) {
+        continue;
+      }
+      const nodeId = node.axNodeId;
 
-      const node = this.nodeStore_.getDomNode(nodeId);
-      if (!node) {
+      const domNode = this.nodeStore_.getDomNode(nodeId);
+      if (!domNode) {
         continue;
       }
 
@@ -256,14 +267,15 @@ export class ReadAloudHighlighter {
       }
 
       const endIndex = start + highlightLength;
-      const textContent = node.textContent?.substring(start, endIndex).trim();
-      if (this.isInvalidHighlightForWordHighlighting(textContent)) {
-        continue;
-      }
-
-      const element = node as HTMLElement;
-      const highlightedNode =
-          this.highlightCurrentText_(start, endIndex, element);
+      const textContent =
+          domNode.textContent?.substring(start, endIndex).trim();
+      // If the remaining text is just punctuation, don't show it as a current
+      // highlight, but do fade it out as 'before the current highlight.'
+      const previousHighlightOnly =
+          isInvalidHighlightForWordHighlighting(textContent);
+      const element = domNode as HTMLElement;
+      const highlightedNode = this.highlightCurrentText_(
+          start, endIndex, element, previousHighlightOnly);
       this.nodeStore_.replaceDomNode(element, highlightedNode);
 
       // Keep track of the highlight length that's been spoken so that
@@ -278,15 +290,27 @@ export class ReadAloudHighlighter {
   }
 
   private highlightCurrentSentence_(
-      nodeIds: number[], scrollIntoView: boolean) {
-    if (!nodeIds.length) {
+      segments: Segment[], scrollIntoView: boolean,
+      previousHighlightOnly: boolean = false) {
+    if (!segments.length) {
       return;
     }
 
     this.resetPreviousHighlight();
-    for (const nodeId of nodeIds) {
-      const element = this.nodeStore_.getDomNode(nodeId) as HTMLElement;
-      const highlighted = this.highlightCurrentElement_(nodeId, element);
+    for (const {node, start, length} of segments) {
+      if (!(node instanceof AxReadAloudNode)) {
+        continue;
+      }
+      const element = this.nodeStore_.getDomNode(node.axNodeId) as HTMLElement;
+      if (!element) {
+        continue;
+      }
+      const end = start + length;
+      if (start < 0 || end < 0) {
+        continue;
+      }
+      const highlighted = this.highlightCurrentText_(
+          start, start + length, element, previousHighlightOnly);
       if (highlighted) {
         this.nodeStore_.replaceDomNode(element, highlighted);
       }
@@ -297,20 +321,6 @@ export class ReadAloudHighlighter {
     }
   }
 
-  private highlightCurrentElement_(nodeId: number, element?: HTMLElement):
-      HTMLElement|undefined {
-    if (!element) {
-      return undefined;
-    }
-    const start = chrome.readingMode.getCurrentTextStartIndex(nodeId);
-    const end = chrome.readingMode.getCurrentTextEndIndex(nodeId);
-    if ((start < 0) || (end < 0)) {
-      // If the start or end index is invalid, don't use this node.
-      return undefined;
-    }
-    return this.highlightCurrentText_(start, end, element);
-  }
-
   // The following results in
   // <span>
   //   <span class="previous-read-highlight"> prefix text </span>
@@ -318,8 +328,8 @@ export class ReadAloudHighlighter {
   //   suffix text
   // </span>
   private highlightCurrentText_(
-      highlightStart: number, highlightEnd: number,
-      currentNode: HTMLElement): HTMLElement {
+      highlightStart: number, highlightEnd: number, currentNode: HTMLElement,
+      previousHighlightOnly: boolean = false): HTMLElement {
     const parentOfHighlight = document.createElement('span');
     parentOfHighlight.classList.add(PARENT_OF_HIGHLIGHT_CLASS);
 
@@ -338,7 +348,14 @@ export class ReadAloudHighlighter {
     // Then get the section of text to highlight and mark it for
     // highlighting.
     const readingHighlight = document.createElement('span');
-    readingHighlight.classList.add(currentReadHighlightClass);
+    // In the case where we don't actually want to show the current highlight,
+    // but the text should still be included in 'previously read', add the
+    // previous formatting instead of the current formatting.
+    if (previousHighlightOnly) {
+      readingHighlight.classList.add(previousReadHighlightClass);
+    } else {
+      readingHighlight.classList.add(currentReadHighlightClass);
+    }
     const textNode = document.createTextNode(
         currentNode.textContent!.substring(highlightStart, highlightEnd));
     readingHighlight.appendChild(textNode);

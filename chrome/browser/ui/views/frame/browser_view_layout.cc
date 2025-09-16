@@ -18,19 +18,22 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/exclusive_access_bubble_views.h"
 #include "chrome/browser/ui/views/frame/browser_non_client_frame_view.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_view_layout_delegate.h"
 #include "chrome/browser/ui/views/frame/contents_layout_manager.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/tab_strip_view_interface.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
@@ -96,12 +99,11 @@ struct BrowserViewLayout::ContentsContainerLayoutResult {
   gfx::Rect separator_bounds;
 };
 
-class BrowserViewLayout::WebContentsModalDialogHostViews
+class BrowserViewLayout::BrowserModalDialogHostViews
     : public WebContentsModalDialogHost,
       public views::WidgetObserver {
  public:
-  explicit WebContentsModalDialogHostViews(
-      BrowserViewLayout* browser_view_layout)
+  explicit BrowserModalDialogHostViews(BrowserViewLayout* browser_view_layout)
       : browser_view_layout_(browser_view_layout) {
     // browser_view might be nullptr in unit tests.
     if (browser_view_layout->browser_view_) {
@@ -110,12 +112,11 @@ class BrowserViewLayout::WebContentsModalDialogHostViews
     }
   }
 
-  WebContentsModalDialogHostViews(const WebContentsModalDialogHostViews&) =
+  BrowserModalDialogHostViews(const BrowserModalDialogHostViews&) = delete;
+  BrowserModalDialogHostViews& operator=(const BrowserModalDialogHostViews&) =
       delete;
-  WebContentsModalDialogHostViews& operator=(
-      const WebContentsModalDialogHostViews&) = delete;
 
-  ~WebContentsModalDialogHostViews() override {
+  ~BrowserModalDialogHostViews() override {
     observer_list_.Notify(&ModalDialogHostObserver::OnHostDestroying);
   }
 
@@ -239,12 +240,11 @@ BrowserViewLayout::BrowserViewLayout(
     WebAppFrameToolbarView* web_app_frame_toolbar,
     views::Label* web_app_window_title,
     TabStripRegionView* tab_strip_region_view,
-    TabStrip* tab_strip,
+    views::View* vertical_tab_strip_container,
     views::View* toolbar,
     InfoBarContainerView* infobar_container,
     views::View* contents_container,
     MultiContentsView* multi_contents_view,
-    views::View* vertical_tab_strip_container,
     views::View* left_aligned_side_panel_separator,
     views::View* unified_side_panel,
     views::View* right_aligned_side_panel_separator,
@@ -258,18 +258,18 @@ BrowserViewLayout::BrowserViewLayout(
       web_app_frame_toolbar_(web_app_frame_toolbar),
       web_app_window_title_(web_app_window_title),
       tab_strip_region_view_(tab_strip_region_view),
+      vertical_tab_strip_container_(vertical_tab_strip_container),
       toolbar_(toolbar),
       infobar_container_(infobar_container),
       contents_container_(contents_container),
       multi_contents_view_(multi_contents_view),
-      vertical_tab_strip_container_(vertical_tab_strip_container),
       left_aligned_side_panel_separator_(left_aligned_side_panel_separator),
       unified_side_panel_(unified_side_panel),
       right_aligned_side_panel_separator_(right_aligned_side_panel_separator),
       side_panel_rounded_corner_(side_panel_rounded_corner),
       contents_separator_(contents_separator),
-      tab_strip_(tab_strip),
-      dialog_host_(std::make_unique<WebContentsModalDialogHostViews>(this)) {}
+      tab_strip_(tab_strip_region_view_->tab_strip()),
+      dialog_host_(std::make_unique<BrowserModalDialogHostViews>(this)) {}
 
 BrowserViewLayout::~BrowserViewLayout() = default;
 
@@ -308,8 +308,11 @@ gfx::Size BrowserViewLayout::GetMinimumSize(const views::View* host) const {
       bookmark_bar_ && bookmark_bar_->GetVisible() &&
       delegate_->SupportsWindowFeature(Browser::FEATURE_BOOKMARKBAR);
 
+  // TODO(crbug.com/437917495): Verify all callers have the correct bounds in
+  // vertical and horizontal tabstrip modes.
   gfx::Size tabstrip_size(
-      has_tabstrip ? tab_strip_region_view_->GetMinimumSize() : gfx::Size());
+      has_tabstrip ? browser_view_->tab_strip_view()->GetMinimumSize()
+                   : gfx::Size());
   gfx::Size toolbar_size((has_toolbar || has_location_bar)
                              ? toolbar_->GetMinimumSize()
                              : gfx::Size());
@@ -341,12 +344,6 @@ gfx::Size BrowserViewLayout::GetMinimumSize(const views::View* host) const {
   return gfx::Size(min_width, min_height);
 }
 
-void BrowserViewLayout::SetContentBorderBounds(
-    const std::optional<gfx::Rect>& region_capture_rect) {
-  dynamic_content_border_bounds_ = region_capture_rect;
-  LayoutContentBorder();
-}
-
 //////////////////////////////////////////////////////////////////////////////
 // BrowserViewLayout, views::LayoutManager implementation:
 
@@ -359,7 +356,7 @@ void BrowserViewLayout::Layout(views::View* browser_view) {
     window_scrim_->SetBoundsRect(available_bounds);
   }
 
-  if (tabs::AreVerticalTabsEnabled()) {
+  if (tabs::AreVerticalTabsEnabled() && IsVerticalTabsEnabled()) {
     LayoutVerticalTabStrip(available_bounds);
   }
 
@@ -388,8 +385,6 @@ void BrowserViewLayout::Layout(views::View* browser_view) {
 
   // Layout the contents container in the remaining space.
   LayoutContentsContainerView(available_bounds);
-
-  LayoutContentBorder();
 
   // This must be done _after_ we lay out the WebContents since this
   // code calls back into us to find the bounding box the find bar
@@ -555,7 +550,7 @@ void BrowserViewLayout::LayoutTabStripRegion(gfx::Rect& available_bounds) {
         0, 0, 0, web_app_frame_toolbar_->GetPreferredSize().width()));
   }
 
-  if (tabs::AreVerticalTabsEnabled()) {
+  if (tabs::AreVerticalTabsEnabled() && IsVerticalTabsEnabled()) {
     SetViewVisibility(tab_strip_region_view_, false);
   } else {
     SetViewVisibility(tab_strip_region_view_, true);
@@ -585,7 +580,7 @@ void BrowserViewLayout::LayoutToolbar(gfx::Rect& available_bounds) {
   bool toolbar_visible = delegate_->IsToolbarVisible();
   SetViewVisibility(toolbar_, toolbar_visible);
 
-  if (tabs::AreVerticalTabsEnabled()) {
+  if (tabs::AreVerticalTabsEnabled() && IsVerticalTabsEnabled()) {
     // When vertical tabs is enabled, the top element becomes the toolbar.
     // Because of this, it must now be aware of the location of the caption
     // buttons. We can reuse the calculation use by the TabStripRegionView to
@@ -715,7 +710,7 @@ BrowserViewLayout::CalculateContentsContainerLayout(
   contents_container_bounds.set_height(available_bounds.height() -
                                        available_bounds.y());
   int vertical_tab_offset = 0;
-  if (tabs::AreVerticalTabsEnabled()) {
+  if (tabs::AreVerticalTabsEnabled() && IsVerticalTabsEnabled()) {
     vertical_tab_offset = BrowserView::kVerticalTabStripWidth;
     contents_container_bounds.set_width(available_bounds.width() -
                                         vertical_tab_offset);
@@ -866,16 +861,9 @@ void BrowserViewLayout::LayoutContentsContainerView(
     SetViewVisibility(side_panel_rounded_corner_,
                       layout_result.side_panel_visible && !is_in_split);
     if (layout_result.side_panel_visible) {
-      // This can return nullptr when there is no Widget (for context, see
-      // http://crbug.com/40178332). The nullptr dereference does not always
-      // crash due to compiler optimizations, so CHECKing here ensures we crash.
-      CHECK(side_panel_rounded_corner_->GetLayoutProvider());
       // Adjust the rounded corner bounds based on the side panel bounds.
-      const float corner_radius =
-          side_panel_rounded_corner_->GetLayoutProvider()
-              ->GetCornerRadiusMetric(
-                  views::ShapeContextTokens::kSidePanelPageContentRadius);
-      const float corner_size = corner_radius + views::Separator::kThickness;
+      const int corner_size =
+          side_panel_rounded_corner_->GetPreferredSize().width();
       if (layout_result.contents_container_after_side_panel) {
         side_panel_rounded_corner_->SetBounds(
             layout_result.side_panel_bounds.right(),
@@ -883,8 +871,7 @@ void BrowserViewLayout::LayoutContentsContainerView(
             corner_size, corner_size);
       } else {
         side_panel_rounded_corner_->SetBounds(
-            layout_result.side_panel_bounds.x() - corner_radius -
-                views::Separator::kThickness,
+            layout_result.side_panel_bounds.x() - corner_size,
             layout_result.side_panel_bounds.y() - views::Separator::kThickness,
             corner_size, corner_size);
       }
@@ -929,49 +916,6 @@ void BrowserViewLayout::UpdateTopContainerBounds(
   }
   top_container_->SetBoundsRect(top_container_bounds);
   SetClipPathWithBottomAllowance(top_container_);
-}
-
-void BrowserViewLayout::LayoutContentBorder() {
-  if (!contents_border_widget_ || !contents_border_widget_->IsVisible()) {
-    return;
-  }
-
-  gfx::Point contents_top_left;
-#if BUILDFLAG(IS_CHROMEOS)
-  // On Ash placing the border widget on top of the contents container
-  // does not require an offset -- see crbug.com/1030925.
-  contents_top_left =
-      gfx::Point(contents_container_->x(), contents_container_->y());
-#else
-  views::View::ConvertPointToScreen(contents_container_, &contents_top_left);
-#endif
-
-  gfx::Rect rect;
-  if (dynamic_content_border_bounds_) {
-    rect =
-        gfx::Rect(contents_top_left.x() + dynamic_content_border_bounds_->x(),
-                  contents_top_left.y() + dynamic_content_border_bounds_->y(),
-                  dynamic_content_border_bounds_->width(),
-                  dynamic_content_border_bounds_->height());
-  } else {
-    rect =
-        gfx::Rect(contents_top_left.x(), contents_top_left.y(),
-                  contents_container_->width(), contents_container_->height());
-  }
-
-#if BUILDFLAG(IS_CHROMEOS)
-  // Immersive top container might overlap with the blue border in fullscreen
-  // mode - see crbug.com/1392733. By insetting the bounds rectangle we ensure
-  // that the blue border is always placed below the top container.
-  if (delegate_->GetImmersiveModeController()->IsRevealed()) {
-    int delta = top_container_->bounds().bottom() - rect.y();
-    if (delta > 0) {
-      rect.Inset(gfx::Insets().set_top(delta));
-    }
-  }
-#endif
-
-  contents_border_widget_->SetBounds(rect);
 }
 
 int BrowserViewLayout::GetMinWebContentsWidth() const {
@@ -1024,4 +968,11 @@ void BrowserViewLayout::UpdateSplitViewInsets() {
       .set_top(!is_in_full_screen && !has_infobar
                    ? 0
                    : MultiContentsView::kSplitViewContentInset);
+}
+
+bool BrowserViewLayout::IsVerticalTabsEnabled() const {
+  return browser_view_->browser()
+      ->browser_window_features()
+      ->vertical_tab_strip_state_controller()
+      ->IsVerticalTabsEnabled();
 }

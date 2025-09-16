@@ -302,6 +302,10 @@ class WebIdlSchemaTest(unittest.TestCase):
         'optional': True,
         '$ref': 'ExampleType'
     }], getFunctionParameters(schema, 'takesOptionalCustomType'))
+    self.assertEqual([{
+        'name': 'enumArgument',
+        '$ref': 'EnumType'
+    }], getFunctionParameters(schema, 'takesEnum'))
 
   # Tests function descriptions are processed as expected.
   def testFunctionDescriptions(self):
@@ -444,8 +448,8 @@ class WebIdlSchemaTest(unittest.TestCase):
             'description': 'An ExampleType passed to the event listener.'
         }], event_two['parameters'])
 
-  # Tests that Dictionaries defined on the top level of the IDL file are
-  # processed into types on the resulting namespace.
+  # Tests that Dictionaries and Enums defined on the top level of the IDL file
+  # are processed into types on the resulting namespace.
   def testApiTypesOnNamespace(self):
     schema = self.idl_basics
     custom_type = getType(schema, 'ExampleType')
@@ -489,6 +493,19 @@ class WebIdlSchemaTest(unittest.TestCase):
             },
             'description': 'Comment on sequence type.',
         }, custom_type['properties']['booleanSequence'])
+
+    enum_expected = {
+        'enum': [{
+            'name': 'name1',
+            'description': 'Comment1.'
+        }, {
+            'name': 'name2'
+        }],
+        'description': 'Enum description.',
+        'type': 'string',
+        'id': 'EnumType'
+    }
+    self.assertEqual(enum_expected, getType(schema, 'EnumType'))
 
   # Tests that a top level API comment is processed into a description
   # attribute, with HTML paragraph nodes added due to the blank commented line.
@@ -676,6 +693,27 @@ class WebIdlSchemaTest(unittest.TestCase):
         schema['description'],
     )
 
+  # Tests that an enum that uses the nodoc extended attribute has the related
+  # nodoc attribute set to true after processing.
+  def testNoDocOnEnum(self):
+    schema = self.idl_basics
+    nodoc_enum = getType(schema, 'EnumTypeWithNoDoc')
+    self.assertEqual(True, nodoc_enum['nodoc'])
+    # An enum without the extended attribute will not have a nodoc attribute.
+    no_nodoc_enum = getType(schema, 'EnumType')
+    self.assertFalse(hasattr(no_nodoc_enum, 'nodoc'))
+
+  # Tests that an enum with the deprecated extended attribute has the related
+  # deprecated attribute set to the provided string value after processing.
+  # TODO(crbug.com/340297705): expand this out to the other various places
+  # deprecated can be specified.
+  def testDeprecatedExtendedAttribute(self):
+    idl = web_idl_schema.Load('test/web_idl/deprecated.idl')
+    self.assertEqual(1, len(idl))
+    schema = idl[0]
+    deprecated_enum = getType(schema, 'DeprecatedEnum')
+    self.assertEqual('This enum is deprecated', deprecated_enum['deprecated'])
+
   # Tests that a function defined with the requiredCallback extended attribute
   # does not have the returns_async field marked as optional after processing.
   # Note: These are only relevant to contexts which don't support promise based
@@ -759,6 +797,19 @@ class WebIdlSchemaTest(unittest.TestCase):
             'properties': {},
             'types': [],
         }, defaults_schema)
+
+  # Tests that Enum and Dictionary types defined in a schema file retain their
+  # ordering in the resulting processed API object.
+  def testEnumAndTypeOrdering(self):
+    idl = web_idl_schema.Load('test/web_idl/enum_and_type_ordering.idl')
+    self.assertEqual(1, len(idl))
+    schema = idl[0]
+    # Types are interleaved in the schema.
+    types = schema['types']
+    self.assertEqual('ExampleDictOne', types[0]['id'])
+    self.assertEqual('EnumTypeOne', types[1]['id'])
+    self.assertEqual('ExampleDictTwo', types[2]['id'])
+    self.assertEqual('EnumTypeTwo', types[3]['id'])
 
 
 if __name__ == '__main__':

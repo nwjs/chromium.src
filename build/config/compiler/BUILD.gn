@@ -18,7 +18,6 @@ import("//build/config/pch.gni")
 import("//build/config/rust.gni")
 import("//build/config/ui.gni")
 import("//build/config/unwind.gni")
-import("//build/toolchain/cros/cros_config.gni")
 import("//build/toolchain/rbe.gni")
 import("//build/toolchain/toolchain.gni")
 import("//build_overrides/build.gni")
@@ -200,10 +199,7 @@ declare_args() {
   # warning serves as a flip switch to allow a gradual migration of targets
   # away from the opt-in wexit_time_destructors config, and into the default
   # compiler config.
-  # TODO(crbug.com/40031409): This argument will eventually default to true,
-  # but ultimately the goal is for it to eventually be removed, once this mode
-  # is stable enough.
-  is_wexit_time_destructors_default = false
+  is_wexit_time_destructors_default = true
 }
 
 declare_args() {
@@ -272,7 +268,6 @@ assert(!(llvm_force_head_revision && use_remoteexec && host_os != "linux"),
 # Since this is referenced both when passing the file and when deciding which
 # warnings to enable, store it in a separate variable here.
 use_clang_warning_suppression_file =
-    default_toolchain != "//build/toolchain/cros:target" &&
     !llvm_android_mainline && is_clang && clang_warning_suppression_file != ""
 
 # default_include_dirs ---------------------------------------------------------
@@ -689,14 +684,12 @@ config("compiler") {
       cflags += [ "-ffp-contract=off" ]
     }
 
-    # Enable ELF CREL (see crbug.com/357878242) for all platforms that use ELF
-    # (excluding toolchains that use an older version of LLVM).
+    # Enable ELF CREL (see crbug.com/357878242) for all platforms that use ELF.
     # TODO(crbug.com/376278218): This causes segfault on Linux ARM builds.
     # It also causes segfault on Linux s390x:
     # https://github.com/llvm/llvm-project/issues/149511
     if (is_linux && use_lld && !llvm_android_mainline && current_cpu != "arm" &&
-        current_cpu != "s390x" &&
-        default_toolchain != "//build/toolchain/cros:target") {
+        current_cpu != "s390x") {
       cflags += [ "-Wa,--crel,--allow-experimental-crel" ]
     }
   }
@@ -1876,25 +1869,26 @@ config("compiler_arm") {
 
 config("libcxx_module") {
   if (use_clang_modules) {
-    cflags_cc =
-        [
-          "-fmodules",
-          clang_arg_prefix + "-fno-implicit-module-maps",
-          "-fno-implicit-modules",
+    cflags_cc = [
+      "-fmodules",
+      clang_arg_prefix + "-fno-implicit-module-maps",
+      "-fno-implicit-modules",
 
-          "-Xclang",
-          "-fmodules-local-submodule-visibility",  # required for builtins
+      "-Xclang",
+      "-fmodules-local-submodule-visibility",  # required for builtins
 
-          # TODO(crbug.com/1456385): Figure out if this can be removed.
-          "-Wno-modules-ambiguous-internal-linkage",
+      # TODO(crbug.com/1456385): Figure out if this can be removed.
+      "-Wno-modules-ambiguous-internal-linkage",
 
-          # TODO(crbug.com/40440396): Clean up.
-          "-Wno-modules-import-nested-redundant",
+      # TODO(crbug.com/40440396): Clean up.
+      "-Wno-modules-import-nested-redundant",
 
-          # Needed to allow using builtin modules when the headers are
-          # unnecessarily using extern "C".
-          "-Wno-module-import-in-extern-c",
-        ] + module_map_flags
+      # Needed to allow using builtin modules when the headers are
+      # unnecessarily using extern "C".
+      "-Wno-module-import-in-extern-c",
+    ]
+
+    defines = [ "USE_LIBCXX_MODULES" ]
   }
 }
 
@@ -1925,7 +1919,7 @@ config("runtime_library") {
   # the C++ symbols. This config ensures the C++ symbols exist and are strong in
   # order to cause that replacement to occur by explicitly linking in clang's
   # compiler-rt library.
-  if (is_clang && !is_cronet_build) {
+  if (is_clang && !(is_a_target_toolchain && is_cronet_build)) {
     configs += [ "//build/config/clang:compiler_builtins" ]
   }
 
@@ -2218,9 +2212,10 @@ config("default_warnings") {
       cflags += [ "-Wno-gnu-line-marker" ]
     }
 
-    if (is_wexit_time_destructors_default) {
+    if (is_wexit_time_destructors_default &&
+        use_clang_warning_suppression_file) {
       # TODO(crbug.com/40031409): We are migrating towards making this warning
-      # enabled by default, and once that is completed, the warning
+      # enabled by default. Once that is completed, the warning
       # should always be added for clang builds.
       cflags += [ "-Wexit-time-destructors" ]
     }
@@ -2321,7 +2316,7 @@ config("chromium_code") {
       # ChromeOS's toolchain supports a high-quality _FORTIFY_SOURCE=3
       # implementation with a few custom glibc patches. Use that if it's
       # available.
-      if (is_chromeos_device && !lacros_use_chromium_toolchain) {
+      if (is_chromeos_device) {
         fortify_level = "3"
       }
       defines += [ "_FORTIFY_SOURCE=" + fortify_level ]

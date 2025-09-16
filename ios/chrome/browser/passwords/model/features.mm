@@ -8,12 +8,9 @@
 #import "ios/chrome/browser/policy/model/profile_policy_connector.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 
-BASE_FEATURE(kImportPasswordsFromSafari,
-             "ImportPasswordsFromSafari",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(ImportPasswordsFromSafari, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPasswordManagerEnableCrowdsourcingUploads,
-             "PasswordManagerEnableCrowdsourcingUploads",
+BASE_FEATURE(PasswordManagerEnableCrowdsourcingUploads,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool ShouldShowSafariImportWorkflow(ProfileIOS* profile) {

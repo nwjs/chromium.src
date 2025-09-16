@@ -184,6 +184,11 @@ struct PartitionOptions {
   // each `ThreadCache` instance.
   internal::SchedulerLoopQuarantineConfig
       scheduler_loop_quarantine_thread_local_config;
+  // Configuration for the AMSC quarantine branch. Used when
+  // `FreeFlags::kSchedulerLoopQuarantineForAdvancedMemorySafetyChecks` is
+  // specified.
+  internal::SchedulerLoopQuarantineConfig
+      scheduler_loop_quarantine_for_advanced_memory_safety_checks_config;
 
   // As the name implies, this is not a security measure, as there is no
   // guarantee that memorys has been zeroed out when handed back to the
@@ -394,6 +399,8 @@ struct alignas(64) PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionRoot {
   size_t scheduler_loop_quarantine_branch_capacity_in_bytes = 0;
   internal::SchedulerLoopQuarantineRoot scheduler_loop_quarantine_root;
   internal::GlobalSchedulerLoopQuarantineBranch scheduler_loop_quarantine;
+  internal::GlobalSchedulerLoopQuarantineBranch
+      scheduler_loop_quarantine_for_advanced_memory_safety_checks;
 
   static constexpr internal::base::TimeDelta kMaxPurgeDuration =
       internal::base::Milliseconds(2);
@@ -1544,6 +1551,13 @@ PA_ALWAYS_INLINE void PartitionRoot::FreeNoHooksImmediate(
       scheduler_loop_quarantine.Quarantine(object, slot_span, slot_start);
     }
     return;
+  } else if constexpr (
+      ContainsFlags(
+          flags,
+          FreeFlags::kSchedulerLoopQuarantineForAdvancedMemorySafetyChecks)) {
+    scheduler_loop_quarantine_for_advanced_memory_safety_checks.Quarantine(
+        object, slot_span, slot_start);
+    return;
   }
 
   // TODO(keishi): Create function to convert |object| to |slot_start_ptr|.
@@ -1566,7 +1580,6 @@ PA_ALWAYS_INLINE void PartitionRoot::FreeAfterBRPQuarantine(
 
   // Iterating over the entire slot can be really expensive.
 #if PA_BUILDFLAG(EXPENSIVE_DCHECKS_ARE_ON)
-#if !PA_BUILDFLAG(IS_IOS)
   auto hook = PartitionAllocHooks::GetQuarantineOverrideHook();
   // If we have a hook the object segment is not necessarily filled
   // with |kQuarantinedByte|.
@@ -1577,7 +1590,6 @@ PA_ALWAYS_INLINE void PartitionRoot::FreeAfterBRPQuarantine(
       PA_DCHECK(object[i] == internal::kQuarantinedByte);
     }
   }
-#endif  //  !PA_BUILDFLAG(IS_IOS)
   internal::DebugMemset(internal::SlotStartAddr2Ptr(slot_start),
                         internal::kFreedByte, slot_span->GetUtilizedSlotSize());
 #endif  // PA_BUILDFLAG(EXPENSIVE_DCHECKS_ARE_ON)
@@ -2424,7 +2436,7 @@ void* PartitionRoot::ReallocInline(void* ptr,
   // factor to the new size to avoid this issue. This workaround is only
   // intended to be used for Skia bots, and is not intended to be a general
   // solution.
-  if (new_size > old_usable_size && new_size > 12 << 20) {
+  if (new_size > old_usable_size) {
     // 1.5x growth factor.
     // Note that in case of integer overflow, the std::max ensures that the
     // new_size is at least as large as the old_usable_size.

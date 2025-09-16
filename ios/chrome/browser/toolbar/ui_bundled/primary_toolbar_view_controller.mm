@@ -4,8 +4,6 @@
 
 #import "ios/chrome/browser/toolbar/ui_bundled/primary_toolbar_view_controller.h"
 
-#import <MaterialComponents/MaterialProgressView.h>
-
 #import "base/check.h"
 #import "base/feature_list.h"
 #import "base/metrics/field_trial_params.h"
@@ -41,8 +39,7 @@ const base::TimeDelta kBannerPromoAnimationDuration = base::Seconds(0.5);
 }  // namespace
 
 // TODO(crbug.com/374808149): Clean up the killswitch.
-BASE_FEATURE(kPrimaryToolbarViewDidLoadUpdateViews,
-             "PrimaryToolbarViewDidLoadUpdateViews",
+BASE_FEATURE(PrimaryToolbarViewDidLoadUpdateViews,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 @interface PrimaryToolbarViewController () <TabGroupIndicatorViewDelegate>

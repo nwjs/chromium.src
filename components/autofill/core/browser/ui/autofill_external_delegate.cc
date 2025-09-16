@@ -902,12 +902,18 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
       break;
     }
     case SuggestionType::kOneTimePasswordEntry: {
-      auto otp_payload =
-          suggestion.GetPayload<Suggestion::OneTimePasswordPayload>()
-              .filling_data;
+      // Dereferencing is safe, because it wouldn't be possible to get a
+      // suggestion of this type if the OTP delegate did not exist, and the
+      // destruction of the delegate happens on the tab destruction, after
+      // which no filling should happen.
+      const OtpDelegate& otp_delegate =
+          CHECK_DEREF(manager_->client().GetOtpDelegate());
+      OtpFillData otp_fill_data = otp_delegate.GetFillDataForOtpSuggestion(
+          query_form_.global_id(), query_field_.global_id(),
+          suggestion.main_text.value);
       manager_->FillOrPreviewForm(
           mojom::ActionPersistence::kFill, query_form_,
-          query_field_.global_id(), &otp_payload,
+          query_field_.global_id(), &otp_fill_data,
           TriggerSourceFromSuggestionTriggerSource(trigger_source_));
       break;
     }
@@ -1422,15 +1428,13 @@ void AutofillExternalDelegate::DidAcceptPaymentsSuggestion(
                          GetWeakPtr()));
       break;
     case SuggestionType::kBnplEntry: {
-      CHECK(suggestion.GetPayload<Suggestion::PaymentsPayload>()
-                .extracted_amount_in_micros.has_value());
       payments::BnplManager* bnpl_manager = manager_->GetPaymentsBnplManager();
       CHECK(bnpl_manager);
 
       bnpl_manager->OnDidAcceptBnplSuggestion(
           /*final_checkout_amount=*/suggestion
               .GetPayload<Suggestion::PaymentsPayload>()
-              .extracted_amount_in_micros.value(),
+              .extracted_amount_in_micros,
           base::BindOnce(
               [](base::WeakPtr<AutofillExternalDelegate> delegate,
                  const CreditCard& card) {

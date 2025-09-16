@@ -123,13 +123,14 @@ bool IsValidRangeAndMarkable(const RangeInFlatTree* range) {
     // FindBuffer does find this text (as typically overflow: hidden can still
     // be programmatically scrolled).
     if (box->HasNonVisibleOverflow()) {
+      PhysicalSize size = box->StitchedSize();
       if (box->StyleRef().OverflowX() != EOverflow::kVisible &&
-          box->Size().width.RawValue() <= 0) {
+          size.width.RawValue() <= 0) {
         return false;
       }
 
       if (box->StyleRef().OverflowY() != EOverflow::kVisible &&
-          box->Size().height.RawValue() <= 0) {
+          size.height.RawValue() <= 0) {
         return false;
       }
     }
@@ -537,17 +538,15 @@ void AnnotationAgentImpl::PerformPreAttachDOMMutation() {
     DisplayLockUtilities::ActivateFindInPageMatchRangeIfNeeded(
         pending_range_->ToEphemeralRange());
 
-    // If the active match is hidden inside a <details> element, then we should
-    // expand it so we can scroll to it.
-    if (HTMLDetailsElement::ExpandDetailsAncestors(first_node)) {
+    // If the active match is hidden inside a <details> element or a
+    // hidden=until-found element, then we should expand it so we can scroll to
+    // it.
+    if (DisplayLockUtilities::RevealAutoExpandableAncestors(first_node)
+            .revealed_details) {
       UseCounter::Count(
           first_node.GetDocument(),
           WebFeature::kAutoExpandedDetailsForScrollToTextFragment);
     }
-
-    // If the active match is hidden inside a hidden=until-found element, then
-    // we should reveal it so we can scroll to it.
-    DisplayLockUtilities::RevealHiddenUntilFoundAncestors(first_node);
 
     // Ensure we leave clean layout since we'll be applying markers after this.
     first_node.GetDocument().UpdateStyleAndLayout(

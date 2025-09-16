@@ -23,7 +23,7 @@ _protocol_generated = [
   "protocol/target.h",
 ]
 
-if (!is_android || is_desktop_android) {
+if (enable_devtools_frontend) {
   _protocol_generated += [
     "protocol/autofill.cc",
     "protocol/autofill.h",
@@ -148,10 +148,14 @@ static_library("devtools") {
     sources += [
       "aida_client.cc",
       "aida_client.h",
+      "aida_service_handler.cc",
+      "aida_service_handler.h",
       "devtools_availability_checker.cc",
       "devtools_availability_checker.h",
       "devtools_contents_resizing_strategy.cc",
       "devtools_contents_resizing_strategy.h",
+      "devtools_dispatch_http_request_params.cc",
+      "devtools_dispatch_http_request_params.h",
       "devtools_embedder_message_dispatcher.cc",
       "devtools_embedder_message_dispatcher.h",
       "devtools_eye_dropper.cc",
@@ -164,6 +168,10 @@ static_library("devtools") {
       "devtools_file_system_indexer.h",
       "devtools_file_watcher.cc",
       "devtools_file_watcher.h",
+      "devtools_http_service_handler.cc",
+      "devtools_http_service_handler.h",
+      "devtools_http_service_registry.cc",
+      "devtools_http_service_registry.h",
       "devtools_select_file_dialog.cc",
       "devtools_select_file_dialog.h",
       "devtools_settings.cc",
@@ -176,6 +184,8 @@ static_library("devtools") {
       "devtools_window.h",
       "features.cc",
       "features.h",
+      "gdp_service_handler.cc",
+      "gdp_service_handler.h",
       "url_constants.cc",
       "url_constants.h",
       "visual_logging.cc",
@@ -304,9 +314,9 @@ static_library("devtools") {
       "devtools_infobar_delegate.h",
       "devtools_targets_ui.cc",
       "devtools_targets_ui.h",
+      "devtools_ui_controller.cc",
+      "devtools_ui_controller.h",
       "devtools_window_views.cc",
-      "global_confirm_info_bar.cc",
-      "global_confirm_info_bar.h",
       "process_sharing_infobar_delegate.cc",
       "process_sharing_infobar_delegate.h",
       "remote_debugging_server.cc",
@@ -320,6 +330,13 @@ static_library("devtools") {
         "device/cast_device_provider.h",
       ]
     }
+  }
+
+  if (!is_android || enable_desktop_android_extensions) {
+    sources += [
+      "global_confirm_info_bar.cc",
+      "global_confirm_info_bar.h",
+    ]
   }
 
   if (is_mac) {
@@ -371,7 +388,10 @@ static_library("devtools") {
       "protocol/target_handler.h",
     ]
     if (is_chromeos) {
-      deps += [ "//ash" ]
+      deps += [
+        "//ash",
+        "//chromeos/dbus/constants",
+      ]
       sources += [
         "protocol/window_manager_handler.cc",
         "protocol/window_manager_handler.h",

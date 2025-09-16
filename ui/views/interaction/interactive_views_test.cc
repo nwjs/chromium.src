@@ -15,11 +15,11 @@
 #include "base/test/bind.h"
 #include "build/build_config.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
+#include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/interaction/interaction_sequence.h"
 #include "ui/base/interaction/interaction_test_util.h"
 #include "ui/base/test/ui_controls.h"
-#include "ui/gfx/native_widget_types.h"
 #include "ui/views/interaction/interaction_test_util_mouse.h"
 #include "ui/views/interaction/interaction_test_util_views.h"
 #include "ui/views/view_tracker.h"
@@ -323,6 +323,11 @@ void InteractiveViewsTestApi::SetContextWidget(Widget* widget) {
   } else {
     test_impl().mouse_util_.reset();
   }
+}
+
+ui::ElementContext InteractiveViewsTestApi::GetContext() const {
+  CHECK(context_widget_) << "GetContext() called after widget closed.";
+  return ElementTrackerViews::GetContextForWidget(context_widget_.get());
 }
 
 // static

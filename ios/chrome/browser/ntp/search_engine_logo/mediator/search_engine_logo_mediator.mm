@@ -12,7 +12,6 @@
 #import "components/image_fetcher/ios/ios_image_data_fetcher_wrapper.h"
 #import "components/omnibox/common/omnibox_features.h"
 #import "components/search/search.h"
-#import "components/search_provider_logos/logo_observer.h"
 #import "ios/chrome/browser/google/model/google_logo_service.h"
 #import "ios/chrome/browser/metrics/model/new_tab_page_uma.h"
 #import "ios/chrome/browser/ntp/search_engine_logo/ui/search_engine_logo_consumer.h"
@@ -39,9 +38,10 @@
 @property(strong, nonatomic, readonly)
     SearchEngineLogoContainerView* containerView;
 
-// Shows the doodle UIImageView with a fade animation.
-- (void)updateLogo:(const search_provider_logos::Logo*)logo
-           animate:(BOOL)animate;
+// Called when the logo is downloaded or failed to be downloaded.
+- (void)logoDownloaded:(const search_provider_logos::Logo*)logo
+        callbackReason:
+            (search_provider_logos::LogoCallbackReason)callbackReason;
 
 @end
 
@@ -68,10 +68,8 @@ enum ClickedLogoType {
 void OnLogoAvailable(SearchEngineLogoMediator* mediator,
                      search_provider_logos::LogoCallbackReason callback_reason,
                      const std::optional<search_provider_logos::Logo>& logo) {
-  if (callback_reason ==
-      search_provider_logos::LogoCallbackReason::DETERMINED) {
-    [mediator updateLogo:(logo ? &logo.value() : nullptr) animate:YES];
-  }
+  [mediator logoDownloaded:(logo ? &logo.value() : nullptr)
+            callbackReason:callback_reason];
 }
 
 }  // namespace
@@ -152,7 +150,9 @@ void OnLogoAvailable(SearchEngineLogoMediator* mediator,
 - (void)setUsesMonochromeLogo:(BOOL)usesMonochromeLogo {
   if (usesMonochromeLogo != _usesMonochromeLogo) {
     _usesMonochromeLogo = usesMonochromeLogo;
-    if (self.containerView) {
+    if (search::DefaultSearchProviderIsGoogle(_templateURLService) &&
+        self.containerView) {
+      // TODO(crbug.com/438460743): Need implementation.
       self.containerView.shrunkLogoView.image = [self offlineGoogleLogoImage];
     }
   }
@@ -235,16 +235,21 @@ void OnLogoAvailable(SearchEngineLogoMediator* mediator,
   _fingerprint = "";
   [self.containerView setLogoState:_logoState animated:YES];
   self.containerView.isAccessibilityElement = YES;
-  if (search::DefaultSearchProviderIsGoogle(_templateURLService) ||
-      (base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV3) &&
-       _defaultSearchProvider &&
-       (_defaultSearchProvider->doodle_url().is_valid() ||
-        _defaultSearchProvider->logo_url().is_valid()))) {
+  if ([self canShowLogoOrDoodle]) {
     [self fetchLogoOrDoodle];
   }
 }
 
 #pragma mark - Private
+
+// Returns whether a logo or doodle can be shown with the current search engine.
+- (BOOL)canShowLogoOrDoodle {
+  return search::DefaultSearchProviderIsGoogle(_templateURLService) ||
+         (base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV3) &&
+          _defaultSearchProvider &&
+          (_defaultSearchProvider->doodle_url().is_valid() ||
+           _defaultSearchProvider->logo_url().is_valid()));
+}
 
 - (void)fetchLogoOrDoodle {
   const search_provider_logos::Logo logo = _logoService->GetCachedLogo();
@@ -291,6 +296,7 @@ void OnLogoAvailable(SearchEngineLogoMediator* mediator,
                             CLICKED_LOGO_TYPE_COUNT);
 }
 
+// Shows the doodle UIImageView with a fade animation.
 - (void)updateLogo:(const search_provider_logos::Logo*)logo
            animate:(BOOL)animate {
   if (!logo) {
@@ -305,7 +311,7 @@ void OnLogoAvailable(SearchEngineLogoMediator* mediator,
       logo->metadata.fingerprint != "") {
     // The -updateLogo call can be noisy. Don't reload the image if the
     // fingerprint hasn't changed.
-    // TODO(crbug.com/423883582): finger print is empty for 3rd party search
+    // TODO(crbug.com/436747442): fingerprint is empty for 3rd party search
     // engine logo.
     if (_fingerprint == logo->metadata.fingerprint) {
       return;
@@ -315,6 +321,12 @@ void OnLogoAvailable(SearchEngineLogoMediator* mediator,
 
   // Cache a valid, non null, logo for other window/tab uses.
   _logoService->SetCachedLogo(logo);
+
+  if (![self canShowLogoOrDoodle]) {
+    // In case the logo state has been updated between the fetch and the
+    // response.
+    return;
+  }
 
   // If there is a doodle, remove the accessibility of the container view so the
   // doodle alt text can be read with voice over.
@@ -372,6 +384,50 @@ void OnLogoAvailable(SearchEngineLogoMediator* mediator,
       SHOWN_LOGO_TYPE_COUNT);
 
   [self.containerView setLogoState:logoState animated:animate];
+}
+
+- (void)logoDownloaded:(const search_provider_logos::Logo*)logo
+        callbackReason:
+            (search_provider_logos::LogoCallbackReason)callbackReason {
+  if (!_logoService) {
+    // The mediator was disconnected.
+    return;
+  }
+  switch (callbackReason) {
+    case search_provider_logos::LogoCallbackReason::DETERMINED:
+      [self updateLogo:logo animate:YES];
+      break;
+    case search_provider_logos::LogoCallbackReason::CANCELED: {
+      // The logo fetch was canceled. This can be for several reasons, for
+      // example the search engine was changed, or the cookies were updated.
+      // The fetch needs to be restarted, to make sure there is no mistake,
+      // `[self searchEngineChanged]` is called.
+      // TODO(crbug.com/439815392): This should be a temporary fix. The real
+      // fix should be done in LogoServiceImpl.
+      __weak __typeof(self) weakSelf = self;
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(
+                         [](__typeof(self) strongSelf) {
+                           [strongSelf logoDownloadCanceled];
+                         },
+                         weakSelf));
+      break;
+    }
+    case search_provider_logos::LogoCallbackReason::DISABLED:
+    case search_provider_logos::LogoCallbackReason::REVALIDATED:
+    case search_provider_logos::LogoCallbackReason::FAILED:
+      break;
+  }
+}
+
+// Called when the logo fetch was canceled.
+- (void)logoDownloadCanceled {
+  if (!_templateURLService) {
+    // If the mediator was disconnected, this call should be ignored.
+    return;
+  }
+  // Makes sure the logo is fetched again.
+  [self searchEngineChanged];
 }
 
 // Called when the doodle's appearance animation completes.

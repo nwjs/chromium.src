@@ -200,6 +200,7 @@ set(ABSL_INTERNAL_DLL_FILES
   "log/initialize.cc"
   "log/initialize.h"
   "log/log.h"
+  "log/log_entry.cc"
   "log/log_entry.h"
   "log/log_sink.cc"
   "log/log_sink.h"
@@ -827,6 +828,9 @@ function(absl_make_dll)
       ${_dll_libs}
       ${ABSL_DEFAULT_LINKOPTS}
       $<$<BOOL:${ANDROID}>:-llog>
+      $<$<BOOL:${MINGW}>:-ladvapi32>
+      $<$<BOOL:${MINGW}>:-ldbghelp>
+      $<$<BOOL:${MINGW}>:-lbcrypt>
   )
   set_target_properties(${_dll} PROPERTIES
     LINKER_LANGUAGE "CXX"

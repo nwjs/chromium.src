@@ -6,9 +6,29 @@ source_set("coordinator") {
   sources = [
     "aim_prototype_coordinator.h",
     "aim_prototype_coordinator.mm",
+    "aim_prototype_mediator.h",
+    "aim_prototype_mediator.mm",
   ]
   deps = [
+    "//components/application_locale_storage",
+    "//components/lens",
+    "//components/omnibox/composebox/ios",
+    "//components/search_engines",
+    "//ios/chrome/browser/aim/prototype/public:features",
     "//ios/chrome/browser/aim/prototype/ui",
+    "//ios/chrome/browser/search_engines/model:template_url_service_factory",
     "//ios/chrome/browser/shared/coordinator/chrome_coordinator",
+    "//ios/chrome/browser/shared/model/application_context",
+    "//ios/chrome/browser/shared/model/profile",
+    "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/chrome/browser/shared/public/commands",
+    "//ios/chrome/browser/signin/model",
+    "//ios/chrome/browser/url_loading/model",
+    "//ios/chrome/browser/url_loading/model:url_loading_params_header",
+    "//ios/chrome/browser/variations/model/client",
+    "//ios/chrome/common",
+    "//ios/public/provider/chrome/browser/voice_search:voice_search_api",
+    "//ios/web/public",
+    "//ui/base",
   ]
 }

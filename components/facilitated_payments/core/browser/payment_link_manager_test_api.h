@@ -43,6 +43,10 @@ class PaymentLinkManagerTestApi {
     payment_link_manager_->is_device_bound_for_logging_ = is_device_bound;
   }
 
+  void set_is_payment_app_available(bool is_payment_app_available) {
+    payment_link_manager_->is_payment_app_available_ = is_payment_app_available;
+  }
+
   bool is_device_bound() {
     return payment_link_manager_->is_device_bound_for_logging_;
   }
@@ -53,6 +57,11 @@ class PaymentLinkManagerTestApi {
 
   void OnEwalletAccountSelected(int64_t selected_instrument_id) {
     payment_link_manager_->OnEwalletAccountSelected(selected_instrument_id);
+  }
+
+  void OnPaymentAppSelected(std::string_view package_name,
+                            std::string_view activity_name) {
+    payment_link_manager_->OnPaymentAppSelected(package_name, activity_name);
   }
 
   void OnRiskDataLoaded(base::TimeTicks start_time,
@@ -92,10 +101,13 @@ class PaymentLinkManagerTestApi {
   void ShowPaymentLinkPrompt(
       base::span<const autofill::Ewallet> ewallet_suggestions,
       std::unique_ptr<FacilitatedPaymentsAppInfoList> app_suggestions,
-      base::OnceCallback<void(int64_t)> on_ewallet_account_selected) {
+      base::OnceCallback<void(int64_t)> on_ewallet_account_selected,
+      base::OnceCallback<void(std::string_view, std::string_view)>
+          on_payment_app_selected) {
     payment_link_manager_->ShowPaymentLinkPrompt(
         ewallet_suggestions, std::move(app_suggestions),
-        std::move(on_ewallet_account_selected));
+        std::move(on_ewallet_account_selected),
+        std::move(on_payment_app_selected));
   }
 
   void ShowProgressScreen() { payment_link_manager_->ShowProgressScreen(); }

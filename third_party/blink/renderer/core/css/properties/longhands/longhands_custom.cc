@@ -995,13 +995,8 @@ const CSSValue* BackgroundClip::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext&,
     const CSSParserLocalContext& local_context) const {
-  if (RuntimeEnabledFeatures::CSSBackgroundClipUnprefixEnabled()) {
-    return css_parsing_utils::ConsumeCommaSeparatedList(
-        css_parsing_utils::ConsumeBackgroundBoxOrText, stream);
-  } else {
-    return css_parsing_utils::ParseBackgroundBox(
-        stream, local_context, css_parsing_utils::AllowTextValue::kAllow);
-  }
+  return css_parsing_utils::ConsumeCommaSeparatedList(
+      css_parsing_utils::ConsumeBackgroundBoxOrText, stream);
 }
 
 const CSSValue* BackgroundClip::CSSValueFromComputedStyleInternal(
@@ -1049,7 +1044,7 @@ void BackgroundClip::ApplyValue(StyleResolverState& state,
     // Walk each value and put it into a layer, creating new layers as needed.
     // As per https://w3c.github.io/csswg-drafts/css-backgrounds/#layering
     while (curr_child) {
-      for (auto curr_val : *value_list) {
+      for (const auto& curr_val : *value_list) {
         if (!curr_child) {
           curr_child = prev_child->EnsureNext();
         }
@@ -1463,7 +1458,18 @@ const CSSValue* BorderBottomWidth::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ZoomAdjustedPixelValue(style.BorderBottomWidth(), style);
+  int width = 0;
+  // Following the resolution of CSSWG issue 11494, the computed value of
+  // border-*-width should be independent of the border-*-style.
+  // https://github.com/w3c/csswg-drafts/issues/11494#issuecomment-2675800489
+  if (RuntimeEnabledFeatures::DecoupleComputedBorderWidthFromStyleEnabled() &&
+      value_phase == CSSValuePhase::kComputedValue) {
+    width = style.BorderBottomWidthInternal();
+  } else {
+    width = style.BorderBottomWidth();
+  }
+
+  return ZoomAdjustedPixelValue(width, style);
 }
 
 const CSSValue* BorderCollapse::CSSValueFromComputedStyleInternal(
@@ -1728,7 +1734,18 @@ const CSSValue* BorderLeftWidth::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ZoomAdjustedPixelValue(style.BorderLeftWidth(), style);
+  int width = 0;
+  // Following the resolution of CSSWG issue 11494, the computed value of
+  // border-*-width should be independent of the border-*-style.
+  // https://github.com/w3c/csswg-drafts/issues/11494#issuecomment-2675800489
+  if (RuntimeEnabledFeatures::DecoupleComputedBorderWidthFromStyleEnabled() &&
+      value_phase == CSSValuePhase::kComputedValue) {
+    width = style.BorderLeftWidthInternal();
+  } else {
+    width = style.BorderLeftWidth();
+  }
+
+  return ZoomAdjustedPixelValue(width, style);
 }
 
 const CSSValue* BorderRightColor::ParseSingleValue(
@@ -1805,7 +1822,18 @@ const CSSValue* BorderRightWidth::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ZoomAdjustedPixelValue(style.BorderRightWidth(), style);
+  int width = 0;
+  // Following the resolution of CSSWG issue 11494, the computed value of
+  // border-*-width should be independent of the border-*-style.
+  // https://github.com/w3c/csswg-drafts/issues/11494#issuecomment-2675800489
+  if (RuntimeEnabledFeatures::DecoupleComputedBorderWidthFromStyleEnabled() &&
+      value_phase == CSSValuePhase::kComputedValue) {
+    width = style.BorderRightWidthInternal();
+  } else {
+    width = style.BorderRightWidth();
+  }
+
+  return ZoomAdjustedPixelValue(width, style);
 }
 
 const CSSValue* BorderStartStartRadius::ParseSingleValue(
@@ -1928,7 +1956,18 @@ const CSSValue* BorderTopWidth::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ZoomAdjustedPixelValue(style.BorderTopWidth(), style);
+  int width = 0;
+  // Following the resolution of CSSWG issue 11494, the computed value of
+  // border-*-width should be independent of the border-*-style.
+  // https://github.com/w3c/csswg-drafts/issues/11494#issuecomment-2675800489
+  if (RuntimeEnabledFeatures::DecoupleComputedBorderWidthFromStyleEnabled() &&
+      value_phase == CSSValuePhase::kComputedValue) {
+    width = style.BorderTopWidthInternal();
+  } else {
+    width = style.BorderTopWidth();
+  }
+
+  return ZoomAdjustedPixelValue(width, style);
 }
 
 const CSSValue* BorderShape::ParseSingleValue(
@@ -2477,7 +2516,7 @@ const CSSValue* ColorScheme::CSSValueFromComputedStyleInternal(
     return CSSIdentifierValue::Create(CSSValueID::kNormal);
   }
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-  for (auto ident : style.ColorScheme()) {
+  for (const auto& ident : style.ColorScheme()) {
     list->Append(*MakeGarbageCollected<CSSCustomIdentValue>(ident));
   }
   return list;
@@ -2730,8 +2769,19 @@ const CSSValue* ColumnRuleWidth::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::ValueForGapDecorationWidthDataList(
-      style.ColumnRuleWidth(), style, value_phase);
+  GapDataList<int> widths;
+  // Following the resolution of CSSWG issue 11494, the computed value of
+  // column-rule-width should be independent of the column-rule-style.
+  // https://github.com/w3c/csswg-drafts/issues/11494#issuecomment-2675800489
+  if (RuntimeEnabledFeatures::DecoupleComputedBorderWidthFromStyleEnabled() &&
+      value_phase == CSSValuePhase::kComputedValue) {
+    widths = style.ColumnRuleWidthInternal();
+  } else {
+    widths = style.ColumnRuleWidth();
+  }
+
+  return ComputedStyleUtils::ValueForGapDecorationWidthDataList(widths, style,
+                                                                value_phase);
 }
 
 const CSSValue* RowRuleWidth::ParseSingleValue(
@@ -3013,37 +3063,6 @@ const CSSValue* ContainerType::CSSValueFromComputedStyleInternal(
 
 namespace {
 
-CSSValue* ConsumeAttr(CSSParserTokenStream& stream,
-                      const CSSParserContext& context) {
-  DCHECK(!RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled());
-
-  AtomicString attr_name;
-  {
-    CSSParserTokenStream::BlockGuard guard(stream);
-    stream.ConsumeWhitespace();
-    if (stream.Peek().GetType() != kIdentToken) {
-      return nullptr;
-    }
-
-    attr_name = stream.ConsumeIncludingWhitespace().Value().ToAtomicString();
-    if (!stream.AtEnd()) {
-      // NOTE: This AtEnd() is fine, because we are inside a function block
-      // (i.e., inside a BlockGuard).
-      return nullptr;
-    }
-  }
-
-  stream.ConsumeWhitespace();
-  if (context.IsHTMLDocument()) {
-    attr_name = attr_name.LowerASCII();
-  }
-
-  CSSFunctionValue* attr_value =
-      MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kAttr);
-  attr_value->Append(*MakeGarbageCollected<CSSCustomIdentValue>(attr_name));
-  return attr_value;
-}
-
 CSSValue* ConsumeCounterContent(CSSParserTokenStream& stream,
                                 const CSSParserContext& context,
                                 bool counters) {
@@ -3122,10 +3141,7 @@ const CSSValue* ParseContentValue(CSSParserTokenStream& stream,
       parsed_value = css_parsing_utils::ConsumeString(stream);
     }
     if (!parsed_value) {
-      if (stream.Peek().FunctionId() == CSSValueID::kAttr &&
-          !RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled()) {
-        parsed_value = ConsumeAttr(stream, context);
-      } else if (stream.Peek().FunctionId() == CSSValueID::kCounter) {
+      if (stream.Peek().FunctionId() == CSSValueID::kCounter) {
         parsed_value = ConsumeCounterContent(stream, context, false);
       } else if (stream.Peek().FunctionId() == CSSValueID::kCounters) {
         parsed_value = ConsumeCounterContent(stream, context, true);
@@ -3156,11 +3172,8 @@ const CSSValue* ParseContentValue(CSSParserTokenStream& stream,
     do {
       CSSParserSavePoint savepoint(stream);
       CSSValue* alt_value = nullptr;
-      if (stream.Peek().FunctionId() == CSSValueID::kAttr &&
-          !RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled()) {
-        alt_value = ConsumeAttr(stream, context);
-      } else if (RuntimeEnabledFeatures::CSSAltCounterEnabled() &&
-                 stream.Peek().FunctionId() == CSSValueID::kCounter) {
+      if (RuntimeEnabledFeatures::CSSAltCounterEnabled() &&
+          stream.Peek().FunctionId() == CSSValueID::kCounter) {
         alt_value = ConsumeCounterContent(stream, context, false);
       } else if (RuntimeEnabledFeatures::CSSAltCounterEnabled() &&
                  stream.Peek().FunctionId() == CSSValueID::kCounters) {
@@ -3212,38 +3225,25 @@ void Content::ApplyInherit(StyleResolverState& state) const {
 
 namespace {
 
-String GetStringFromAttributeOrStringValue(const CSSValue& value,
-                                           StyleResolverState& state,
-                                           ComputedStyleBuilder& builder) {
-  String string = g_empty_string;
-  if (const auto* function_value = DynamicTo<CSSFunctionValue>(value)) {
-    DCHECK(!RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled());
-    DCHECK_EQ(function_value->FunctionType(), CSSValueID::kAttr);
-    builder.SetHasAttrFunction();
-    // TODO: Can a namespace be specified for an attr(foo)?
-    QualifiedName attr(
-        To<CSSCustomIdentValue>(function_value->Item(0)).Value());
-    const AtomicString& attr_value =
-        state.GetUltimateOriginatingElementOrSelf().getAttribute(attr);
-    string = attr_value.IsNull() ? g_empty_string : attr_value.GetString();
-  } else {
-    // We should be able to assume at this point that `value` is a
-    // CSSStringValue, since all other types of CSSValues produced in
-    // Content::ParseSingleValue should have been handled by Content::ApplyValue
-    // before reaching this point. However, as observed in crbug.com/348304397
-    // there is some unexpected type that is not getting handled. The following
-    // two DCHECKs are intended to help investigate this. The first DCHECK tests
-    // the theory that the unexpected type is coming from ConsumeImage, where a
-    // light-dark() function in a UA shadow DOM could cause a
-    // CSSLightDarkValuePair to be created. The second DCHECK will hit if this
-    // first theory is wrong and `value` has some other unexpected type.
-    DCHECK(!IsA<CSSLightDarkValuePair>(value));
-    DCHECK(IsA<CSSStringValue>(value));
-    if (const auto* string_value = DynamicTo<CSSStringValue>(value)) {
-      string = string_value->Value();
-    }
+String GetStringFromCSSStringValue(const CSSValue& value,
+                                   StyleResolverState& state,
+                                   ComputedStyleBuilder& builder) {
+  // We should be able to assume at this point that `value` is a
+  // CSSStringValue, since all other types of CSSValues produced in
+  // Content::ParseSingleValue should have been handled by Content::ApplyValue
+  // before reaching this point. However, as observed in crbug.com/348304397
+  // there is some unexpected type that is not getting handled. The following
+  // two DCHECKs are intended to help investigate this. The first DCHECK tests
+  // the theory that the unexpected type is coming from ConsumeImage, where a
+  // light-dark() function in a UA shadow DOM could cause a
+  // CSSLightDarkValuePair to be created. The second DCHECK will hit if this
+  // first theory is wrong and `value` has some other unexpected type.
+  DCHECK(!IsA<CSSLightDarkValuePair>(value));
+  DCHECK(IsA<CSSStringValue>(value));
+  if (const auto* string_value = DynamicTo<CSSStringValue>(value)) {
+    return string_value->Value();
   }
-  return string;
+  return g_empty_string;
 }
 
 }  // namespace
@@ -3299,8 +3299,7 @@ void Content::ApplyValue(StyleResolverState& state,
       }
       next_content = MakeGarbageCollected<QuoteContentData>(quote_type);
     } else {
-      String string =
-          GetStringFromAttributeOrStringValue(*item, state, builder);
+      String string = GetStringFromCSSStringValue(*item, state, builder);
       if (prev_content && prev_content->IsText()) {
         TextContentData* text_content = To<TextContentData>(prev_content);
         text_content->SetText(StrCat({text_content->GetText(), string}));
@@ -3332,7 +3331,7 @@ void Content::ApplyValue(StyleResolverState& state,
             counter_value->GetTreeScope());
       } else {
         alt_content = MakeGarbageCollected<AltTextContentData>(
-            GetStringFromAttributeOrStringValue(*item, state, builder));
+            GetStringFromCSSStringValue(*item, state, builder));
       }
       prev_content->SetNext(alt_content);
       prev_content = alt_content;
@@ -4265,13 +4264,8 @@ const CSSValue* FlexBasis::ParseSingleValue(
   // css_parsing_utils::ValidWidthOrHeightKeyword.
   if (css_parsing_utils::IdentMatches<
           CSSValueID::kAuto, CSSValueID::kContent, CSSValueID::kMinContent,
-          CSSValueID::kMaxContent, CSSValueID::kFitContent>(
-          stream.Peek().Id())) {
-    return css_parsing_utils::ConsumeIdent(stream);
-  }
-
-  if (RuntimeEnabledFeatures::LayoutStretchEnabled() &&
-      CSSValueID::kStretch == stream.Peek().Id()) {
+          CSSValueID::kMaxContent, CSSValueID::kFitContent,
+          CSSValueID::kStretch>(stream.Peek().Id())) {
     return css_parsing_utils::ConsumeIdent(stream);
   }
 
@@ -6419,6 +6413,14 @@ const CSSValue* MaxLines::CSSValueFromComputedStyleInternal(
                                         CSSPrimitiveValue::UnitType::kNumber);
 }
 
+const CSSValue* BlockEllipsis::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.BlockEllipsis());
+}
+
 const CSSValue* LineHeight::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
@@ -7404,7 +7406,18 @@ const CSSValue* OutlineWidth::CSSValueFromComputedStyleInternal(
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ZoomAdjustedPixelValue(style.OutlineWidth(), style);
+  int width = 0;
+  // Following the resolution of CSSWG issue 11494, the computed value of
+  // outline-width should be independent of the outline-style.
+  // https://github.com/w3c/csswg-drafts/issues/11494#issuecomment-2675800489
+  if (RuntimeEnabledFeatures::DecoupleComputedBorderWidthFromStyleEnabled() &&
+      value_phase == CSSValuePhase::kComputedValue) {
+    width = style.OutlineWidthInternal();
+  } else {
+    width = style.OutlineWidth();
+  }
+
+  return ZoomAdjustedPixelValue(width, style);
 }
 
 const CSSValue* OverflowAnchor::CSSValueFromComputedStyleInternal(
@@ -8348,12 +8361,12 @@ const CSSValue* RowGap::CSSValueFromComputedStyleInternal(
   return ComputedStyleUtils::ValueForGapLength(style.RowGap(), style);
 }
 
-const CSSValue* GapRulePaintOrder::CSSValueFromComputedStyleInternal(
+const CSSValue* GapRuleOverlap::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return CSSIdentifierValue::Create(style.GapRulePaintOrder());
+  return CSSIdentifierValue::Create(style.GapRuleOverlap());
 }
 
 const CSSValue* Rx::ParseSingleValue(CSSParserTokenStream& stream,
@@ -9544,29 +9557,35 @@ void TextAlign::ApplyValue(StyleResolverState& state,
                            const CSSValue& value,
                            ValueMode) const {
   ComputedStyleBuilder& builder = state.StyleBuilder();
-  const auto* ident_value = DynamicTo<CSSIdentifierValue>(value);
-  if (ident_value &&
-      ident_value->GetValueID() != CSSValueID::kWebkitMatchParent) {
+  const auto& ident_value = To<CSSIdentifierValue>(value);
+
+  if (ident_value.GetValueID() == CSSValueID::kMatchParent ||
+      ident_value.GetValueID() == CSSValueID::kWebkitMatchParent) {
+    if (state.GetElement() == state.GetDocument().documentElement()) {
+      // match-parent computes to start when specified on the root element.
+      builder.SetTextAlign(ETextAlign::kStart);
+    } else if (state.ParentStyle()->GetTextAlign() == ETextAlign::kStart) {
+      builder.SetTextAlign(state.ParentStyle()->IsLeftToRightDirection()
+                               ? ETextAlign::kLeft
+                               : ETextAlign::kRight);
+    } else if (state.ParentStyle()->GetTextAlign() == ETextAlign::kEnd) {
+      builder.SetTextAlign(state.ParentStyle()->IsLeftToRightDirection()
+                               ? ETextAlign::kRight
+                               : ETextAlign::kLeft);
+    } else {
+      builder.SetTextAlign(state.ParentStyle()->GetTextAlign());
+    }
+  } else {
     // Special case for th elements - UA stylesheet text-align does not apply
     // if parent's computed value for text-align is not its initial value
     // https://html.spec.whatwg.org/C/#tables-2
-    if (ident_value->GetValueID() == CSSValueID::kInternalCenter &&
+    if (ident_value.GetValueID() == CSSValueID::kInternalCenter &&
         state.ParentStyle()->GetTextAlign() !=
             ComputedStyleInitialValues::InitialTextAlign()) {
       builder.SetTextAlign(state.ParentStyle()->GetTextAlign());
     } else {
-      builder.SetTextAlign(ident_value->ConvertTo<ETextAlign>());
+      builder.SetTextAlign(ident_value.ConvertTo<ETextAlign>());
     }
-  } else if (state.ParentStyle()->GetTextAlign() == ETextAlign::kStart) {
-    builder.SetTextAlign(state.ParentStyle()->IsLeftToRightDirection()
-                             ? ETextAlign::kLeft
-                             : ETextAlign::kRight);
-  } else if (state.ParentStyle()->GetTextAlign() == ETextAlign::kEnd) {
-    builder.SetTextAlign(state.ParentStyle()->IsLeftToRightDirection()
-                             ? ETextAlign::kRight
-                             : ETextAlign::kLeft);
-  } else {
-    builder.SetTextAlign(state.ParentStyle()->GetTextAlign());
   }
 }
 

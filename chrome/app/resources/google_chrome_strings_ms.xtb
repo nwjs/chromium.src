@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="ms">
 <translation id="1001534784610492198">Arkib pemasang rosak atau tidak sah. Sila muat turun Google Chrome semula.</translation>
+<translation id="1006034097353797313">Teruskan dari tempat anda berhenti: Chrome memulihkan tab anda setiap kali anda memulakan semula apl. Untuk mematikan ciri ini, akses</translation>
 <translation id="1018937009655463387">Untuk berkongsi tetingkap anda, benarkan rakaman skrin untuk Chrome dalam Tetapan Sistem.</translation>
 <translation id="1026101648481255140">Sambung Semula Pemasangan</translation>
 <translation id="102763973188675173">Sesuaikan dan kawal Google Chrome. Kemas kini tersedia.</translation>
@@ -18,6 +19,7 @@
 <translation id="1152920704813762236">Perihal ChromeOS</translation>
 <translation id="1154147086299354128">&amp;Buka dalam Chrome</translation>
 <translation id="1157985233335035034">Bahasa baru-baru ini</translation>
+<translation id="1158134713295836892">Gemini dalam Chrome</translation>
 <translation id="1184145431117212167">Pemasangan gagal kerana versi Windows anda tidak disokong.</translation>
 <translation id="1194807384646768652">Chrome menyekat muat turun ini kerana jenis fail jarang dimuat turun dan mungkin berbahaya</translation>
 <translation id="1203500561924088507">Terima kasih kerana memasang. Anda perlu memulakan semula penyemak imbas anda sebelum menggunakan <ph name="BUNDLE_NAME" />.</translation>
@@ -65,6 +67,7 @@
 <translation id="1821644463306970002">{NUM_TABS,plural, =1{Chrome mengesyorkan penjedaan tab yang memperlahankan penyemak imbas anda}other{Chrome mengesyorkan penjedaan tab yang memperlahankan penyemak imbas anda}}</translation>
 <translation id="1832046143430087831">Mempercepat laman dengan enjin V8 Chrome tetapi Chrome menjadi kurang tahan sedikit terhadap serangan. Tetapan ini dimatikan.</translation>
 <translation id="1838374766361614909">Kosongkan carian</translation>
+<translation id="1849248141818021764">Pengguna yang mengetahui ungkapan laluan anda sahaja yang dapat membaca data anda yang disulitkan. Ungkapan laluan tidak dihantar kepada atau disimpan oleh Google. Jika anda terlupa ungkapan laluan anda atau mahu menukar tetapan ini, anda perlu <ph name="BEGIN_LINK" />memadamkan data Chrome dalam akaun anda<ph name="END_LINK" />.</translation>
 <translation id="1860536484129686729">Chrome memerlukan kebenaran untuk mengakses kamera anda bagi tapak ini</translation>
 <translation id="1873233029667955273">Google Chrome bukan penyemak imbas lalai anda</translation>
 <translation id="1874309113135274312">Google Chrome Beta (mDNS-In)</translation>
@@ -78,6 +81,7 @@
 <translation id="2018879682492276940">Pemasangan gagal. Sila cuba lagi.</translation>
 <translation id="2024959665595762054">Untuk menggunakan dan menyimpan data Chrome dalam Google Account anda, sahkan identiti anda</translation>
 <translation id="2034233344106846793">Chrome meningkatkan sambungan tidak selamat kepada HTTPS secara automatik jika boleh</translation>
+<translation id="2039417478970545937">Tetapan.</translation>
 <translation id="207902854391093810">Apabila percubaan sedang berlangsung, pengukuran iklan membenarkan laman yang anda lawati meminta maklumat daripada Chrome yang membantu laman tersebut mengukur prestasi iklan mereka. Pengukuran iklan mengehadkan penjejakan rentas laman dengan memindahkan maklumat antara laman sedikit yang mungkin.</translation>
 <translation id="2091012649849228750">Untuk mendapatkan kemaskinian Google Chrome yang akan datang, anda memerlukan Windows 10 atau yang lebih baharu. Komputer ini menggunakan Windows 8.</translation>
 <translation id="2094648590148273905">Syarat Chrome OS Flex</translation>
@@ -101,9 +105,11 @@
 <translation id="2199691482078155239">Chrome memberi anda lebih banyak kawalan terhadap iklan dan mengehadkan perkara yang laman boleh pelajari tentang anda apabila iklan diperibadikan dipaparkan kepada anda</translation>
 <translation id="2216543877350048334">Untuk mengalih keluar Google Account anda daripada Chrome, log keluar</translation>
 <translation id="2236949375853147973">Aktiviti Saya</translation>
+<translation id="22791603784558743">Tutup Gemini dalam Chrome Dev</translation>
 <translation id="2290014774651636340">Kunci API Google tiada. Sesetengah fungsi Google Chrome akan dilumpuhkan.</translation>
 <translation id="2290095356545025170">Adakah anda pasti anda mahu menyahpasang Google Chrome?</translation>
 <translation id="2301513536169703857">Untuk mendapatkan kata laluan dan penanda halaman anda serta pelbagai lagi pada semua peranti anda, log masuk ke Chrome</translation>
+<translation id="2307973900865360088">Kekalkan dalam Dok</translation>
 <translation id="2309047409763057870">Ini adalah pemasangan kedua Google Chrome dan tidak boleh dijadikan penyemak imbas lalai anda.</translation>
 <translation id="2345992953227471816">Chrome mendapati bahawa item ini mengandungi perisian hasad:</translation>
 <translation id="2348335408836342058">Chrome memerlukan kebenaran untuk mengakses kamera dan mikrofon anda bagi tapak ini</translation>
@@ -123,7 +129,6 @@
 <translation id="2569974318947988067">Chrome akan cuba meningkatkan navigasi kepada HTTPS</translation>
 <translation id="2571392474191184472">Organisasi anda mengurus Chrome</translation>
 <translation id="2574930892358684005"><ph name="EXISTING_USER" /> telah pun dilog masuk ke profil Chrome ini. Untuk menjadikan penyemakan imbas anda terpisah, Chrome boleh membuat profil anda sendiri untuk anda.</translation>
-<translation id="2579190314336775785">Kata laluan hanya boleh dipadamkan di luar Chrome</translation>
 <translation id="2580411288591421699">Tidak dapat memasang versi Google Chrome yang sama yang kini dijalankan. Sila tutup Google Chrome dan cuba semula.</translation>
 <translation id="2586406160782125153">Tindakan ini akan memadamkan data semakan imbas anda daripada peranti ini. Untuk mendapatkan kembali data anda kemudian, log masuk ke Chrome sebagai <ph name="USER_EMAIL" />.</translation>
 <translation id="259935314519650377">Gagal mengcache pemasang yang dimuat turun. Ralat: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
@@ -134,6 +139,7 @@
 <translation id="2665296953892887393">Bantu jadikan Google Chrome lebih baik dengan menghantar laporan ranap dan <ph name="UMA_LINK" /> kepada Google.</translation>
 <translation id="2668094785979141847">Klik untuk keluar daripada Google Lens</translation>
 <translation id="2681444469812712297">Buka <ph name="URL" /> dalam tab baharu dalam Google Chrome.</translation>
+<translation id="2699790011615497488">Buka Gemini dalam Chrome Beta</translation>
 <translation id="2712141162840347885">Pilih apa-apa sahaja untuk mencari dengan Google Lens atau tekan kekunci Esc untuk keluar daripada Google Lens</translation>
 <translation id="2738871930057338499">Tidak dapat disambungkan kepada Internet. HTTP 403 Dilarang. Sila semak konfigurasi proksi anda.</translation>
 <translation id="2742320827292110288">Amaran: Google Chrome tidak dapat menghalang sambungan daripada merakam sejarah penyemakan imbas anda. Untuk melumpuhkan sambungan ini dalam mod Inkognito, nyahpilih pilihan ini.</translation>
@@ -168,6 +174,7 @@
 <translation id="3003694935412297923">Semua tugasan</translation>
 <translation id="3018957014024118866">Padamkan juga data daripada Chrome (<ph name="URL" />)</translation>
 <translation id="3019382870990049182">Lancarkan semula untuk mengemas kini &amp;ChromeOS Flex</translation>
+<translation id="3037517125981011456">Memaparkan gesaan untuk log masuk ke Chrome</translation>
 <translation id="3037838751736561277">Google Chrome dalam mod latar belakang.</translation>
 <translation id="3038232873781883849">Menunggu untuk memasang...</translation>
 <translation id="3045032126857188731">Bahasa terjemahan: <ph name="LANGUAGE" /></translation>
@@ -175,6 +182,7 @@
 <translation id="306179102415443347">Gunakan pintasan anda untuk mengakses Google Password Manager dengan pantas. Anda boleh mengalihkan pintasan anda kepada skrin utama atau pelancar apl komputer anda.</translation>
 <translation id="3065168410429928842">Tab Chrome</translation>
 <translation id="3080151273017101988">Terus menjalankan apl latar belakang apabila Google Chrome ditutup</translation>
+<translation id="308397506772922478">Jika anda terlupa ungkapan laluan anda atau mahu menukar tetapan ini, <ph name="BEGIN_LINK" />padamkan data Chrome dalam akaun anda<ph name="END_LINK" /></translation>
 <translation id="3100998948628680988">Namakan profil Chrome anda</translation>
 <translation id="310459126943037700">Gagal menamatkan tugasan.</translation>
 <translation id="3112458742631356345">Chrome menyekat muat turun ini kerana fail jarang dimuat turun dan mungkin berbahaya</translation>
@@ -336,12 +344,14 @@
 <translation id="5114340746415930644">Masukkan ungkapan laluan anda untuk menggunakan dan menyimpan data Chrome dalam akaun anda, <ph name="USER_EMAIL" /></translation>
 <translation id="5120334927898581447">Log masuk ke Chrome apabila anda log masuk ke perkhidmatan Google yang lain</translation>
 <translation id="5126049312684316860">Chrome mempramuat lebih banyak halaman yang mungkin anda lawati, supaya halaman tersebut dimuatkan dengan lebih pantas apabila dilawati</translation>
+<translation id="5127558335897923940">Kekalkan Chrome dalam Dok anda supaya dapat diakses dengan pantas pada bila-bila masa</translation>
 <translation id="5132929315877954718">Temui apl, permainan, sambungan dan tema hebat untuk Google Chrome.</translation>
 <translation id="5139423532931106058">Sesuaikan profil Chrome anda</translation>
 <translation id="5163087008893166964">Selamat datang ke Chrome; tetingkap penyemak imbas baharu dibuka</translation>
 <translation id="5166439563123238795">Chrome memerlukan kebenaran untuk menjejaki tangan anda</translation>
 <translation id="5170938038195470297">Profil anda tidak boleh digunakan kerana ia adalah dari versi Google Chrome yang lebih baharu. Beberapa ciri mungkin tidak tersedia. Sila tetapkan direktori profil lain atau gunakan versi Chrome yang lebih baharu.</translation>
 <translation id="5174969993834422967">Anda biasanya menyekat pemberitahuan. Untuk membenarkan laman ini memaklumi anda, klik ikon pemberitahuan pada penjuru kanan bar lokasi anda.</translation>
+<translation id="5174983315706567306">Ruang cakera tidak mencukupi.</translation>
 <translation id="5201744974236816379">Kemaskinian Chrome</translation>
 <translation id="521447420733633466">Jika anda berkongsi peranti, rakan dan keluarga boleh menyemak imbas secara terpisah dan menyediakan Chrome sebagaimana yang mereka ingini</translation>
 <translation id="5234764350956374838">Ketepikan</translation>
@@ -388,6 +398,7 @@
 <translation id="58431560289969279">Semasa anda log masuk, anda boleh menggunakan kata laluan anda dan pelbagai lagi daripada Google Account anda dalam Chrome. Anda boleh menukar perkara ini pada bila-bila masa sahaja dalam tetapan.</translation>
 <translation id="5858486459377137936">Anda akan dilog keluar daripada kebanyakan laman apabila anda menutup semua tetingkap Chrome, kecuali Google Account anda jika anda log masuk ke Chrome. Untuk membenarkan laman mengingati anda, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="586971344380992563"><ph name="BEGIN_LINK" />Chrome memberi anda amaran<ph name="END_LINK" /> tentang laman dan muat turun tidak selamat</translation>
+<translation id="5894164573378901688">Untuk menggunakan Gemini dalam Chrome, log masuk dengan Google Account yang berbeza</translation>
 <translation id="5895138241574237353">Mulakan Semula</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - Log Masuk Rangkaian</translation>
 <translation id="5924017743176219022">Menyambung ke Internet...</translation>
@@ -422,6 +433,7 @@
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> - Google Chrome Beta</translation>
 <translation id="6180522807229584611">Tab ini menggunakan sumber tambahan. Untuk meningkatkan prestasi anda, benarkan Chrome menjadikan tab tersebut tidak aktif.</translation>
 <translation id="6182736845697986886">Pemasangan gagal akibat ralat dalaman pelayan kemaskinian.</translation>
+<translation id="6192058120268468905">Akaun Anda dalam Chrome</translation>
 <translation id="6235018212288296708">Peraturan masuk bagi Google Chrome untuk membenarkan trafik mDNS.</translation>
 <translation id="624230925347970731">Chrome akan ditutup sebentar lagi</translation>
 <translation id="6247557882553405851">Google Password Manager</translation>
@@ -435,6 +447,7 @@
 <translation id="6321592572353357376">Sambungan "<ph name="EXTENSION_NAME" />" mahu anda log masuk ke Chrome</translation>
 <translation id="6326175484149238433">Alih keluar dari Chrome</translation>
 <translation id="6327105987658262776">Kemas kini tidak tersedia.</translation>
+<translation id="6334815226785304306">Jadikan Google Chrome penyemak imbas lalai dan sematkan pada Bar Tugas</translation>
 <translation id="6360449101159168105">Semasa tab ini tidak aktif, memori dikosongkan untuk mengekalkan kepantasan Chrome. Anda boleh memilih untuk sentiasa mengecualikan laman ini daripada menjadi tidak aktif.</translation>
 <translation id="6388799252195623474">bantu saya dengan kandungan ini</translation>
 <translation id="6412673304250309937">Semak URL melalui perbandingan dengan senarai tapak tidak selamat yang disimpan dalam Chrome. Jika tapak cuba mencuri kata laluan anda atau apabila anda memuat turun fail yang berbahaya, Chrome juga mungkin menghantar URL, termasuk sedikit kandungan halaman, kepada Penyemakan Imbas Selamat.</translation>
@@ -449,7 +462,10 @@
 <translation id="6506909944137591434">Chrome memerlukan kebenaran kamera untuk membuat peta 3D bagi persekitaran anda</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> - Google Chrome Dev</translation>
 <translation id="6520670145826811516">Untuk menggunakan lokasi anda, berikan akses kepada Chrome dalam <ph name="BEGIN_LINK" />tetapan sistem<ph name="END_LINK" /></translation>
+<translation id="6532945796722480006">Buka Gemini dalam Chrome Canary</translation>
+<translation id="6585124893636629274">Tutup Gemini dalam Chrome</translation>
 <translation id="659498884637196217">Dalam Pengurus Kata Laluan Google pada peranti ini</translation>
+<translation id="6631524303639368205">Teruskan dari tempat anda berhenti: Chrome telah memulihkan tab anda daripada sesi terakhir anda. Anda boleh mematikan ciri ini dalam</translation>
 <translation id="6632473616050862500">Chrome OS Flex menjadi kenyataan dengan <ph name="BEGIN_LINK_CROS_OSS" />perisian sumber terbuka<ph name="END_LINK_CROS_OSS" /> tambahan.</translation>
 <translation id="6634299872736643004">Perubahan pada tetapan ini akan digunakan setelah Chrome dimulakan semula.</translation>
 <translation id="6660596345553328257">Log Masuk ke Chrome?</translation>
@@ -543,6 +559,7 @@
 <translation id="7658239707568436148">Batal</translation>
 <translation id="7670287553302121848">Akaun Chrome memerlukan pengesahan semula</translation>
 <translation id="769538538642757151">Chrome akan memaklumi anda jika terdapat apa-apa perkara yang memerlukan semakan anda</translation>
+<translation id="769906121737764913">Tutup Gemini dalam Chrome Beta</translation>
 <translation id="7716950018788545737">Tugasan tamat.</translation>
 <translation id="77283119132245232">Menyediakan perkhidmatan penyurihan sistem untuk <ph name="BROWSER_NAME" />. Jika perkhidmatan ini dilumpuhkan, penyurihan prestasi yang dibuat oleh penyemak imbas tidak akan menyertakan peristiwa seluruh sistem seperti peristiwa suis konteks dan urutan tersedia.</translation>
 <translation id="7736869414036750079">Organisasi anda menghendaki anda untuk log masuk ke Chrome</translation>
@@ -553,14 +570,17 @@
 <translation id="778331955594035129">Chrome memerlukan kebenaran lokasi untuk laman ini</translation>
 <translation id="7787950393032327779">Nampaknya profil digunakan oleh proses Google Chrome lain (<ph name="PROCESS_ID" />) pada komputer lain (<ph name="HOST_NAME" />). Chrome telah mengunci profil supaya profil tidak rosak. Jika anda pasti tiada proses lain yang menggunakan profil ini, anda boleh membuka profil dan melancarkan semula Chrome.</translation>
 <translation id="7801699035218095297">Google Chrome cuba menyalin kata laluan. Taip kata laluan Windows anda untuk membenarkan penyalinan.</translation>
+<translation id="7804364787702057554">Akaun anda dalam Chrome</translation>
 <translation id="7808348361785373670">Alih keluar daripada Chrome...</translation>
 <translation id="7825851276765848807">Gagal pemasangan disebabkan ralat yang tidak dinyatakan. Sila muat turun semula Google Chrome.</translation>
 <translation id="7827099906024714326">Chrome perlu mengesahkan identiti anda sebelum sesetengah data boleh disimpan dalam Google Account anda dan digunakan pada semua peranti anda. Jika anda log keluar sekarang, data ini akan dipadamkan.</translation>
 <translation id="7845233973568007926">Terima kasih kerana memasang. Anda perlu memulakan semula komputer anda sebelum menggunakan <ph name="BUNDLE_NAME" />.</translation>
+<translation id="7849037457735762883">Teruskan dari tempat anda berhenti: Chrome boleh memulihkan tab anda setiap kali anda memulakan semula apl. Untuk menghidupkan ciri ini, akses</translation>
 <translation id="7872446069773932638">Memuat turun... <ph name="SECONDS" /> saat lagi</translation>
 <translation id="7886087451482920026">Pilih teks dengan Google Lens</translation>
 <translation id="7890208801193284374">Jika anda berkongsi komputer, rakan dan keluarga boleh menyemak imbas secara berasingan dan menyediakan Chrome sebagaimana yang mereka mahukan.</translation>
 <translation id="7896673875602241923">Sebelum ini, seseorang telah log masuk ke Chrome pada komputer ini sebagai <ph name="ACCOUNT_EMAIL_LAST" />. Sila buat pengguna Chrome baharu untuk mengasingkan maklumat anda.</translation>
+<translation id="7904985524660297937">Cuba Gemini dalam Google Chrome</translation>
 <translation id="7917876797003313048">Anda boleh mengurus Google Account anda yang dilog masuk. Google Account anda digunakan untuk penyemak imbas Chrome, Play Store, Gmail dan pelbagai lagi. Jika anda ingin menambah akaun untuk orang lain, seperti ahli keluarga, tambahkan sahaja orang baharu pada <ph name="DEVICE_TYPE" /> anda. <ph name="LINK_BEGIN" />Ketahui lebih lanjut<ph name="LINK_END" /></translation>
 <translation id="7936702483636872823">Chrome menyekat muat turun ini kerana fail mengelirukan dan mungkin membuat perubahan tidak dijangka pada peranti anda</translation>
 <translation id="7951272445806340501">Chrome OS Flex perlu dimulakan semula untuk mengenakan kemaskinian.</translation>
@@ -579,6 +599,7 @@
 <translation id="8077579734294125741">Profil Chrome Lain</translation>
 <translation id="8086881907087796310">Pemasangan gagal kerana komputer anda tidak menepati keperluan perkakasan minimum.</translation>
 <translation id="8113883687556086139">Sahkan identiti anda untuk menggunakan dan menyimpan data Chrome dalam akaun anda, <ph name="ACCOUNT_EMAIL" /></translation>
+<translation id="8115695070094288807">Menyesuaikan Chrome anda...</translation>
 <translation id="8118331347066725040">Hantar maklum balas untuk cari dengan Lens</translation>
 <translation id="8129812357326543296">Mengenai &amp;Google Chrome</translation>
 <translation id="813913629614996137">Memulakan...</translation>
@@ -612,6 +633,7 @@
 <translation id="8533056045953418157">Tetapkan Google Chrome sebagai alat lihat PDF lalai saya</translation>
 <translation id="8555465886620020932">Ralat perkhidmatan: <ph name="SERVICE_ERROR" />.</translation>
 <translation id="856656450041460113">Cari senarai bahasa</translation>
+<translation id="8575047640889685742">Gunakan <ph name="BEGIN_LINK" />ungkapan laluan<ph name="END_LINK" /> anda sendiri untuk menyulitkan data Chrome dalam Google Account anda. Kaedah pembayaran dan alamat daripada Google Pay tidak akan disulitkan. Sejarah penyemakan imbas daripada Chrome tidak akan disegerakkan.</translation>
 <translation id="8601359445272098721">Baharu! Anda boleh menterjemahkan teks dan imej pada skrin anda dengan memilih butang "terjemahkan skrin"</translation>
 <translation id="8614913330719544658">Google Chrome tidak responsif. Lancarkan semula sekarang?</translation>
 <translation id="861702415419836452">Chrome memerlukan kebenaran untuk mengakses kamera anda untuk membuat peta 3D persekitaran anda</translation>
@@ -619,6 +641,7 @@
 <translation id="8637932705841171563">Untuk berkongsi tetingkap anda, benarkan rakaman skrin untuk Chrome dalam Tetapan Sistem</translation>
 <translation id="8641606876632989680">Chrome akan memaklumkan kepada anda apabila anda log masuk menggunakan kata laluan yang terjejas</translation>
 <translation id="8649026945479135076">Menjadi kebiasaan bagi laman yang anda lawati mengingati perkara yang anda minati, untuk memeribadikan pengalaman anda. Laman boleh menyimpan maklumat tentang minat anda menggunakan Chrome.</translation>
+<translation id="8656634243791296665">Buka Gemini dalam Chrome Dev</translation>
 <translation id="8669527147644353129">Pembantu Google Chrome</translation>
 <translation id="8679801911857917785">Sambungan turut mengawal halaman yang ditunjukkan apabila anda memulakan Chrome.</translation>
 <translation id="8712637175834984815">Faham</translation>
@@ -640,17 +663,20 @@
 <translation id="8843516219908676469">Chrome memahami borang dengan lebih baik dan dapat membuat autolengkap borang dengan lebih pantas untuk anda</translation>
 <translation id="8851180723659088381">{NUM_EXTENSIONS,plural, =1{Chrome mengesyorkan supaya anda mengalih keluar sambungan tersebut}other{Chrome mengesyorkan supaya anda mengalih keluar sambungan tersebut}}</translation>
 <translation id="8862326446509486874">Anda tidak mempunyai hak wajar untuk pemasangan peringkat sistem. Cuba jalankan pemasang semula sebagai Pentadbir.</translation>
+<translation id="8865415417596392024">Data Chrome dalam akaun anda</translation>
 <translation id="8883862939660515976">Tanya Google Lens tentang imej ini</translation>
 <translation id="8914504000324227558">Lancarkan semula Chrome</translation>
 <translation id="8922193594870374009">Untuk menghantar nombor daripada <ph name="ORIGIN" /> ke telefon Android anda, log masuk ke Chrome pada kedua-dua peranti.</translation>
 <translation id="8948460679427074738">Sambungan ini belum menerbitkan amalan privasi, seperti cara sambungan ini mengumpulkan dan menggunakan data. Chrome mengesyorkan supaya anda mengalih keluar sambungan tersebut.</translation>
 <translation id="8958307504142971576">Kini anda mempunyai lebih banyak ciri yang tersedia dalam Chrome</translation>
 <translation id="8989968390305463310">Sejarah penyemakan imbas anda mempengaruhi iklan yang anda lihat dan minat seperti yang dianggarkan di bawah. Untuk melindungi privasi anda, Chrome memadamkan minat anda secara automatik secara bergilir setiap bulan. Minat akan dimuat semula melainkan anda mengalih keluar minat anda.</translation>
+<translation id="8991530961471831170">Buka Gemini dalam Chrome</translation>
 <translation id="8992769679401294069">Data anda telah disulitkan dengan ungkapan laluan anda. Masukkan ungkapan laluan tersebut untuk menggunakan dan menyimpan data Chrome dalam Google Account anda.</translation>
 <translation id="8999117580775242387">Apabila HTTPS tidak tersedia, Chrome akan menggunakan sambungan yang tidak selamat tanpa memberi anda amaran</translation>
 <translation id="8999208279178790196">{0,plural, =0{Kemas kini Chrome tersedia}=1{Kemas kini Chrome tersedia}other{Kemas kini Chrome telah tersedia selama # hari}}</translation>
 <translation id="9014771989710951291">Berbilang organisasi mengurus Chrome</translation>
 <translation id="9024318700713112071">Tetapkan Chrome sebagai lalai anda</translation>
+<translation id="9066987883552592250">Tutup Gemini dalam Chrome Canary</translation>
 <translation id="9090566250983691233">Ketahui sebab Chrome menyekat sesetengah fail</translation>
 <translation id="9106236359747881194">Pilih teks untuk dicari</translation>
 <translation id="911206726377975832">Padamkan juga data menyemak imbas anda?</translation>

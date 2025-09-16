@@ -11,6 +11,7 @@
 
 #include "base/check_op.h"
 #include "base/containers/contains.h"
+#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
@@ -107,6 +108,26 @@ bool IsLimitedLayer(const Layer& layer) {
   return layer.entropy_mode() == Layer::LIMITED;
 }
 
+// Returns true if the layer is a low entropy layer.
+bool IsLowEntropyLayer(const Layer& layer) {
+  return layer.entropy_mode() == Layer::LOW;
+}
+
+// Returns true if the study consumes entropy. This is true if the study has
+// permanent consistency and uses experiment ids.
+bool ConsumesEntropy(const Study& study) {
+  if (study.consistency() != Study::PERMANENT) {
+    return false;
+  }
+  for (const auto& experiment : study.experiment()) {
+    if (experiment.has_google_web_experiment_id() ||
+        experiment.has_google_web_trigger_experiment_id() ||
+        experiment.has_google_app_experiment_id()) {
+      return true;
+    }
+  }
+  return false;
+}
 // Returns true if the study applies to the client's platform.
 bool AppliesToClientPlatform(const Study& study,
                              const ClientFilterableState& client_state) {
@@ -125,6 +146,14 @@ bool AppliesToClientVersion(const Study& study,
   return internal::CheckStudyVersion(study.filter(), client_state.version);
 }
 
+// Returns true if the study applies to the client's form factor.
+bool AppliesToClientFormFactor(
+    const Study& study,
+    const ClientFilterableState& client_state) {
+  return internal::CheckStudyFormFactor(study.filter(),
+                                        client_state.form_factor);
+}
+
 }  // namespace
 
 double GetGoogleWebEntropyLimitInBits() {
@@ -134,18 +163,21 @@ double GetGoogleWebEntropyLimitInBits() {
 
 // TODO(crbug.com/428216544): Refactor, along with variations_layers.cc, to
 // consolidate the logic for checking the layer configuration in the seed.
-bool SeedHasMisconfiguredEntropy(const ClientFilterableState& client_state,
-                                 const VariationsSeed& seed,
-                                 double entropy_limit_in_bits) {
+MisconfiguredEntropyResult SeedHasMisconfiguredEntropy(
+    const ClientFilterableState& client_state,
+    const VariationsSeed& seed,
+    double entropy_limit_in_bits) {
   std::optional<LayerByIdMap> layer_by_id_map = BuildLayerByIdMap(seed);
   if (!layer_by_id_map.has_value()) {
     // Seed rejection reason already logged.
-    return true;
+    return MisconfiguredEntropyResult{.is_misconfigured = true};
   }
   // We don't know which layer is the active limited layer for the client's
   // platform and channel. We'll set up the active limited layer and the entropy
-  // tracker once we find the first relevant study.
+  // tracker once we find the first relevant study. We'll also track whether
+  // there's an active low entropy layer.
   const Layer* active_limited_layer = nullptr;
+  bool has_active_low_entropy_layer = false;
   std::optional<LimitedLayerEntropyCostTracker> entropy_tracker;
   for (const Study& study : seed.study()) {
     if (!HasLayerReference(study)) {
@@ -154,14 +186,28 @@ bool SeedHasMisconfiguredEntropy(const ClientFilterableState& client_state,
     const Layer* current_layer = FindLayerForStudy(*layer_by_id_map, study);
     if (!current_layer) {
       // Seed rejection reason already logged.
-      return true;
+      return MisconfiguredEntropyResult{.is_misconfigured = true};
     }
-    if (!IsLimitedLayer(*current_layer) ||
-        !AppliesToClientPlatform(study, client_state) ||
+    if (!AppliesToClientPlatform(study, client_state) ||
         !AppliesToClientChannel(study, client_state) ||
-        !AppliesToClientVersion(study, client_state)) {
+        !AppliesToClientVersion(study, client_state) ||
+        !AppliesToClientFormFactor(study, client_state)) {
       continue;
     }
+
+    // Could this be an active low entropy layer?
+    if (IsLowEntropyLayer(*current_layer)) {
+      if (ConsumesEntropy(study)) {
+        has_active_low_entropy_layer = true;
+      }
+      continue;
+    }
+
+    // Skip non-limited layers (for example, DEFAULT layers).
+    if (!IsLimitedLayer(*current_layer)) {
+      continue;
+    }
+
     // Update the active limited layer and the entropy tracker or ensure that
     // the active limited layer matches the current layer.
     if (active_limited_layer == nullptr) {
@@ -170,11 +216,11 @@ bool SeedHasMisconfiguredEntropy(const ClientFilterableState& client_state,
       if (!entropy_tracker->IsValid()) {
         // The entropy tracker may have been invalidated by the layer config.
         LogSeedRejectionReason(SeedRejectionReason::kInvalidLayerConfiguration);
-        return true;
+        return MisconfiguredEntropyResult{.is_misconfigured = true};
       }
     } else if (active_limited_layer != current_layer) {
       LogSeedRejectionReason(SeedRejectionReason::kMoreThenOneLimitedLayer);
-      return true;
+      return MisconfiguredEntropyResult{.is_misconfigured = true};
     }
     if (!entropy_tracker->AddEntropyUsedByStudy(study)) {
       // The entropy tracker may have been invalidated by the study config, or
@@ -183,12 +229,21 @@ bool SeedHasMisconfiguredEntropy(const ClientFilterableState& client_state,
           entropy_tracker->IsValid()
               ? SeedRejectionReason::kHighEntropyUsage
               : SeedRejectionReason::kInvalidLayerConfiguration);
-      return true;
+      return MisconfiguredEntropyResult{.is_misconfigured = true};
     }
   }
 
+  if (has_active_low_entropy_layer && active_limited_layer != nullptr) {
+    // Limited and low entropy layers should not be active at the same time.
+    LogSeedRejectionReason(SeedRejectionReason::kActiveLowAndLimitedLayers);
+    return MisconfiguredEntropyResult{.is_misconfigured = true};
+  }
+
   // No entropy or layer issues found.
-  return false;
+  return MisconfiguredEntropyResult{
+      .is_misconfigured = false,
+      .seed_has_active_limited_layer = (active_limited_layer != nullptr),
+      .seed_has_active_low_layer = has_active_low_entropy_layer};
 }
 
 }  // namespace variations

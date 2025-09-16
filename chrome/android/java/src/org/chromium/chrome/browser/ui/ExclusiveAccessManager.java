@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.ui;
 
+import android.app.Activity;
+
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.lifetime.Destroyable;
@@ -28,9 +30,12 @@ public class ExclusiveAccessManager implements Destroyable {
     private long mExclusiveAccessManagerAndroidNativePointer;
 
     public ExclusiveAccessManager(
-            FullscreenManager fullscreenManager, ActivityTabProvider activityTabProvider) {
+            Activity activity,
+            FullscreenManager fullscreenManager,
+            ActivityTabProvider activityTabProvider) {
         mExclusiveAccessManagerAndroidNativePointer =
-                ExclusiveAccessManagerJni.get().init(this, fullscreenManager, activityTabProvider);
+                ExclusiveAccessManagerJni.get()
+                        .init(this, activity, fullscreenManager, activityTabProvider);
     }
 
     /**
@@ -45,7 +50,8 @@ public class ExclusiveAccessManager implements Destroyable {
                         mExclusiveAccessManagerAndroidNativePointer,
                         requestingFrame,
                         options.showNavigationBar,
-                        options.showStatusBar);
+                        options.showStatusBar,
+                        options.displayId);
     }
 
     /**
@@ -106,6 +112,21 @@ public class ExclusiveAccessManager implements Destroyable {
                         mExclusiveAccessManagerAndroidNativePointer, webContents);
     }
 
+    public void requestPointerLock(
+            WebContents webContents, boolean userGesture, boolean lastUnlockedByTarget) {
+        ExclusiveAccessManagerJni.get()
+                .requestPointerLock(
+                        mExclusiveAccessManagerAndroidNativePointer,
+                        webContents,
+                        userGesture,
+                        lastUnlockedByTarget);
+    }
+
+    public void lostPointerLock() {
+        ExclusiveAccessManagerJni.get()
+                .lostPointerLock(mExclusiveAccessManagerAndroidNativePointer);
+    }
+
     /** Cleanup function which should be called when owning object is destroyed. */
     @Override
     public void destroy() {
@@ -119,6 +140,7 @@ public class ExclusiveAccessManager implements Destroyable {
     public interface Natives {
         long init(
                 ExclusiveAccessManager caller,
+                Activity activity,
                 FullscreenManager fullscreenManager,
                 ActivityTabProvider activityTabProvider);
 
@@ -126,7 +148,8 @@ public class ExclusiveAccessManager implements Destroyable {
                 long nativeExclusiveAccessManagerAndroid,
                 long requestingFrame,
                 boolean showNavigationBar,
-                boolean showStatusBar);
+                boolean showStatusBar,
+                long displayId);
 
         void exitFullscreenModeForTab(
                 long nativeExclusiveAccessManagerAndroid, @Nullable WebContents webContents);
@@ -144,6 +167,14 @@ public class ExclusiveAccessManager implements Destroyable {
 
         void cancelKeyboardLockRequest(
                 long nativeExclusiveAccessManagerAndroid, WebContents webContents);
+
+        void requestPointerLock(
+                long nativeExclusiveAccessManagerAndroid,
+                WebContents webContents,
+                boolean userGesture,
+                boolean lastUnlockedByTarget);
+
+        void lostPointerLock(long nativeExclusiveAccessManagerAndroid);
 
         void destroy(long nativeExclusiveAccessManagerAndroid);
     }

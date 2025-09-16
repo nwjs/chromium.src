@@ -53,6 +53,7 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_AddToHomescreenTextBubble"
       summary="(obsolete) educating users about adding website shortcuts to
                their home screen (using a text bubble)"/>
+  <variant name="IPH_AIHubNewBadge" summary="AI Hub entrypoint on the omnibox"/>
   <variant name="IPH_AndroidTabDeclutter"
       summary="Shows how to access tabs which have been archived."/>
   <variant name="IPH_AppSpecificHistory" summary="App Specific History action"/>
@@ -64,6 +65,9 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_AutoDarkUserEducationMessageOptIn"
       summary="message educating users about enabling auto dark web contents
                feature globally"/>
+  <variant name="IPH_AutofillAccountNameEmailSuggestion"
+      summary="message shown along with the account name and email suggestion
+               option in the Autofill dropdown"/>
   <variant name="IPH_AutofillAiOptIn"
       summary="snooze educating users about the possibility of turning on the
                AutofillAi feature"/>
@@ -105,6 +109,8 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_BackNavigationMenu"
       summary="educating users about the back navigation menu to navigate
                back more than one page at a time."/>
+  <variant name="IPH_BadgedReaderMode"
+      summary="What's New badge for Reading Mode"/>
   <variant name="IPH_BadgedReadingList" summary="badged reading list"/>
   <variant name="IPH_BatterySaverMode" summary="battery saver mode"/>
   <variant name="IPH_Bookmark" summary="bookmark"/>
@@ -172,8 +178,6 @@ chromium-metrics-reviews@google.com.
       summary="customizing new tab page"/>
   <variant name="IPH_DesktopCustomizeChromeRefresh"
       summary="customizing new tab page for refresh"/>
-  <variant name="IPH_DesktopNewTabPageModulesCustomize"
-      summary="customizing new tab page modules"/>
   <variant name="IPH_DesktopPwaInstall" summary="desktop PWA install icon"/>
   <variant name="IPH_DesktopPWAsLinkCapturingLaunch"
       summary="PWA launch due to link capturing being enabled"/>
@@ -492,6 +496,9 @@ chromium-metrics-reviews@google.com.
       summary="promotes expanded player for Read Aloud"/>
   <variant name="IPH_ReadAloudPlaybackModeFeature"
       summary="promotes playback mode selector for Read Aloud"/>
+  <variant name="IPH_ReaderModeDistillInApp"
+      summary="educating users about the reader mode distill in app feature
+               on Android"/>
   <variant name="IPH_ReadingListDiscovery"
       summary="first time a tab is added to reading list"/>
   <variant name="IPH_ReadingListEntryPoint"
@@ -704,7 +711,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="InProductHelp.Config.ParsingEvent" enum="ConfigParsingEvent"
-    expires_after="2025-11-30">
+    expires_after="2026-02-01">
   <owner>nyquist@chromium.org</owner>
   <summary>
     Records if in-product help configuration is parsed correctly, and the
@@ -751,7 +758,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.DismissalReason.iOS"
-    enum="InProductHelpDismissalReason" expires_after="2025-11-30">
+    enum="InProductHelpDismissalReason" expires_after="2026-02-01">
   <owner>lpromero@google.com</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -760,7 +767,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.EventStorageMigration.Status"
-    enum="InProductHelpEventStorageMigrationStatus" expires_after="2025-12-01">
+    enum="InProductHelpEventStorageMigrationStatus" expires_after="2026-02-01">
   <owner>cheickcisse@google.com</owner>
   <owner>shaktisahu@chromium.org</owner>
   <summary>
@@ -772,7 +779,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.Gestural.DismissalReason.iOS"
-    enum="InProductHelpDismissalReason" expires_after="2025-12-21">
+    enum="InProductHelpDismissalReason" expires_after="2026-02-22">
   <owner>ginnyhuang@chromium.org</owner>
   <owner>adamta@google.com</owner>
   <summary>
@@ -804,7 +811,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.ShownTime.{IPHFeature}" units="ms"
-    expires_after="2025-12-21">
+    expires_after="2026-02-22">
   <owner>lpromero@google.com</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -882,7 +889,7 @@ In the future, Desktop IPH may be completely moved to the user_education folder.
 </histogram>
 
 <histogram name="UserEducation.MessageNotShown.TimeInQueue.{IPHFeature}"
-    units="ms" expires_after="2025-11-02">
+    units="ms" expires_after="2026-02-09">
   <owner>dfried@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>

@@ -26,6 +26,7 @@
 #include "components/viz/common/hit_test/hit_test_region_list.h"
 #include "components/viz/common/quads/compositor_frame.h"
 #include "services/viz/public/mojom/compositing/thread.mojom.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 namespace cc {
 namespace mojo_embedder {
@@ -82,6 +83,7 @@ AsyncLayerTreeFrameSink::AsyncLayerTreeFrameSink(
       pipes_(std::move(params->pipes)),
       wants_animate_only_begin_frames_(params->wants_animate_only_begin_frames),
       auto_needs_begin_frame_(params->auto_needs_begin_frame),
+      no_compositor_frame_acks_(params->no_compositor_frame_acks),
       use_begin_frame_presentation_feedback_(
           params->use_begin_frame_presentation_feedback),
       num_did_not_produce_frame_before_internal_begin_frame_source_(
@@ -131,11 +133,13 @@ bool AsyncLayerTreeFrameSink::BindToClient(LayerTreeFrameSinkClient* client) {
     client->SetBeginFrameSource(begin_frame_source_.get());
   }
 
-  if (wants_animate_only_begin_frames_) {
-    compositor_frame_sink_->SetWantsAnimateOnlyBeginFrames();
-  }
-  if (auto_needs_begin_frame_) {
-    compositor_frame_sink_ptr_->SetAutoNeedsBeginFrame();
+  if (wants_animate_only_begin_frames_ || auto_needs_begin_frame_ ||
+      no_compositor_frame_acks_) {
+    auto params = viz::mojom::CompositorFrameSinkParams::New();
+    params->wants_animate_only_begin_frames = wants_animate_only_begin_frames_;
+    params->auto_needs_begin_frame = auto_needs_begin_frame_;
+    params->no_compositor_frame_acks = no_compositor_frame_acks_;
+    compositor_frame_sink_ptr_->SetParams(std::move(params));
   }
   if (num_did_not_produce_frame_before_internal_begin_frame_source_) {
     DCHECK(auto_needs_begin_frame_);
@@ -331,13 +335,10 @@ void AsyncLayerTreeFrameSink::DidNotProduceFrame(const viz::BeginFrameAck& ack,
 }
 
 void AsyncLayerTreeFrameSink::ExportFrameTiming() {
-  if (base::FeatureList::IsEnabled(
-          features::kExportFrameTimingAfterFrameDone)) {
-    for (const auto& pair : timing_details_) {
-      client_->DidPresentCompositorFrame(pair.first, pair.second);
-    }
-    timing_details_.clear();
+  for (const auto& pair : timing_details_) {
+    client_->DidPresentCompositorFrame(pair.first, pair.second);
   }
+  timing_details_.clear();
 }
 
 std::unique_ptr<LayerContext> AsyncLayerTreeFrameSink::CreateLayerContext(
@@ -351,7 +352,10 @@ void AsyncLayerTreeFrameSink::DidReceiveCompositorFrameAck(
     std::vector<viz::ReturnedResource> resources) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   client_->ReclaimResources(std::move(resources));
-  client_->DidReceiveCompositorFrameAck();
+  if (!no_compositor_frame_acks_ &&
+      !base::FeatureList::IsEnabled(features::kNoCompositorFrameAcks)) {
+    client_->DidReceiveCompositorFrameAck();
+  }
 }
 
 void AsyncLayerTreeFrameSink::OnBeginFrame(
@@ -383,17 +387,9 @@ void AsyncLayerTreeFrameSink::OnBeginFrame(
     ReclaimResources(std::move(resources));
   }
 
-  bool timing_export =
-      base::FeatureList::IsEnabled(features::kExportFrameTimingAfterFrameDone);
-  if (timing_export) {
-    timing_details_.insert(timing_details.begin(), timing_details.end());
-  }
+  timing_details_.insert(timing_details.begin(), timing_details.end());
+
   for (const auto& pair : timing_details) {
-    // Cache timing details to be exported in either SubmitCompositorFrame() or
-    // DidNotProduceFrame().
-    if (!timing_export) {
-      client_->DidPresentCompositorFrame(pair.first, pair.second);
-    }
     if (synthetic_begin_frame_source_ &&
         use_begin_frame_presentation_feedback_) {
       const auto& feedback = pair.second.presentation_feedback;
@@ -516,9 +512,11 @@ void AsyncLayerTreeFrameSink::UpdateNeedsBeginFramesInternal(
   }
 
   if (needs_begin_frames) {
-    TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("cc,benchmark", "NeedsBeginFrames", this);
+    TRACE_EVENT_BEGIN("cc,benchmark", "NeedsBeginFrames",
+                      perfetto::Track::FromPointer(this));
   } else {
-    TRACE_EVENT_NESTABLE_ASYNC_END0("cc,benchmark", "NeedsBeginFrames", this);
+    TRACE_EVENT_END("cc,benchmark",
+                    /*"NeedsBeginFrames"*/ perfetto::Track::FromPointer(this));
   }
   needs_begin_frames_ = needs_begin_frames;
 }

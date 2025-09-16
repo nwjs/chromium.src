@@ -2,15 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "media/formats/mpeg/mpeg1_audio_stream_parser.h"
 
 #include <array>
 
+#include "base/compiler_specific.h"
 #include "media/base/media_log.h"
 
 namespace media {
@@ -85,16 +81,16 @@ bool MPEG1AudioStreamParser::ParseHeader(MediaLog* media_log,
                                          const uint8_t* data,
                                          Header* header) {
   BitReader reader(data, kHeaderSize);
-  int sync;
-  int version;
-  int layer;
-  int is_protected;
-  int bitrate_index;
-  int sample_rate_index;
-  int has_padding;
-  int is_private;
-  int channel_mode;
-  int other_flags;
+  uint16_t sync;
+  uint8_t version;
+  uint8_t layer;
+  uint8_t is_protected;
+  uint8_t bitrate_index;
+  uint8_t sample_rate_index;
+  uint8_t has_padding;
+  uint8_t is_private;
+  uint8_t channel_mode;
+  uint8_t other_flags;
 
   if (!reader.ReadBits(11, &sync) || !reader.ReadBits(2, &version) ||
       !reader.ReadBits(2, &layer) || !reader.ReadBits(1, &is_protected) ||
@@ -260,7 +256,8 @@ int MPEG1AudioStreamParser::ParseFrameHeader(const uint8_t* data,
 
   // If we don't have enough data available to check, return 0 so frame parsing
   // will be retried once more data is available.
-  BitReader reader(data + header_bytes_read, size - header_bytes_read);
+  BitReader reader(UNSAFE_TODO(data + header_bytes_read),
+                   size - header_bytes_read);
   if (!reader.SkipBits(xing_header_index * 8) ||
       !reader.ReadBits(sizeof(tag) * 8, &tag)) {
     return 0;

@@ -76,7 +76,6 @@ import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.ActivityTestUtils;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
-import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeSystemBarColorHelper;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
@@ -86,6 +85,7 @@ import org.chromium.components.omnibox.AutocompleteResult;
 import org.chromium.components.omnibox.OmniboxSuggestionType;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.content_public.common.ContentUrlConstants;
+import org.chromium.ui.edge_to_edge.EdgeToEdgeSystemBarColorHelper;
 import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.url.GURL;
 
@@ -342,7 +342,7 @@ public class SearchActivityTest {
 
         // Suggestions requests are always delayed. Rather than check for the request itself
         // confirm that any prior requests have been canceled.
-        verify(mAutocompleteController, times(1)).resetSession();
+        verify(mAutocompleteController).resetSession();
 
         waitForChromeTabbedActivityToStart(
                 () -> {
@@ -429,7 +429,7 @@ public class SearchActivityTest {
         Assert.assertNotNull(mTestDelegate.onSearchEngineFinalizedCallback);
         Assert.assertEquals(0, mTestDelegate.onFinishDeferredInitializationCallback.getCallCount());
         // Native initialization is finished, but we don't have a DSE elected yet.
-        verify(mAutocompleteController, times(1)).addOnSuggestionsReceivedListener(any());
+        verify(mAutocompleteController).addOnSuggestionsReceivedListener(any());
 
         // Set some text in the search box, then continue startup.
         mOmnibox.requestFocus();
@@ -449,7 +449,7 @@ public class SearchActivityTest {
 
         // Omnibox suggestions should be requested now.
         var captor = ArgumentCaptor.forClass(AutocompleteInput.class);
-        verify(mAutocompleteController, times(1)).startZeroSuggest(captor.capture(), any());
+        verify(mAutocompleteController).startZeroSuggest(captor.capture());
         Assert.assertEquals("", captor.getValue().getUserText());
         Assert.assertEquals(
                 PageClassification.ANDROID_SEARCH_WIDGET_VALUE,

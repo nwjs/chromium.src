@@ -102,10 +102,6 @@ BASE_DECLARE_FEATURE(kExtensionDisableUnsupportedDeveloper);
 // A replacement key for declaring icons, in addition to supporting dark mode.
 BASE_DECLARE_FEATURE(kExtensionIconVariants);
 
-// Controls displaying a warning that affected MV2 extensions may no longer be
-// supported.
-BASE_DECLARE_FEATURE(kExtensionManifestV2DeprecationWarning);
-
 // Controls disabling affected MV2 extensions that are no longer supported.
 // Users can re-enable these extensions.
 BASE_DECLARE_FEATURE(kExtensionManifestV2Disabled);
@@ -270,6 +266,26 @@ BASE_DECLARE_FEATURE(kOptimizeServiceWorkerStartRequests);
 // (go/chrome-performance-work-should-be-finched).
 // TODO(crbug.com/424432184): Clean up when experiment is complete.
 BASE_DECLARE_FEATURE(kAvoidCloneArgsOnExtensionFunctionDispatch);
+
+// When enabled, one time message senders that are responded to with
+// `sendResponse(<non-JSON-serializable-value>)` from the message listener will
+// report an error to the message sender and close the message channel. If
+// `sendResponse(<non-JSON-serializable-value>)` is sent after
+// `sendResponse(<JSON-serializable-value>)` then this has no effect because the
+// channel would've already been closed by the first valid response.
+BASE_DECLARE_FEATURE(kOneTimeMessageUnserializableResponseClosesChannel);
+
+// Addresses content verification race conditions during extension updates. When
+// an extension updates, a content verification job for a previous version can
+// sometimes run *after* the new version has been loaded. This can lead to two
+// issues:
+//   1) the old job might be given the hashes for the new version, or
+//   2) it might unnecessarily re-create hashes for the old version.
+//
+// When this feature is enabled, the verification job will strictly use its
+// original extension version for all hash lookups and creations, preventing
+// these inconsistencies.
+BASE_DECLARE_FEATURE(kContentVerifyJobUseJobVersionForHashing);
 
 }  // namespace extensions_features
 

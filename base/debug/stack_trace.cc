@@ -12,6 +12,7 @@
 
 #include "base/check_op.h"
 #include "base/debug/debugging_buildflags.h"
+#include "base/numerics/clamped_math.h"
 #include "build/build_config.h"
 #include "build/config/compiler/compiler_buildflags.h"
 
@@ -151,7 +152,9 @@ uintptr_t ScanStackForNextFrame(uintptr_t fp, uintptr_t stack_end) {
 
   fp += sizeof(uintptr_t);  // current frame is known to be invalid
   uintptr_t last_fp_to_scan =
-      std::min(fp + kMaxStackScanArea, stack_end) - sizeof(uintptr_t);
+      (base::ClampedNumeric<uintptr_t>(fp) + kMaxStackScanArea).Min(stack_end) -
+      sizeof(uintptr_t);
+
   for (; fp <= last_fp_to_scan; fp += sizeof(uintptr_t)) {
     uintptr_t next_fp = GetNextStackFrame(fp);
     if (IsStackFrameValid(next_fp, fp, stack_end)) {

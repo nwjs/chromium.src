@@ -29,6 +29,7 @@
 #include "base/threading/hang_watcher.h"
 #include "base/timer/elapsed_timer.h"
 #include "build/build_config.h"
+#include "components/viz/host/gpu_client.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/renderer_host/render_frame_proxy_host.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
@@ -41,6 +42,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/child_process_launcher_utils.h"
+#include "content/public/browser/gpu_utils.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host_creation_observer.h"
 #include "content/public/browser/render_process_host_observer.h"
@@ -2252,7 +2254,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ReuseSiteURLChanges) {
   const GURL kModifiedSiteUrl("custom-scheme://custom");
 
   // At first, trying to get a RenderProcessHost with the
-  // REUSE_PENDING_OR_COMMITTED_SITE policy should return a new process.
+  // kReusePendingOrCommittedSite policy should return a new process.
   BrowserContext* context = shell()->web_contents()->GetBrowserContext();
   scoped_refptr<SiteInstanceImpl> site_instance =
       SiteInstanceImpl::CreateReusableInstanceForTesting(context, kUrl);
@@ -2263,7 +2265,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ReuseSiteURLChanges) {
             site_instance->GetProcess());
 
   // Have the main frame navigate to the first url. Getting a RenderProcessHost
-  // with the REUSE_PENDING_OR_COMMITTED_SITE policy should now return the
+  // with the kReusePendingOrCommittedSite policy should now return the
   // process of the main RFH.
   EXPECT_TRUE(NavigateToURL(shell(), kUrl));
   site_instance =
@@ -2272,7 +2274,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ReuseSiteURLChanges) {
             site_instance->GetProcess());
 
   // Install the custom ContentBrowserClient. Site URLs are now modified.
-  // Getting a RenderProcessHost with the REUSE_PENDING_OR_COMMITTED_SITE policy
+  // Getting a RenderProcessHost with the kReusePendingOrCommittedSite policy
   // should no longer return the process of the main RFH, as the RFH is
   // registered with the normal site URL.
   {
@@ -2285,7 +2287,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ReuseSiteURLChanges) {
               site_instance->GetProcess());
 
     // Reload. Getting a RenderProcessHost with the
-    // REUSE_PENDING_OR_COMMITTED_SITE policy should now return the process of
+    // kReusePendingOrCommittedSite policy should now return the process of
     // the main RFH, as it is now registered with the modified site URL.
     shell()->web_contents()->GetController().Reload(ReloadType::NORMAL, false);
     EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
@@ -2296,7 +2298,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ReuseSiteURLChanges) {
   }
 
   // Remove the custom ContentBrowserClient. Site URLs are back to normal.
-  // Getting a RenderProcessHost with the REUSE_PENDING_OR_COMMITTED_SITE policy
+  // Getting a RenderProcessHost with the kReusePendingOrCommittedSite policy
   // should no longer return the process of the main RFH, as it is registered
   // with the modified site URL.
   site_instance =
@@ -2305,7 +2307,7 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ReuseSiteURLChanges) {
             site_instance->GetProcess());
 
   // Reload. Getting a RenderProcessHost with the
-  // REUSE_PENDING_OR_COMMITTED_SITE policy should now return the process of the
+  // kReusePendingOrCommittedSite policy should now return the process of the
   // main RFH, as it is now registered with the regular site URL.
   shell()->web_contents()->GetController().Reload(ReloadType::NORMAL, false);
   EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
@@ -2313,6 +2315,61 @@ IN_PROC_BROWSER_TEST_P(RenderProcessHostTest, ReuseSiteURLChanges) {
       SiteInstanceImpl::CreateReusableInstanceForTesting(context, kUrl);
   EXPECT_EQ(root->current_frame_host()->GetProcess(),
             site_instance->GetProcess());
+}
+
+class PreEstablishGpuChannelRenderProcessHostTest
+    : public RenderProcessHostTestBase,
+      public ::testing::WithParamInterface<bool> {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    if (!UseGpuCompositing()) {
+      command_line->AppendSwitch(switches::kDisableGpu);
+    }
+  }
+
+ protected:
+  bool WaitForGpuChannelEstablishment() {
+    auto* rphi = static_cast<RenderProcessHostImpl*>(
+        shell()->web_contents()->GetPrimaryMainFrame()->GetProcess());
+    auto* gpu_client = rphi->GetGpuClient();
+
+    base::test::TestFuture<bool> success_future;
+    gpu_client->SetEstablishGpuChannelCallbackForTesting(
+        success_future.GetCallback());
+    return success_future.Get();
+  }
+
+  bool UseGpuCompositing() const { return GetParam(); }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    PreEstablishGpuChannelRenderProcessHostTest,
+// ChromeOS and Android don't support software compositing.
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
+    testing::Bool(),
+#else
+    testing::Values(true),
+#endif
+    [](const testing::TestParamInfo<
+        PreEstablishGpuChannelRenderProcessHostTest::ParamType>& info) {
+      return info.param ? "WithGpuCompositing" : "WithoutGpuCompositing";
+    });
+
+IN_PROC_BROWSER_TEST_P(PreEstablishGpuChannelRenderProcessHostTest,
+                       PreEstablishedChannelIsDroppedOnGpuCrash) {
+  // Hide WebContents to prevent renderer from using pre-established gpu channel
+  // right away.
+  shell()->web_contents()->WasHidden();
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL test_url = embedded_test_server()->GetURL("/simple_page.html");
+  shell()->LoadURL(test_url);
+  ASSERT_TRUE(WaitForGpuChannelEstablishment());
+
+  // Kill gpu process and check that gpu channel is re-requested.
+  KillGpuProcess();
+  shell()->web_contents()->WasShown();
+  EXPECT_TRUE(WaitForGpuChannelEstablishment());
 }
 
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)

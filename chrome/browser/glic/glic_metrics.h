@@ -61,6 +61,24 @@ enum class DisplayPosition {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:DisplayPosition)
 
+// LINT.IfChange(PercentOverlap)
+enum class PercentOverlap {
+  k0 = 0,
+  k10 = 1,
+  k20 = 2,
+  k30 = 3,
+  k40 = 4,
+  k50 = 5,
+  k60 = 6,
+  k70 = 7,
+  k80 = 8,
+  k90 = 9,
+  k100 = 10,
+  kNoVisibleChromeBrowser = 11,
+  kMaxValue = kNoVisibleChromeBrowser,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:PercentOverlap)
+
 // LINT.IfChange(Error)
 enum class Error {
   kResponseStartWithoutInput = 0,
@@ -137,7 +155,11 @@ enum class ResponseSegmentation {
   kSharedTabAttachedAudio = 46,
   kSharedTabDetachedText = 47,
   kSharedTabDetachedAudio = 48,
-  kMaxValue = kSharedTabDetachedAudio,
+  kActorTaskIconAttachedText = 49,
+  kActorTaskIconAttachedAudio = 50,
+  kActorTaskIconDetachedText = 51,
+  kActorTaskIconDetachedAudio = 52,
+  kMaxValue = kActorTaskIconDetachedAudio,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicResponseSegmentation)
 
@@ -175,6 +197,28 @@ enum class GlicRequestEvent {
   kMaxValue = kRequestReceivedWhileHidden,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicRequestEvent)
+
+// LINT.IfChange(GlicGetContextFromFocusedTabError)
+enum class GlicGetContextFromFocusedTabError {
+  kUnknown = 0,
+  kPermissionDeniedWindowNotShowing = 1,
+  kTabNotFound = 2,
+  kPermissionDeniedContextPermissionNotEnabled = 3,
+  kPermissionDenied = 4,
+  kWebContentsChanged = 5,
+  kPageContextNotEligible = 6,
+  kMaxValue = kPageContextNotEligible,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicGetContextFromFocusedTabError)
+
+// LINT.IfChange(GlicTabPinnedForSharingResult)
+enum class GlicTabPinnedForSharingResult {
+  kPinTabForSharingFailedTooManyTabs = 0,
+  kPinTabForSharingFailedNotValidForSharing = 1,
+  kPinTabForSharingSucceeded = 2,
+  kMaxValue = kPinTabForSharingSucceeded,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicTabPinnedForSharingResult)
 
 // The different states of active tab sharing.
 // LINT.IfChange(ActiveTabSharingState)
@@ -221,10 +265,11 @@ class GlicMetrics {
   // methods are called then controller_ is guaranteed to exist.
   void OnUserInputSubmitted(mojom::WebClientMode mode);
   void OnResponseStarted();
-  void OnResponseStopped();
+  void OnResponseStopped(mojom::ResponseStopCause cause);
   void OnSessionTerminated();
   void OnResponseRated(bool positive);
   void OnTurnCompleted(mojom::WebClientModel model, base::TimeDelta duration);
+  void OnModelChanged(mojom::WebClientModel model);
 
   void OnAttachedToBrowser(AttachChangeReason reason);
   void OnDetachedFromBrowser(AttachChangeReason reason);
@@ -237,7 +282,7 @@ class GlicMetrics {
   // Called just after the the glic window has been loaded into the UI.
   void OnGlicWindowShown(Browser* browser,
                          std::optional<display::Display> glic_display,
-                         const gfx::Point& glic_center_point);
+                         const gfx::Rect& glic_bounds);
   // Called when the glic window has been opened and is ready.
   void OnGlicWindowOpenAndReady();
   // Called when the glic window is resized.
@@ -247,9 +292,9 @@ class GlicMetrics {
   // Called when the glic window stops being resized by the user.
   void OnWidgetUserResizeEnded();
   // Called when the glic window finishes closing.
-  void OnGlicWindowClose(Browser* browser,
+  void OnGlicWindowClose(Browser* last_active_browser,
                          std::optional<display::Display> display,
-                         const gfx::Point& glic_center_point);
+                         const gfx::Rect& glic_bounds);
   // Called when glic requests a scroll.
   void OnGlicScrollAttempt();
   // Called when scrolling starts (after glic requests to scroll) or if
@@ -257,8 +302,20 @@ class GlicMetrics {
   // triggered.
   void OnGlicScrollComplete(bool success);
 
+  // Called when a tab is pinned for sharing with glic. `success` is true if the
+  // pinning was successful.
+  void OnTabPinnedForSharing(GlicTabPinnedForSharingResult result);
+
   // Called when a response is received with closed captions showing.
   void LogClosedCaptionsShown();
+
+  // Logs an error that occurred while trying to get context from the focused
+  // tab.
+  void LogGetContextFromFocusedTabError(
+      GlicGetContextFromFocusedTabError error);
+
+  // See `last_input_mode_` for details.
+  mojom::WebClientMode last_input_mode() const { return last_input_mode_; }
 
   // Must be called immediately after constructor before any calls from
   // glic.mojom.
@@ -272,6 +329,8 @@ class GlicMetrics {
   void set_show_start_time(base::TimeTicks time) { show_start_time_ = time; }
 
   void set_starting_mode(mojom::WebClientMode mode) { starting_mode_ = mode; }
+
+  mojom::WebClientModel current_model() const { return current_model_; }
 
  private:
   // Called when `impression_timer_` fires.
@@ -306,6 +365,11 @@ class GlicMetrics {
       Browser* browser,
       const gfx::Point& glic_center_point);
 
+  // Returns the percent overlap of the given glic bounds and the given chrome
+  // browser.
+  PercentOverlap GetPercentOverlapWithBrowser(Browser* browser,
+                                              const gfx::Rect& glic_bounds);
+
   base::TimeTicks fre_accepted_time_;
 
   // These members are cleared in OnResponseStopped.
@@ -314,6 +378,8 @@ class GlicMetrics {
   bool did_request_context_ = false;
   std::set<mojom::WebClientMode> inputs_modes_used_;
   int attach_change_count_ = 0;
+
+  mojom::WebClientModel current_model_ = mojom::WebClientModel::kDefault;
 
   // Session state. `session_start_time_` is a sentinel that is cleared in
   // OnGlicWindowClose() and is used to determine whether OnGlicWindowOpen was
@@ -375,6 +441,12 @@ class GlicMetrics {
   // `input_mode_`.
   base::TimeTicks scroll_input_submitted_time_;
   mojom::WebClientMode scroll_input_mode_;
+
+  // The last input mode used by the user. This is not cleared when the response
+  // is finished, so it can be used to attribute events that happen after the
+  // response has completed to the input mode that triggered them.
+  mojom::WebClientMode last_input_mode_ = mojom::WebClientMode::kUnknown;
+
   std::unique_ptr<internal::BrowserActivityObserver> browser_activity_observer_;
 };
 

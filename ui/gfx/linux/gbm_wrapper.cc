@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/354829279): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "ui/gfx/linux/gbm_wrapper.h"
 
 #include <gbm.h>
@@ -16,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/numerics/safe_conversions.h"
@@ -35,6 +31,11 @@
 
 #include "base/strings/stringize_macros.h"
 #endif
+
+extern "C" {
+int gbm_bo_get_fd_for_plane(struct gbm_bo* bo, int plane)
+    __attribute__((weak_import));
+}
 
 namespace ui {
 namespace gbm_wrapper {
@@ -60,12 +61,23 @@ base::ScopedFD GetPlaneFdForBo(gbm_bo* bo, size_t plane) {
 #if defined(MINIGBM)
   return base::ScopedFD(gbm_bo_get_plane_fd(bo, plane));
 #else
+  // System linux gbm (or Mesa gbm) has fd per plane support
+  if (gbm_bo_get_fd_for_plane) {
+    int fd = gbm_bo_get_fd_for_plane(bo, static_cast<int>(plane));
+    if (fd >= 0) {
+      return base::ScopedFD(fd);
+    }
+  }
+
+  // Systems which use a libgbm < 21.1.0 do not have fds per plane support
+  // Thus, get plane handle and use drm ioctl to get a prime fd out of it.
+
+  // TODO(crbug.com/439501268): Check if this fallback can be removed once the
+  // sysroot is updated to include libgbm >= 21.1.0 (e.g. debian bookworm) with
+  // gbm_bo_get_fd_for_plane support.
   const int plane_count = GetPlaneCount(bo);
   DCHECK(plane_count > 0 && plane < static_cast<size_t>(plane_count));
 
-  // System linux gbm (or Mesa gbm) does not provide fds per plane basis. Thus,
-  // get plane handle and use drm ioctl to get a prime fd out of it avoid having
-  // two different branches for minigbm and Mesa gbm here.
   gbm_device* gbm_dev = gbm_bo_get_device(bo);
   int dev_fd = gbm_device_get_fd(gbm_dev);
   DCHECK_GE(dev_fd, 0);
@@ -348,9 +360,10 @@ class Device final : public ui::GbmDevice {
       std::vector<base::ScopedFD> fds;
       for (size_t i = 0; i < static_cast<size_t>(fd_data.num_fds); ++i) {
         fds.emplace_back(GetPlaneFdForBo(created_bo, i));
-        fd_data.fds[i] = fds.back().get();
-        fd_data.strides[i] = gbm_bo_get_stride_for_plane(created_bo, i);
-        fd_data.offsets[i] = gbm_bo_get_offset(created_bo, i);
+        UNSAFE_TODO(fd_data.fds[i]) = fds.back().get();
+        UNSAFE_TODO(fd_data.strides[i]) =
+            gbm_bo_get_stride_for_plane(created_bo, i);
+        UNSAFE_TODO(fd_data.offsets[i]) = gbm_bo_get_offset(created_bo, i);
       }
 
       struct gbm_bo* imported_bo = gbm_bo_import(
@@ -418,9 +431,10 @@ class Device final : public ui::GbmDevice {
     DCHECK_LE(handle.planes.size(), 3u);
 
     for (size_t i = 0; i < handle.planes.size(); ++i) {
-      fd_data.fds[i] = handle.planes[i < handle.planes.size() ? i : 0].fd.get();
-      fd_data.strides[i] = handle.planes[i].stride;
-      fd_data.offsets[i] = handle.planes[i].offset;
+      UNSAFE_TODO(fd_data.fds[i]) =
+          handle.planes[i < handle.planes.size() ? i : 0].fd.get();
+      UNSAFE_TODO(fd_data.strides[i]) = handle.planes[i].stride;
+      UNSAFE_TODO(fd_data.offsets[i]) = handle.planes[i].offset;
     }
 
     // The fd passed to gbm_bo_import is not ref-counted and need to be

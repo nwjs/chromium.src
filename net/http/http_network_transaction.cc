@@ -314,9 +314,7 @@ void LogIfDuplicateRequest(const GURL& url, bool is_main_frame_navigation) {
 // When this feature is enabled, GET requests with identical URLs within 10
 // seconds will result in the Net.NetworkTransaction.DuplicateRequestInterval
 // histogram being recorded.
-BASE_FEATURE(kLogDuplicateRequests,
-             "LogDuplicateRequests",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(LogDuplicateRequests, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace
 
@@ -335,6 +333,15 @@ HttpNetworkTransaction::~HttpNetworkTransaction() {
   // this network transaction was prematurely cancelled.
   GenerateNetworkErrorLoggingReport(ERR_ABORTED);
 #endif  // BUILDFLAG(ENABLE_REPORTING)
+
+  // If there's a live stream request and DoCreateStreamComplete() has not set
+  // `create_stream_end_time_` yet, record this as an abort, so metrics include
+  // users cancelling requests that take too long.
+  if (stream_request_ && !create_stream_start_time_.is_null() &&
+      create_stream_end_time_.is_null()) {
+    create_stream_end_time_ = base::TimeTicks::Now();
+    RecordStreamRequestResult(ERR_ABORTED);
+  }
 
   if (stream_.get()) {
     // TODO(mbelshe): The stream_ should be able to compute whether or not the
@@ -537,13 +544,8 @@ void HttpNetworkTransaction::PrepareForAuthRestart(HttpAuth::Target target) {
   // Authorization schemes incompatible with HTTP/2 are unsupported for proxies.
   if (target == HttpAuth::AUTH_SERVER &&
       auth_controllers_[target]->NeedsHTTP11()) {
-    // SetHTTP11Requited requires URLs be rewritten first, if there are any
-    // applicable rules.
-    GURL rewritten_url = request_->url;
-    session_->params().host_mapping_rules.RewriteUrl(rewritten_url);
-
     session_->http_server_properties()->SetHTTP11Required(
-        url::SchemeHostPort(rewritten_url), network_anonymization_key_);
+        url::SchemeHostPort(request_->url), network_anonymization_key_);
     stream_->SetHTTP11Required();
   }
 
@@ -1130,28 +1132,12 @@ int HttpNetworkTransaction::DoCreateStreamComplete(int result) {
       NetLogWithSourceToFlow(net_log_), "result", result, "negotiated_protocol",
       stream_request_->completed() ? stream_request_->negotiated_protocol()
                                    : NextProto::kProtoUnknown);
+  create_stream_end_time_ = base::TimeTicks::Now();
   RecordStreamRequestResult(result);
   CopyConnectionAttemptsFromStreamRequest();
   if (result == OK) {
-    create_stream_end_time_ = base::TimeTicks::Now();
     next_state_ = STATE_CONNECTED_CALLBACK;
     DCHECK(stream_.get());
-    CHECK(!create_stream_start_time_.is_null());
-    CHECK_LE(create_stream_start_time_, create_stream_end_time_);
-    base::UmaHistogramTimes(
-        base::StrCat(
-            {"Net.NetworkTransaction.Create",
-             (ForWebSocketHandshake() ? "WebSocketStreamTime."
-                                      : "HttpStreamTime."),
-             (IsGoogleHostWithAlpnH3(url_.host_piece()) ? "GoogleHost." : ""),
-             NegotiatedProtocolToHistogramSuffix(negotiated_protocol_)}),
-        create_stream_end_time_ - create_stream_start_time_);
-    if (!reset_connection_and_request_for_resend_start_time_.is_null()) {
-      base::UmaHistogramTimes(
-          "Net.NetworkTransaction.ResetConnectionAndResendRequestTime",
-          base::TimeTicks::Now() -
-              reset_connection_and_request_for_resend_start_time_);
-    }
   } else if (result == ERR_HTTP_1_1_REQUIRED ||
              result == ERR_PROXY_HTTP_1_1_REQUIRED) {
     return HandleHttp11Required(result);
@@ -1725,11 +1711,13 @@ int HttpNetworkTransaction::DoReadHeadersComplete(int result) {
   // Note: This will report a success for a redirect even if an error is
   // encountered later while draining the body.
   int response_code = response_.headers->response_code();
+  std::optional<base::ByteCount> content_length =
+      response_.headers->GetContentLength();
   if ((response_code >= 400 && response_code < 600) ||
       response_code == HTTP_NO_CONTENT || response_code == HTTP_RESET_CONTENT ||
       response_code == HTTP_NOT_MODIFIED || request_->method == "HEAD" ||
-      response_.headers->GetContentLength() == 0 ||
-      response_.headers->IsRedirect(nullptr /* location */)) {
+      (content_length && content_length->is_zero()) ||
+      response_.headers->IsRedirect(/*location=*/nullptr)) {
     GenerateNetworkErrorLoggingReport(OK);
   }
 #endif  // BUILDFLAG(ENABLE_REPORTING)
@@ -2447,7 +2435,7 @@ void HttpNetworkTransaction::RecordStreamRequestResult(int result) {
     base::TimeDelta elapsed = base::TimeTicks::Now() - start_timeticks_;
     base::UmaHistogramTimes(
         base::StrCat(
-            {"Net.NetworkTransaction.StreamRequestCompleteTime.",
+            {"Net.NetworkTransaction.StreamRequestCompleteTime2.",
              IsGoogleHostWithAlpnH3(url_.host_piece()) ? "GoogleHost." : "",
              result == OK ? "Success" : "Failure"}),
         elapsed);
@@ -2468,8 +2456,37 @@ void HttpNetworkTransaction::RecordStreamRequestResult(int result) {
           "Net.NetworkTransaction.StreamAddressFamily", endpoint.GetFamily(),
           static_cast<AddressFamily>(ADDRESS_FAMILY_LAST + 1));
     }
+
+    CHECK(!create_stream_start_time_.is_null());
+    CHECK_LE(create_stream_start_time_, create_stream_end_time_);
+    base::TimeDelta create_time =
+        create_stream_end_time_ - create_stream_start_time_;
+
+    const std::string_view histogram_base_name =
+        ForWebSocketHandshake() ? "CreateWebSocketStreamTime"
+                                : "CreateHttpStreamTime";
+    const std::string_view host_suffix =
+        IsGoogleHostWithAlpnH3(url_.host_piece()) ? ".GoogleHost" : "";
+    const std::string_view protocol_suffix =
+        NegotiatedProtocolToHistogramSuffix(negotiated_protocol_);
+    std::string histogram_name =
+        base::StrCat({"Net.NetworkTransaction.", histogram_base_name,
+                      host_suffix, ".", protocol_suffix});
+    base::UmaHistogramTimes(histogram_name, create_time);
+
+    const std::string_view address_suffix =
+        AddressFamilyToString(endpoint.GetFamily());
+    base::UmaHistogramTimes(base::StrCat({histogram_name, ".", address_suffix}),
+                            create_time);
+
+    if (!reset_connection_and_request_for_resend_start_time_.is_null()) {
+      base::UmaHistogramTimes(
+          "Net.NetworkTransaction.ResetConnectionAndResendRequestTime",
+          base::TimeTicks::Now() -
+              reset_connection_and_request_for_resend_start_time_);
+    }
   } else {
-    base::UmaHistogramSparse("Net.NetworkTransaction.StreamRequestErrorCode",
+    base::UmaHistogramSparse("Net.NetworkTransaction.StreamRequestErrorCode2",
                              -result);
   }
 }

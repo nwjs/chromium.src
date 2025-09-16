@@ -211,6 +211,7 @@ void TabLoader::SetAllTabsScored(bool all_tabs_scored) {
 TabLoader::TabLoader()
     : memory_pressure_listener_(
           FROM_HERE,
+          base::MemoryPressureListenerTag::kTabLoader,
           base::BindRepeating(&TabLoader::OnMemoryPressure,
                               base::Unretained(this))),
       clock_(GetDefaultTickClock()) {
@@ -390,7 +391,8 @@ bool TabLoader::ShouldStopLoadingTabs() const {
   if (g_browser_process->IsShuttingDown())
     return true;
   if (base::MemoryPressureMonitor::Get()) {
-    return base::MemoryPressureMonitor::Get()->GetCurrentPressureLevel() !=
+    return base::MemoryPressureMonitor::Get()->GetCurrentPressureLevel(
+               base::MemoryPressureMonitorTag::kTabLoader) !=
            base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE;
   }
   return false;

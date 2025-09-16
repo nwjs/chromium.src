@@ -12,12 +12,13 @@
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
-#include "chrome/browser/actor/ui/mock_actor_ui_state_manager.h"
+#include "chrome/browser/actor/ui/mocks/mock_actor_ui_state_manager.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "content/public/test/browser_task_environment.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace actor {
@@ -96,7 +97,7 @@ TEST_F(ActorKeyedServiceTest, StopActiveTask) {
   loop.Run();
 
   EXPECT_TRUE(task->IsActingOnTab(tabs::TabHandle(123)));
-  actor_service->StopTask(id);
+  actor_service->StopTask(id, /*success=*/true);
   ASSERT_EQ(actor_service->GetActiveTasks().size(), 0u);
   ASSERT_EQ(actor_service->GetInactiveTasks().size(), 1u);
   EXPECT_EQ(actor_service->GetInactiveTasks().begin()->second->GetState(),
@@ -104,6 +105,83 @@ TEST_F(ActorKeyedServiceTest, StopActiveTask) {
   EXPECT_EQ(actor_service->GetInactiveTasks().begin()->second->GetEndTime(),
             base::Time::Now());
   EXPECT_FALSE(task->IsActingOnTab(tabs::TabHandle(123)));
+}
+
+TEST_F(ActorKeyedServiceTest, FindTaskIdsInActive_ReturnsSuccessfully) {
+  auto* actor_service = ActorKeyedService::Get(profile());
+  actor_service->CreateTask();
+  const TaskId id2 = actor_service->CreateTask();
+  actor_service->GetTask(id2)->Pause(/*from_actor=*/true);
+
+  // Find a single active task.
+  std::vector<TaskId> single_found = actor_service->FindTaskIdsInActive(
+      base::BindRepeating([](const ActorTask& task) {
+        return task.GetState() == ActorTask::State::kPausedByActor;
+      }));
+  ASSERT_EQ(single_found.size(), 1u);
+  EXPECT_EQ(single_found[0], id2);
+}
+
+TEST_F(ActorKeyedServiceTest, FindTaskIdsInInactive_ReturnsSuccessfully) {
+  auto* actor_service = ActorKeyedService::Get(profile());
+  const TaskId id1 = actor_service->CreateTask();
+  const TaskId id2 = actor_service->CreateTask();
+  actor_service->StopTask(id1, /*success=*/true);
+  actor_service->StopTask(id2, /*success=*/false);
+
+  // Find a single inactive task.
+  std::vector<TaskId> single_found = actor_service->FindTaskIdsInInactive(
+      base::BindRepeating([](const ActorTask& task) {
+        return task.GetState() == ActorTask::State::kCancelled;
+      }));
+  ASSERT_EQ(single_found.size(), 1u);
+  EXPECT_EQ(single_found[0], id2);
+}
+
+// Test that adding a tab to a paused or stopped task has no effect.
+TEST_F(ActorKeyedServiceTest, AddTabToPausedOrStoppedTask) {
+  auto* actor_service = ActorKeyedService::Get(profile());
+  actor_service->SetActorUiStateManagerForTesting(BuildUiStateManagerMock());
+  std::unique_ptr<ExecutionEngine> execution_engine =
+      std::make_unique<ExecutionEngine>(profile());
+  TaskId id = actor_service->AddActiveTask(std::make_unique<ActorTask>(
+      profile(), std::move(execution_engine),
+      ui::NewUiEventDispatcher(actor_service->GetActorUiStateManager())));
+
+  ActorTask* task = actor_service->GetTask(id);
+  ASSERT_TRUE(task);
+  const tabs::TabHandle tab_handle(123);
+
+  // Pause the task and try to add a tab.
+  task->Pause(/*from_actor=*/true);
+  EXPECT_TRUE(task->IsPaused());
+
+  {
+    base::RunLoop loop;
+    task->AddTab(tab_handle,
+                 base::BindLambdaForTesting([&](mojom::ActionResultPtr result) {
+                   EXPECT_EQ(result->code,
+                             mojom::ActionResultCode::kTaskPaused);
+                   loop.Quit();
+                 }));
+    loop.Run();
+  }
+  EXPECT_FALSE(task->IsActingOnTab(tab_handle));
+
+  // Stop the task and try to add a tab.
+  actor_service->StopTask(id, true);
+  EXPECT_TRUE(task->IsStopped());
+  {
+    base::RunLoop loop;
+    task->AddTab(tab_handle,
+                 base::BindLambdaForTesting([&](mojom::ActionResultPtr result) {
+                   EXPECT_EQ(result->code,
+                             mojom::ActionResultCode::kTaskWentAway);
+                   loop.Quit();
+                 }));
+    loop.Run();
+  }
+  EXPECT_FALSE(task->IsActingOnTab(tab_handle));
 }
 
 }  // namespace

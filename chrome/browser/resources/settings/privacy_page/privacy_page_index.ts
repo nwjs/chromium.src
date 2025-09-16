@@ -13,9 +13,11 @@ import './privacy_page.js';
 
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import type {CrViewManagerElement} from 'chrome://resources/cr_elements/cr_view_manager/cr_view_manager.js';
+import {assert} from 'chrome://resources/js/assert.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 import {beforeNextRender, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
+import {loadTimeData} from '../i18n_setup.js';
 import {pageVisibility} from '../page_visibility.js';
 import type {PageVisibility} from '../page_visibility.js';
 import {routes} from '../route.js';
@@ -62,7 +64,7 @@ export class SettingsPrivacyPageIndexElement extends
 
       pageVisibility_: {
         type: Object,
-        value() {
+        value: () => {
           return pageVisibility || {};
         },
       },
@@ -75,6 +77,51 @@ export class SettingsPrivacyPageIndexElement extends
       showPrivacyGuidePromo_: {
         type: Boolean,
         value: false,
+      },
+
+      enableIncognitoTrackingProtections_: {
+        type: Boolean,
+        value: () =>
+            loadTimeData.getBoolean('enableIncognitoTrackingProtections'),
+      },
+
+      enableSecurityKeysSubpage_: {
+        type: Boolean,
+        readOnly: true,
+        value: () => {
+          return loadTimeData.getBoolean('enableSecurityKeysSubpage');
+        },
+      },
+
+      enableKeyboardLockPrompt_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableKeyboardLockPrompt'),
+      },
+
+      enableWebAppInstallation_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableWebAppInstallation'),
+      },
+
+      enableLocalNetworkAccessSetting_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableLocalNetworkAccessSetting'),
+      },
+
+      isAdPrivacyAvailable_: {
+        type: Boolean,
+        readOnly: true,
+        value: () => {
+          return !loadTimeData.getBoolean('isPrivacySandboxRestricted') ||
+              loadTimeData.getBoolean(
+                  'isPrivacySandboxRestrictedNoticeEnabled');
+        },
+      },
+
+      isPrivacySandboxRestricted_: {
+        type: Boolean,
+        readOnly: true,
+        value: () => loadTimeData.getBoolean('isPrivacySandboxRestricted'),
       },
     };
   }
@@ -89,6 +136,13 @@ export class SettingsPrivacyPageIndexElement extends
   declare private pageVisibility_: PageVisibility;
   declare private routes_: SettingsRoutes;
   declare private showPrivacyGuidePromo_: boolean;
+  declare private enableIncognitoTrackingProtections_: boolean;
+  declare private enableKeyboardLockPrompt_: boolean;
+  declare private enableLocalNetworkAccessSetting_: boolean;
+  declare private enableSecurityKeysSubpage_: boolean;
+  declare private enableWebAppInstallation_: boolean;
+  declare private isAdPrivacyAvailable_: boolean;
+  declare private isPrivacySandboxRestricted_: boolean;
 
   private pendingViewSwitching_: PromiseResolver<void> = new PromiseResolver();
   private privacyGuidePromoWasShown_: boolean;
@@ -135,6 +189,56 @@ export class SettingsPrivacyPageIndexElement extends
         // Display the default views if in search mode, since they could be part
         // of search results.
         return this.inSearchMode ? this.getDefaultViews_() : [];
+      case routes.COOKIES:
+        return ['cookies'];
+      case routes.INCOGNITO_TRACKING_PROTECTIONS:
+        assert(this.enableIncognitoTrackingProtections_);
+        return ['incognitoTrackingProtections'];
+      case routes.SECURITY_KEYS:
+        assert(this.enableSecurityKeysSubpage_);
+        return ['securityKeys'];
+      case routes.SITE_SETTINGS:
+        return ['siteSettings'];
+      case routes.SITE_SETTINGS_AUTOMATIC_FULLSCREEN:
+        return ['siteSettingsAutomaticFullscreen'];
+      case routes.SITE_SETTINGS_HANDLERS:
+        return ['siteSettingsHandlers'];
+      case routes.SITE_SETTINGS_KEYBOARD_LOCK:
+        assert(this.enableKeyboardLockPrompt_);
+        return ['siteSettingsKeyboardLock'];
+      case routes.SITE_SETTINGS_LOCAL_NETWORK_ACCESS:
+        assert(this.enableLocalNetworkAccessSetting_);
+        return ['siteSettingsLocalNetworkAccess'];
+      case routes.SITE_SETTINGS_LOCATION:
+        return ['siteSettingsLocation'];
+      case routes.SITE_SETTINGS_NOTIFICATIONS:
+        return ['siteSettingsNotifications'];
+      case routes.SITE_SETTINGS_PDF_DOCUMENTS:
+        return ['siteSettingsPdfDocuments'];
+      case routes.SITE_SETTINGS_SITE_DATA:
+        return ['siteSettingsSiteData'];
+      case routes.SITE_SETTINGS_WEB_APP_INSTALLATION:
+        assert(this.enableWebAppInstallation_);
+        return ['siteSettingsWebAppInstallation'];
+      case routes.SITE_SETTINGS_ZOOM_LEVELS:
+        return ['siteSettingsZoomLevels'];
+      case routes.SAFETY_HUB:
+        return ['safetyHub'];
+      case routes.PRIVACY_SANDBOX:
+        assert(this.isAdPrivacyAvailable_);
+        return ['privacySandbox'];
+      case routes.PRIVACY_SANDBOX_TOPICS:
+        assert(!this.isPrivacySandboxRestricted_);
+        return ['privacySandboxTopics'];
+      case routes.PRIVACY_SANDBOX_MANAGE_TOPICS:
+        assert(!this.isPrivacySandboxRestricted_);
+        return ['privacySandboxManageTopics'];
+      case routes.PRIVACY_SANDBOX_FLEDGE:
+        assert(!this.isPrivacySandboxRestricted_);
+        return ['privacySandboxFledge'];
+      case routes.PRIVACY_SANDBOX_AD_MEASUREMENT:
+        assert(this.isAdPrivacyAvailable_);
+        return ['privacySandboxAdMeasurement'];
       default: {
         if (this.isNonMigratedPrivacyRoute_(route)) {
           // Handle case where Privacy child route has not migrated to the new

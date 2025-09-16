@@ -24,7 +24,6 @@ import android.view.ViewStub;
 import android.widget.ImageButton;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.core.app.ActivityScenario.ActivityAction;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -41,10 +40,13 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 
 import org.chromium.base.Callback;
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisabledTest;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpener;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
@@ -53,13 +55,20 @@ import org.chromium.chrome.browser.bookmarks.FakeBookmarkModel;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
+import org.chromium.chrome.browser.fullscreen.FullscreenManager;
+import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.page_image_service.ImageServiceBridgeJni;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelperJni;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.browser_ui.widget.CoordinatorLayoutForPointer;
 import org.chromium.ui.base.TestActivity;
+import org.chromium.ui.resources.ResourceFactory;
+import org.chromium.ui.resources.ResourceFactoryJni;
+import org.chromium.ui.resources.ResourceManager;
+import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
@@ -77,6 +86,14 @@ public class BookmarkBarCoordinatorTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
+    @Mock private BookmarkBarSceneLayer.Natives mBookmarkBarSceneLayerJniMock;
+    @Mock private ResourceFactory.Natives mResourceFactoryJniMock;
+
+    @Mock private LayoutManager mLayoutManager;
+    @Mock private Runnable mLayoutManagerRequestUpdate;
+    @Mock private FullscreenManager mFullscreenManager;
+    @Mock private ResourceManager mResourceManager;
+    @Mock private DynamicResourceLoader mDynamicResourceLoader;
     @Mock private BrowserControlsManager mBrowserControlsManager;
     @Mock private FaviconHelperJni mFaviconHelperJni;
     @Mock private Callback<Void> mHeightChangeCallback;
@@ -86,6 +103,8 @@ public class BookmarkBarCoordinatorTest {
     @Mock private BookmarkOpener mBookmarkOpener;
     @Mock private BookmarkManagerOpener mBookmarkManagerOpener;
     @Mock private TopControlsStacker mTopControlsStacker;
+    @Mock private ObservableSupplier<@Nullable Tab> mCurrentTabSupplier;
+    @Mock private TopUiThemeColorProvider mTopUiThemeColorProvider;
 
     private BookmarkBarCoordinator mCoordinator;
     private BookmarkId mDesktopFolderId;
@@ -100,8 +119,11 @@ public class BookmarkBarCoordinatorTest {
         mModel = FakeBookmarkModel.createModel();
         mDesktopFolderId = mModel.getDesktopFolderId();
         mProfileSupplier = new ObservableSupplierImpl<>(mProfile);
+        BookmarkBarSceneLayerJni.setInstanceForTesting(mBookmarkBarSceneLayerJniMock);
+        ResourceFactoryJni.setInstanceForTesting(mResourceFactoryJniMock);
 
         when(mFaviconHelperJni.init()).thenReturn(1L);
+        when(mResourceManager.getBitmapDynamicResourceLoader()).thenReturn(mDynamicResourceLoader);
 
         BookmarkModel.setInstanceForTesting(mModel);
         FaviconHelperJni.setInstanceForTesting(mFaviconHelperJni);
@@ -142,6 +164,10 @@ public class BookmarkBarCoordinatorTest {
         mCoordinator =
                 new BookmarkBarCoordinator(
                         activity,
+                        mLayoutManager,
+                        mLayoutManagerRequestUpdate,
+                        mFullscreenManager,
+                        mResourceManager,
                         mBrowserControlsManager,
                         mHeightChangeCallback,
                         mProfileSupplier,
@@ -149,7 +175,9 @@ public class BookmarkBarCoordinatorTest {
                         mCurrentTab,
                         mBookmarkOpener,
                         new ObservableSupplierImpl<>(mBookmarkManagerOpener),
-                        mTopControlsStacker);
+                        mTopControlsStacker,
+                        mCurrentTabSupplier,
+                        mTopUiThemeColorProvider);
 
         assertNotNull("Verify view stub inflation during construction.", mView);
 
@@ -188,12 +216,14 @@ public class BookmarkBarCoordinatorTest {
 
     @Test
     @SmallTest
+    @DisabledTest(message = "https://crbug.com/430058443")
     public void testConstructorWhenTopControlOffsetIsNonZero() {
         testConstructor(/* topControlOffset= */ -1);
     }
 
     @Test
     @SmallTest
+    @DisabledTest(message = "https://crbug.com/430058443")
     public void testConstructorWhenTopControlOffsetIsZero() {
         testConstructor(/* topControlOffset= */ 0);
     }
@@ -412,6 +442,7 @@ public class BookmarkBarCoordinatorTest {
 
     @Test
     @SmallTest
+    @SuppressWarnings("DirectInvocationOnMock")
     public void testOnTopControlsHeightChanged() {
         // Initialize browser controls manager.
         final int topControlsHeight = 1;
@@ -433,6 +464,7 @@ public class BookmarkBarCoordinatorTest {
 
     @Test
     @SmallTest
+    @SuppressWarnings("DirectInvocationOnMock")
     public void testOnTopControlsOffsetChanged() {
         // Initialize browser controls manager.
         final var topControlOffset = new AtomicInteger(-1);

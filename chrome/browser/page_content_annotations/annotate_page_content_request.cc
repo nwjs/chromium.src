@@ -12,6 +12,7 @@
 #include "chrome/browser/page_content_annotations/page_content_extraction_service_factory.h"
 #include "chrome/browser/page_content_annotations/page_content_extraction_types.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/history/core/browser/features.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility.h"
 #include "components/page_content_annotations/core/page_content_annotations_features.h"
@@ -23,7 +24,6 @@
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
-#include "third_party/blink/public/common/features.h"
 
 #if BUILDFLAG(ENABLE_PDF)
 #include "components/pdf/browser/pdf_document_helper.h"
@@ -54,7 +54,12 @@ void RecordPdfPageCountMetrics(
 std::unique_ptr<AnnotatedPageContentRequest>
 AnnotatedPageContentRequest::Create(content::WebContents* web_contents) {
   auto request = blink::mojom::AIPageContentOptions::New();
-  request->mode = blink::mojom::AIPageContentMode::kDefault;
+  request->mode =
+      (page_content_annotations::features::AnnotatedPageContentMode() ==
+       "actionable")
+          ? blink::mojom::AIPageContentMode::kActionableElements
+          : blink::mojom::AIPageContentMode::kDefault;
+  ;
   request->on_critical_path = page_content_annotations::features::
       IsAnnotatedPageContentOnCriticalPath();
 
@@ -107,8 +112,7 @@ void AnnotatedPageContentRequest::DidFinishNavigation(
     return;
   }
 
-  if (base::FeatureList::IsEnabled(
-          blink::features::kVisitedLinksOnErrorNavigation)) {
+  if (base::FeatureList::IsEnabled(history::kVisitedLinksOn404)) {
     // With the flag enabled, navigations with a 404 status code will be
     // eligible for History. We want to ignore 404s. At this point, we should
     // only be looking at committed same-document navigations. Same-document

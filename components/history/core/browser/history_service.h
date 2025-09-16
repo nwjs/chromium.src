@@ -177,16 +177,12 @@ class HistoryService : public KeyedService,
   // should be the unique ID of the current navigation entry in the given
   // process.
   //
-  // TODO(avi): This is no longer true. 'page id' was removed years ago, and
-  // their uses replaced by globally-unique nav_entry_ids. Is ContextID still
-  // needed? https://crbug.com/859902
-  //
-  // 'redirects' is an array of redirect URLs leading to this page, with the
+  // `redirects` is an array of redirect URLs leading to this page, with the
   // page itself as the last item (so when there is no redirect, it will have
   // one entry). If there are no redirects, this array may also be empty for
   // the convenience of callers.
   //
-  // 'did_replace_entry' is true when the navigation entry for this page has
+  // `did_replace_entry` is true when the navigation entry for this page has
   // replaced the existing entry. A non-user initiated redirect causes such
   // replacement.
   //
@@ -199,6 +195,7 @@ class HistoryService : public KeyedService,
                const RedirectList& redirects,
                ui::PageTransition transition,
                VisitSource visit_source,
+               VisitResponseCodeCategory response_code_category,
                bool did_replace_entry);
 
   // For adding pages to history where no tracking information can be done

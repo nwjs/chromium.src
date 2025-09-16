@@ -239,14 +239,6 @@ function assert_array_equals_exact(actual, expected, message) {
  * @param {!Array<number>} array The array to be checked.
  * @param {number} constantValue The constant value to compare against.
  * @param {string} message Description used for assertion failures.
- * Asserts that not all values in the given array are equal to the
- * specified constant. This is useful for verifying that an output
- * signal is not silent or uniform.
- *
- * @param {!Array<number>} array - The array of numbers to check.
- * @param {number} constantValue - The value that not all array elements
- * should match.
- * @param {string} message - Description used for assertion failure messages.
  */
 function assert_not_constant_value(array, constantValue, message) {
   const notAllSame = array.some(value => value !== constantValue);
@@ -314,4 +306,21 @@ function assert_close_to_array(actual, expected, epsilon, desc) {
         epsilon,
         `${desc}[${i}] |${actual[i]} - ${expected[i]}| = ${diff} > ${epsilon}`);
   }
+}
+
+/**
+ * Asserts that all elements of an array are (approximately) equal to a value.
+ *
+ * @param {!Array<number>} array - The array to be checked.
+ * @param {number} constantValue - The expected constant value.
+ * @param {string} message - Description used for assertion failures.
+ * @param {number=} epsilon - Allowed tolerance for floating-point comparison.
+ * Default to 1e-7
+ */
+function assert_array_constant_value(
+    array, constantValue, message, epsilon = 1e-7) {
+      for (let i = 0; i < array.length; ++i) {
+        assert_approx_equals(
+            array[i], constantValue, epsilon, `${message} sample[${i}]`);
+      }
 }

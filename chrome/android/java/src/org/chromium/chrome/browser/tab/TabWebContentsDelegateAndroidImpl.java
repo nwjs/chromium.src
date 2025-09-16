@@ -22,8 +22,8 @@ import android.view.KeyEvent;
 import org.jni_zero.CalledByNative;
 import org.jni_zero.NativeMethods;
 
+import org.chromium.base.AndroidInfo;
 import org.chromium.base.ApiCompatibilityUtils;
-import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ObserverList.RewindableIterator;
@@ -237,7 +237,7 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     @Override
     public boolean addMessageToConsole(int level, String message, int lineNumber, String sourceId) {
         // Only output console.log messages on debug variants of Android OS. crbug/869804
-        return !BuildInfo.isDebugAndroid();
+        return !AndroidInfo.isDebugAndroid();
     }
 
     @Override
@@ -275,15 +275,18 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
 
     @Override
     public void enterFullscreenModeForTab(
-            long requestingFrame, boolean prefersNavigationBar, boolean prefersStatusBar) {
+            long requestingFrame,
+            boolean prefersNavigationBar,
+            boolean prefersStatusBar,
+            long displayId) {
         mDelegate.enterFullscreenModeForTab(
-                requestingFrame, prefersNavigationBar, prefersStatusBar);
+                requestingFrame, prefersNavigationBar, prefersStatusBar, displayId);
     }
 
     @Override
     public void fullscreenStateChangedForTab(
-            boolean prefersNavigationBar, boolean prefersStatusBar) {
-        mDelegate.fullscreenStateChangedForTab(prefersNavigationBar, prefersStatusBar);
+            boolean prefersNavigationBar, boolean prefersStatusBar, long displayId) {
+        mDelegate.fullscreenStateChangedForTab(prefersNavigationBar, prefersStatusBar, displayId);
     }
 
     @Override
@@ -294,6 +297,11 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     @Override
     public boolean isFullscreenForTabOrPending() {
         return mDelegate.isFullscreenForTabOrPending();
+    }
+
+    @Override
+    public long getFullscreenTargetDisplay() {
+        return mDelegate.getFullscreenTargetDisplay();
     }
 
     @Override
@@ -519,6 +527,19 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     @Override
     protected boolean isDynamicSafeAreaInsetsEnabled() {
         return mDelegate.isDynamicSafeAreaInsetsEnabled();
+    }
+
+    @CalledByNative
+    @Override
+    public void requestPointerLock(
+            WebContents webContents, boolean userGesture, boolean lastUnlockedByTarget) {
+        mDelegate.requestPointerLock(webContents, userGesture, lastUnlockedByTarget);
+    }
+
+    @CalledByNative
+    @Override
+    public void lostPointerLock() {
+        mDelegate.lostPointerLock();
     }
 
     @Override

@@ -27,8 +27,10 @@
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_source.h"
 #include "chrome/browser/search/search.h"
+#include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -399,7 +401,7 @@ void BrowserTabStripController::RecordMetricsOnTabSelectionChange(
   }
 
   tab_groups::TabGroupSyncService* tab_group_service =
-      tab_groups::SavedTabGroupUtils::GetServiceForProfile(
+      tab_groups::TabGroupSyncServiceFactory::GetForProfile(
           browser_view_->GetProfile());
 
   if (!tab_group_service) {
@@ -439,9 +441,9 @@ void BrowserTabStripController::OnCloseTab(
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
-  // Tabs cannot be closed when the app is locked for OnTask. Only relevant for
-  // non-web browser scenarios.
-  if (browser_view_->browser()->IsLockedForOnTask()) {
+  // Tabs cannot be closed when the app is in locked fullscreen, which is
+  // available only on ChromeOS.
+  if (browser_view_->IsTrustedPinned()) {
     return;
   }
 #endif
@@ -623,7 +625,7 @@ void BrowserTabStripController::OnDropIndexUpdate(
 }
 
 void BrowserTabStripController::CreateNewTab() {
-  model_->delegate()->AddTabAt(GURL(), -1, true);
+  chrome::NewTab(GetBrowser());
 }
 
 void BrowserTabStripController::CreateNewTabWithLocation(
@@ -987,6 +989,12 @@ void BrowserTabStripController::SetTabNeedsAttentionAt(int index,
   tabstrip_->SetTabNeedsAttention(index, attention);
 }
 
+void BrowserTabStripController::SetTabGroupNeedsAttention(
+    const tab_groups::TabGroupId& group,
+    bool attention) {
+  tabstrip_->SetTabGroupNeedsAttention(group, attention);
+}
+
 bool BrowserTabStripController::IsFrameButtonsRightAligned() const {
 #if BUILDFLAG(IS_MAC)
   return false;
@@ -1010,7 +1018,7 @@ void BrowserTabStripController::OnSplitTabChanged(
     // Stop animating if we are updating an active split.
     if (change.GetAddedChange()->reason() !=
         SplitTabChange::SplitTabAddReason::kNewSplitTabAdded) {
-      tabstrip_->StopAnimating(true);
+      tabstrip_->StopAnimating();
     }
   } else if (change.type == SplitTabChange::Type::kRemoved) {
     std::vector<int> split_indices;
@@ -1025,7 +1033,7 @@ void BrowserTabStripController::OnSplitTabChanged(
     // Stop animating if we are updating an active split.
     if (change.GetRemovedChange()->reason() !=
         SplitTabChange::SplitTabRemoveReason::kSplitTabRemoved) {
-      tabstrip_->StopAnimating(true);
+      tabstrip_->StopAnimating();
     }
   } else if (change.type == SplitTabChange::Type::kContentsChanged) {
     std::vector<int> split_indices;
@@ -1035,7 +1043,7 @@ void BrowserTabStripController::OnSplitTabChanged(
         std::back_inserter(split_indices),
         [](const std::pair<tabs::TabInterface*, int>& p) { return p.second; });
     tabstrip_->OnSplitContentsChanged(split_indices);
-    tabstrip_->StopAnimating(true);
+    tabstrip_->StopAnimating();
   }
 }
 

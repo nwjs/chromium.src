@@ -26,6 +26,12 @@ class ActorToolsTestScriptTool : public ActorToolsTest {
     features_.InitAndEnableFeature(blink::features::kScriptTools);
   }
 
+  void SetUpOnMainThread() override {
+    ActorToolsTest::SetUpOnMainThread();
+    ASSERT_TRUE(embedded_test_server()->Start());
+    ASSERT_TRUE(embedded_https_test_server().Start());
+  }
+
  private:
   base::test::ScopedFeatureList features_;
 };
@@ -39,11 +45,15 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTestScriptTool, Basic) {
         { "text": "This is an example sentence." }
       )JSON";
   auto action = MakeScriptToolRequest(*main_frame(), "echo", input_arguments);
-  TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+  ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectOkResult(result);
 
-  // TODO(khushalsagar): Validate the result of the script tool response here.
+  const auto& action_results = result.Get<2>();
+  ASSERT_EQ(action_results.size(), 1u);
+  ASSERT_TRUE(action_results.at(0).result->script_tool_response);
+  EXPECT_EQ(*action_results.at(0).result->script_tool_response,
+            "This is an example sentence.");
 }
 
 IN_PROC_BROWSER_TEST_F(ActorToolsTestScriptTool, BadToolName) {
@@ -56,7 +66,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTestScriptTool, BadToolName) {
       )JSON";
   auto action =
       MakeScriptToolRequest(*main_frame(), "invalid", input_arguments);
-  TestFuture<mojom::ActionResultPtr, std::optional<size_t>> result;
+  ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectErrorResult(result, mojom::ActionResultCode::kError);
 }

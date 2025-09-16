@@ -1052,6 +1052,9 @@ void PartitionRoot::Init(PartitionOptions opts) {
     scheduler_loop_quarantine.Configure(
         scheduler_loop_quarantine_root,
         opts.scheduler_loop_quarantine_global_config);
+    scheduler_loop_quarantine_for_advanced_memory_safety_checks.Configure(
+        scheduler_loop_quarantine_root,
+        opts.scheduler_loop_quarantine_for_advanced_memory_safety_checks_config);
     settings.scheduler_loop_quarantine_thread_local_config =
         opts.scheduler_loop_quarantine_thread_local_config;
 
@@ -1174,10 +1177,14 @@ void PartitionRoot::Init(PartitionOptions opts) {
 PartitionRoot::Settings::Settings() = default;
 
 PartitionRoot::PartitionRoot()
-    : scheduler_loop_quarantine_root(*this), scheduler_loop_quarantine(this) {}
+    : scheduler_loop_quarantine_root(*this),
+      scheduler_loop_quarantine(this),
+      scheduler_loop_quarantine_for_advanced_memory_safety_checks(this) {}
 
 PartitionRoot::PartitionRoot(PartitionOptions opts)
-    : scheduler_loop_quarantine_root(*this), scheduler_loop_quarantine(this) {
+    : scheduler_loop_quarantine_root(*this),
+      scheduler_loop_quarantine(this),
+      scheduler_loop_quarantine_for_advanced_memory_safety_checks(this) {
   Init(opts);
 }
 
@@ -1829,11 +1836,7 @@ PA_NOINLINE void PartitionRoot::QuarantineForBrp(
   if (hook) [[unlikely]] {
     hook(object, usable_size);
   } else {
-// TODO(https://crbug.com/371135823): Enable zapping again once finished
-// investigation.
-#if !PA_BUILDFLAG(IS_IOS)
     internal::SecureMemset(object, internal::kQuarantinedByte, usable_size);
-#endif  // !PA_BUILDFLAG(IS_IOS)
   }
 }
 #endif  // PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)

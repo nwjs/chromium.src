@@ -30,18 +30,14 @@ namespace blink {
 namespace {
 // Enables conversion of input frames in RGB format to NV12 GMB-backed format
 // if GMB readback from texture is supported.
-BASE_FEATURE(kBreakoutBoxEagerConversion,
-             "BreakoutBoxEagerConversion",
-             base::FEATURE_ENABLED_BY_DEFAULT
-);
+BASE_FEATURE(BreakoutBoxEagerConversion, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If BreakoutBoxEagerConversion is enabled, this feature enables frame
 // conversion even if the sinks connected to the track backed by the
 // MediaStreamVideoTrackUnderlyingSink have not sent the RequireMappedFrame
 // signal.
 // This feature has no effect if BreakoutBoxEagerConversion is disabled.
-BASE_FEATURE(kBreakoutBoxConversionWithoutSinkSignal,
-             "BreakoutBoxConversionWithoutSinkSignal",
+BASE_FEATURE(BreakoutBoxConversionWithoutSinkSignal,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If BreakoutBoxWriteVideoFrameCaptureTimestamp is enabled, the timestamp from
@@ -49,8 +45,7 @@ BASE_FEATURE(kBreakoutBoxConversionWithoutSinkSignal,
 // set as the capture timestamp for its underlying media::VideoFrame.
 // TODO(crbug.com/343870500): Remove this feature once WebCodec VideoFrames
 // expose the capture time as metadata.
-BASE_FEATURE(kBreakoutBoxWriteVideoFrameCaptureTimestamp,
-             "BreakoutBoxWriteVideoFrameCaptureTimestamp",
+BASE_FEATURE(BreakoutBoxWriteVideoFrameCaptureTimestamp,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 class TransferringOptimizer : public WritableStreamTransferringOptimizer {
@@ -252,7 +247,7 @@ MediaStreamVideoTrackUnderlyingSink::MaybeConvertToNV12MappableVideoFrame(
 
   auto resolver = WrapPersistent(
       MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state));
-  auto convert_done_callback = WTF::BindOnce(
+  auto convert_done_callback = blink::BindOnce(
       &MediaStreamVideoTrackUnderlyingSink::ConvertDone, WrapPersistent(this),
       resolver, video_frame, estimated_capture_time);
   const bool success = accelerated_frame_pool_->ConvertVideoFrame(

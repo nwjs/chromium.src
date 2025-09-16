@@ -23,7 +23,9 @@
 
 #include "base/compiler_specific.h"
 #include "third_party/blink/renderer/core/css/cascade_layer.h"
+#include "third_party/blink/renderer/core/css/css_apply_mixin_rule.h"
 #include "third_party/blink/renderer/core/css/css_container_rule.h"
+#include "third_party/blink/renderer/core/css/css_contents_mixin_rule.h"
 #include "third_party/blink/renderer/core/css/css_counter_style_rule.h"
 #include "third_party/blink/renderer/core/css/css_custom_media_rule.h"
 #include "third_party/blink/renderer/core/css/css_font_face_rule.h"
@@ -39,6 +41,7 @@
 #include "third_party/blink/renderer/core/css/css_margin_rule.h"
 #include "third_party/blink/renderer/core/css/css_markup.h"
 #include "third_party/blink/renderer/core/css/css_media_rule.h"
+#include "third_party/blink/renderer/core/css/css_mixin_rule.h"
 #include "third_party/blink/renderer/core/css/css_namespace_rule.h"
 #include "third_party/blink/renderer/core/css/css_nested_declarations_rule.h"
 #include "third_party/blink/renderer/core/css/css_page_rule.h"
@@ -181,6 +184,9 @@ void StyleRuleBase::Trace(Visitor* visitor) const {
     case kApplyMixin:
       To<StyleRuleApplyMixin>(this)->TraceAfterDispatch(visitor);
       return;
+    case kContents:
+      To<StyleRuleContentsStatement>(this)->TraceAfterDispatch(visitor);
+      return;
     case kPositionTry:
       To<StyleRulePositionTry>(this)->TraceAfterDispatch(visitor);
       return;
@@ -274,6 +280,9 @@ void StyleRuleBase::FinalizeGarbageCollectedObject() {
     case kApplyMixin:
       To<StyleRuleApplyMixin>(this)->~StyleRuleApplyMixin();
       return;
+    case kContents:
+      To<StyleRuleContentsStatement>(this)->~StyleRuleContentsStatement();
+      return;
     case kPositionTry:
       To<StyleRulePositionTry>(this)->~StyleRulePositionTry();
       return;
@@ -327,6 +336,7 @@ StyleRuleBase* StyleRuleBase::Copy() const {
     case kKeyframe:
     case kMixin:
     case kApplyMixin:
+    case kContents:
     case kCustomMedia:
       NOTREACHED();
     case kContainer:
@@ -452,11 +462,21 @@ CSSRule* StyleRuleBase::CreateCSSOMWrapper(wtf_size_t position_hint,
       rule = MakeGarbageCollected<CSSCustomMediaRule>(
           To<StyleRuleCustomMedia>(self), parent_sheet);
       break;
+    case kMixin:
+      rule = MakeGarbageCollected<CSSMixinRule>(To<StyleRuleMixin>(self),
+                                                parent_sheet);
+      break;
+    case kApplyMixin:
+      rule = MakeGarbageCollected<CSSApplyMixinRule>(
+          To<StyleRuleApplyMixin>(self), parent_sheet);
+      break;
+    case kContents:
+      rule = MakeGarbageCollected<CSSContentsMixinRule>(
+          To<StyleRuleContentsStatement>(self), parent_sheet);
+      break;
     case kFontFeature:
     case kKeyframe:
     case kCharset:
-    case kMixin:
-    case kApplyMixin:
       NOTREACHED();
   }
   if (parent_rule) {
@@ -670,6 +690,7 @@ StyleRuleBase* StyleRuleBase::Renest(StyleRule* new_parent) {
       return this;
     case kMixin:
     case kApplyMixin:
+    case kContents:
       // The parent pointers in mixins don't really matter;
       // they are always replaced during application anyway.
       return this;
@@ -1005,6 +1026,7 @@ StyleRuleContainer::StyleRuleContainer(const StyleRuleContainer& other,
 
 void StyleRuleContainer::SetConditionText(
     const ExecutionContext* execution_context,
+    StyleSheetContents* parent_sheet_contents,
     String value) {
   auto* context = MakeGarbageCollected<CSSParserContext>(*execution_context);
   ContainerQueryParser parser(*context);
@@ -1015,6 +1037,10 @@ void StyleRuleContainer::SetConditionText(
     ContainerSelector selector(container_query_->Selector().Name(), *exp_node);
     container_query_ =
         MakeGarbageCollected<ContainerQuery>(std::move(selector), exp_node);
+
+    if (parent_sheet_contents) {
+      parent_sheet_contents->NotifyRuleChanged(this);
+    }
   }
 }
 
@@ -1047,21 +1073,23 @@ void StyleRuleFunction::TraceAfterDispatch(blink::Visitor* visitor) const {
   visitor->Trace(layer_);
 }
 
-StyleRuleMixin::StyleRuleMixin(AtomicString name, StyleRule* fake_parent_rule)
-    : StyleRuleBase(kMixin),
-      name_(std::move(name)),
-      fake_parent_rule_(fake_parent_rule) {}
+StyleRuleMixin::StyleRuleMixin(AtomicString name,
+                               HeapVector<Member<StyleRuleBase>> child_rules)
+    : StyleRuleGroup(kMixin, child_rules), name_(std::move(name)) {}
 
 void StyleRuleMixin::TraceAfterDispatch(blink::Visitor* visitor) const {
-  StyleRuleBase::TraceAfterDispatch(visitor);
-  visitor->Trace(fake_parent_rule_);
+  StyleRuleGroup::TraceAfterDispatch(visitor);
 }
-
-StyleRuleApplyMixin::StyleRuleApplyMixin(AtomicString name)
-    : StyleRuleBase(kApplyMixin), name_(std::move(name)) {}
 
 void StyleRuleApplyMixin::TraceAfterDispatch(blink::Visitor* visitor) const {
   StyleRuleBase::TraceAfterDispatch(visitor);
+  visitor->Trace(fake_parent_rule_for_declarations_);
+}
+
+void StyleRuleContentsStatement::TraceAfterDispatch(
+    blink::Visitor* visitor) const {
+  StyleRuleBase::TraceAfterDispatch(visitor);
+  visitor->Trace(fake_parent_rule_for_fallback_);
 }
 
 StyleRuleCustomMedia::StyleRuleCustomMedia(AtomicString name,

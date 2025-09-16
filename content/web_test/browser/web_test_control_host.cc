@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/341324165): Fix and remove.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "content/web_test/browser/web_test_control_host.h"
 
 #include <stddef.h>
@@ -25,6 +20,7 @@
 #include "base/barrier_closure.h"
 #include "base/base64.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -1412,9 +1408,9 @@ void WebTestControlHost::ReportResults() {
     // pixels are in fact initialized.
     MSAN_UNPOISON(pixel_dump_->getPixels(), pixel_dump_->computeByteSize());
     base::MD5Digest digest;
-    auto bytes =
+    auto bytes = UNSAFE_TODO(
         base::span(static_cast<const uint8_t*>(pixel_dump_->getPixels()),
-                   pixel_dump_->computeByteSize());
+                   pixel_dump_->computeByteSize()));
     base::MD5Sum(bytes, &digest);
     actual_pixel_hash_ = base::MD5DigestToBase16(digest);
 
@@ -1890,10 +1886,17 @@ void WebTestControlHost::SetMainWindowHidden(bool hidden) {
 void WebTestControlHost::SetFrameWindowHidden(
     const blink::LocalFrameToken& frame_token,
     bool hidden) {
+  WebContents* web_contents = GetWebContentsFromCurrentContext(frame_token);
+  // It's possible that the `frame_token` sent is stale and the RenderFrameHost
+  // is already deleted at this point, e.g. when the message is fired during
+  // unloading. In this case, there's nothing we can do.
+  if (!web_contents) {
+    return;
+  }
   if (hidden) {
-    GetWebContentsFromCurrentContext(frame_token)->WasHidden();
+    web_contents->WasHidden();
   } else {
-    GetWebContentsFromCurrentContext(frame_token)->WasShown();
+    web_contents->WasShown();
   }
 }
 
@@ -1902,7 +1905,9 @@ WebContents* WebTestControlHost::GetWebContentsFromCurrentContext(
   const int render_process_id = receiver_bindings_.current_context();
   auto* rfh =
       RenderFrameHostImpl::FromFrameToken(render_process_id, frame_token);
-  CHECK(rfh);
+  if (!rfh) {
+    return nullptr;
+  }
   return WebContents::FromRenderFrameHost(rfh);
 }
 

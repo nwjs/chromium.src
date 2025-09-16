@@ -125,8 +125,12 @@ class CONTENT_EXPORT Transaction : public blink::mojom::IDBTransaction {
     DCHECK_GE(pending_preemptive_events_, 0);
   }
 
-  enum class RunTasksResult { kError, kNotFinished, kCommitted, kAborted };
-  std::tuple<RunTasksResult, Status> RunTasks();
+  // Wraps `BackingStore::Transaction::BuildMojoValue` while injecting
+  // appropriate helper functions.
+  blink::mojom::IDBValuePtr BuildMojoValue(IndexedDBValue value);
+
+  enum class RunTasksResult { kNotFinished, kCommitted, kAborted };
+  StatusOr<RunTasksResult> RunTasks();
 
   // Returns metadata relevant to idb-internals.
   storage::mojom::IdbTransactionMetadataPtr GetIdbInternalsMetadata() const;

@@ -32,6 +32,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_configurator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/table_view_signin_promo_item.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_bridge_observer.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_storage_type.h"
@@ -588,7 +589,7 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
 - (void)cacheIndexPathRow {
   // Cache IndexPathRow for BookmarkTableView.
   int topMostVisibleIndexPathRow = [self topMostVisibleIndexPathRow];
-  if (self.displayedFolderNode) {
+  if (self.displayedFolderNode && self.profile) {
     [BookmarkPathCache
         cacheBookmarkTopMostRowWithPrefService:self.profile->GetPrefs()
                                       folderId:self.displayedFolderNode->id()
@@ -597,11 +598,6 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
                                                        self.displayedFolderNode,
                                                        _bookmarkModel.get())
                                     topMostRow:topMostVisibleIndexPathRow];
-  } else {
-    // TODO(crbug.com/40679851):Remove DCHECK once we know the root cause of the
-    // bug, for now this will cause a crash on Dev/Canary and we should get
-    // breadcrumbs.
-    DCHECK(NO);
   }
 }
 
@@ -702,6 +698,10 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
 }
 
 - (void)showSignin:(ShowSigninCommand*)command {
+  if (_signinCoordinator.viewWillPersist) {
+    return;
+  }
+  [_signinCoordinator stop];
   __weak __typeof(self) weakSelf = self;
   [command addSigninCompletion:^(SigninCoordinatorResult result,
                                  id<SystemIdentity>) {
@@ -1252,6 +1252,9 @@ BookmarkNodeIDSet GetBookmarkNodeIDSet(
 #pragma mark - BookmarkTableCellTitleEditDelegate
 
 - (void)textDidChangeTo:(NSString*)newName {
+  if (!_bookmarkModel) {
+    return;
+  }
   DCHECK(self.mediator.editingFolderNode);
   self.mediator.addingNewFolder = NO;
   if (newName.length > 0) {

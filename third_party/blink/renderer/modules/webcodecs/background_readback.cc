@@ -195,8 +195,8 @@ void BackgroundReadback::ReadbackRGBTextureBackedFrameToMemory(
       "media", "ReadbackRGBTextureBackedFrameToMemory", txt_frame.get(),
       "timestamp", txt_frame->timestamp());
 
-  uint8_t* dst_pixels =
-      result->GetWritableVisibleData(media::VideoFrame::Plane::kARGB);
+  base::span<uint8_t> dst_pixels =
+      result->GetWritableVisiblePlaneData(media::VideoFrame::Plane::kARGB);
   int rgba_stide = result->stride(media::VideoFrame::Plane::kARGB);
   DCHECK_GT(rgba_stide, 0);
 
@@ -212,9 +212,9 @@ void BackgroundReadback::ReadbackRGBTextureBackedFrameToMemory(
       shared_image->mailbox(), shared_image->GetTextureTarget(), origin,
       texture_size, src_point, info, base::saturated_cast<GLuint>(rgba_stide),
       dst_pixels,
-      WTF::BindOnce(&BackgroundReadback::OnARGBPixelsFrameReadCompleted,
-                    WrapWeakPersistent(this), std::move(result_cb), txt_frame,
-                    std::move(result)));
+      blink::BindOnce(&BackgroundReadback::OnARGBPixelsFrameReadCompleted,
+                      WrapWeakPersistent(this), std::move(result_cb), txt_frame,
+                      std::move(result)));
   media::WaitAndReplaceSyncTokenClient client(ri, std::move(ri_access));
   txt_frame->UpdateReleaseSyncToken(&client);
 }
@@ -261,7 +261,7 @@ void BackgroundReadback::ReadbackRGBTextureBackedFrameToBuffer(
   uint32_t offset = dest_layout.Offset(0);
   uint32_t stride = dest_layout.Stride(0);
 
-  uint8_t* dst_pixels = dest_buffer.subspan(offset).data();
+  base::span<uint8_t> dst_pixels = dest_buffer.subspan(offset);
   size_t max_bytes_written = stride * src_rect.height();
   if (stride <= 0 || max_bytes_written > dest_buffer.size()) {
     DLOG(ERROR) << "Buffer is not sufficiently large for readback";
@@ -286,9 +286,9 @@ void BackgroundReadback::ReadbackRGBTextureBackedFrameToBuffer(
       shared_image->mailbox(), shared_image->GetTextureTarget(), origin,
       texture_size, src_point, info, base::saturated_cast<GLuint>(stride),
       dst_pixels,
-      WTF::BindOnce(&BackgroundReadback::OnARGBPixelsBufferReadCompleted,
-                    WrapWeakPersistent(this), std::move(txt_frame), src_rect,
-                    dest_layout, dest_buffer, std::move(done_cb)));
+      blink::BindOnce(&BackgroundReadback::OnARGBPixelsBufferReadCompleted,
+                      WrapWeakPersistent(this), std::move(txt_frame), src_rect,
+                      dest_layout, dest_buffer, std::move(done_cb)));
   gpu::RasterScopedAccess::EndAccess(std::move(ri_access));
 }
 
@@ -327,14 +327,8 @@ bool SyncReadbackThread::LazyInitialize() {
 
   if (context_provider_)
     return true;
-  Platform::ContextAttributes attributes;
-  attributes.enable_raster_interface = true;
-  attributes.support_grcontext = true;
-  attributes.prefer_low_power_gpu = true;
-
-  Platform::GraphicsInfo info;
-  context_provider_ = CreateOffscreenGraphicsContext3DProvider(
-      attributes, &info, KURL("chrome://BackgroundReadback"));
+  context_provider_ =
+      CreateRasterGraphicsContextProvider(KURL("chrome://BackgroundReadback"));
 
   if (!context_provider_) {
     DLOG(ERROR) << "Can't create context provider.";

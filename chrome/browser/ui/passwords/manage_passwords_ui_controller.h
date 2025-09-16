@@ -14,6 +14,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/ui/autofill/bubble_controller_base.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/passwords/manage_passwords_state.h"
 #include "chrome/browser/ui/passwords/passwords_client_ui_delegate.h"
@@ -66,7 +67,8 @@ class ManagePasswordsUIController
       public password_manager::PasswordStoreInterface::Observer,
       public PasswordsLeakDialogDelegate,
       public PasswordsModelDelegate,
-      public PasswordsClientUIDelegate {
+      public PasswordsClientUIDelegate,
+      public autofill::BubbleControllerBase {
  public:
   ManagePasswordsUIController(const ManagePasswordsUIController&) = delete;
   ManagePasswordsUIController& operator=(const ManagePasswordsUIController&) =
@@ -216,6 +218,8 @@ class ManagePasswordsUIController
   void MaybeShowIOSPasswordPromo() override;
   void RelaunchChrome() override;
   void NavigateToPasswordChangeSettings() override;
+  void OnMouseEntered() override;
+  void OnMouseExited() override;
   // Skips user os level authentication during the life time of the returned
   // object. To be used in tests of flows that require user authentication.
   [[nodiscard]] std::unique_ptr<base::AutoReset<bool>>
@@ -227,18 +231,18 @@ class ManagePasswordsUIController
   }
 #endif  // defined(UNIT_TEST)
 
-  // Hides the bubble if opened. Mocked in the tests.
-  virtual void HidePasswordBubble();
+  // BubbleControllerBase:
+  void ShowBubble() override;
+  void HideBubble() override;
+  autofill::BubbleType GetBubbleType() const override;
+  bool IsShowingBubble() const override;
+  bool IsMouseHovered() const override;
+  base::WeakPtr<BubbleControllerBase> GetBubbleControllerBaseWeakPtr() override;
 
   // Opens change password bubble and passes `username` and `new_password` that
   // should be displayed on it.
   void ShowChangePasswordBubble(const std::u16string& username,
                                 const std::u16string& new_password);
-
-  bool IsShowingBubble() const {
-    return bubble_status_ == BubbleStatus::SHOWN ||
-           bubble_status_ == BubbleStatus::SHOWN_PENDING_ICON_UPDATE;
-  }
 
  protected:
   explicit ManagePasswordsUIController(content::WebContents* web_contents);
@@ -412,6 +416,9 @@ class ManagePasswordsUIController
   password_manager::ui::State last_page_action_state_ =
       password_manager::ui::INACTIVE_STATE;
   bool last_page_action_is_blocklisted_ = false;
+
+  // Whether the mouse is currently hovering over the bubble.
+  bool is_mouse_hovered_ = false;
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   bool was_biometric_authentication_for_filling_promo_shown_ = false;

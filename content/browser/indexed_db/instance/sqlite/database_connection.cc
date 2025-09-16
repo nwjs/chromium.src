@@ -18,6 +18,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/types/expected.h"
+#include "build/build_config.h"
 #include "content/browser/indexed_db/indexed_db_value.h"
 #include "content/browser/indexed_db/instance/backing_store.h"
 #include "content/browser/indexed_db/instance/record.h"
@@ -26,7 +27,9 @@
 #include "content/browser/indexed_db/instance/sqlite/record_iterator.h"
 #include "content/browser/indexed_db/status.h"
 #include "sql/database.h"
+#include "sql/error_delegate_util.h"
 #include "sql/meta_table.h"
+#include "sql/recovery.h"
 #include "sql/statement.h"
 #include "sql/transaction.h"
 #include "third_party/blink/public/common/indexeddb/indexeddb_key.h"
@@ -41,6 +44,35 @@
 
 // TODO(crbug.com/40253999): Remove after handling all error cases.
 #define TRANSIENT_CHECK(condition) CHECK(condition)
+
+// Returns an error if the given SQL statement has not succeeded/is no longer
+// valid (`Succeeded()` returns false; `db_` has an error).
+//
+// This should be used after `Statement::Step()` returns false.
+#define RETURN_IF_STATEMENT_ERRORED(statement) \
+  if (!statement.Succeeded()) {                \
+    return base::unexpected(Status(*db_));     \
+  }
+
+// Runs the statement and returns if there was an error. For use with functions
+// that return StatusOr<T>.
+#define RUN_STATEMENT_RETURN_ON_ERROR(statement) \
+  if (!statement.Run()) {                        \
+    return base::unexpected(Status(*db_));       \
+  }
+
+// Runs the statement and returns if there was an error. For use with functions
+// that return Status.
+#define RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement) \
+  if (!statement.Run()) {                               \
+    return Status(*db_);                                \
+  }
+
+// Executes the given SQL on `db` and returns a Status if there was an error.
+#define EXECUTE_AND_RETURN_STATUS_ON_ERROR(db, sql) \
+  if (!db->Execute(sql)) {                          \
+    return Status(*db);                             \
+  }
 
 namespace content::indexed_db::sqlite {
 namespace {
@@ -93,19 +125,12 @@ blink::IndexedDBKeyPath ColumnKeyPath(sql::Statement& statement,
 // version supplied by the application for the IndexedDB database.
 //
 // The version used to initialize the meta table for the first time.
-constexpr int kEmptySchemaVersion = 1;
-constexpr int kCurrentSchemaVersion = 10;
+constexpr int kCurrentSchemaVersion = 1;
 constexpr int kCompatibleSchemaVersion = kCurrentSchemaVersion;
 
-// Atomically creates the current schema for a new `db`, inserts the initial
-// IndexedDB metadata entry with `name`, and sets the current version in
-// `meta_table`.
-void InitializeNewDatabase(sql::Database* db,
-                           std::u16string_view name,
-                           sql::MetaTable* meta_table) {
-  sql::Transaction transaction(db);
-  TRANSIENT_CHECK(transaction.Begin());
-
+// Creates the current schema for a new `db` and inserts the initial IndexedDB
+// metadata entry with `name`.
+Status CreateSchema(sql::Database* db, std::u16string_view name) {
   // Create the tables.
   //
   // Note on the schema: The IDB spec defines the "name"
@@ -126,51 +151,67 @@ void InitializeNewDatabase(sql::Database* db,
   //
   // Stores a single row containing the properties of
   // `IndexedDBDatabaseMetadata` for this database.
-  TRANSIENT_CHECK(
-      db->Execute("CREATE TABLE indexed_db_metadata "
-                  "(name BLOB NOT NULL,"
-                  " version INTEGER NOT NULL)"));
-  TRANSIENT_CHECK(
-      db->Execute("CREATE TABLE object_stores "
-                  "(id INTEGER PRIMARY KEY,"
-                  " name BLOB NOT NULL,"
-                  " key_path BLOB,"
-                  " auto_increment INTEGER NOT NULL,"
-                  " key_generator_current_number INTEGER NOT NULL)"));
-  TRANSIENT_CHECK(
-      db->Execute("CREATE TABLE indexes "
-                  "(object_store_id INTEGER NOT NULL,"
-                  " id INTEGER NOT NULL,"
-                  " name BLOB NOT NULL,"
-                  " key_path BLOB,"
-                  " is_unique INTEGER NOT NULL,"
-                  " multi_entry INTEGER NOT NULL,"
-                  " PRIMARY KEY (object_store_id, id)"
-                  ") WITHOUT ROWID"));
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(db,
+                                     "CREATE TABLE indexed_db_metadata "
+                                     "(name BLOB NOT NULL,"
+                                     " version INTEGER NOT NULL)");
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(
+      db,
+      "CREATE TABLE object_stores "
+      "(id INTEGER PRIMARY KEY,"
+      " name BLOB NOT NULL,"
+      " key_path BLOB,"
+      " auto_increment INTEGER NOT NULL,"
+      " key_generator_current_number INTEGER NOT NULL)");
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(db,
+                                     "CREATE TABLE indexes "
+                                     "(object_store_id INTEGER NOT NULL,"
+                                     " id INTEGER NOT NULL,"
+                                     " name BLOB NOT NULL,"
+                                     " key_path BLOB,"
+                                     " is_unique INTEGER NOT NULL,"
+                                     " multi_entry INTEGER NOT NULL,"
+                                     " PRIMARY KEY (object_store_id, id)"
+                                     ") WITHOUT ROWID");
   // Stores object store records. The rows are immutable - updating the value
   // for a combination of object_store_id and key is accomplished by deleting
   // the previous row and inserting a new one (see `PutRecord()`).
-  TRANSIENT_CHECK(
-      db->Execute("CREATE TABLE records "
-                  "(row_id INTEGER PRIMARY KEY,"
-                  " object_store_id INTEGER NOT NULL,"
-                  " key BLOB NOT NULL,"
-                  " value BLOB NOT NULL,"
-                  " UNIQUE (object_store_id, key))"));
-  // Stores references from index keys to object store records:
-  // [object_store_id, index_id, key] -> record_row_id. There should always be
-  // one (and only one) row in the records table with row_id = record_row_id.
-  TRANSIENT_CHECK(
-      db->Execute("CREATE TABLE index_references "
-                  "(object_store_id INTEGER NOT NULL,"
-                  " index_id INTEGER NOT NULL,"
-                  " key BLOB NOT NULL,"
-                  " record_row_id INTEGER NOT NULL,"
-                  " PRIMARY KEY (object_store_id, index_id, key, record_row_id)"
-                  ") WITHOUT ROWID"));
-  TRANSIENT_CHECK(
-      db->Execute("CREATE INDEX index_references_by_record "
-                  "ON index_references (record_row_id)"));
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(db,
+                                     "CREATE TABLE records "
+                                     "(row_id INTEGER PRIMARY KEY,"
+                                     " object_store_id INTEGER NOT NULL,"
+                                     " key BLOB NOT NULL,"
+                                     " value BLOB NOT NULL)");
+  // Create the index separately so it can be given a name (which is referenced
+  // by tests).
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(
+      db,
+      "CREATE UNIQUE INDEX records_by_key ON records(object_store_id, key)");
+  // Stores the mapping of object store records to the index keys that reference
+  // them: record_row_id -> [index_id, key]. In general, a record may be
+  // referenced by multiple keys across multiple indexes (on the same object
+  // store). Since the row_id of a record uniquely identifies the record across
+  // object stores, object_store_id is not part of the primary key of this
+  // table. Deleting a record leads to the deletion of all index references to
+  // it (through the on_record_deleted trigger).
+  // The object store ID and record key are redundant information, but including
+  // them here and creating an index over them expedites cursor iteration
+  // because it removes the need to JOIN against the records table. See
+  // https://crbug.com/433318798.
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(
+      db,
+      "CREATE TABLE index_references "
+      "(record_row_id INTEGER NOT NULL,"
+      " index_id INTEGER NOT NULL,"
+      " key BLOB NOT NULL,"
+      " object_store_id INTEGER NOT NULL,"
+      " record_key BLOB NOT NULL,"
+      " PRIMARY KEY (record_row_id, index_id, key)"
+      ") WITHOUT ROWID");
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(
+      db,
+      "CREATE INDEX index_references_by_key "
+      "ON index_references (object_store_id, index_id, key, record_key)");
 
   // This table stores blob metadata and its actual bytes. A blob should only
   // appear once, regardless of how many records point to it. The columns in
@@ -181,59 +222,65 @@ void InitializeNewDatabase(sql::Database* db,
   //
   // TODO(crbug.com/419208485): consider taking into account the blob's UUID to
   // further avoid duplication.
-  TRANSIENT_CHECK(db->Execute(
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(
+      db,
       "CREATE TABLE blobs "
       // This row id will be used as the IndexedDBExternalObject::blob_number_.
       "(row_id INTEGER PRIMARY KEY,"
       // Corresponds to `IndexedDBExternalObject::ObjectType`.
       " object_type INTEGER NOT NULL,"
-      " mime_type TEXT NOT NULL,"
-      " size_bytes INTEGER NOT NULL,"
       // This can be null if the blob is stored on disk, which will be the
-      // case for legacy blobs.
+      // case for legacy blobs. It's also temporarily null while FSA handles are
+      // being serialized into a token (after which point, this holds the
+      // token).
       " bytes BLOB,"
+      " mime_type TEXT,"         // Null for FSA handles.
+      " size_bytes INTEGER,"     // Null for FSA handles.
       " file_name BLOB,"         // only for files
       " last_modified INTEGER)"  // only for files
-      ));
+  );
 
   // Blobs may be referenced by rows in `records` or by active connections to
   // clients.
   // TODO(crbug.com/419208485): Consider making this a WITHOUT ROWID table.
   // Since NULL values are not allowed in the primary key of such a table, a
   // specific value of record_row_id will be needed to represent active blobs.
-  TRANSIENT_CHECK(
-      db->Execute("CREATE TABLE blob_references "
-                  "(row_id INTEGER PRIMARY KEY,"
-                  " blob_row_id INTEGER NOT NULL,"
-                  // record_row_id will be null when the reference corresponds
-                  // to an active blob reference (represented in the browser by
-                  // ActiveBlobStreamer). Otherwise it will be the id of the
-                  // record row that holds the reference.
-                  " record_row_id INTEGER)"));
-  TRANSIENT_CHECK(
-      db->Execute("CREATE INDEX blob_references_by_blob "
-                  "ON blob_references (blob_row_id)"));
-  TRANSIENT_CHECK(
-      db->Execute("CREATE INDEX blob_references_by_record "
-                  "ON blob_references (record_row_id)"));
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(
+      db,
+      "CREATE TABLE blob_references "
+      "(row_id INTEGER PRIMARY KEY,"
+      " blob_row_id INTEGER NOT NULL,"
+      // record_row_id will be null when the reference corresponds
+      // to an active blob reference (represented in the browser by
+      // ActiveBlobStreamer). Otherwise it will be the id of the
+      // record row that holds the reference.
+      " record_row_id INTEGER)");
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(db,
+                                     "CREATE INDEX blob_references_by_blob "
+                                     "ON blob_references (blob_row_id)");
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(db,
+                                     "CREATE INDEX blob_references_by_record "
+                                     "ON blob_references (record_row_id)");
 
   // Create deletion triggers. Deletion triggers are not used for the
   // object_stores and indexes tables since their deletion occurs only through
   // dedicated functions intended specifically for this purpose.
-  TRANSIENT_CHECK(db->Execute(
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(
+      db,
       "CREATE TRIGGER on_record_deleted AFTER DELETE ON records "
       "BEGIN"
       "  DELETE FROM index_references WHERE record_row_id = OLD.row_id;"
       "  DELETE FROM blob_references WHERE record_row_id = OLD.row_id;"
-      "END"));
-  TRANSIENT_CHECK(db->Execute(
+      "END");
+  EXECUTE_AND_RETURN_STATUS_ON_ERROR(
+      db,
       "CREATE TRIGGER on_blob_reference_deleted"
       "  AFTER DELETE ON blob_references "
       "WHEN NOT EXISTS"
       "  (SELECT 1 FROM blob_references WHERE blob_row_id = OLD.blob_row_id) "
       "BEGIN"
       "  DELETE FROM blobs WHERE row_id = OLD.blob_row_id;"
-      "END"));
+      "END");
 
   // Insert the initial metadata entry.
   sql::Statement statement(
@@ -241,15 +288,15 @@ void InitializeNewDatabase(sql::Database* db,
                              "(name, version) VALUES (?, ?)"));
   statement.BindBlob(0, std::u16string(name));
   statement.BindInt64(1, blink::IndexedDBDatabaseMetadata::NO_VERSION);
-  TRANSIENT_CHECK(statement.Run());
+  if (!statement.Run()) {
+    return Status(*db);
+  }
 
-  // Set the current version in the meta table.
-  TRANSIENT_CHECK(meta_table->SetVersionNumber(kCurrentSchemaVersion));
-
-  TRANSIENT_CHECK(transaction.Commit());
+  return Status::OK();
 }
 
-blink::IndexedDBDatabaseMetadata GenerateIndexedDbMetadata(sql::Database* db) {
+StatusOr<blink::IndexedDBDatabaseMetadata> GenerateIndexedDbMetadata(
+    sql::Database* db) {
   blink::IndexedDBDatabaseMetadata metadata;
 
   // Set the database name and version.
@@ -257,7 +304,7 @@ blink::IndexedDBDatabaseMetadata GenerateIndexedDbMetadata(sql::Database* db) {
     sql::Statement statement(db->GetReadonlyStatement(
         "SELECT name, version FROM indexed_db_metadata"));
     TRANSIENT_CHECK(statement.Step());
-    TRANSIENT_CHECK(statement.ColumnBlobAsString16(0, &metadata.name));
+    statement.ColumnBlobAsString16(0, &metadata.name);
     metadata.version = statement.ColumnInt64(1);
   }
 
@@ -269,13 +316,15 @@ blink::IndexedDBDatabaseMetadata GenerateIndexedDbMetadata(sql::Database* db) {
     while (statement.Step()) {
       blink::IndexedDBObjectStoreMetadata store_metadata;
       store_metadata.id = statement.ColumnInt64(0);
-      TRANSIENT_CHECK(statement.ColumnBlobAsString16(1, &store_metadata.name));
+      statement.ColumnBlobAsString16(1, &store_metadata.name);
       store_metadata.key_path = ColumnKeyPath(statement, 2);
       store_metadata.auto_increment = statement.ColumnBool(3);
       max_object_store_id = std::max(max_object_store_id, store_metadata.id);
       metadata.object_stores[store_metadata.id] = std::move(store_metadata);
     }
-    TRANSIENT_CHECK(statement.Succeeded());
+    if (!statement.Succeeded()) {
+      return base::unexpected(Status(*db));
+    }
     metadata.max_object_store_id = max_object_store_id;
   }
 
@@ -288,7 +337,7 @@ blink::IndexedDBDatabaseMetadata GenerateIndexedDbMetadata(sql::Database* db) {
       blink::IndexedDBIndexMetadata index_metadata;
       int64_t object_store_id = statement.ColumnInt64(0);
       index_metadata.id = statement.ColumnInt64(1);
-      TRANSIENT_CHECK(statement.ColumnBlobAsString16(2, &index_metadata.name));
+      statement.ColumnBlobAsString16(2, &index_metadata.name);
       index_metadata.key_path = ColumnKeyPath(statement, 3);
       index_metadata.unique = statement.ColumnBool(4);
       index_metadata.multi_entry = statement.ColumnBool(5);
@@ -298,7 +347,9 @@ blink::IndexedDBDatabaseMetadata GenerateIndexedDbMetadata(sql::Database* db) {
           std::max(store_metadata.max_index_id, index_metadata.id);
       store_metadata.indexes[index_metadata.id] = std::move(index_metadata);
     }
-    TRANSIENT_CHECK(statement.Succeeded());
+    if (!statement.Succeeded()) {
+      return base::unexpected(Status(*db));
+    }
   }
 
   return metadata;
@@ -382,12 +433,14 @@ class ObjectStoreRecordIterator : public RecordIterator {
     statement->BindNull(position_index_ = param_index++);
     statement->BindNull(target_key_index_ = param_index++);
     statement->BindInt64(offset_index_ = param_index++, 0);
-    if (!statement->Step()) {
-      TRANSIENT_CHECK(statement->Succeeded());
+    if (statement->Step()) {
+      return ReadRow(*statement);
+    }
+    if (statement->Succeeded()) {
       // Empty range.
       return nullptr;
     }
-    return ReadRow(*statement);
+    return base::unexpected(db_->GetStatusOfLastOperation());
   }
 
   void SavePosition() override { saved_position_ = position_; }
@@ -407,6 +460,9 @@ class ObjectStoreRecordIterator : public RecordIterator {
                       const blink::IndexedDBKey& target_key,
                       const blink::IndexedDBKey& target_primary_key,
                       uint32_t offset) override {
+    // `target_primary_key` is not expected when iterating over object store
+    // records.
+    CHECK(!target_primary_key.IsValid());
     statement.BindBool(is_first_seek_index_, false);
     statement.BindBlob(position_index_, position_);
     if (target_key.IsValid()) {
@@ -419,17 +475,21 @@ class ObjectStoreRecordIterator : public RecordIterator {
 
   StatusOr<std::unique_ptr<Record>> ReadRow(
       sql::Statement& statement) override {
-    TRANSIENT_CHECK(statement.ColumnBlobAsString(0, &position_));
+    CHECK(statement.Succeeded());
+    statement.ColumnBlobAsString(0, &position_);
     blink::IndexedDBKey key = DecodeSortableIDBKey(position_);
     if (key_only_) {
       return std::make_unique<ObjectStoreKeyOnlyRecord>(std::move(key));
     }
     IndexedDBValue value;
-    TRANSIENT_CHECK(statement.ColumnBlobAsVector(1, &value.bits));
+    statement.ColumnBlobAsVector(1, &value.bits);
     int64_t record_row_id = statement.ColumnInt64(2);
-    return std::make_unique<ObjectStoreRecord>(
-        std::move(key),
-        db_->AddExternalObjectMetadataToValue(std::move(value), record_row_id));
+    return db_
+        ->AddExternalObjectMetadataToValue(std::move(value), record_row_id)
+        .transform([&](IndexedDBValue value_with_metadata) {
+          return std::make_unique<ObjectStoreRecord>(
+              std::move(key), std::move(value_with_metadata));
+        });
   }
 
   sql::Statement* GetStatement() override {
@@ -444,7 +504,7 @@ class ObjectStoreRecordIterator : public RecordIterator {
 
   uint64_t statement_id_ = 0;
 
-  bool key_only_;
+  bool key_only_ = false;
 
   int is_first_seek_index_ = 0;
   int position_index_ = 0;
@@ -459,8 +519,16 @@ class ObjectStoreRecordIterator : public RecordIterator {
 
 class IndexRecordIterator : public RecordIterator {
  public:
-  IndexRecordIterator(base::WeakPtr<DatabaseConnection> db, bool key_only)
-      : db_(db), key_only_(key_only) {}
+  // If `first_primary_keys_only` is true, `this` will iterate over only the
+  // first (i.e., smallest) primary key for each index key in `key_range` (this
+  // correlates to the nextunique/prevunique IndexedDB cursor direction). Else,
+  // all the primary keys are iterated over for each index key in the range.
+  IndexRecordIterator(base::WeakPtr<DatabaseConnection> db,
+                      bool key_only,
+                      bool first_primary_keys_only)
+      : db_(db),
+        key_only_(key_only),
+        first_primary_keys_only_(first_primary_keys_only) {}
 
   ~IndexRecordIterator() override {
     if (db_) {
@@ -469,78 +537,92 @@ class IndexRecordIterator : public RecordIterator {
   }
 
   // If Initialize() returns an error or nullptr, `this` should be discarded.
-  // If `first_primary_keys_only` is true, `this` will iterate over only the
-  // first (i.e., smallest) primary key for each index key in `key_range`. Else,
-  // all the primary keys are iterated over for each index key in the range.
   StatusOr<std::unique_ptr<Record>> Initialize(
       int64_t object_store_id,
       int64_t index_id,
       const blink::IndexedDBKeyRange& key_range,
-      bool ascending_order,
-      bool first_primary_keys_only) {
+      bool ascending_order) {
     std::vector<std::string_view> query_pieces{
         "SELECT index_references.key AS index_key"};
-    if (first_primary_keys_only) {
-      query_pieces.push_back(", MIN(records.key) AS primary_key");
+    if (first_primary_keys_only_) {
+      query_pieces.push_back(", MIN(record_key)");
     } else {
-      query_pieces.push_back(", records.key AS primary_key");
+      query_pieces.push_back(", record_key");
     }
-    if (!key_only_) {
+    if (key_only_) {
+      query_pieces.push_back(" FROM index_references");
+    } else {
       query_pieces.push_back(
-          ", records.value AS value"
-          ", records.row_id AS record_row_id");
+          ", records.value"
+          ", records.row_id"
+          " FROM index_references INNER JOIN records"
+          "  ON index_references.record_row_id = records.row_id");
     }
     query_pieces.push_back(
-        " FROM index_references INNER JOIN records"
-        "  ON index_references.record_row_id = records.row_id"
-        " WHERE"
-        "  index_references.object_store_id = @object_store_id"
-        "  AND index_references.index_id = @index_id");
+        " WHERE index_references.object_store_id = @object_store_id"
+        "   AND index_references.index_id = @index_id");
     if (key_range.lower().IsValid()) {
       query_pieces.push_back(key_range.lower_open()
-                                 ? " AND index_references.key > @lower"
-                                 : " AND index_references.key >= @lower");
+                                 ? " AND index_key > @lower"
+                                 : " AND index_key >= @lower");
     }
     if (key_range.upper().IsValid()) {
       query_pieces.push_back(key_range.upper_open()
-                                 ? " AND index_references.key < @upper"
-                                 : " AND index_references.key <= @upper");
-    }
-    if (first_primary_keys_only) {
-      query_pieces.push_back(" GROUP BY index_references.key HAVING");
-    } else {
-      query_pieces.push_back(" AND");
+                                 ? " AND index_key < @upper"
+                                 : " AND index_key <= @upper");
     }
     if (ascending_order) {
-      query_pieces.push_back(
-          "("
-          " @is_first_seek = 1"
-          " OR (index_key = @position AND primary_key > @object_store_position)"
-          " OR index_key > @position"
-          ")"
-          "AND (@target_key IS NULL OR index_key >= @target_key)"
-          "AND"
-          "("
-          " @target_primary_key IS NULL"
-          " OR (index_key = @target_key AND primary_key >= @target_primary_key)"
-          " OR index_key > @target_key"
-          ")"
-          "ORDER BY index_key ASC, primary_key ASC");
+      if (first_primary_keys_only_) {
+        query_pieces.push_back(
+            " AND (@is_first_seek = 1 OR index_key > @position)"
+            " AND (@target_key IS NULL OR index_key >= @target_key)"
+            " GROUP BY index_key"
+            " ORDER BY index_key ASC");
+      } else {
+        query_pieces.push_back(
+            " AND "
+            " ("
+            "  @is_first_seek = 1"
+            "  OR (index_key = @position AND record_key >"
+            "      @object_store_position)"
+            "  OR index_key > @position"
+            " )"
+            " AND (@target_key IS NULL OR index_key >= @target_key)"
+            " AND "
+            " ("
+            "  @target_primary_key IS NULL"
+            "  OR (index_key = @target_key AND record_key >="
+            "      @target_primary_key)"
+            "  OR index_key > @target_key"
+            " )"
+            " ORDER BY index_key ASC, record_key ASC");
+      }
     } else {
-      query_pieces.push_back(
-          "("
-          " @is_first_seek = 1"
-          " OR (index_key = @position AND primary_key < @object_store_position)"
-          " OR index_key < @position"
-          ")"
-          "AND (@target_key IS NULL OR index_key <= @target_key)"
-          "AND"
-          "("
-          " @target_primary_key IS NULL"
-          " OR (index_key = @target_key AND primary_key <= @target_primary_key)"
-          " OR index_key < @target_key"
-          ")"
-          "ORDER BY index_key DESC, primary_key DESC");
+      if (first_primary_keys_only_) {
+        query_pieces.push_back(
+            " AND (@is_first_seek = 1 OR index_key < @position)"
+            " AND (@target_key IS NULL OR index_key <= @target_key)"
+            " GROUP BY index_key"
+            " ORDER BY index_key DESC");
+      } else {
+        query_pieces.push_back(
+            " AND "
+            " ("
+            "  @is_first_seek = 1"
+            "  OR (index_key = @position AND record_key < "
+            "      @object_store_position)"
+            "  OR index_key < @position"
+            " )"
+            " AND (@target_key IS NULL OR index_key <= @target_key)"
+            " AND "
+            " ("
+            "  @target_primary_key IS NULL"
+            "  OR (index_key = @target_key AND record_key <= "
+            "      @target_primary_key)"
+            "  OR index_key < @target_key"
+            " )"
+            " ORDER BY index_key DESC, record_key DESC");
+      }
     }
     // LIMIT is needed to use OFFSET. A negative LIMIT implies no limit on the
     // number of rows returned:
@@ -566,16 +648,26 @@ class IndexRecordIterator : public RecordIterator {
     // record in the range.
     statement->BindBool(is_first_seek_index_ = param_index++, true);
     statement->BindNull(position_index_ = param_index++);
-    statement->BindNull(object_store_position_index_ = param_index++);
+    if (!first_primary_keys_only_) {
+      object_store_position_index_ = param_index++;
+      statement->BindNull(object_store_position_index_.value());
+    }
     statement->BindNull(target_key_index_ = param_index++);
-    statement->BindNull(target_primary_key_index_ = param_index++);
+    if (!first_primary_keys_only_) {
+      target_primary_key_index_ = param_index++;
+      statement->BindNull(target_primary_key_index_.value());
+    }
     statement->BindInt64(offset_index_ = param_index++, 0);
-    if (!statement->Step()) {
-      TRANSIENT_CHECK(statement->Succeeded());
+    if (statement->Step()) {
+      return ReadRow(*statement);
+    }
+
+    if (statement->Succeeded()) {
       // Empty range.
       return nullptr;
     }
-    return ReadRow(*statement);
+
+    return base::unexpected(db_->GetStatusOfLastOperation());
   }
 
   void SavePosition() override {
@@ -597,28 +689,36 @@ class IndexRecordIterator : public RecordIterator {
                       const blink::IndexedDBKey& target_key,
                       const blink::IndexedDBKey& target_primary_key,
                       uint32_t offset) override {
+    // `target_primary_key` is not expected when iterating over only the
+    // first primary keys.
+    CHECK(!first_primary_keys_only_ || !target_primary_key.IsValid());
     statement.BindBool(is_first_seek_index_, false);
     statement.BindBlob(position_index_, position_);
-    statement.BindBlob(object_store_position_index_, object_store_position_);
     if (target_key.IsValid()) {
       statement.BindBlob(target_key_index_, EncodeSortableIDBKey(target_key));
     } else {
       statement.BindNull(target_key_index_);
     }
-    if (target_primary_key.IsValid()) {
-      statement.BindBlob(target_primary_key_index_,
-                         EncodeSortableIDBKey(target_primary_key));
-    } else {
-      statement.BindNull(target_primary_key_index_);
-    }
     statement.BindInt64(offset_index_, offset);
+    if (!first_primary_keys_only_) {
+      statement.BindBlob(object_store_position_index_.value(),
+                         object_store_position_);
+      if (target_primary_key.IsValid()) {
+        statement.BindBlob(target_primary_key_index_.value(),
+                           EncodeSortableIDBKey(target_primary_key));
+      } else {
+        statement.BindNull(target_primary_key_index_.value());
+      }
+    }
   }
 
   StatusOr<std::unique_ptr<Record>> ReadRow(
       sql::Statement& statement) override {
-    TRANSIENT_CHECK(statement.ColumnBlobAsString(0, &position_));
+    CHECK(statement.Succeeded());
+
+    statement.ColumnBlobAsString(0, &position_);
     blink::IndexedDBKey key = DecodeSortableIDBKey(position_);
-    TRANSIENT_CHECK(statement.ColumnBlobAsString(1, &object_store_position_));
+    statement.ColumnBlobAsString(1, &object_store_position_);
     blink::IndexedDBKey primary_key =
         DecodeSortableIDBKey(object_store_position_);
     if (key_only_) {
@@ -626,11 +726,15 @@ class IndexRecordIterator : public RecordIterator {
                                                   std::move(primary_key));
     }
     IndexedDBValue value;
-    TRANSIENT_CHECK(statement.ColumnBlobAsVector(2, &value.bits));
+    statement.ColumnBlobAsVector(2, &value.bits);
     int64_t record_row_id = statement.ColumnInt64(3);
-    return std::make_unique<IndexRecord>(
-        std::move(key), std::move(primary_key),
-        db_->AddExternalObjectMetadataToValue(std::move(value), record_row_id));
+    return db_
+        ->AddExternalObjectMetadataToValue(std::move(value), record_row_id)
+        .transform([&](IndexedDBValue value_with_metadata) {
+          return std::make_unique<IndexRecord>(std::move(key),
+                                               std::move(primary_key),
+                                               std::move(value_with_metadata));
+        });
   }
 
   sql::Statement* GetStatement() override {
@@ -645,14 +749,16 @@ class IndexRecordIterator : public RecordIterator {
 
   uint64_t statement_id_ = 0;
 
-  bool key_only_;
+  bool key_only_ = false;
+  bool first_primary_keys_only_ = false;
 
   int is_first_seek_index_ = 0;
   int position_index_ = 0;
-  int object_store_position_index_ = 0;
   int target_key_index_ = 0;
-  int target_primary_key_index_ = 0;
   int offset_index_ = 0;
+  // Set iff `first_primary_keys_only_` is false.
+  std::optional<int> object_store_position_index_;
+  std::optional<int> target_primary_key_index_;
 
   // Encoded key from the current record.
   std::string position_;
@@ -669,53 +775,22 @@ StatusOr<std::unique_ptr<DatabaseConnection>> DatabaseConnection::Open(
     std::optional<std::u16string_view> name,
     base::FilePath path,
     BackingStoreImpl& backing_store) {
-  // TODO(crbug.com/40253999): Create new tag(s) for metrics.
-  constexpr sql::Database::Tag kSqlTag = "Test";
-  auto db = std::make_unique<sql::Database>(sql::DatabaseOptions()
-                                                .set_exclusive_locking(true)
-                                                .set_wal_mode(true)
-                                                .set_enable_triggers(true),
-                                            kSqlTag);
-
-  if (path.empty()) {
-    TRANSIENT_CHECK(db->OpenInMemory());
-  } else {
-    TRANSIENT_CHECK(db->Open(path));
+  auto connection =
+      base::WrapUnique(new DatabaseConnection(path, backing_store));
+  Status s = connection->Init(name);
+  if (!s.ok()) {
+    // If opening fails, recover or destroy the DB and try once more. This is
+    // accomplished by destroying `connection`, since the destructor handles
+    // errors.
+    // TODO(crbug.com/419272070): add logging for success rate of second
+    // attempt.
+    connection = base::WrapUnique(new DatabaseConnection(path, backing_store));
+    s = connection->Init(name);
   }
-
-  // What SQLite calls "recursive" triggers are required for SQLite to execute
-  // a DELETE ON trigger after `INSERT OR REPLACE` replaces a row.
-  TRANSIENT_CHECK(db->Execute("PRAGMA recursive_triggers=ON"));
-
-  auto meta_table = std::make_unique<sql::MetaTable>();
-  TRANSIENT_CHECK(meta_table->Init(db.get(), kEmptySchemaVersion,
-                                   kCompatibleSchemaVersion));
-
-  switch (meta_table->GetVersionNumber()) {
-    case kEmptySchemaVersion:
-      TRANSIENT_CHECK(name.has_value());
-      InitializeNewDatabase(db.get(), *name, meta_table.get());
-      break;
-    // ...
-    // Schema upgrades go here.
-    // ...
-    case kCurrentSchemaVersion:
-      // Already current.
-      break;
-    default:
-      NOTREACHED();
+  if (!s.ok()) {
+    return base::unexpected(s);
   }
-
-  blink::IndexedDBDatabaseMetadata metadata =
-      GenerateIndexedDbMetadata(db.get());
-  // Database corruption can cause a mismatch.
-  if (name) {
-    TRANSIENT_CHECK(metadata.name == *name);
-  }
-
-  return base::WrapUnique(new DatabaseConnection(
-      std::move(path), std::move(db), std::move(meta_table),
-      std::move(metadata), backing_store));
+  return connection;
 }
 
 // static
@@ -733,17 +808,112 @@ void DatabaseConnection::Release(base::WeakPtr<DatabaseConnection> db) {
   }
 }
 
-DatabaseConnection::DatabaseConnection(
-    base::FilePath path,
-    std::unique_ptr<sql::Database> db,
-    std::unique_ptr<sql::MetaTable> meta_table,
-    blink::IndexedDBDatabaseMetadata metadata,
-    BackingStoreImpl& backing_store)
-    : path_(path),
-      db_(std::move(db)),
-      meta_table_(std::move(meta_table)),
-      metadata_(std::move(metadata)),
-      backing_store_(backing_store) {
+DatabaseConnection::DatabaseConnection(base::FilePath path,
+                                       BackingStoreImpl& backing_store)
+    : path_(path), backing_store_(backing_store) {}
+
+DatabaseConnection::~DatabaseConnection() {
+  if (!db_ || path_.empty()) {
+    return;
+  }
+
+  if (!sql::IsSqliteSuccessCode(sql::ToSqliteResultCode(db_->GetErrorCode()))) {
+    // Note that `DatabaseConnection` does not set an error callback on
+    // sql::Database. Instead, errors are returned for individual operations,
+    // which will trickle up through backing store agnostic code and close all
+    // `Transaction`s, `Connection`s and `Database`s. When the last
+    // `BackingStore::Database` is deleted, `this` will be deleted, at which
+    // point recovery will be attempted if appropriate.
+#if BUILDFLAG(IS_FUCHSIA)
+    // Recovery is not supported with WAL mode DBs in Fuchsia.
+    if (db_->is_open() && sql::IsErrorCatastrophic(db_->GetErrorCode())) {
+      db_.reset();
+      sql::Database::Delete(path_);
+    }
+#else
+    // `RecoverIfPossible` will no-op for several reasons including if the error
+    // is thought to be transient.
+    std::ignore = sql::Recovery::RecoverIfPossible(
+        db_.get(), db_->GetErrorCode(),
+        sql::Recovery::Strategy::kRecoverWithMetaVersionOrRaze);
+#endif
+  } else if (IsZygotic()) {
+    // If in a zygotic state, `DeleteIdbDatabase()` has been called.
+    CHECK(inited_);
+    db_.reset();
+    sql::Database::Delete(path_);
+  }
+}
+
+Status DatabaseConnection::Init(std::optional<std::u16string_view> name) {
+  constexpr sql::Database::Tag kSqlTag = "IndexedDB";
+  constexpr sql::Database::Tag kSqlTagInMemory = "IndexedDBEphemeral";
+  db_ = std::make_unique<sql::Database>(
+      sql::DatabaseOptions()
+          .set_exclusive_locking(true)
+          .set_wal_mode(true)
+          .set_enable_triggers(true),
+      path_.empty() ? kSqlTagInMemory : kSqlTag);
+
+  if (path_.empty()) {
+    if (!db_->OpenInMemory()) {
+      return Status(*db_);
+    }
+  } else if (!db_->Open(path_)) {
+    return Status(*db_);
+  }
+
+  // What SQLite calls "recursive" triggers are required for SQLite to execute
+  // a DELETE ON trigger after `INSERT OR REPLACE` replaces a row.
+  if (!db_->Execute("PRAGMA recursive_triggers=ON")) {
+    return Status(*db_);
+  }
+
+  sql::Transaction transaction(db_.get());
+  if (!transaction.Begin()) {
+    return Status(*db_);
+  }
+
+  if (!sql::MetaTable::DoesTableExist(db_.get())) {
+    IDB_RETURN_IF_ERROR(CreateSchema(db_.get(), *name));
+  }
+
+  meta_table_ = std::make_unique<sql::MetaTable>();
+  if (!meta_table_->Init(db_.get(), kCurrentSchemaVersion,
+                         kCompatibleSchemaVersion)) {
+    return Status(*db_);
+  }
+
+  if (meta_table_->GetCompatibleVersionNumber() > kCurrentSchemaVersion) {
+    // TODO(crbug.com/419272070): handle this and other cases where the DB needs
+    // to be deleted even though there is no SQL error.
+    return Status::NotFound("Database too new");
+  }
+
+  switch (meta_table_->GetVersionNumber()) {
+    // ...
+    // Schema upgrades go here.
+    // ...
+    case kCurrentSchemaVersion:
+      // Already current.
+      break;
+    default:
+      return Status::NotFound(
+          "Unknown database schema version (database too new?)");
+  }
+
+  StatusOr<blink::IndexedDBDatabaseMetadata> metadata =
+      GenerateIndexedDbMetadata(db_.get());
+  if (!metadata.has_value()) {
+    return metadata.error();
+  }
+
+  metadata_ = *std::move(metadata);
+  // Database corruption can cause a mismatch.
+  if (name && (metadata_.name != *name)) {
+    return Status::Corruption("Database name mismatch");
+  }
+
   // There should be no active blobs in this database at this point, so we can
   // remove blob references that were associated with active blobs. These may
   // have been left behind if Chromium crashed. Deleting the blob references
@@ -751,15 +921,14 @@ DatabaseConnection::DatabaseConnection(
   sql::Statement statement(db_->GetCachedStatement(
       SQL_FROM_HERE,
       "DELETE FROM blob_references WHERE record_row_id IS NULL"));
-  TRANSIENT_CHECK(statement.Run());
-}
+  RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
 
-DatabaseConnection::~DatabaseConnection() {
-  // If in a zygotic state, `DeleteIdbDatabase()` has been called.
-  if (IsZygotic() && !path_.empty()) {
-    db_.reset();
-    sql::Database::Delete(path_);
+  if (!transaction.Commit()) {
+    return Status(*db_);
   }
+
+  inited_ = true;
+  return Status::OK();
 }
 
 base::WeakPtr<DatabaseConnection> DatabaseConnection::GetWeakPtr() {
@@ -835,7 +1004,8 @@ void DatabaseConnection::BeginTransaction(
 Status DatabaseConnection::CommitTransactionPhaseOne(
     base::PassKey<BackingStoreTransactionImpl>,
     const BackingStoreTransactionImpl& transaction,
-    BlobWriteCallback callback) {
+    BlobWriteCallback callback,
+    SerializeFsaCallback serialize_fsa_handle) {
   if (transaction.mode() == blink::mojom::IDBTransactionMode::ReadOnly ||
       blobs_to_write_.empty()) {
     return std::move(callback).Run(
@@ -845,11 +1015,21 @@ Status DatabaseConnection::CommitTransactionPhaseOne(
 
   CHECK(blob_write_callback_.is_null());
   CHECK(blob_writers_.empty());
+  CHECK_EQ(outstanding_external_object_writes_, 0U);
 
   blob_write_callback_ = std::move(callback);
 
   auto blobs_to_write = std::move(blobs_to_write_);
   for (auto& [blob_row_id, external_object] : blobs_to_write) {
+    ++outstanding_external_object_writes_;
+    if (external_object.object_type() ==
+        IndexedDBExternalObject::ObjectType::kFileSystemAccessHandle) {
+      serialize_fsa_handle.Run(
+          *external_object.file_system_access_token_remote(),
+          base::BindOnce(&DatabaseConnection::OnFsaHandleSerialized,
+                         blob_writers_weak_factory_.GetWeakPtr(), blob_row_id));
+      continue;
+    }
     std::optional<sql::StreamingBlobHandle> blob_for_writing =
         db_->GetStreamingBlob("blobs", "bytes", blob_row_id,
                               /*readonly=*/false);
@@ -858,11 +1038,12 @@ Status DatabaseConnection::CommitTransactionPhaseOne(
         external_object, *std::move(blob_for_writing),
         base::BindOnce(&DatabaseConnection::OnBlobWriteComplete,
                        blob_writers_weak_factory_.GetWeakPtr(), blob_row_id));
+
     if (!writer) {
-      blob_writers_.clear();
-      return std::move(blob_write_callback_)
-          .Run(BlobWriteResult::kRunPhaseTwoAndReturnResult,
-               storage::mojom::WriteBlobToFileResult::kError);
+      CancelBlobWriting();
+      // This is currently ignored as the error is already surfaced through
+      // `blob_write_callback_`.
+      return Status::IOError();
     }
 
     blob_writers_[blob_row_id] = std::move(writer);
@@ -873,21 +1054,44 @@ Status DatabaseConnection::CommitTransactionPhaseOne(
 
 void DatabaseConnection::OnBlobWriteComplete(int64_t blob_row_id,
                                              bool success) {
-  CHECK_EQ(blob_writers_.erase(blob_row_id), 1U);
+  blob_writers_.erase(blob_row_id);
 
   if (!success) {
-    blob_writers_weak_factory_.InvalidateWeakPtrs();
-    blob_writers_.clear();
-    std::move(blob_write_callback_)
-        .Run(BlobWriteResult::kRunPhaseTwoAsync,
-             storage::mojom::WriteBlobToFileResult::kError);
+    CancelBlobWriting();
     return;
   }
 
-  if (blob_writers_.empty()) {
+  if (--outstanding_external_object_writes_ == 0) {
     std::move(blob_write_callback_)
         .Run(BlobWriteResult::kRunPhaseTwoAsync,
              storage::mojom::WriteBlobToFileResult::kSuccess);
+  }
+}
+
+void DatabaseConnection::OnFsaHandleSerialized(
+    int64_t blob_row_id,
+    const std::vector<uint8_t>& data) {
+  if (!data.empty()) {
+    sql::Statement statement(db_->GetCachedStatement(SQL_FROM_HERE,
+                                                     "UPDATE blobs "
+                                                     "SET bytes = ? "
+                                                     "WHERE row_id = ?"));
+    statement.BindBlob(0, data);
+    statement.BindInt64(1, blob_row_id);
+    TRANSIENT_CHECK(statement.Run());
+  }
+
+  OnBlobWriteComplete(blob_row_id, /*success=*/!data.empty());
+}
+
+void DatabaseConnection::CancelBlobWriting() {
+  blob_writers_weak_factory_.InvalidateWeakPtrs();
+  blob_writers_.clear();
+  outstanding_external_object_writes_ = 0;
+  if (blob_write_callback_) {
+    std::move(blob_write_callback_)
+        .Run(BlobWriteResult::kRunPhaseTwoAsync,
+             storage::mojom::WriteBlobToFileResult::kError);
   }
 }
 
@@ -918,8 +1122,8 @@ void DatabaseConnection::RollBackTransaction(
 
   // Abort ongoing blob writes, if any.
   // TODO(crbug.com/419208485): Be sure to test this case.
-  blob_writers_.clear();
-  blob_write_callback_ = BlobWriteCallback();
+  blob_write_callback_.Reset();
+  CancelBlobWriting();
 
   active_rw_transaction_->Rollback();
 
@@ -983,7 +1187,7 @@ Status DatabaseConnection::SetDatabaseVersion(
   sql::Statement statement(
       db_->GetUniqueStatement("UPDATE indexed_db_metadata SET version = ?"));
   statement.BindInt64(0, version);
-  TRANSIENT_CHECK(statement.Run());
+  RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   metadata_.version = version;
   return Status::OK();
 }
@@ -1012,7 +1216,7 @@ Status DatabaseConnection::CreateObjectStore(
   BindKeyPath(statement, 2, metadata.key_path);
   statement.BindBool(3, metadata.auto_increment);
   statement.BindInt64(4, ObjectStoreMetaDataKey::kKeyGeneratorInitialNumber);
-  TRANSIENT_CHECK(statement.Run());
+  RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
 
   metadata_.object_stores[object_store_id] = std::move(metadata);
   metadata_.max_object_store_id = object_store_id;
@@ -1031,25 +1235,25 @@ Status DatabaseConnection::DeleteObjectStore(
         SQL_FROM_HERE,
         "DELETE FROM index_references WHERE object_store_id = ?"));
     statement.BindInt64(0, object_store_id);
-    TRANSIENT_CHECK(statement.Run());
+    RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   }
   {
     sql::Statement statement(db_->GetCachedStatement(
         SQL_FROM_HERE, "DELETE FROM indexes WHERE object_store_id = ?"));
     statement.BindInt64(0, object_store_id);
-    TRANSIENT_CHECK(statement.Run());
+    RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   }
   {
     sql::Statement statement(db_->GetCachedStatement(
         SQL_FROM_HERE, "DELETE FROM records WHERE object_store_id = ?"));
     statement.BindInt64(0, object_store_id);
-    TRANSIENT_CHECK(statement.Run());
+    RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   }
   {
     sql::Statement statement(db_->GetCachedStatement(
         SQL_FROM_HERE, "DELETE FROM object_stores WHERE id = ?"));
     statement.BindInt64(0, object_store_id);
-    TRANSIENT_CHECK(statement.Run());
+    RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   }
   CHECK(metadata_.object_stores.erase(object_store_id) == 1);
   return Status::OK();
@@ -1067,7 +1271,7 @@ Status DatabaseConnection::RenameObjectStore(
       SQL_FROM_HERE, "UPDATE object_stores SET name = ? WHERE id = ?"));
   statement.BindBlob(0, new_name);
   statement.BindInt64(1, object_store_id);
-  TRANSIENT_CHECK(statement.Run());
+  RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   metadata_.object_stores.at(object_store_id).name = new_name;
   return Status::OK();
 }
@@ -1099,7 +1303,7 @@ Status DatabaseConnection::CreateIndex(
   BindKeyPath(statement, 3, index.key_path);
   statement.BindBool(4, index.unique);
   statement.BindBool(5, index.multi_entry);
-  TRANSIENT_CHECK(statement.Run());
+  RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
 
   object_store.indexes[index_id] = std::move(index);
   object_store.max_index_id = index_id;
@@ -1124,7 +1328,7 @@ Status DatabaseConnection::DeleteIndex(
                                 "WHERE object_store_id = ? AND index_id = ?"));
     statement.BindInt64(0, object_store_id);
     statement.BindInt64(1, index_id);
-    TRANSIENT_CHECK(statement.Run());
+    RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   }
   {
     sql::Statement statement(db_->GetCachedStatement(
@@ -1132,7 +1336,7 @@ Status DatabaseConnection::DeleteIndex(
         "DELETE FROM indexes WHERE object_store_id = ? AND id = ?"));
     statement.BindInt64(0, object_store_id);
     statement.BindInt64(1, index_id);
-    TRANSIENT_CHECK(statement.Run());
+    RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   }
   CHECK(metadata_.object_stores.at(object_store_id).indexes.erase(index_id) ==
         1);
@@ -1157,7 +1361,7 @@ Status DatabaseConnection::RenameIndex(
   statement.BindBlob(0, new_name);
   statement.BindInt64(1, object_store_id);
   statement.BindInt64(2, index_id);
-  TRANSIENT_CHECK(statement.Run());
+  RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   metadata_.object_stores.at(object_store_id).indexes.at(index_id).name =
       new_name;
   return Status::OK();
@@ -1171,7 +1375,8 @@ StatusOr<int64_t> DatabaseConnection::GetKeyGeneratorCurrentNumber(
                               "SELECT key_generator_current_number "
                               "FROM object_stores WHERE id = ?"));
   statement.BindInt64(0, object_store_id);
-  TRANSIENT_CHECK(statement.Step());
+  statement.Step();
+  RETURN_IF_STATEMENT_ERRORED(statement);
   return statement.ColumnInt64(0);
 }
 
@@ -1186,7 +1391,7 @@ Status DatabaseConnection::MaybeUpdateKeyGeneratorCurrentNumber(
   statement.BindInt64(0, new_number);
   statement.BindInt64(1, object_store_id);
   statement.BindInt64(2, new_number);
-  TRANSIENT_CHECK(statement.Run());
+  RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   return Status::OK();
 }
 
@@ -1195,16 +1400,18 @@ DatabaseConnection::GetRecordIdentifierIfExists(
     base::PassKey<BackingStoreTransactionImpl>,
     int64_t object_store_id,
     const blink::IndexedDBKey& key) {
+  std::string encoded_key = EncodeSortableIDBKey(key);
   sql::Statement statement(
       db_->GetCachedStatement(SQL_FROM_HERE,
                               "SELECT row_id FROM records "
                               "WHERE object_store_id = ? AND key = ?"));
   statement.BindInt64(0, object_store_id);
-  statement.BindBlob(1, EncodeSortableIDBKey(key));
+  statement.BindBlob(1, encoded_key);
   if (statement.Step()) {
-    return BackingStore::RecordIdentifier{statement.ColumnInt64(0)};
+    return BackingStore::RecordIdentifier{statement.ColumnInt64(0),
+                                          std::move(encoded_key)};
   }
-  TRANSIENT_CHECK(statement.Succeeded());
+  RETURN_IF_STATEMENT_ERRORED(statement);
   return std::nullopt;
 }
 
@@ -1223,56 +1430,99 @@ StatusOr<IndexedDBValue> DatabaseConnection::GetValue(
     statement.BindInt64(0, object_store_id);
     statement.BindBlob(1, EncodeSortableIDBKey(key));
     if (!statement.Step()) {
-      TRANSIENT_CHECK(statement.Succeeded());
+      RETURN_IF_STATEMENT_ERRORED(statement);
       return IndexedDBValue();
     }
     record_row_id = statement.ColumnInt64(0);
-    TRANSIENT_CHECK(statement.ColumnBlobAsVector(1, &value.bits));
+    statement.ColumnBlobAsVector(1, &value.bits);
   }
 
   return AddExternalObjectMetadataToValue(std::move(value), record_row_id);
 }
 
-IndexedDBValue DatabaseConnection::AddExternalObjectMetadataToValue(
+StatusOr<IndexedDBValue> DatabaseConnection::AddExternalObjectMetadataToValue(
     IndexedDBValue value,
     int64_t record_row_id) {
-  sql::Statement statement(db_->GetCachedStatement(
-      SQL_FROM_HERE,
-      "SELECT "
-      "  blobs.row_id, object_type, mime_type, size_bytes, file_name, "
-      "  last_modified "
-      "FROM blobs INNER JOIN blob_references"
-      "  ON blob_references.blob_row_id = blobs.row_id "
-      "WHERE"
-      "  blob_references.record_row_id = ?"));
-  statement.BindInt64(0, record_row_id);
-  while (statement.Step()) {
-    const int64_t blob_row_id = statement.ColumnInt64(0);
-    if (auto it = blobs_to_write_.find(blob_row_id);
-        it != blobs_to_write_.end()) {
-      // If the blob is being written in this transaction, copy the external
-      // object (and later the Blob mojo endpoint) from `blobs_to_write_`.
-      value.external_objects.emplace_back(it->second);
-    } else {
-      auto object_type = static_cast<IndexedDBExternalObject::ObjectType>(
-          statement.ColumnInt(1));
-      if (object_type == IndexedDBExternalObject::ObjectType::kBlob) {
-        // Otherwise, create a new `IndexedDBExternalObject` from the
-        // database.
-        value.external_objects.emplace_back(
-            /*type=*/statement.ColumnString16(2),
-            /*size=*/statement.ColumnInt64(3), blob_row_id);
-      } else if (object_type == IndexedDBExternalObject::ObjectType::kFile) {
-        value.external_objects.emplace_back(
-            blob_row_id, /*type=*/statement.ColumnString16(2),
-            /*file_name=*/statement.ColumnString16(4),
-            /*last_modified=*/statement.ColumnTime(5),
-            /*size=*/statement.ColumnInt64(3));
+  // First add Blob and File objects' metadata (not FSA handles).
+  {
+    sql::Statement statement(db_->GetCachedStatement(
+        SQL_FROM_HERE,
+        "SELECT "
+        "  blobs.row_id, object_type, mime_type, size_bytes, file_name, "
+        "  last_modified "
+        "FROM blobs INNER JOIN blob_references"
+        "  ON blob_references.blob_row_id = blobs.row_id "
+        "WHERE"
+        "  blob_references.record_row_id = ? AND object_type != ? "
+        // The order is important because the serialized data uses indexes to
+        // refer to embedded external objects.
+        "ORDER BY blobs.row_id"));
+    statement.BindInt64(0, record_row_id);
+    statement.BindInt64(
+        1, static_cast<int>(
+               IndexedDBExternalObject::ObjectType::kFileSystemAccessHandle));
+    while (statement.Step()) {
+      const int64_t blob_row_id = statement.ColumnInt64(0);
+      if (auto it = blobs_to_write_.find(blob_row_id);
+          it != blobs_to_write_.end()) {
+        // If the blob is being written in this transaction, copy the external
+        // object (and later the Blob mojo endpoint) from `blobs_to_write_`.
+        value.external_objects.emplace_back(it->second);
       } else {
-        NOTREACHED();
+        auto object_type = static_cast<IndexedDBExternalObject::ObjectType>(
+            statement.ColumnInt(1));
+        if (object_type == IndexedDBExternalObject::ObjectType::kBlob) {
+          // Otherwise, create a new `IndexedDBExternalObject` from the
+          // database.
+          value.external_objects.emplace_back(
+              /*type=*/statement.ColumnString16(2),
+              /*size=*/statement.ColumnInt64(3), blob_row_id);
+        } else if (object_type == IndexedDBExternalObject::ObjectType::kFile) {
+          value.external_objects.emplace_back(
+              blob_row_id, /*type=*/statement.ColumnString16(2),
+              /*file_name=*/statement.ColumnString16(4),
+              /*last_modified=*/statement.ColumnTime(5),
+              /*size=*/statement.ColumnInt64(3));
+        } else {
+          NOTREACHED();
+        }
       }
     }
+    RETURN_IF_STATEMENT_ERRORED(statement);
   }
+  // Then add FileSystemAccessHandle objects' metadata.
+  {
+    sql::Statement statement(db_->GetCachedStatement(
+        SQL_FROM_HERE,
+        "SELECT "
+        "  blobs.row_id, bytes "
+        "FROM blobs INNER JOIN blob_references"
+        "  ON blob_references.blob_row_id = blobs.row_id "
+        "WHERE"
+        "  blob_references.record_row_id = ? AND object_type = ? "
+        "ORDER BY blobs.row_id"));
+    statement.BindInt64(0, record_row_id);
+    statement.BindInt64(
+        1, static_cast<int>(
+               IndexedDBExternalObject::ObjectType::kFileSystemAccessHandle));
+    while (statement.Step()) {
+      const int64_t blob_row_id = statement.ColumnInt64(0);
+      if (auto it = blobs_to_write_.find(blob_row_id);
+          it != blobs_to_write_.end()) {
+        mojo::PendingRemote<blink::mojom::FileSystemAccessTransferToken>
+            token_clone;
+        it->second.file_system_access_token_remote()->Clone(
+            token_clone.InitWithNewPipeAndPassReceiver());
+        value.external_objects.emplace_back(std::move(token_clone));
+      } else {
+        base::span<const uint8_t> serialized_handle = statement.ColumnBlob(1);
+        value.external_objects.emplace_back(std::vector<uint8_t>(
+            serialized_handle.begin(), serialized_handle.end()));
+      }
+    }
+    RETURN_IF_STATEMENT_ERRORED(statement);
+  }
+
   return value;
 }
 
@@ -1282,6 +1532,7 @@ StatusOr<BackingStore::RecordIdentifier> DatabaseConnection::PutRecord(
     const blink::IndexedDBKey& key,
     IndexedDBValue value) {
   // Insert record, including inline data.
+  const std::string encoded_key = EncodeSortableIDBKey(key);
   {
     // "INSERT OR REPLACE" deletes the row corresponding to
     // [object_store_id, key] if it exists and inserts a new row with `value`.
@@ -1290,20 +1541,24 @@ StatusOr<BackingStore::RecordIdentifier> DatabaseConnection::PutRecord(
         "INSERT OR REPLACE INTO records "
         "(object_store_id, key, value) VALUES (?, ?, ?)"));
     statement.BindInt64(0, object_store_id);
-    statement.BindBlob(1, EncodeSortableIDBKey(key));
+    statement.BindBlob(1, encoded_key);
     statement.BindBlob(2, std::move(value.bits));
-    TRANSIENT_CHECK(statement.Run());
+    RUN_STATEMENT_RETURN_ON_ERROR(statement);
   }
   const int64_t record_row_id = db_->GetLastInsertRowId();
 
   // Insert external objects into relevant tables.
   for (auto& external_object : value.external_objects) {
-    // TODO(crbug.com/419208485): Support FSA handles.
-    TRANSIENT_CHECK(
-        external_object.object_type() !=
-        IndexedDBExternalObject::ObjectType::kFileSystemAccessHandle);
     // Reserve space in the blob table. It's not actually written yet though.
-    {
+    if (external_object.object_type() ==
+        IndexedDBExternalObject::ObjectType::kFileSystemAccessHandle) {
+      sql::Statement statement(db_->GetCachedStatement(SQL_FROM_HERE,
+                                                       "INSERT INTO blobs "
+                                                       "(object_type) "
+                                                       "VALUES (?)"));
+      statement.BindInt(0, static_cast<int>(external_object.object_type()));
+      RUN_STATEMENT_RETURN_ON_ERROR(statement);
+    } else {
       sql::Statement statement(
           db_->GetCachedStatement(SQL_FROM_HERE,
                                   "INSERT INTO blobs "
@@ -1324,7 +1579,7 @@ StatusOr<BackingStore::RecordIdentifier> DatabaseConnection::PutRecord(
         statement.BindString16(4, external_object.file_name());
         statement.BindTime(5, external_object.last_modified());
       }
-      TRANSIENT_CHECK(statement.Run());
+      RUN_STATEMENT_RETURN_ON_ERROR(statement);
     }
 
     const int64_t blob_row_id = db_->GetLastInsertRowId();
@@ -1339,7 +1594,7 @@ StatusOr<BackingStore::RecordIdentifier> DatabaseConnection::PutRecord(
                                   "VALUES (?, ?)"));
       statement.BindInt64(0, blob_row_id);
       statement.BindInt64(1, record_row_id);
-      TRANSIENT_CHECK(statement.Run());
+      RUN_STATEMENT_RETURN_ON_ERROR(statement);
     }
 
     // TODO(crbug.com/419208485): Consider writing the blobs eagerly (but still
@@ -1350,7 +1605,7 @@ StatusOr<BackingStore::RecordIdentifier> DatabaseConnection::PutRecord(
                                       std::move(external_object));
     CHECK(rv.second);
   }
-  return BackingStore::RecordIdentifier{record_row_id};
+  return BackingStore::RecordIdentifier{record_row_id, std::move(encoded_key)};
 }
 
 Status DatabaseConnection::DeleteRange(
@@ -1361,7 +1616,7 @@ Status DatabaseConnection::DeleteRange(
       StartRecordRangeQuery("DELETE", key_range);
   sql::Statement statement(db_->GetUniqueStatement(base::StrCat(query_pieces)));
   BindRecordRangeQueryParams(statement, object_store_id, key_range);
-  TRANSIENT_CHECK(statement.Run());
+  RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   return Status::OK();
 }
 
@@ -1371,7 +1626,7 @@ Status DatabaseConnection::ClearObjectStore(
   sql::Statement statement(db_->GetCachedStatement(
       SQL_FROM_HERE, "DELETE FROM records WHERE object_store_id = ?"));
   statement.BindInt64(0, object_store_id);
-  TRANSIENT_CHECK(statement.Run());
+  RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   return Status::OK();
 }
 
@@ -1386,7 +1641,11 @@ StatusOr<uint32_t> DatabaseConnection::GetObjectStoreKeyCount(
   sql::Statement statement(
       db_->GetReadonlyStatement(base::StrCat(query_pieces)));
   BindRecordRangeQueryParams(statement, object_store_id, key_range);
-  TRANSIENT_CHECK(statement.Step());
+  if (!statement.Step()) {
+    RETURN_IF_STATEMENT_ERRORED(statement);
+    // COUNT() can't fail to return a value.
+    NOTREACHED();
+  }
   return statement.ColumnInt(0);
 }
 
@@ -1398,16 +1657,17 @@ Status DatabaseConnection::PutIndexDataForRecord(
     const BackingStore::RecordIdentifier& record) {
   // `PutIndexDataForRecord()` can be called more than once with the same `key`
   // and `record` - in the case of multi-entry indexes, for example.
-  sql::Statement statement(
-      db_->GetCachedStatement(SQL_FROM_HERE,
-                              "INSERT OR IGNORE INTO index_references "
-                              "(object_store_id, index_id, key, record_row_id) "
-                              "VALUES (?, ?, ?, ?)"));
-  statement.BindInt64(0, object_store_id);
+  sql::Statement statement(db_->GetCachedStatement(
+      SQL_FROM_HERE,
+      "INSERT OR IGNORE INTO index_references "
+      "(record_row_id, index_id, key, object_store_id, record_key) "
+      "VALUES (?, ?, ?, ?, ?)"));
+  statement.BindInt64(0, record.number);
   statement.BindInt64(1, index_id);
   statement.BindBlob(2, EncodeSortableIDBKey(key));
-  statement.BindInt64(3, record.number);
-  TRANSIENT_CHECK(statement.Run());
+  statement.BindInt64(3, object_store_id);
+  statement.BindBlob(4, record.data);
+  RUN_STATEMENT_RETURN_STATUS_ON_ERROR(statement);
   return Status::OK();
 }
 
@@ -1418,21 +1678,17 @@ StatusOr<blink::IndexedDBKey> DatabaseConnection::GetFirstPrimaryKeyForIndexKey(
     const blink::IndexedDBKey& key) {
   sql::Statement statement(db_->GetCachedStatement(
       SQL_FROM_HERE,
-      "SELECT MIN(records.key) "
-      "FROM index_references INNER JOIN records"
-      " ON index_references.record_row_id = records.row_id "
-      "WHERE index_references.object_store_id = ?"
-      " AND index_references.index_id = ?"
-      " AND index_references.key = ?"));
+      "SELECT MIN(record_key) FROM index_references "
+      "WHERE object_store_id = ? AND index_id = ? AND key = ?"));
   statement.BindInt64(0, object_store_id);
   statement.BindInt64(1, index_id);
   statement.BindBlob(2, EncodeSortableIDBKey(key));
   if (statement.Step()) {
     std::string primary_key;
-    TRANSIENT_CHECK(statement.ColumnBlobAsString(0, &primary_key));
+    statement.ColumnBlobAsString(0, &primary_key);
     return DecodeSortableIDBKey(primary_key);
   }
-  TRANSIENT_CHECK(statement.Succeeded());
+  RETURN_IF_STATEMENT_ERRORED(statement);
   // Not found.
   return blink::IndexedDBKey();
 }
@@ -1464,14 +1720,19 @@ StatusOr<uint32_t> DatabaseConnection::GetIndexKeyCount(
   if (key_range.upper().IsValid()) {
     statement.BindBlob(param_index++, EncodeSortableIDBKey(key_range.upper()));
   }
-  TRANSIENT_CHECK(statement.Step());
+  if (!statement.Step()) {
+    RETURN_IF_STATEMENT_ERRORED(statement);
+    // COUNT() can't fail to return a value.
+    NOTREACHED();
+  }
   return statement.ColumnInt(0);
 }
 
 std::vector<blink::mojom::IDBExternalObjectPtr>
 DatabaseConnection::CreateAllExternalObjects(
     base::PassKey<BackingStoreTransactionImpl>,
-    const std::vector<IndexedDBExternalObject>& objects) {
+    const std::vector<IndexedDBExternalObject>& objects,
+    DeserializeFsaCallback deserialize_fsa_handle) {
   std::vector<blink::mojom::IDBExternalObjectPtr> mojo_objects;
   IndexedDBExternalObject::ConvertToMojo(objects, &mojo_objects);
 
@@ -1480,7 +1741,20 @@ DatabaseConnection::CreateAllExternalObjects(
     blink::mojom::IDBExternalObjectPtr& mojo_object = mojo_objects[i];
     if (object.object_type() ==
         IndexedDBExternalObject::ObjectType::kFileSystemAccessHandle) {
-      NOTIMPLEMENTED();
+      mojo::PendingRemote<blink::mojom::FileSystemAccessTransferToken>
+          mojo_token;
+      if (object.is_file_system_access_remote_valid()) {
+        // The remote will be valid if this is a pending FSA handle i.e. came
+        // from `blobs_to_write_`.
+        object.file_system_access_token_remote()->Clone(
+            mojo_token.InitWithNewPipeAndPassReceiver());
+      } else {
+        CHECK(!object.serialized_file_system_access_handle().empty());
+        deserialize_fsa_handle.Run(
+            object.serialized_file_system_access_handle(),
+            mojo_token.InitWithNewPipeAndPassReceiver());
+      }
+      mojo_object->set_file_system_access_token(std::move(mojo_token));
       continue;
     }
     mojo::PendingReceiver<blink::mojom::Blob> receiver =
@@ -1629,10 +1903,10 @@ DatabaseConnection::OpenIndexCursor(base::PassKey<BackingStoreTransactionImpl>,
       (direction == blink::mojom::IDBCursorDirection::NextNoDuplicate ||
        direction == blink::mojom::IDBCursorDirection::PrevNoDuplicate);
   auto record_iterator = std::make_unique<IndexRecordIterator>(
-      record_iterator_weak_factory_.GetWeakPtr(), key_only);
+      record_iterator_weak_factory_.GetWeakPtr(), key_only,
+      first_primary_keys_only);
   return record_iterator
-      ->Initialize(object_store_id, index_id, key_range, ascending_order,
-                   first_primary_keys_only)
+      ->Initialize(object_store_id, index_id, key_range, ascending_order)
       .transform([&](std::unique_ptr<Record> first_record)
                      -> std::unique_ptr<BackingStore::Cursor> {
         if (!first_record) {
@@ -1662,6 +1936,10 @@ sql::Statement* DatabaseConnection::GetLongLivedStatement(uint64_t id) {
     return nullptr;
   }
   return it->second.get();
+}
+
+Status DatabaseConnection::GetStatusOfLastOperation() {
+  return Status(*db_);
 }
 
 }  // namespace content::indexed_db::sqlite

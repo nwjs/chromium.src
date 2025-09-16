@@ -29,7 +29,6 @@ namespace {
 
 using ::testing::_;
 using ::testing::Args;
-using ::testing::Invoke;
 using ::testing::Mock;
 using ::testing::Return;
 
@@ -75,7 +74,7 @@ class BrowserCaptureMediaStreamTrackTest
   ScriptPromise<IDLUndefined> ApplySubCaptureTarget(
       V8TestingScope& v8_scope,
       BrowserCaptureMediaStreamTrack& track,
-      WTF::String id_string) {
+      String id_string) {
     switch (type_) {
       case SubCaptureTarget::Type::kCropTarget:
         return track.cropTo(
@@ -145,18 +144,18 @@ TEST_P(BrowserCaptureMediaStreamTrackTest,
   EXPECT_CALL(*media_stream_video_source,
               ApplySubCaptureTarget(type_, GUIDToToken(valid_id), _, _))
       .Times(1)
-      .WillOnce(::testing::WithArg<3>(::testing::Invoke(
+      .WillOnce(::testing::WithArg<3>(
           [](base::OnceCallback<void(media::mojom::ApplySubCaptureTargetResult)>
                  cb) {
             std::move(cb).Run(
                 media::mojom::ApplySubCaptureTargetResult::kSuccess);
-          })));
+          }));
 
   BrowserCaptureMediaStreamTrack* const track =
       MakeTrack(v8_scope, std::move(media_stream_video_source));
 
   const auto promise = ApplySubCaptureTarget(
-      v8_scope, *track, WTF::String(valid_id.AsLowercaseString()));
+      v8_scope, *track, String(valid_id.AsLowercaseString()));
 
   track->OnSubCaptureTargetVersionObservedForTesting(
       /*sub_capture_target_version=*/1);
@@ -185,18 +184,18 @@ TEST_P(BrowserCaptureMediaStreamTrackTest,
   EXPECT_CALL(*media_stream_video_source,
               ApplySubCaptureTarget(type_, GUIDToToken(valid_id), _, _))
       .Times(1)
-      .WillOnce(::testing::WithArg<3>(::testing::Invoke(
+      .WillOnce(::testing::WithArg<3>(
           [](base::OnceCallback<void(media::mojom::ApplySubCaptureTargetResult)>
                  cb) {
             std::move(cb).Run(
                 media::mojom::ApplySubCaptureTargetResult::kErrorGeneric);
-          })));
+          }));
 
   BrowserCaptureMediaStreamTrack* const track =
       MakeTrack(v8_scope, std::move(media_stream_video_source));
 
   const auto promise = ApplySubCaptureTarget(
-      v8_scope, *track, WTF::String(valid_id.AsLowercaseString()));
+      v8_scope, *track, String(valid_id.AsLowercaseString()));
 
   track->OnSubCaptureTargetVersionObservedForTesting(
       /*sub_capture_target_version=*/1);
@@ -232,7 +231,7 @@ TEST_P(
       MakeTrack(v8_scope, std::move(media_stream_video_source));
 
   const auto promise = ApplySubCaptureTarget(
-      v8_scope, *track, WTF::String(valid_id.AsLowercaseString()));
+      v8_scope, *track, String(valid_id.AsLowercaseString()));
 
   ScriptPromiseTester script_promise_tester(v8_scope.GetScriptState(), promise);
   script_promise_tester.WaitUntilSettled();

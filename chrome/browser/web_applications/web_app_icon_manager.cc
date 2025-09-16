@@ -92,9 +92,12 @@ struct TypedResult {
   bool HasErrors() const { return !error_log.empty(); }
 };
 
-std::string CreateError(std::initializer_list<std::string_view> parts) {
+std::string CreateError(std::initializer_list<std::string_view> parts,
+                        bool skip_logging = false) {
   std::string error = base::StrCat(parts);
-  LOG(ERROR) << error;
+  if (!skip_logging) {
+    LOG(ERROR) << error;
+  }
   return error;
 }
 
@@ -246,7 +249,7 @@ base::FilePath GetManifestResourcesShortcutsMenuIconFileName(
 TypedResult<SkBitmap> ReadIconBlocking(scoped_refptr<FileUtilsWrapper> utils,
                                        const base::FilePath& web_apps_directory,
                                        const IconId& icon_id,
-                                       bool read_trusted_icons = false) {
+                                       bool read_trusted_icons) {
   TRACE_EVENT0("ui", "web_app_icon_manager::ReadIconBlocking");
   base::FilePath icon_file =
       read_trusted_icons ? GetTrustedIconsFileName(web_apps_directory, icon_id)
@@ -254,7 +257,8 @@ TypedResult<SkBitmap> ReadIconBlocking(scoped_refptr<FileUtilsWrapper> utils,
   auto icon_data = base::MakeRefCounted<base::RefCountedString>();
   if (!utils->ReadFileToString(icon_file, &icon_data->as_string())) {
     return {.error_log = {CreateError(
-                {"Could not read icon file: ", icon_file.AsUTF8Unsafe()})}};
+                {"Could not read icon file: ", icon_file.AsUTF8Unsafe()},
+                read_trusted_icons)}};
   }
 
   TypedResult<SkBitmap> result;
@@ -271,12 +275,14 @@ TypedResult<SkBitmap> ReadIconBlocking(scoped_refptr<FileUtilsWrapper> utils,
 // Returns null base::Time if any errors occurred.
 TypedResult<base::Time> ReadIconTimeBlocking(
     scoped_refptr<FileUtilsWrapper> utils,
-    base::FilePath icon_file) {
+    base::FilePath icon_file,
+    bool read_trusted_icon) {
   TRACE_EVENT0("ui", "web_app_icon_manager::ReadIconTimeBlocking");
   base::File::Info file_info;
   if (!utils->GetFileInfo(icon_file, &file_info)) {
     return {.error_log = {CreateError(
-                {"Could not read icon file: ", icon_file.AsUTF8Unsafe()})}};
+                {"Could not read icon file: ", icon_file.AsUTF8Unsafe()},
+                read_trusted_icon)}};
   }
 
   TypedResult<base::Time> access_time;
@@ -323,12 +329,13 @@ TypedResult<std::map<SquareSizePx, SkBitmap>> ReadIconAndResizeBlocking(
     scoped_refptr<FileUtilsWrapper> utils,
     const base::FilePath& web_apps_directory,
     const IconId& icon_id,
-    SquareSizePx target_icon_size_px) {
+    SquareSizePx target_icon_size_px,
+    bool is_trusted) {
   TRACE_EVENT0("ui", "web_app_icon_manager::ReadIconAndResizeBlocking");
   TypedResult<std::map<SquareSizePx, SkBitmap>> result;
 
-  TypedResult<SkBitmap> read_result =
-      ReadIconBlocking(std::move(utils), web_apps_directory, icon_id);
+  TypedResult<SkBitmap> read_result = ReadIconBlocking(
+      std::move(utils), web_apps_directory, icon_id, is_trusted);
   if (read_result.HasErrors())
     return {.error_log = std::move(read_result.error_log)};
 
@@ -414,7 +421,8 @@ TypedResult<std::map<SquareSizePx, SkBitmap>> ReadTrustedIconsBlocking(
     // manifest icon bitmaps.
     if (!base::Contains(result.value, icon_size_px)) {
       IconId icon_id_any(app_id, purpose_for_fallback, icon_size_px);
-      read_result = ReadIconBlocking(utils, web_apps_directory, icon_id_any);
+      read_result = ReadIconBlocking(utils, web_apps_directory, icon_id_any,
+                                     /*read_trusted_icons=*/false);
       base::Extend(result.error_log, std::move(read_result.error_log));
       if (!read_result.value.empty()) {
         result.value[icon_size_px] = std::move(read_result.value);
@@ -443,7 +451,7 @@ ReadIconsLastUpdateTimeBlocking(scoped_refptr<FileUtilsWrapper> utils,
             ? GetTrustedIconsFileName(web_apps_directory, icon_id)
             : GetIconFileName(web_apps_directory, icon_id);
     TypedResult<base::Time> read_result =
-        ReadIconTimeBlocking(utils, icon_file);
+        ReadIconTimeBlocking(utils, icon_file, consider_trusted_icons);
     base::Extend(result.error_log, std::move(read_result.error_log));
     if (!read_result.value.is_null())
       result.value[icon_size_px] = std::move(read_result.value);
@@ -546,7 +554,7 @@ ReadShortcutMenuIconsWithTimestampBlocking(
             GetManifestResourcesShortcutsMenuIconFileName(
                 web_apps_directory, app_id, purpose, curr_index, icon_size_px);
         TypedResult<base::Time> read_result =
-            ReadIconTimeBlocking(utils, file_name);
+            ReadIconTimeBlocking(utils, file_name, /*read_trusted_icon=*/false);
         base::Extend(results.error_log, std::move(read_result.error_log));
         if (!read_result.value.is_null()) {
           bitmap_with_time[icon_size_px] = std::move(read_result.value);
@@ -569,15 +577,18 @@ ReadShortcutMenuIconsWithTimestampBlocking(
 TypedResult<std::vector<uint8_t>> ReadCompressedIconBlocking(
     scoped_refptr<FileUtilsWrapper> utils,
     const base::FilePath& web_apps_directory,
-    const IconId& icon_id) {
+    const IconId& icon_id,
+    bool is_trusted) {
   TRACE_EVENT0("ui", "web_app_icon_manager::ReadCompressedIconBlocking");
-  base::FilePath icon_file = GetIconFileName(web_apps_directory, icon_id);
+  base::FilePath icon_file =
+      is_trusted ? GetTrustedIconsFileName(web_apps_directory, icon_id)
+                 : GetIconFileName(web_apps_directory, icon_id);
 
   std::string icon_data;
-
   if (!utils->ReadFileToString(icon_file, &icon_data)) {
     return {.error_log = {CreateError(
-                {"Could not read icon file: ", icon_file.AsUTF8Unsafe()})}};
+                {"Could not read icon file: ", icon_file.AsUTF8Unsafe()},
+                is_trusted)}};
   }
 
   // Copy data: we can't std::move std::string into std::vector.
@@ -707,13 +718,17 @@ class WriteIconsJob {
 
   TypedResult<bool> Execute() {
     TRACE_EVENT0("ui", "web_app_icon_manager::WriteIconsJob::Execute");
+    TypedResult<bool> result(true);
     // Write product icons directly in the app's directory.
-    auto result = AtomicallyWriteIcons(
-        base::BindRepeating(&WriteIconsJob::WriteIcons, base::Unretained(this),
-                            icon_bitmaps_),
-        /*subdir_for_icons=*/{});
-    if (result.HasErrors())
-      return result;
+    if (!icon_bitmaps_.empty()) {
+      result = AtomicallyWriteIcons(
+          base::BindRepeating(&WriteIconsJob::WriteIcons,
+                              base::Unretained(this), icon_bitmaps_),
+          /*subdir_for_icons=*/{});
+      if (result.HasErrors()) {
+        return result;
+      }
+    }
 
     if (!trusted_icon_bitmaps_.empty()) {
       result = AtomicallyWriteIcons(
@@ -1110,13 +1125,32 @@ bool WebAppIconManager::HasTrustedIcons(const webapps::AppId& app_id,
 }
 
 std::optional<WebAppIconManager::IconSizeAndPurpose>
-WebAppIconManager::FindIconMatchBigger(const webapps::AppId& app_id,
-                                       const std::vector<IconPurpose>& purposes,
-                                       SquareSizePx min_size) const {
+WebAppIconManager::FindIconMatchBigger(
+    const webapps::AppId& app_id,
+    const std::vector<IconPurpose>& purposes,
+    SquareSizePx min_size,
+    bool skip_trusted_icons_for_favicons) const {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   const WebApp* web_app = provider_->registrar_unsafe().GetAppById(app_id);
   if (!web_app)
     return std::nullopt;
+
+  if (base::FeatureList::IsEnabled(features::kWebAppUsePrimaryIcon) &&
+      !skip_trusted_icons_for_favicons) {
+    // Must iterate through purposes in order given.
+    for (IconPurpose purpose : purposes) {
+      if (purpose == IconPurpose::MONOCHROME) {
+        continue;
+      }
+      // Must iterate sizes from smallest to largest.
+      const SortedSizesPx& sizes = web_app->stored_trusted_icon_sizes(purpose);
+      for (SquareSizePx size : sizes) {
+        if (size >= min_size) {
+          return IconSizeAndPurpose{size, purpose, /*is_trusted=*/true};
+        }
+      }
+    }
+  }
 
   // Must iterate through purposes in order given.
   for (IconPurpose purpose : purposes) {
@@ -1342,6 +1376,7 @@ void WebAppIconManager::GetIconsSizeForApp(
     WebAppIconManager::GetIconsSizeCallback callback) const {
   std::vector<base::FilePath> icon_paths;
 
+  // Populate manifest icon sizes.
   for (IconPurpose purpose : kIconPurposes) {
     for (SquareSizePx size : provider_->registrar_unsafe()
                                  .GetAppById(app_id)
@@ -1349,6 +1384,23 @@ void WebAppIconManager::GetIconsSizeForApp(
       IconId icon_id(app_id, purpose, size);
       base::FilePath icon_path = GetIconFileName(web_apps_directory_, icon_id);
       icon_paths.push_back(icon_path);
+    }
+  }
+
+  // Populate trusted icon sizes too if enabled.
+  if (base::FeatureList::IsEnabled(features::kWebAppUsePrimaryIcon)) {
+    for (IconPurpose purpose : kIconPurposes) {
+      if (purpose == IconPurpose::MONOCHROME) {
+        continue;
+      }
+      for (SquareSizePx size : provider_->registrar_unsafe()
+                                   .GetAppById(app_id)
+                                   ->stored_trusted_icon_sizes(purpose)) {
+        IconId icon_id(app_id, purpose, size);
+        base::FilePath icon_path =
+            GetTrustedIconsFileName(web_apps_directory_, icon_id);
+        icon_paths.push_back(icon_path);
+      }
     }
   }
 
@@ -1368,7 +1420,7 @@ void WebAppIconManager::ReadSmallestIcon(
 
   std::optional<IconSizeAndPurpose> best_icon =
       FindIconMatchBigger(app_id, purposes, min_size_in_px);
-  DCHECK(best_icon.has_value());
+  CHECK(best_icon.has_value());
   IconId icon_id(app_id, best_icon->purpose, best_icon->size_px);
   ReadIconCallback wrapped =
       base::BindOnce(std::move(callback), best_icon->purpose);
@@ -1377,7 +1429,7 @@ void WebAppIconManager::ReadSmallestIcon(
       FROM_HERE,
       base::BindOnce(ReadIconBlocking, provider_->file_utils(),
                      web_apps_directory_, std::move(icon_id),
-                     /*read_trusted_icons=*/false),
+                     best_icon->is_trusted),
       base::BindOnce(&LogErrorsCallCallback<SkBitmap>, GetWeakPtr(),
                      std::move(wrapped)));
 }
@@ -1392,7 +1444,7 @@ void WebAppIconManager::ReadSmallestCompressedIcon(
 
   std::optional<IconSizeAndPurpose> best_icon =
       FindIconMatchBigger(app_id, purposes, min_size_in_px);
-  DCHECK(best_icon.has_value());
+  CHECK(best_icon.has_value());
   IconId icon_id(app_id, best_icon->purpose, best_icon->size_px);
   ReadCompressedIconCallback wrapped =
       base::BindOnce(std::move(callback), best_icon->purpose);
@@ -1400,7 +1452,8 @@ void WebAppIconManager::ReadSmallestCompressedIcon(
   icon_task_runner_->PostTaskAndReplyWithResult(
       FROM_HERE,
       base::BindOnce(ReadCompressedIconBlocking, provider_->file_utils(),
-                     web_apps_directory_, std::move(icon_id)),
+                     web_apps_directory_, std::move(icon_id),
+                     best_icon->is_trusted),
       base::BindOnce(&LogErrorsCallCallback<std::vector<uint8_t>>, GetWeakPtr(),
                      std::move(wrapped)));
 }
@@ -1461,8 +1514,8 @@ void WebAppIconManager::ReadIconAndResize(const webapps::AppId& app_id,
   icon_task_runner_->PostTaskAndReplyWithResult(
       FROM_HERE,
       base::BindOnce(ReadIconAndResizeBlocking, provider_->file_utils(),
-                     web_apps_directory_, std::move(icon_id),
-                     desired_icon_size),
+                     web_apps_directory_, std::move(icon_id), desired_icon_size,
+                     best_icon->is_trusted),
       base::BindOnce(&LogErrorsCallCallback<std::map<SquareSizePx, SkBitmap>>,
                      GetWeakPtr(), std::move(callback)));
 }
@@ -1473,7 +1526,8 @@ void WebAppIconManager::ReadFavicons(const webapps::AppId& app_id,
   TRACE_EVENT0("ui", "WebAppIconManager::ReadFavicons");
   SortedSizesPx ui_scale_factors_px_sizes;
   auto size_and_purpose =
-      FindIconMatchBigger(app_id, {purpose}, gfx::kFaviconSize);
+      FindIconMatchBigger(app_id, {purpose}, gfx::kFaviconSize,
+                          /*skip_trusted_icons_for_favicons=*/true);
   if (!size_and_purpose.has_value()) {
     std::move(callback).Run(gfx::ImageSkia());
     return;
@@ -1482,7 +1536,8 @@ void WebAppIconManager::ReadFavicons(const webapps::AppId& app_id,
 
   for (const auto scale : {2, 3, 4}) {
     size_and_purpose =
-        FindIconMatchSmaller(app_id, {purpose}, gfx::kFaviconSize * scale);
+        FindIconMatchSmaller(app_id, {purpose}, gfx::kFaviconSize * scale,
+                             /*skip_trusted_icons_for_favicons=*/true);
     if (size_and_purpose.has_value()) {
       ui_scale_factors_px_sizes.insert(size_and_purpose->size_px);
     }
@@ -1491,7 +1546,8 @@ void WebAppIconManager::ReadFavicons(const webapps::AppId& app_id,
   // downsize.
   if (*ui_scale_factors_px_sizes.rbegin() < 32) {
     size_and_purpose =
-        FindIconMatchBigger(app_id, {purpose}, gfx::kFaviconSize * 4);
+        FindIconMatchBigger(app_id, {purpose}, gfx::kFaviconSize * 4,
+                            /*skip_trusted_icons_for_favicons=*/true);
     if (size_and_purpose.has_value()) {
       ui_scale_factors_px_sizes.insert(size_and_purpose->size_px);
     }
@@ -1564,11 +1620,29 @@ std::optional<WebAppIconManager::IconSizeAndPurpose>
 WebAppIconManager::FindIconMatchSmaller(
     const webapps::AppId& app_id,
     const std::vector<IconPurpose>& purposes,
-    SquareSizePx max_size) const {
+    SquareSizePx max_size,
+    bool skip_trusted_icons_for_favicons) const {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   const WebApp* web_app = provider_->registrar_unsafe().GetAppById(app_id);
   if (!web_app)
     return std::nullopt;
+
+  if (base::FeatureList::IsEnabled(features::kWebAppUsePrimaryIcon) &&
+      !skip_trusted_icons_for_favicons) {
+    // Must iterate through purposes in order given.
+    for (IconPurpose purpose : purposes) {
+      if (purpose == IconPurpose::MONOCHROME) {
+        continue;
+      }
+      // Must iterate sizes from smallest to largest.
+      const SortedSizesPx& sizes = web_app->stored_trusted_icon_sizes(purpose);
+      for (SquareSizePx size : base::Reversed(sizes)) {
+        if (size <= max_size) {
+          return IconSizeAndPurpose{size, purpose, /*is_trusted=*/true};
+        }
+      }
+    }
+  }
 
   // Must check purposes in the order given.
   for (IconPurpose purpose : purposes) {

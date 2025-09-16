@@ -213,6 +213,21 @@ BASE_FEATURE(kReduceAcceptLanguageHTTP,
              "ReduceAcceptLanguageHTTP",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled this feature will limit the total number of languages for
+// Accept-Language to enhance privacy. See details in
+// https://datatracker.ietf.org/doc/html/rfc7231#section-9.7.
+BASE_FEATURE(kReduceAcceptLanguageCount,
+             "ReduceAcceptLanguageCount",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When non-zero, the number of Accept-Language of this size will return as the
+// HTTP header and JavaScript getter.
+BASE_FEATURE_PARAM(int,
+                   kMaxAcceptLanguage,
+                   &kReduceAcceptLanguageCount,
+                   /*name=*/"MaxAcceptLanguage",
+                   /*default_value=*/10);
+
 // Reduce PNA preflight response waiting time to 200ms.
 // See: https://wicg.github.io/private-network-access/#cors-preflight
 BASE_FEATURE(kPrivateNetworkAccessPreflightShortTimeout,
@@ -229,14 +244,14 @@ BASE_FEATURE(kPrivateNetworkAccessPreflightShortTimeout,
 // Spec: https://wicg.github.io/local-network-access/
 BASE_FEATURE(kLocalNetworkAccessChecks,
              "LocalNetworkAccessChecks",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If true, local network access checks will only be warnings.
 BASE_FEATURE_PARAM(bool,
                    kLocalNetworkAccessChecksWarn,
                    &kLocalNetworkAccessChecks,
                    /*name=*/"LocalNetworkAccessChecksWarn",
-                   /*default_value=*/true);
+                   /*default_value=*/false);
 
 // Enables Local Network Access checks for WebRTC.
 // Blocks local network requests without user permission to prevent exploitation
@@ -399,13 +414,6 @@ BASE_FEATURE(kNetworkContextPrefetchUseMatches,
              "NetworkContextPrefetchUseMatches",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// This feature enables treating 0.0.0.0/8 as the public address space instead
-// of private or local. This is a killswitch for a tightening of a loophole in
-// Private Network Access. See https://crbug.com/40058874.
-BASE_FEATURE(kTreatNullIPAsPublicAddressSpace,
-             "TreatNullIPAsPublicAddressSpace",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // When enabled, the CORS URL loader will clone the DevTools connection for a
 // resource request only if the request includes a DevTools request id.
 BASE_FEATURE(kCloneDevToolsConnectionOnlyIfRequested,
@@ -414,7 +422,7 @@ BASE_FEATURE(kCloneDevToolsConnectionOnlyIfRequested,
 
 BASE_FEATURE(kSRIMessageSignatureEnforcement,
              "SRIMessageSignatureEnforcement",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAdAuctionEventRegistration,
              "AdAuctionEventRegistration",

@@ -11,14 +11,17 @@
 #include "chrome/renderer/actor/tool_utils.h"
 #include "content/public/renderer/render_frame.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom.h"
 #include "third_party/blink/public/web/web_element.h"
 #include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_hit_test_result.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "ui/gfx/geometry/point_conversions.h"
+#include "ui/gfx/geometry/vector2d_conversions.h"
 
 namespace actor {
 
+using blink::WebElement;
 using blink::WebNode;
 
 base::TimeDelta ToolBase::ExecutionObservationDelay() const {
@@ -59,8 +62,7 @@ ToolBase::ValidateAndResolveTarget() const {
     const blink::WebHitTestResult hit_test_result =
         frame_->GetWebFrame()->FrameWidget()->HitTestResultAt(
             resolved_target.point);
-    resolved_target.node = hit_test_result.GetElement();
-
+    resolved_target.node = hit_test_result.GetNode();
   } else if (target_->is_dom_node_id()) {
     int32_t dom_node_id = target_->get_dom_node_id();
     resolved_target.node = GetNodeFromId(frame_.get(), dom_node_id);
@@ -83,9 +85,30 @@ ToolBase::ValidateAndResolveTarget() const {
   return ValidateTimeOfUse(resolved_target);
 }
 
+void ToolBase::EnsureTargetInView() {
+  if (!target_) {
+    return;
+  }
+
+  // Scrolling a target into view is only supported for node_id targets since
+  // TOCTOU checks cannot be applied to the APC captured at the old scroll
+  // offset.
+  if (target_->is_coordinate()) {
+    return;
+  }
+
+  int32_t dom_node_id = target_->get_dom_node_id();
+  WebElement node =
+      GetNodeFromId(frame_.get(), dom_node_id).DynamicTo<WebElement>();
+  if (node && !InteractionPointFromWebNode(node).has_value()) {
+    node.ScrollIntoViewIfNeeded();
+  }
+}
+
 base::expected<ToolBase::ResolvedTarget, mojom::ActionResultPtr>
 ToolBase::ValidateTimeOfUse(const ResolvedTarget& resolved_target) const {
   if (!observed_target_ || !observed_target_->node_attribute->dom_node_id) {
+    journal_->Log(task_id_, "TimeOfUseValidation", "No valid APC node.");
     return resolved_target;
   }
 
@@ -117,20 +140,34 @@ ToolBase::ValidateTimeOfUse(const ResolvedTarget& resolved_target) const {
             resolved_target.point);
     const blink::WebElement hit_element = hit_test_result.GetElement();
     // The action target from APC is not as granular as the live DOM hit test.
-    if (target_node.Contains(&hit_element)) {
+    if (!target_node.Contains(&hit_element)) {
       journal_->Log(
           task_id_, "TimeOfUseValidation",
-          base::StrCat({"Observed Target Node:",
+          base::StrCat({"Target Node:",
                         base::NumberToString(
                             *observed_target_->node_attribute->dom_node_id),
-                        " Hit Test Node:",
+                        " interaction point occluded by Hit Test Node:",
                         base::NumberToString(target_node.GetDomNodeId())}));
       // TODO(crbug.com/418280472): return error after retry for failed task is
       // landed.
+      return resolved_target;
+    }
+
+    if (!observed_target_->node_attribute->geometry) {
+      journal_->Log(
+          task_id_, "TimeOfUseValidation",
+          base::StrCat(
+              {"No geometry for node:",
+               base::NumberToString(
+                   *observed_target_->node_attribute->dom_node_id),
+               base::ToString(gfx::ToFlooredPoint(resolved_target.point))}));
+      // TODO(crbug.com/418280472): return error after retry for failed task is
+      // landed.
+      return resolved_target;
     }
 
     // Check that the interaction point is inside the observed target bounding
-    // box.
+    // box from last APC.
     const gfx::Rect observed_bounds =
         observed_target_->node_attribute->geometry->outer_bounding_box;
     if (!observed_bounds.Contains(gfx::ToFlooredPoint(resolved_target.point))) {
@@ -142,6 +179,7 @@ ToolBase::ValidateTimeOfUse(const ResolvedTarget& resolved_target) const {
                " Observed bounding box:", base::ToString(observed_bounds)}));
       // TODO(crbug.com/418280472): return error after retry for failed task is
       // landed.
+      return resolved_target;
     }
   }
 

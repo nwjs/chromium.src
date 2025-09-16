@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -37,7 +38,6 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
 import org.chromium.base.Callback;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -77,6 +77,7 @@ import org.chromium.url.JUnitTestGURLs;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /** Unit test for {@link ShareDelegateImpl} that mocked out most native class calls. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -663,6 +664,7 @@ public class ShareDelegateImplUnitTest {
         doReturn(true).when(mTab).isNativePage();
         doReturn(new GURL(pdfUrl)).when(mTab).getUrl();
         doReturn(pdfTitle).when(mTab).getTitle();
+        doReturn(mock(WindowAndroid.class)).when(mTab).getWindowAndroid();
 
         createShareDelegate(false, mShareSheetController);
         mShareDelegate.share(mTab, false, ShareOrigin.OVERFLOW_MENU);

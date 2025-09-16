@@ -10,6 +10,7 @@
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/memory/ref_counted.h"
+#include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
@@ -69,6 +70,20 @@ bool FrameSupportsPayments(content::RenderFrameHost* rfh) {
   return rfh && rfh->IsActive() && rfh->IsRenderFrameLive() &&
          rfh->IsFeatureEnabled(
              network::mojom::PermissionsPolicyFeature::kPayment);
+}
+
+base::OnceClosure ChainSpcFallbackOutcomeLogToCallback(
+    SecurePaymentRequestOutcome outcome,
+    base::OnceClosure callback) {
+  return callback.is_null()
+             ? std::move(callback)
+             : base::BindOnce(
+                   [](SecurePaymentRequestOutcome outcome) {
+                     base::UmaHistogramEnumeration(
+                         "SecurePaymentRequest.Fallback.Outcome", outcome);
+                   },
+                   outcome)
+                   .Then(std::move(callback));
 }
 
 }  // namespace
@@ -178,22 +193,22 @@ ukm::UkmRecorder* ChromePaymentRequestDelegate::GetUkmRecorder() {
 
 std::string ChromePaymentRequestDelegate::GetAuthenticatedEmail() const {
   auto* rfh = content::RenderFrameHost::FromID(frame_routing_id_);
-  if (!rfh)
+  if (!rfh) {
     return std::string();
+  }
 
-  // Check if the profile is authenticated.  Guest profiles or incognito
-  // windows may not have a sign in manager, and are considered not
-  // authenticated.
+  // Check if the profile is signed in. Guest profiles or incognito windows may
+  // not have an IdentityManager, and are considered not signed in.
   Profile* profile = Profile::FromBrowserContext(rfh->GetBrowserContext());
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
-  if (identity_manager &&
-      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync)) {
-    return identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSync)
-        .email;
+  if (!identity_manager) {
+    return std::string();
   }
-
-  return std::string();
+  // If there's no primary account, `GetPrimaryAccountInfo()` will return an
+  // empty result.
+  return identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
+      .email;
 }
 
 PrefService* ChromePaymentRequestDelegate::GetPrefService() {
@@ -222,10 +237,15 @@ void ChromePaymentRequestDelegate::ShowNoMatchingPaymentCredentialDialog(
       content::WebContents::FromRenderFrameHost(rfh);
   if (!web_contents)
     return;
+
   spc_no_creds_dialog_ = SecurePaymentConfirmationNoCreds::Create();
-  spc_no_creds_dialog_->ShowDialog(web_contents, merchant_name, rp_id,
-                                   std::move(response_callback),
-                                   std::move(opt_out_callback));
+  spc_no_creds_dialog_->ShowDialog(
+      web_contents, merchant_name, rp_id,
+      ChainSpcFallbackOutcomeLogToCallback(
+          SecurePaymentRequestOutcome::kAnotherWay,
+          std::move(response_callback)),
+      ChainSpcFallbackOutcomeLogToCallback(SecurePaymentRequestOutcome::kOptOut,
+                                           std::move(opt_out_callback)));
 }
 
 content::RenderFrameHost* ChromePaymentRequestDelegate::GetRenderFrameHost()

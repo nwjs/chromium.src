@@ -15,6 +15,7 @@
 #include <array>
 
 #include "base/containers/heap_array.h"
+#include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/aligned_memory.h"
@@ -38,6 +39,7 @@
 #include "media/base/video_util.h"
 #include "media/renderers/shared_image_video_frame_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/fp16/src/include/fp16.h"
 #include "third_party/libyuv/include/libyuv/convert.h"
 #include "third_party/libyuv/include/libyuv/scale.h"
 #include "third_party/skia/include/core/SkImage.h"
@@ -103,9 +105,9 @@ static base::HeapArray<uint8_t> ReadbackTexture(gpu::gles2::GLES2Interface* gl,
 
 // Returns a functor that retrieves a SkColor for a given pixel, from raw RGBA
 // data.
-static auto ColorGetter(uint8_t* pixels, const gfx::Size& size) {
+static auto ColorGetter(base::span<uint8_t> pixels, const gfx::Size& size) {
   return [pixels, size](size_t x, size_t y) {
-    uint8_t* p = pixels + (size.width() * y + x) * 4;
+    base::span<uint8_t> p = pixels.subspan((size.width() * y + x) * 4);
     return SkColorSetARGB(p[3], p[0], p[1], p[2]);
   };
 }
@@ -170,9 +172,12 @@ class PaintCanvasVideoRendererTest : public testing::Test {
   base::test::TaskEnvironment task_environment_;
 };
 
-static SkBitmap AllocBitmap(int width, int height) {
+static SkBitmap AllocBitmap(int width,
+                            int height,
+                            SkColorType color_type = kN32_SkColorType) {
   SkBitmap bitmap;
-  bitmap.allocPixels(SkImageInfo::MakeN32(width, height, kPremul_SkAlphaType));
+  bitmap.allocPixels(
+      SkImageInfo::Make(width, height, color_type, kPremul_SkAlphaType));
   bitmap.eraseColor(0);
   return bitmap;
 }
@@ -260,6 +265,30 @@ static scoped_refptr<VideoFrame> CreateCroppedFrame() {
                    cropped_frame->stride(VideoFrame::Plane::kV), 16, 16);
 
   return cropped_frame;
+}
+
+static scoped_refptr<VideoFrame> CreateRGBA16TestFrame(
+    const gfx::Size& coded_size) {
+  auto frame = VideoFrame::CreateFrame(PIXEL_FORMAT_RGBAF16, coded_size,
+                                       gfx::Rect(coded_size), coded_size,
+                                       base::TimeDelta());
+  CHECK(frame);
+  frame->set_color_space(gfx::ColorSpace::CreateSRGBLinear());
+
+  // Draw full red in RGBA F16 frame.
+  for (int y = 0; y < kHeight; ++y) {
+    for (int x = 0; x < kWidth; ++x) {
+      // Fill the frame with red color.
+      uint16_t* pixel_data = reinterpret_cast<uint16_t*>(
+          frame->writable_data(0) + y * frame->stride(0) + x * 8);
+
+      pixel_data[0] = fp16_ieee_from_fp32_value(1);
+      pixel_data[1] = fp16_ieee_from_fp32_value(0);
+      pixel_data[2] = fp16_ieee_from_fp32_value(0);
+      pixel_data[3] = fp16_ieee_from_fp32_value(1);
+    }
+  }
+  return frame;
 }
 
 PaintCanvasVideoRendererTest::PaintCanvasVideoRendererTest()
@@ -400,6 +429,38 @@ TEST_F(PaintCanvasVideoRendererTest, ReinterpretAsSRGB) {
   params.reinterpret_as_srgb = true;
   renderer_.Paint(natural_frame(), target_canvas(), flags, params, nullptr);
   EXPECT_EQ(SK_ColorRED, bitmap()->getColor(0, 0));
+}
+
+TEST_F(PaintCanvasVideoRendererTest, RGBAF16) {
+  SkBitmap bitmap = AllocBitmap(kWidth, kHeight, kRGBA_F16_SkColorType);
+  cc::SkiaPaintCanvas canvas(bitmap);
+
+  auto frame = CreateRGBA16TestFrame(gfx::Size(kWidth, kHeight));
+
+  cc::PaintFlags flags;
+  flags.setBlendMode(SkBlendMode::kSrcOver);
+  flags.setFilterQuality(cc::PaintFlags::FilterQuality::kLow);
+
+  PaintCanvasVideoRenderer::PaintParams params;
+  params.dest_rect = kNaturalRect;
+  renderer_.Paint(frame, &canvas, flags, params, nullptr);
+  EXPECT_EQ(SK_ColorRED, bitmap.getColor(0, 0));
+}
+
+TEST_F(PaintCanvasVideoRendererTest, RGBAF16_N32_Output) {
+  SkBitmap bitmap = AllocBitmap(kWidth, kHeight, kN32_SkColorType);
+  cc::SkiaPaintCanvas canvas(bitmap);
+
+  auto frame = CreateRGBA16TestFrame(gfx::Size(kWidth, kHeight));
+
+  cc::PaintFlags flags;
+  flags.setBlendMode(SkBlendMode::kSrcOver);
+  flags.setFilterQuality(cc::PaintFlags::FilterQuality::kLow);
+
+  PaintCanvasVideoRenderer::PaintParams params;
+  params.dest_rect = kNaturalRect;
+  renderer_.Paint(frame, &canvas, flags, params, nullptr);
+  EXPECT_EQ(SK_ColorRED, bitmap.getColor(0, 0));
 }
 
 TEST_F(PaintCanvasVideoRendererTest, Natural) {
@@ -770,7 +831,7 @@ TEST_F(PaintCanvasVideoRendererTest, Yuv420P12OddWidth) {
   auto rgba = base::HeapArray<uint32_t>::Uninit(kImgWidth * kImgHeight);
   PaintCanvasVideoRenderer::ConvertVideoFrameToRGBPixels(
       frame.get(), rgba.data(), frame->visible_rect().width() * 4,
-      /*premultiply_alpha=*/true);
+      kN32_SkColorType, /*premultiply_alpha=*/true);
   for (int i = 0; i < kImgHeight; ++i) {
     for (int j = 0; j < kImgWidth; ++j) {
       EXPECT_EQ(rgba[i * kImgWidth + j], 0xffffffff);
@@ -832,7 +893,7 @@ TEST_F(PaintCanvasVideoRendererTest, I420WithFilters) {
   // First convert with kFilterNone (nearest neighbor).
   PaintCanvasVideoRenderer::ConvertVideoFrameToRGBPixels(
       frame.get(), rgba.data(), frame->visible_rect().width() * 4,
-      /*premultiply_alpha=*/true);
+      kN32_SkColorType, /*premultiply_alpha=*/true);
 
   // The pixel at coordinates (1, 1) will have U = 89 and V = 251 if nearest
   // neighbor is used. (The correct values are U = 93 and V = 247.)
@@ -856,7 +917,8 @@ TEST_F(PaintCanvasVideoRendererTest, I420WithFilters) {
   // Then convert with kFilterBilinear (bilinear interpolation).
   PaintCanvasVideoRenderer::ConvertVideoFrameToRGBPixels(
       frame.get(), rgba.data(), frame->visible_rect().width() * 4,
-      /*premultiply_alpha=*/true, PaintCanvasVideoRenderer::kFilterBilinear);
+      kN32_SkColorType, /*premultiply_alpha=*/true,
+      PaintCanvasVideoRenderer::kFilterBilinear);
 
   // The pixel at coordinates (1, 1) will have the correct values U = 93 and
   // V = 247 if bilinear interpolation is used.
@@ -1328,7 +1390,7 @@ TEST_F(PaintCanvasVideoRendererWithGLTest, CopyVideoFrameYUVDataToGLTexture) {
 
   base::HeapArray<uint8_t> pixels =
       ReadbackTexture(destination_gl, texture, expected_size);
-  auto get_color = ColorGetter(pixels.data(), expected_size);
+  auto get_color = ColorGetter(pixels, expected_size);
 
   // Avoid checking around the seams.
   EXPECT_EQ(SK_ColorBLACK, get_color(0, 0));
@@ -1360,7 +1422,7 @@ TEST_F(PaintCanvasVideoRendererWithGLTest,
 
   base::HeapArray<uint8_t> pixels =
       ReadbackTexture(destination_gl, texture, expected_size);
-  auto get_color = ColorGetter(pixels.data(), expected_size);
+  auto get_color = ColorGetter(pixels, expected_size);
 
   // Avoid checking around the seams.
   EXPECT_EQ(SK_ColorBLACK, get_color(0, 5));

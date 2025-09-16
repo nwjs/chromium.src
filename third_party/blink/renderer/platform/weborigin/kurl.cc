@@ -215,7 +215,7 @@ const KURL& NullURL() {
 }
 
 String KURL::ElidedString() const {
-  const WTF::String& string = string_;
+  const String& string = string_;
   if (string.length() <= 1024) {
     return string;
   }
@@ -650,18 +650,19 @@ void KURL::RemovePort() {
   ReplaceComponents(replacements);
 }
 
-void KURL::SetPort(const String& input) {
+bool KURL::SetPort(const String& input) {
   String port = RemoveURLWhitespace(input);
   String parsed_port = ParsePortFromStringPosition(port, 0);
   if (parsed_port.empty()) {
-    return;
+    return false;
   }
   bool to_uint_ok;
   unsigned port_value = parsed_port.ToUInt(&to_uint_ok);
   if (port_value > UINT16_MAX || !to_uint_ok) {
-    return;
+    return false;
   }
   SetPort(port_value);
+  return true;
 }
 
 void KURL::SetPort(uint16_t port) {

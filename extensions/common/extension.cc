@@ -58,9 +58,7 @@ namespace errors = manifest_errors;
 
 namespace {
 
-BASE_FEATURE(kValidateGetResourceURLPath,
-             "ValidateGetResourceURLPath",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(ValidateGetResourceURLPath, base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr int kMinimumSupportedManifestVersion = 2;
 constexpr int kMaximumSupportedManifestVersion = 3;
@@ -514,12 +512,10 @@ Extension::ManifestData* Extension::GetManifestData(
 
 void Extension::SetManifestData(std::string_view key,
                                 std::unique_ptr<Extension::ManifestData> data) {
-  DCHECK(!finished_parsing_manifest_ && thread_checker_.CalledOnValidThread());
-  // TODO(crbug.com/376532871): This helper avoids creating a temporary string
-  // to lookup `key` in `manifest_data_`, if key is already present. The helper
-  // can be removed with C++26, where std::map supports heterogenous key args
-  // on `std::map::operator[]()` and `std::map::insert_or_assign()`.
-  base::InsertOrAssign(manifest_data_, key, std::move(data));
+  DCHECK(!finished_parsing_manifest_);
+  DCHECK(thread_checker_.CalledOnValidThread());
+  bool inserted = manifest_data_.emplace(key, std::move(data)).second;
+  DCHECK(inserted);
 }
 
 void Extension::SetGUID(const ExtensionGuid& guid) {

@@ -29,6 +29,7 @@
 #include "pdf/document_attachment_info.h"
 #include "pdf/document_layout.h"
 #include "pdf/document_metadata.h"
+#include "pdf/page_character_index.h"
 #include "pdf/pdf_features.h"
 #include "pdf/pdfium/pdfium_draw_selection_test_base.h"
 #include "pdf/pdfium/pdfium_page.h"
@@ -74,6 +75,7 @@ using ::testing::InSequence;
 using ::testing::Invoke;
 using ::testing::IsEmpty;
 using ::testing::NiceMock;
+using ::testing::Pair;
 using ::testing::Return;
 using ::testing::StrictMock;
 
@@ -205,8 +207,9 @@ class PDFiumEngineTest : public PDFiumTestBase {
   int CountAvailablePages(const PDFiumEngine& engine) {
     int available_pages = 0;
     for (int i = 0; i < engine.GetNumberOfPages(); ++i) {
-      if (GetPDFiumPageForTest(engine, i).available())
+      if (GetPDFiumPageForTest(engine, i).available()) {
         ++available_pages;
+      }
     }
     return available_pages;
   }
@@ -1087,7 +1090,8 @@ TEST_P(PDFiumEngineTest, GetPageText) {
       InitializeEngine(&client, FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
 
-  static constexpr char16_t kExpectedPageText[] = u"Hello, world!\r\nGoodbye, world!";
+  static constexpr char16_t kExpectedPageText[] =
+      u"Hello, world!\r\nGoodbye, world!";
 
   EXPECT_EQ(kExpectedPageText, engine->GetPageText(/*page_index=*/0));
   EXPECT_EQ(kExpectedPageText, engine->GetPageText(/*page_index=*/1));
@@ -1240,7 +1244,7 @@ TEST_P(PDFiumEngineTest, ClearTextSelection) {
   EXPECT_THAT(engine->GetSelectedText(), IsEmpty());
 }
 
-TEST_P(PDFiumEngineTest, GetScreenRectsForChar) {
+TEST_P(PDFiumEngineTest, GetScreenRectsForCaret) {
   TestClient client;
   std::unique_ptr<PDFiumEngine> engine =
       InitializeEngine(&client, FILE_PATH_LITERAL("hello_world2.pdf"));
@@ -1258,12 +1262,36 @@ TEST_P(PDFiumEngineTest, GetScreenRectsForChar) {
   constexpr gfx::Rect kExpectedRect2{67, 188, 5, 19};
   constexpr gfx::Rect kExpectedRect3{43, 468, 8, 19};
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-  EXPECT_THAT(engine->GetScreenRectsForChar({0, 0}),
+  EXPECT_THAT(engine->GetScreenRectsForCaret({0, 0}),
               ElementsAre(kExpectedRect1));
-  EXPECT_THAT(engine->GetScreenRectsForChar({0, 5}),
+  EXPECT_THAT(engine->GetScreenRectsForCaret({0, 5}),
               ElementsAre(kExpectedRect2));
-  EXPECT_THAT(engine->GetScreenRectsForChar({1, 1}),
+  EXPECT_THAT(engine->GetScreenRectsForCaret({1, 1}),
               ElementsAre(kExpectedRect3));
+}
+
+TEST_P(PDFiumEngineTest, GetScreenRectsForCaretBlankPage) {
+  TestClient client;
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("blank.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(1, engine->GetNumberOfPages());
+  ASSERT_EQ(0u, engine->GetCharCount(0));
+
+  EXPECT_THAT(engine->GetScreenRectsForCaret({0, 0}),
+              ElementsAre(gfx::Rect(18, 16, 3, 17)));
+}
+
+TEST_P(PDFiumEngineTest, GetScreenRectsForCaretMiniBlankPage) {
+  TestClient client;
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("blank_mini.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(1, engine->GetNumberOfPages());
+  ASSERT_EQ(0u, engine->GetCharCount(0));
+
+  // Page is too small to fit a caret.
+  EXPECT_THAT(engine->GetScreenRectsForCaret({0, 0}), IsEmpty());
 }
 
 TEST_P(PDFiumEngineTest, InvalidateRect) {
@@ -1274,6 +1302,28 @@ TEST_P(PDFiumEngineTest, InvalidateRect) {
 
   EXPECT_CALL(client, Invalidate(gfx::Rect(1, 2, 3, 4)));
   engine->InvalidateRect(gfx::Rect(1, 2, 3, 4));
+}
+
+TEST_P(PDFiumEngineTest, IsSynthesizedNewline) {
+  NiceMock<MockTestClient> client;
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("text_newlines.pdf"));
+  ASSERT_TRUE(engine);
+
+  // 'L'.
+  EXPECT_FALSE(engine->IsSynthesizedNewline({0, 0}));
+
+  // '\n' non-synthesized.
+  EXPECT_FALSE(engine->IsSynthesizedNewline({0, 6}));
+
+  // '\r' non-synthesized.
+  EXPECT_FALSE(engine->IsSynthesizedNewline({0, 13}));
+
+  // '\r' synthesized.
+  EXPECT_TRUE(engine->IsSynthesizedNewline({0, 21}));
+
+  // '\n' synthesized.
+  EXPECT_TRUE(engine->IsSynthesizedNewline({0, 22}));
 }
 
 INSTANTIATE_TEST_SUITE_P(All, PDFiumEngineTest, testing::Bool());
@@ -1428,8 +1478,9 @@ TEST_P(PDFiumEngineTabbingTest, LinkUnderCursor) {
     EXPECT_CALL(client, SetLinkUnderCursor("")).Times(2);
   }
 
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < 3; i++) {
     ASSERT_TRUE(HandleTabEvent(engine.get(), /*modifiers=*/0));
+  }
 
   // Tab to Link annotation.
   EXPECT_CALL(client, SetLinkUnderCursor("https://www.google.com/"));
@@ -1555,8 +1606,9 @@ TEST_P(PDFiumEngineTabbingTest, TabbingForward) {
   static constexpr bool kExpectedFocusState[] = {true, false};
   {
     InSequence sequence;
-    for (auto focused : kExpectedFocusState)
+    for (auto focused : kExpectedFocusState) {
       EXPECT_CALL(client, DocumentFocusChanged(focused));
+    }
   }
 
   ASSERT_EQ(PDFiumEngine::FocusElementType::kNone,
@@ -1607,8 +1659,9 @@ TEST_P(PDFiumEngineTabbingTest, TabbingBackward) {
   static constexpr bool kExpectedFocusState[] = {true, false};
   {
     InSequence sequence;
-    for (auto focused : kExpectedFocusState)
+    for (auto focused : kExpectedFocusState) {
       EXPECT_CALL(client, DocumentFocusChanged(focused));
+    }
   }
 
   ASSERT_EQ(PDFiumEngine::FocusElementType::kNone,
@@ -1714,8 +1767,9 @@ TEST_P(PDFiumEngineTabbingTest, NoFocusableElementTabbing) {
   static constexpr bool kExpectedFocusState[] = {true, false, true, false};
   {
     InSequence sequence;
-    for (auto focused : kExpectedFocusState)
+    for (auto focused : kExpectedFocusState) {
       EXPECT_CALL(client, DocumentFocusChanged(focused));
+    }
   }
 
   ASSERT_EQ(PDFiumEngine::FocusElementType::kNone,
@@ -1763,8 +1817,9 @@ TEST_P(PDFiumEngineTabbingTest, RestoringDocumentFocus) {
   static constexpr bool kExpectedFocusState[] = {true, false, true};
   {
     InSequence sequence;
-    for (auto focused : kExpectedFocusState)
+    for (auto focused : kExpectedFocusState) {
       EXPECT_CALL(client, DocumentFocusChanged(focused));
+    }
   }
 
   EXPECT_EQ(PDFiumEngine::FocusElementType::kNone,
@@ -1808,8 +1863,9 @@ TEST_P(PDFiumEngineTabbingTest, RestoringAnnotFocus) {
   static constexpr bool kExpectedFocusState[] = {true, false};
   {
     InSequence sequence;
-    for (auto focused : kExpectedFocusState)
+    for (auto focused : kExpectedFocusState) {
       EXPECT_CALL(client, DocumentFocusChanged(focused));
+    }
   }
 
   EXPECT_EQ(PDFiumEngine::FocusElementType::kNone,
@@ -2181,16 +2237,36 @@ TEST_P(PDFiumEngineInkTest, LoadV2InkPathsForPage) {
       kPageIndex));
 }
 
+TEST_P(PDFiumEngineInkTest, GetCanonicalToPdfTransform) {
+  TestClient client;
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("hello_world2.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(2, engine->GetNumberOfPages());
+
+  static constexpr gfx::PointF kCanonicalTopLeftPoint(0.0f, 0.0f);
+  static constexpr gfx::PointF kCanonicalMiddlePoint(100.0f, 50.0f);
+  const gfx::Transform transform =
+      engine->GetCanonicalToPdfTransform(/*page_index=*/0);
+  EXPECT_EQ(gfx::PointF(0.0f, 200.0f),
+            transform.MapPoint(kCanonicalTopLeftPoint));
+  EXPECT_EQ(gfx::PointF(75.0f, 162.5f),
+            transform.MapPoint(kCanonicalMiddlePoint));
+}
+
 INSTANTIATE_TEST_SUITE_P(All, PDFiumEngineInkTest, testing::Bool());
 
 class PDFiumEngineInkTextSelectionTest : public PDFiumEngineInkTest {
  public:
 #if BUILDFLAG(IS_WIN)
-  static constexpr gfx::Rect kGoodbyeWorldExpectedRectPage0{32, 114, 156, 30};
+  static constexpr PdfRect kGoodbyeWorldExpectedRectPage0{20.0f, 94.816f,
+                                                          136.496f, 116.64f};
 #elif BUILDFLAG(IS_MAC)
-  static constexpr gfx::Rect kGoodbyeWorldExpectedRectPage0{32, 115, 156, 29};
+  static constexpr PdfRect kGoodbyeWorldExpectedRectPage0{20.0f, 94.816f,
+                                                          136.496f, 116.096f};
 #else
-  static constexpr gfx::Rect kGoodbyeWorldExpectedRectPage0{32, 116, 156, 26};
+  static constexpr PdfRect kGoodbyeWorldExpectedRectPage0{20.0f, 96.416f,
+                                                          136.496f, 115.12f};
 #endif  // BUILDFLAG(IS_WIN)
   static constexpr gfx::PointF kStartTextPositionPage0{50.0f, 110.0f};
   static constexpr gfx::PointF kNonTextPositionPage0{5.0f, 5.0f};
@@ -2222,7 +2298,7 @@ TEST_P(PDFiumEngineInkTextSelectionTest, ExtendSelectionByPoint) {
   engine->PluginSizeUpdated({1024, 4096});
 
   EXPECT_THAT(engine->GetSelectedText(), IsEmpty());
-  EXPECT_THAT(engine->GetSelectionRects(), IsEmpty());
+  EXPECT_THAT(engine->GetSelectionRectMap(), IsEmpty());
 
   engine->OnTextOrLinkAreaClick(kStartTextPositionPage0, /*click_count=*/1);
 
@@ -2231,13 +2307,14 @@ TEST_P(PDFiumEngineInkTextSelectionTest, ExtendSelectionByPoint) {
 
   EXPECT_EQ("Goodb", engine->GetSelectedText());
 #if BUILDFLAG(IS_WIN)
-  constexpr gfx::Rect kExpectedRect{32, 114, 64, 30};
+  constexpr PdfRect kExpectedRect{20.0f, 94.816f, 68.032f, 116.64f};
 #elif BUILDFLAG(IS_MAC)
-  constexpr gfx::Rect kExpectedRect{32, 115, 64, 29};
+  constexpr PdfRect kExpectedRect{20.0f, 94.816f, 68.032f, 116.096f};
 #else
-  constexpr gfx::Rect kExpectedRect{32, 116, 64, 26};
+  constexpr PdfRect kExpectedRect{20.0f, 96.416f, 68.032f, 115.12f};
 #endif  // BUILDFLAG(IS_WIN)
-  EXPECT_THAT(engine->GetSelectionRects(), ElementsAre(kExpectedRect));
+  EXPECT_THAT(engine->GetSelectionRectMap(),
+              ElementsAre(Pair(0, ElementsAre(kExpectedRect))));
 }
 
 TEST_P(PDFiumEngineInkTextSelectionTest, ExtendSelectionByPointMultiPage) {
@@ -2250,7 +2327,7 @@ TEST_P(PDFiumEngineInkTextSelectionTest, ExtendSelectionByPointMultiPage) {
   engine->PluginSizeUpdated({1024, 4096});
 
   EXPECT_THAT(engine->GetSelectedText(), IsEmpty());
-  EXPECT_THAT(engine->GetSelectionRects(), IsEmpty());
+  EXPECT_THAT(engine->GetSelectionRectMap(), IsEmpty());
 
   engine->OnTextOrLinkAreaClick(kStartTextPositionPage0, /*click_count=*/1);
 
@@ -2265,14 +2342,15 @@ TEST_P(PDFiumEngineInkTextSelectionTest, ExtendSelectionByPointMultiPage) {
   EXPECT_EQ(kExpectedText, engine->GetSelectedText());
 
 #if BUILDFLAG(IS_WIN)
-  constexpr gfx::Rect kExpectedRectPage1{32, 466, 40, 22};
+  constexpr PdfRect kExpectedRectPage1{20.0f, 46.328f, 49.664f, 62.48f};
 #elif BUILDFLAG(IS_MAC)
-  constexpr gfx::Rect kExpectedRectPage1{32, 466, 40, 22};
+  constexpr PdfRect kExpectedRectPage1{20.0f, 46.328f, 49.664f, 62.084f};
 #else
-  constexpr gfx::Rect kExpectedRectPage1{32, 468, 40, 19};
+  constexpr PdfRect kExpectedRectPage1{20.0f, 47.012f, 49.664f, 60.536f};
 #endif  // BUILDFLAG(IS_WIN)
-  EXPECT_THAT(engine->GetSelectionRects(),
-              ElementsAre(kGoodbyeWorldExpectedRectPage0, kExpectedRectPage1));
+  EXPECT_THAT(engine->GetSelectionRectMap(),
+              ElementsAre(Pair(0, ElementsAre(kGoodbyeWorldExpectedRectPage0)),
+                          Pair(1, ElementsAre(kExpectedRectPage1))));
 }
 
 TEST_P(PDFiumEngineInkTextSelectionTest, OnTextOrLinkAreaClickWithDoubleClick) {
@@ -2285,19 +2363,20 @@ TEST_P(PDFiumEngineInkTextSelectionTest, OnTextOrLinkAreaClickWithDoubleClick) {
   engine->PluginSizeUpdated({1024, 4096});
 
   EXPECT_THAT(engine->GetSelectedText(), IsEmpty());
-  EXPECT_THAT(engine->GetSelectionRects(), IsEmpty());
+  EXPECT_THAT(engine->GetSelectionRectMap(), IsEmpty());
 
   engine->OnTextOrLinkAreaClick(kStartTextPositionPage0, /*click_count=*/2);
 
   EXPECT_EQ("Goodbye", engine->GetSelectedText());
 #if BUILDFLAG(IS_WIN)
-  constexpr gfx::Rect kExpectedRect{32, 114, 87, 30};
+  constexpr PdfRect kExpectedRect{20.0f, 94.816f, 84.928f, 116.64f};
 #elif BUILDFLAG(IS_MAC)
-  constexpr gfx::Rect kExpectedRect{32, 115, 87, 29};
+  constexpr PdfRect kExpectedRect{20.0f, 94.816f, 84.928f, 116.096f};
 #else
-  constexpr gfx::Rect kExpectedRect{32, 116, 87, 26};
+  constexpr PdfRect kExpectedRect{20.0f, 96.416f, 84.928f, 115.12f};
 #endif  // BUILDFLAG(IS_WIN)
-  EXPECT_THAT(engine->GetSelectionRects(), ElementsAre(kExpectedRect));
+  EXPECT_THAT(engine->GetSelectionRectMap(),
+              ElementsAre(Pair(0, ElementsAre(kExpectedRect))));
 }
 
 TEST_P(PDFiumEngineInkTextSelectionTest, IsSelectableTextOrLinkAreaText) {
@@ -2342,13 +2421,14 @@ TEST_P(PDFiumEngineInkTextSelectionTest, OnTextOrLinkAreaClickWithTripleClick) {
   engine->PluginSizeUpdated({1024, 4096});
 
   EXPECT_THAT(engine->GetSelectedText(), IsEmpty());
-  EXPECT_THAT(engine->GetSelectionRects(), IsEmpty());
+  EXPECT_THAT(engine->GetSelectionRectMap(), IsEmpty());
 
   engine->OnTextOrLinkAreaClick(kStartTextPositionPage0, /*click_count=*/3);
 
   EXPECT_EQ("Goodbye, world!", engine->GetSelectedText());
-  EXPECT_THAT(engine->GetSelectionRects(),
-              ElementsAre(kGoodbyeWorldExpectedRectPage0));
+  EXPECT_THAT(
+      engine->GetSelectionRectMap(),
+      ElementsAre(Pair(0, ElementsAre(kGoodbyeWorldExpectedRectPage0))));
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

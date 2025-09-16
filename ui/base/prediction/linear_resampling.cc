@@ -37,6 +37,13 @@ inline gfx::PointF lerp(const InputPredictor::InputData& a,
   return a.pos + gfx::ScaleVector2d(a.pos - b.pos, alpha);
 }
 
+// This value is related to kResamplingScrollEventsExperimentalPrediction and
+// may be adjusted based on experimentation results. Currently, CalculateLatency
+// relies on reading values off of the field trial (which won't exist when we
+// ship). As such, we introduce the following constant which can be used for the
+// latency calculation.
+constexpr double kPredictFrameAheadBy = 0.375;
+
 }  // namespace
 
 LinearResampling::LinearResampling() = default;
@@ -121,10 +128,22 @@ base::TimeDelta LinearResampling::LatencyCalculator::CalculateLatency() {
   std::string prediction_type = GetFieldTrialParamValueByFeature(
       ::features::kResamplingScrollEventsExperimentalPrediction, "mode");
 
+  base::TimeDelta resample_latency;
   if (prediction_type != ::features::kPredictionTypeFramesBased) {
-    TRACE_EVENT1("ui", "LatencyCalculator::CalculateLatency", "prediction_type",
-                 "default");
-    return kResampleLatency;
+    const bool feature_enabled = base::FeatureList::IsEnabled(
+        ::features::kResamplingScrollEventsExperimentalPrediction);
+    // If the feature is enabled and no field trial is active, default to using
+    // kPredictFrameAheadBy. Tests that set up field trials need not hit this
+    // path since they are testing specific latency values.
+    resample_latency =
+        kResampleLatency + (feature_enabled
+                                ? (kPredictFrameAheadBy * frame_interval_)
+                                : base::Milliseconds(0));
+    TRACE_EVENT2("ui", "LatencyCalculator::CalculateLatency", "prediction_type",
+                 (feature_enabled ? "frames" : "default"),
+                 "predicting ahead by (in ms)",
+                 resample_latency.InMillisecondsF());
+    return resample_latency;
   }
 
   double latency = 0;
@@ -135,9 +154,12 @@ base::TimeDelta LinearResampling::LatencyCalculator::CalculateLatency() {
           &latency)) {
     latency = 0.5;
   }
+
+  resample_latency = latency * frame_interval_ + kResampleLatency;
   TRACE_EVENT2("ui", "LatencyCalculator::CalculateLatency", "prediction_type",
-               prediction_type, "latency", latency);
-  return latency * frame_interval_ + kResampleLatency;
+               prediction_type, "predicting ahead by (in ms)",
+               resample_latency.InMillisecondsF());
+  return resample_latency;
 }
 
 }  // namespace ui

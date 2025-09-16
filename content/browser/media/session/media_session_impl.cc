@@ -281,6 +281,10 @@ void MediaSessionImpl::RenderFrameDeleted(RenderFrameHost* rfh) {
     OnServiceDestroyed(services_[rfh_id]);
 }
 
+void MediaSessionImpl::PrimaryPageChanged(content::Page& page) {
+  last_auto_picture_in_picture_info_.reset();
+}
+
 void MediaSessionImpl::DidFinishNavigation(
     NavigationHandle* navigation_handle) {
   if (!navigation_handle->HasCommitted() ||
@@ -468,6 +472,7 @@ bool MediaSessionImpl::AddPlayer(MediaSessionPlayerObserver* observer,
       RebuildAndNotifyMediaSessionInfoChanged();
       RebuildAndNotifyActionsChanged();
       RebuildAndNotifyMediaPositionChanged();
+      NotifyPlayerOfAutoPictureInPictureInfo(observer, player_id);
       return true;
     }
   }
@@ -509,6 +514,7 @@ bool MediaSessionImpl::AddPlayer(MediaSessionPlayerObserver* observer,
   RebuildAndNotifyMediaSessionInfoChanged();
   RebuildAndNotifyActionsChanged();
   RebuildAndNotifyMediaPositionChanged();
+  NotifyPlayerOfAutoPictureInPictureInfo(observer, player_id);
 
   return true;
 }
@@ -1412,6 +1418,12 @@ void MediaSessionImpl::ReportAutoPictureInPictureInfoChanged() {
       media::PictureInPictureEventsInfo::AutoPipInfo{
           content_client->browser()->GetAutoPipInfo(*web_contents())};
 
+  if (last_auto_picture_in_picture_info_ == auto_picture_in_picture_info) {
+    return;
+  }
+
+  last_auto_picture_in_picture_info_ = auto_picture_in_picture_info;
+
   ForAllPlayers(base::BindRepeating(
       [](const media::PictureInPictureEventsInfo::AutoPipInfo&
              auto_picture_in_picture_info,
@@ -1505,6 +1517,8 @@ bool MediaSessionImpl::AddOneShotPlayer(MediaSessionPlayerObserver* observer,
   RebuildAndNotifyMediaSessionInfoChanged();
   RebuildAndNotifyMediaPositionChanged();
 
+  NotifyPlayerOfAutoPictureInPictureInfo(observer, player_id);
+
   return true;
 }
 
@@ -1582,6 +1596,7 @@ void MediaSessionImpl::OnMediaSessionInfoChanged(
     return;
 
   RebuildAndNotifyMediaSessionInfoChanged();
+  RebuildAndNotifyActionsChanged();
 }
 
 void MediaSessionImpl::DidReceiveAction(
@@ -2128,6 +2143,17 @@ void MediaSessionImpl::SetShouldThrottleDurationUpdateForTest(
   should_throttle_duration_update_ = should_throttle;
 }
 
+bool MediaSessionImpl::IsActivelyUsingCameraOrMicrophone() const {
+  if (!routed_service_) {
+    return false;
+  }
+
+  return routed_service_->microphone_state() ==
+             media_session::mojom::MicrophoneState::kUnmuted ||
+         routed_service_->camera_state() ==
+             media_session::mojom::CameraState::kTurnedOn;
+}
+
 bool MediaSessionImpl::CouldEnterBrowserInitiatedAutomaticPictureInPicture()
     const {
   if (!base::FeatureList::IsEnabled(
@@ -2136,6 +2162,10 @@ bool MediaSessionImpl::CouldEnterBrowserInitiatedAutomaticPictureInPicture()
   }
 
   if (!IsPictureInPictureAvailable()) {
+    return false;
+  }
+
+  if (IsActivelyUsingCameraOrMicrophone()) {
     return false;
   }
 
@@ -2170,6 +2200,16 @@ void MediaSessionImpl::MaybeEnterBrowserInitiatedAutomaticPictureInPicture()
 
   auto& first = normal_players_.begin()->first;
   first.observer->OnEnterPictureInPicture(first.player_id);
+}
+
+void MediaSessionImpl::NotifyPlayerOfAutoPictureInPictureInfo(
+    MediaSessionPlayerObserver* observer,
+    int player_id) {
+  if (!last_auto_picture_in_picture_info_) {
+    return;
+  }
+  observer->OnAutoPictureInPictureInfoChanged(
+      player_id, *last_auto_picture_in_picture_info_);
 }
 
 bool MediaSessionImpl::HasImageCacheForTest(const GURL& image_url) const {

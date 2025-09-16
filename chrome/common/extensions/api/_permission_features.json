@@ -218,15 +218,11 @@
   "debugger": [
     {
       "channel": "stable",
-      "extension_types": ["extension", "legacy_packaged_app"],
-      // "desktop_android" is not supported.
-      "platforms": ["chromeos", "linux", "mac", "win"]
+      "extension_types": ["extension", "legacy_packaged_app"]
     },
     {
       "channel": "stable",
       "extension_types": ["platform_app"],
-      // "desktop_android" is not supported.
-      "platforms": ["chromeos", "linux", "mac", "win"],
       "allowlist": [
         "AE27D69DBE571F4B1694F05C89B710C646792231" // Published ADT.
       ]
@@ -235,10 +231,6 @@
   "developerPrivate": {
     "channel": "stable",
     "extension_types": ["platform_app"]
-  },
-  "devtools": {
-    "channel": "stable",
-    "extension_types": ["extension", "legacy_packaged_app"]
   },
   "declarativeContent": {
     "channel": "stable",
@@ -876,9 +868,7 @@
   },
   "search": {
     "channel": "stable",
-    "extension_types": ["extension"],
-    // "desktop_android" is not supported.
-    "platforms": ["chromeos", "linux", "mac", "win"]
+    "extension_types": ["extension"]
   },
   "sessions": {
     "channel": "stable",

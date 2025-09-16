@@ -45,6 +45,8 @@ class VirtualCardEnrollmentManager;
 
 namespace payments {
 
+class BnplStrategy;
+class BnplUiDelegate;
 class PaymentsWindowManager;
 
 // This class is for easier writing of tests. It is owned by TestAutofillClient.
@@ -212,6 +214,12 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   void SetUpDeviceBiometricAuthenticatorSuccessOnAutomotive();
 #endif
 
+  BnplStrategy* GetBnplStrategy() override;
+
+  BnplUiDelegate* GetBnplUiDelegate() override;
+
+  void set_bnpl_ui_delegate(std::unique_ptr<BnplUiDelegate> bnpl_ui_delegate);
+
  private:
   const raw_ref<AutofillClient> client_;
 
@@ -294,6 +302,16 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   std::unique_ptr<AutofillOfferManager> autofill_offer_manager_;
   std::unique_ptr<MockMandatoryReauthManager>
       mock_payments_mandatory_reauth_manager_;
+
+  // The BnplStrategy used to determine the next step in a BNPL flow depending
+  // on the platform.
+  // Lazily initialized: access only through `GetBnplStrategy()`.
+  std::unique_ptr<BnplStrategy> bnpl_strategy_;
+
+  // The BnplUiDelegate used to handle the UI in a BNPL flow depending on the
+  // platform.
+  // Lazily initialized: access only through `GetBnplUiDelegate()`.
+  std::unique_ptr<BnplUiDelegate> bnpl_ui_delegate_;
 };
 
 }  // namespace payments

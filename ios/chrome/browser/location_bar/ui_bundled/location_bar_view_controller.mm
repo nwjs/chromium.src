@@ -297,7 +297,8 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
   }
 
   if (IsPageActionMenuEnabled()) {
-    _pageActionMenuEntrypointView = [[PageActionMenuEntrypointView alloc] init];
+    _pageActionMenuEntrypointView = [[PageActionMenuEntrypointView alloc]
+        initWithNewBadgeVisible:_isAIHubNewBadgeVisible];
     [_pageActionMenuEntrypointView
                addTarget:self
                   action:@selector(handlePageActionMenuEntrypointTapped)
@@ -362,20 +363,6 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
         _defaultSearchEngineIconView,
         CGSizeMake(kOmniboxLeadingImageSize + 12.0f, kOmniboxLeadingImageSize));
   }
-}
-
-- (void)viewWillDisappear:(BOOL)animated {
-  [super viewWillDisappear:animated];
-
-  [NSNotificationCenter.defaultCenter
-      removeObserver:self
-                name:UIPasteboardChangedNotification
-              object:nil];
-
-  [NSNotificationCenter.defaultCenter
-      removeObserver:self
-                name:UIApplicationDidBecomeActiveNotification
-              object:nil];
 }
 
 #if !defined(__IPHONE_17_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_17_0
@@ -1067,6 +1054,10 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
 
 - (void)handlePageActionMenuEntrypointTapped {
   // TODO(crbug.com/402827015): Log opens.
+  if (_isAIHubNewBadgeVisible) {
+    [_pageActionMenuEntrypointView setNewBadgeVisible:NO];
+    _isAIHubNewBadgeVisible = NO;
+  }
   if (IsDirectBWGEntryPoint()) {
     [self.BWGHandler startBWGFlowWithEntryPoint:bwg::EntryPoint::OmniboxChip];
   } else {

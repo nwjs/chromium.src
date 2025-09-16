@@ -45,9 +45,9 @@ const CountryLocaleMap& GetAllowedCountryToLocaleMap() {
     map[&kPriceAnnotations] = {{"us", {"en-us"}}};
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_IOS)
     map[&kEnableDiscountInfoApi] = {{"us", {"en-us"}}};
-#endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
+#endif  // !BUILDFLAG(IS_IOS)
 
     map[&ntp_features::kNtpChromeCartModule] = {{"us", {"en-us"}}};
     map[&kPriceInsights] = {{"us", {"en-us"}}};
@@ -309,8 +309,6 @@ const char kRetailCouponsWithCodeParam[] = "RetailCouponsWithCodeParam";
 BASE_FEATURE(kDiscountConsentV2,
              "DiscountConsentV2",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kCodeBasedRBD, "CodeBasedRBD", base::FEATURE_ENABLED_BY_DEFAULT);
 
 extern const char kShopCardArm1[] = "arm_1";
 extern const char kShopCardArm2[] = "arm_2";

@@ -5,8 +5,8 @@
 #include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_transceiver_impl.h"
 
 #include "base/check_op.h"
-#include "base/functional/bind.h"
 #include "base/task/single_thread_task_runner.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
 #include "third_party/webrtc/api/scoped_refptr.h"
 
@@ -22,8 +22,7 @@ RtpTransceiverState::RtpTransceiverState(
     webrtc::RtpTransceiverDirection direction,
     std::optional<webrtc::RtpTransceiverDirection> current_direction,
     std::optional<webrtc::RtpTransceiverDirection> fired_direction,
-    WTF::Vector<webrtc::RtpHeaderExtensionCapability>
-        header_extensions_negotiated)
+    Vector<webrtc::RtpHeaderExtensionCapability> header_extensions_negotiated)
     : main_task_runner_(std::move(main_task_runner)),
       signaling_task_runner_(std::move(signaling_task_runner)),
       webrtc_transceiver_(std::move(webrtc_transceiver)),
@@ -317,9 +316,9 @@ struct RTCRtpTransceiverImpl::RTCRtpTransceiverInternalTraits {
     if (!transceiver->main_task_runner_->BelongsToCurrentThread()) {
       transceiver->main_task_runner_->PostTask(
           FROM_HERE,
-          base::BindOnce(
+          blink::BindOnce(
               &RTCRtpTransceiverImpl::RTCRtpTransceiverInternalTraits::Destruct,
-              base::Unretained(transceiver)));
+              blink::Unretained(transceiver)));
       return;
     }
     delete transceiver;

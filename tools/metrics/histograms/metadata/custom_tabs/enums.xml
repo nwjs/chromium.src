@@ -157,12 +157,6 @@ chromium-metrics-reviews@google.com.
 
 <!--LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/customtabs/CustomTabsFeatureUsage.java:CustomTabsFeature) -->
 
-<enum name="CustomTabsMinimizedEvents">
-  <int value="0" label="Minimized into PiP"/>
-  <int value="1" label="Maximized from PiP"/>
-  <int value="2" label="PiP dismissed or destroyed"/>
-</enum>
-
 <enum name="CustomTabsMinimizedFeatureAvailability">
   <int value="0" label="Available"/>
   <int value="1"
@@ -231,16 +225,6 @@ chromium-metrics-reviews@google.com.
   <int value="8"
       label="Custom Tab in Background, KEEP_ALIVE set, the system is low on
              memory"/>
-</enum>
-
-<enum name="EarlyNavFailureReason">
-  <int value="0" label="Success"/>
-  <int value="1" label="No session"/>
-  <int value="2" label="No speculation"/>
-  <int value="3" label="Wrong URL, valid session"/>
-  <int value="4" label="Wrong URL, invalid session"/>
-  <int value="5" label="Wrong referrer, valid session"/>
-  <int value="6" label="Wrong referrer, invalid session"/>
 </enum>
 
 <!-- LINT.IfChange(FinishReason) -->

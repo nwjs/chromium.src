@@ -14,6 +14,7 @@
 #include "base/check_op.h"
 #include "base/posix/safe_strerror.h"
 #include "base/synchronization/lock.h"
+#include "base/synchronization/lock_metrics_recorder.h"
 #include "base/synchronization/synchronization_buildflags.h"
 #include "base/system/sys_info.h"
 #include "build/build_config.h"
@@ -124,6 +125,7 @@ LockImpl::~LockImpl() {
 }
 
 void LockImpl::LockInternal() {
+  LockMetricsRecorder::ScopedLockAcquisitionTimer timer;
   int rv = pthread_mutex_lock(&native_handle_);
   DCHECK_EQ(rv, 0) << ". " << SystemErrorCodeToString(rv);
 }
@@ -162,12 +164,15 @@ bool KernelSupportsPriorityInheritanceFutex() {
   // kernel and was backported to the 6.1.75 and 6.6.29 kernels. This change
   // hasn't been upstreamed yet.
 #if BUILDFLAG(IS_ANDROID)
-  auto kernel_version = SysInfo::KernelVersionNumber::Current();
-  return (kernel_version > SysInfo::KernelVersionNumber(6, 12, 13)) ||
-         ((kernel_version > SysInfo::KernelVersionNumber(6, 6, 29)) &&
-          (kernel_version < SysInfo::KernelVersionNumber(6, 6, INT32_MAX))) ||
-         ((kernel_version > SysInfo::KernelVersionNumber(6, 1, 75)) &&
-          (kernel_version < SysInfo::KernelVersionNumber(6, 1, INT32_MAX)));
+  static bool supports_pi_futex = [] {
+    auto kernel_version = SysInfo::KernelVersionNumber::Current();
+    return (kernel_version > SysInfo::KernelVersionNumber(6, 12, 13)) ||
+           ((kernel_version > SysInfo::KernelVersionNumber(6, 6, 29)) &&
+            (kernel_version < SysInfo::KernelVersionNumber(6, 6, INT32_MAX))) ||
+           ((kernel_version > SysInfo::KernelVersionNumber(6, 1, 75)) &&
+            (kernel_version < SysInfo::KernelVersionNumber(6, 1, INT32_MAX)));
+  }();
+  return supports_pi_futex;
 #else   // BUILDFLAG(IS_ANDROID)
   return false;
 #endif  // BUILDFLAG(IS_ANDROID)

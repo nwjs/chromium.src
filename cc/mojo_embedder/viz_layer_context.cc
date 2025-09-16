@@ -17,6 +17,7 @@
 #include "base/containers/span.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/time/time.h"
 #include "cc/animation/animation.h"
 #include "cc/animation/animation_host.h"
 #include "cc/animation/animation_timeline.h"
@@ -432,7 +433,8 @@ viz::mojom::ScrollTreeUpdatePtr ComputeScrollTreePropertiesUpdate(
   if (old_tree.synced_scroll_offset_map() ==
           new_tree.synced_scroll_offset_map() &&
       old_tree.scrolling_contents_cull_rects() ==
-          new_tree.scrolling_contents_cull_rects()) {
+          new_tree.scrolling_contents_cull_rects() &&
+      old_tree.elastic_overscroll() == new_tree.elastic_overscroll()) {
     return nullptr;
   }
 
@@ -440,6 +442,7 @@ viz::mojom::ScrollTreeUpdatePtr ComputeScrollTreePropertiesUpdate(
   wire->synced_scroll_offsets = new_tree.synced_scroll_offset_map();
   wire->scrolling_contents_cull_rects =
       new_tree.scrolling_contents_cull_rects();
+  wire->elastic_overscroll = new_tree.elastic_overscroll();
 
   return wire;
 }
@@ -593,8 +596,10 @@ void SerializePictureLayerTileUpdates(
     PictureLayerImpl& layer,
     viz::ClientResourceProvider& resource_provider,
     viz::RasterContextProvider& context_provider,
-    std::vector<viz::mojom::TilingPtr>& tilings) {
-  auto updates = layer.TakeUpdatedTiles();
+    std::vector<viz::mojom::TilingPtr>& tilings,
+    bool needs_full_sync) {
+  auto updates =
+      needs_full_sync ? layer.TakeAllTiles() : layer.TakeUpdatedTiles();
 
   for (const auto& [scale_key, tile_indices] : updates) {
     const auto* tiling =
@@ -797,7 +802,8 @@ void SerializeSurfaceLayerExtra(SurfaceLayerImpl& layer,
 void SerializeLayer(LayerImpl& layer,
                     viz::ClientResourceProvider& resource_provider,
                     viz::RasterContextProvider& context_provider,
-                    viz::mojom::LayerTreeUpdate& update) {
+                    viz::mojom::LayerTreeUpdate& update,
+                    bool needs_full_sync) {
   auto& wire = *update.layers.emplace_back(viz::mojom::Layer::New());
   wire.id = layer.id();
   wire.element_id = layer.element_id();
@@ -921,7 +927,8 @@ void SerializeLayer(LayerImpl& layer,
       wire.layer_extra = viz::mojom::LayerExtra::NewTileDisplayLayerExtra(
           std::move(tile_display_extra));
       SerializePictureLayerTileUpdates(picture_layer, resource_provider,
-                                       context_provider, update.tilings);
+                                       context_provider, update.tilings,
+                                       needs_full_sync);
       break;
     }
     case mojom::LayerType::kTexture: {
@@ -1242,7 +1249,7 @@ void VizLayerContext::SetVisible(bool visible) {
   service_->SetVisible(visible);
 }
 
-void VizLayerContext::UpdateDisplayTreeFrom(
+base::TimeTicks VizLayerContext::UpdateDisplayTreeFrom(
     LayerTreeImpl& tree,
     viz::ClientResourceProvider& resource_provider,
     viz::RasterContextProvider& context_provider,
@@ -1276,7 +1283,6 @@ void VizLayerContext::UpdateDisplayTreeFrom(
   update->background_color = tree.background_color();
 
   const ViewportPropertyIds& property_ids = tree.viewport_property_ids();
-  update->elastic_overscroll = tree.elastic_overscroll()->Current(true);
   update->overscroll_elasticity_transform =
       property_ids.overscroll_elasticity_transform;
   update->page_scale_transform = property_ids.page_scale_transform;
@@ -1324,17 +1330,23 @@ void VizLayerContext::UpdateDisplayTreeFrom(
 
   if (needs_full_sync_) {
     for (LayerImpl* layer : tree) {
-      SerializeLayer(*layer, resource_provider, context_provider, *update);
+      SerializeLayer(*layer, resource_provider, context_provider, *update,
+                     /*needs_full_sync=*/true);
     }
   } else {
     for (LayerImpl* layer : tree.LayersThatShouldPushProperties()) {
-      SerializeLayer(*layer, resource_provider, context_provider, *update);
+      SerializeLayer(*layer, resource_provider, context_provider, *update,
+                     /*needs_full_sync=*/false);
     }
   }
   tree.ClearLayersThatShouldPushProperties();
 
   // TODO(rockot): Granular change tracking for property trees, so we aren't
   // diffing every time.
+  if (needs_full_sync_) {
+    last_committed_property_trees_.clear();
+    pushed_animation_timelines_.clear();
+  }
   PropertyTrees& old_trees = last_committed_property_trees_;
   ComputePropertyTreeUpdate(
       old_trees.transform_tree(), property_trees.transform_tree(),
@@ -1354,6 +1366,15 @@ void VizLayerContext::UpdateDisplayTreeFrom(
       old_trees.scroll_tree(), property_trees.scroll_tree());
 
   last_committed_property_trees_ = property_trees;
+
+  // Some deltas are normally not copied when adopting a new pending tree.
+  // See details in ScrollTree::operator=(const ScrollTree& from).
+  // However, we want to remember the last updates committed to viz.
+  last_committed_property_trees_.scroll_tree_mutable()
+      .synced_scroll_offset_map() =
+      property_trees.scroll_tree().synced_scroll_offset_map();
+  last_committed_property_trees_.scroll_tree_mutable().elastic_overscroll() =
+      property_trees.scroll_tree().elastic_overscroll();
 
   if (tree.needs_surface_ranges_sync() || needs_full_sync_) {
     update->surface_ranges.emplace();
@@ -1377,9 +1398,12 @@ void VizLayerContext::UpdateDisplayTreeFrom(
   if (base::FeatureList::IsEnabled(features::kTreeAnimationsInViz)) {
     SerializeAnimationUpdates(tree, *update);
   }
+
+  base::TimeTicks time_sent_to_service = base::TimeTicks::Now();
   service_->UpdateDisplayTree(std::move(update));
 
   needs_full_sync_ = false;
+  return time_sent_to_service;
 }
 
 // Sends a single-tile update to the Viz service by serializing it as a tiling.
@@ -1389,6 +1413,13 @@ void VizLayerContext::UpdateDisplayTile(
     viz::ClientResourceProvider& resource_provider,
     viz::RasterContextProvider& context_provider,
     bool update_damage) {
+  if (needs_full_sync_) {
+    // If |needs_full_sync_| is set due to context lost, we will need to sync
+    // the entire tree and all tiles from PictureLayers through
+    // UpdateDisplayTreeFrom(). Incremental tiles updates is paused until
+    // UpdateDisplayTreeFrom() clears the |needs_full_sync_|.
+    return;
+  }
   // Create a one-element update list for the given tile.
   TileIndex index(tile.tiling_i_index(), tile.tiling_j_index());
   const Tile* tile_ptr = &tile;

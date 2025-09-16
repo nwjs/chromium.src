@@ -241,10 +241,12 @@ export declare interface GlicBrowserHost {
    * rejected.
    *
    * If the task ID is not provided or 0, the most recent task is stopped.
+   * If the stopReason is not provided, it uses the default value
+   * ActorTaskStopReason.TASK_COMPLETE.
    *
    * @todo Require callers to provide a valid ID.
    */
-  stopActorTask?(taskId?: number): void;
+  stopActorTask?(taskId?: number, stopReason?: ActorTaskStopReason): void;
 
   /**
    * Pauses the actor task with the given ID in the browser if it exists. No-op
@@ -255,10 +257,12 @@ export declare interface GlicBrowserHost {
    * canceled and the associated Promises are rejected.
    *
    * If the task ID is 0, the most recent task is paused.
+   * If the pauseReason is not provided, it uses the default value
+   * ActorTaskPauseReason.PAUSED_BY_MODEL.
    *
    * @todo Require callers to provide a valid ID.
    */
-  pauseActorTask?(taskId: number): void;
+  pauseActorTask?(taskId: number, pauseReason?: ActorTaskPauseReason): void;
 
   /**
    * Resumes a previously paused actor task with the given ID.
@@ -397,6 +401,15 @@ export declare interface GlicBrowserHost {
   isBrowserOpen?(): ObservableValue<boolean>;
 
   /**
+   * Provides information about the currently active browser window. Emits
+   * undefined if there is no active browser window.
+   *
+   * A browser window is considered active if it is the current active window,
+   * or if the panel is active and it is the last browser window that had focus.
+   */
+  activeBrowser?(): ObservableValue<ActiveBrowserInfo|undefined>;
+
+  /**
    * Returns the observable state of the currently focused tab. Updates are sent
    * whenever:
    * - The user switches active tabs, which causes a change in `tabId`.
@@ -431,6 +444,12 @@ export declare interface GlicBrowserHost {
 
   /** Returns the state of the glic closed captioning setting. */
   getClosedCaptioningSetting?(): ObservableValue<boolean>;
+
+  /**
+   * Returns the state of the default tab context permission for new sessions.
+   * The returned observable will be updated when the setting changes.
+   */
+  getDefaultTabContextPermissionState?(): ObservableValue<boolean>;
 
   /**
    * Set the state of the microphone permission in settings. Returns a promise
@@ -605,8 +624,8 @@ export declare interface GlicBrowserHost {
    * `ObservableValue` instances. So if a previous one existed, it will stop
    * receiving updates when a new one is obtained.
    *
-   * Dynamic updates can be a costly operation so the observable value should be
-   * released/destroyed as soon as it's not useful anymore.
+   * Dynamic updates can be a costly operation so the observable should be
+   * subscribed only while it is required.
    */
   getPinCandidates?
       (options: GetPinCandidatesOptions): ObservableValue<PinCandidate[]>;
@@ -642,6 +661,42 @@ export declare interface GlicBrowserHost {
    * state of the web client, such as toggle controls.
    */
   onViewChanged?(notification: ViewChangedNotification): void;
+
+  /**
+   * Returns an observable that emits when PageMetadata for the given tab
+   * changes. Only meta tags which are direct children of the head element and
+   * match one of the names provided in the names parameter will be
+   * monitored.
+   *
+   * If the tabId is invalid, the observable will complete immediately and not
+   * emit, even if the tabId becomes valid later.
+   *
+   * @throws {Error} if the names parameter is empty.
+   *
+   * Only one observable per tabId is supported. If a second observable is
+   * requested for the same tabId, the first observable will be returned, and
+   * therefore the names parameter is ignored in this case.
+   *
+   *
+   * When the tab is destroyed, the observable will complete.
+   */
+  getPageMetadata?(tabId: string, names: string[]): ObservableValue<PageMetadata>;
+
+  /**
+   * Returns an observable that emits when the browser wants the web client to
+   * show a credential selection dialog.
+   *
+   * NOTE:
+   * - The browser will only request one dialog at a time. We might have to
+   * support concurrent PerformActions() in the future. The plan is to
+   * sequence the requests.
+   * - Currently the browser won't cancel the request. The task that issues the
+   * request will yield and wait for the response, or fail the task when it
+   * times out. The web client must also observe `getActorTaskState()` to clean
+   * up the UI elements when the task is no longer active.
+   */
+  selectCredentialDialogRequestHandler?
+      (): Observable<SelectCredentialDialogRequest>;
 }
 /** Fields of interest from the system settings page. */
 export type OsPermissionType = 'media'|'geolocation';
@@ -712,7 +767,7 @@ export declare interface GlicBrowserHostMetrics {
    * Called when the response was completed, cancelled, or paused for the first
    * time.
    */
-  onResponseStopped?(): void;
+  onResponseStopped?(details?: OnResponseStoppedDetails): void;
 
   /** Called when a session terminates. */
   onSessionTerminated?(): void;
@@ -730,6 +785,12 @@ export declare interface GlicBrowserHostMetrics {
    * Called when a turn has been completed.
    */
   onTurnCompleted?(model: WebClientModel, duration: number): void;
+
+  /**
+   * Called when the model is changed. Metrics may be recorded with a separate
+   * scope.
+   */
+  onModelChanged?(model: WebClientModel): void;
 }
 
 /** Web client's operation modes */
@@ -746,6 +807,19 @@ export enum WebClientModel {
 
   /** Actor model. */
   ACTOR = 1,
+}
+
+export enum ResponseStopCause {
+  /** User cancelled response. */
+  USER = 0,
+
+  /** System cancelled response for another reason. */
+  OTHER = 1,
+}
+
+/** Details for metrics recording purposes. */
+export declare interface OnResponseStoppedDetails {
+  cause?: ResponseStopCause;
 }
 
 /** An encoded journal. */
@@ -919,6 +993,8 @@ export enum InvocationSource {
   AFTER_SIGN_IN = 10,
   /** User shared a tab. */
   SHARED_TAB = 11,
+  /** From the actor task icon. */
+  ACTOR_TASK_ICON = 12,
 }
 
 /** The default value of TabContextOptions.pdfSizeLimit. */
@@ -1272,6 +1348,22 @@ export enum ActorTaskState {
   STOPPED = 4,
 }
 
+/* The reason/source of why a actor task was paused. */
+export enum ActorTaskPauseReason {
+  /* Actor task was paused by the model. */
+  PAUSED_BY_MODEL = 0,
+  /* Actor task was puased by the user. */
+  PAUSED_BY_USER = 1,
+}
+
+/* The reason/source of why an actor task was stopped. */
+export enum ActorTaskStopReason {
+  /* Actor task is complete. */
+  TASK_COMPLETE = 0,
+  /* Actor task was stopped by the user. */
+  STOPPED_BY_USER = 1,
+}
+
 export enum PerformActionsErrorReason {
   UNKNOWN = 0,
 
@@ -1535,6 +1627,13 @@ export declare interface ViewChangedNotification {
 export declare interface Observable<T> {
   /** Receive updates for value changes. */
   subscribe(change: (newValue: T) => void): Subscriber;
+
+  /**
+   * Subscribe with an Observer.
+   * This API was added in later, and is not supported by all versions of
+   * Chrome.
+   */
+  subscribeObserver?(observer: Observer<T>): Subscriber;
 }
 
 /**
@@ -1556,6 +1655,16 @@ export interface ObservableValue<T> extends Observable<T> {
 /** Allows control of a subscription to an Observable. */
 export declare interface Subscriber {
   unsubscribe(): void;
+}
+
+/** Observes an Observable. */
+export declare interface Observer<T> {
+  /** Called when the Observable emits a value. */
+  next?(value: T): void;
+  /** Called if the Observable emits an error. */
+  error?(err: any): void;
+  /** Called when the Observable completes. */
+  complete?(): void;
 }
 
 /** Information from a signed-in Chrome user profile. */
@@ -1644,12 +1753,77 @@ export declare interface SuggestionContent {
   suggestion: string;
 }
 
+/** Information about the active browser window. */
+export declare interface ActiveBrowserInfo {
+  /** The unique ID of the active browser window. */
+  windowId: string;
+  /** Whether the active browser window is using the current user profile. */
+  usingThisProfile: boolean;
+}
+
 /** Describes the capability of the glic host. */
 export enum HostCapability {
   /** Glic host supports scrollTo() on PDF documents. */
   SCROLL_TO_PDF = 0,
   /** Glic host will reset panel size and location on open. */
   RESET_SIZE_AND_LOCATION_ON_OPEN = 1,
+}
+
+/**
+ * Describes how long the user grants the actor with the permission to actuate.
+ * Used when the actor is to actuate with sensitive data, such as entering
+ * payment information or login credentials.
+ */
+export enum UserGrantedPermissionDuration {
+  // The user only grants a one-time permission. The user will be asked again.
+  // This is the default behavior.
+  ONE_TIME = 0,
+  // The user grants a permission to always allow the actor to actuate with
+  // sensitive data. The persistence of this permission is defined differently
+  // for different features.
+  ALWAYS_ALLOW = 1
+}
+
+/** Credential selection dialog. */
+
+/** A credential used for the auto-login. */
+export declare interface Credential {
+  // A unique identifier for this credential. Should not be displayed to the
+  // user.
+  id: number;
+  // The username of the credential. Unique for a given sourceSiteOrApp. It can
+  // be empty if, for example, the credential is stored as a password only.
+  username: string;
+  // The original website or application for which this credential was saved
+  // for.
+  sourceSiteOrApp: string;
+}
+
+export declare interface SelectCredentialDialogRequest {
+  // The task ID that is requesting the credential selection.
+  taskId: number;
+  // Whether the web client should show a dialog to let the user select a
+  // credential. The web client doesn't have to show the dialog if the user has
+  // granted UserGrantedPermissionDuration.ALWAYS_ALLOW to the actor.
+  showDialog: boolean;
+  // The order of `credentials` is based on what the browser believes to be the
+  // best match to use.
+  credentials: Credential[];
+  // TODO(crbug.com/438710031): Include the optional favicon for the credential.
+
+  // The WebClient must call this function to respond back to the browser when
+  // the dialog is closed.
+  onDialogClosed(result: {response: SelectCredentialDialogResponse}): void;
+}
+
+export declare interface SelectCredentialDialogResponse {
+  // The response is associated with the request that has the same task ID.
+  taskId: number;
+  // Only set if the user changes the permission duration.
+  permissionDuration?: UserGrantedPermissionDuration;
+  // The ID of the selected credential. Only undefined if the user closed the UI
+  // without making a selection.
+  selectedCredentialId?: number;
 }
 
 //
@@ -1665,6 +1839,7 @@ export interface BackwardsCompatibleTypes {
   browserHost: GlicBrowserHost;
   chromeVersion: ChromeVersion;
   createTabOptions: CreateTabOptions;
+  credential: Credential;
   documentData: DocumentData;
   draggableArea: DraggableArea;
   focusedTabData: FocusedTabData;
@@ -1677,6 +1852,8 @@ export interface BackwardsCompatibleTypes {
   panelState: PanelState;
   pdfDocumentData: PdfDocumentData;
   resizeWindowOptions: ResizeWindowOptions;
+  selectCredentialDialogRequest: SelectCredentialDialogRequest;
+  selectCredentialDialogResponse: SelectCredentialDialogResponse;
   screenshot: Screenshot;
   scrollToParams: ScrollToParams;
   scrollToSelector: ScrollToSelector;
@@ -1714,4 +1891,7 @@ export interface ExtensibleEnums {
   settingsPageField: typeof SettingsPageField;
   hostCapability: typeof HostCapability;
   actorTaskState: typeof ActorTaskState;
+  actorTaskPauseReason: typeof ActorTaskPauseReason;
+  actorTaskStopReason: typeof ActorTaskStopReason;
+  UserGrantedPermissionDuration: typeof UserGrantedPermissionDuration;
 }

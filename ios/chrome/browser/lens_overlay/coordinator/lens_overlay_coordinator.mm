@@ -1583,10 +1583,6 @@ const base::TimeDelta kSearchWithCameraTooltipHintDelay = base::Seconds(2.0);
     return;
   }
 
-  if (_entrypoint == LensOverlayEntrypoint::kFREPromo) {
-    [_selectionViewController setHUDViewHidden:NO];
-  }
-
   __weak __typeof(self) weakSelf = self;
 
   SheetDimensionState restoredSheetState =

@@ -16,6 +16,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/logging/user_signin_logger.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator+protected.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/chrome_coordinator/animated_coordinator.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -181,6 +182,16 @@
   [super stopAnimated:animated];
 }
 
+#pragma mark - BuggyAuthenticationViewOwner
+
+- (BOOL)viewWillPersist {
+  // This coordinator has no view of its own. The view may only have disappeared
+  // if it owns a started coordinator whose view silently disappeared. The only
+  // coordinator for which this is possible is the add account one.
+  return !_addAccountSigninCoordinator ||
+         _addAccountSigninCoordinator.viewWillPersist;
+}
+
 #pragma mark - IdentityChooserCoordinatorDelegate
 
 - (void)identityChooserCoordinatorDidClose:
@@ -292,15 +303,16 @@
 
 // Starts the add account coordinator.
 - (void)startAddAccountForSignInOnly {
-  // In case of double-tap, we must stop the first coordinator. This may occur
-  // because, up to iOS 18, the view may have disappeared without calling the
-  // signin completion. See crbug.com/395959814
+  if (_addAccountSigninCoordinator.viewWillPersist) {
+    return;
+  }
   [_addAccountSigninCoordinator stop];
   _addAccountSigninCoordinator = [SigninCoordinator
       addAccountCoordinatorWithBaseViewController:self.baseViewController
                                           browser:self.browser
                                      contextStyle:self.contextStyle
                                       accessPoint:self.accessPoint
+                                   prefilledEmail:nil
                              continuationProvider:_continuationProvider];
   __weak __typeof(self) weakSelf = self;
   _addAccountSigninCoordinator.signinCompletion = ^(

@@ -41,7 +41,6 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -81,6 +80,7 @@ import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
+import org.chromium.chrome.browser.readaloud.ReadAloudController.Entrypoint;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.search_resumption.SearchResumptionModuleCoordinator;
 import org.chromium.chrome.browser.search_resumption.SearchResumptionModuleUtils;
@@ -127,6 +127,7 @@ import org.chromium.ui.base.WindowAndroid;
 import org.chromium.url.GURL;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /** Provides functionality when the user interacts with the NTP. */
 @NullMarked
@@ -148,7 +149,7 @@ public class NewTabPage
     private static int sTotalCount;
 
     protected final Tab mTab;
-    private final Supplier<Tab> mActivityTabProvider;
+    private final Supplier<@Nullable Tab> mActivityTabProvider;
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
 
     private final String mTitle;
@@ -504,7 +505,7 @@ public class NewTabPage
     public NewTabPage(
             Activity activity,
             BrowserControlsStateProvider browserControlsStateProvider,
-            Supplier<Tab> activityTabProvider,
+            Supplier<@Nullable Tab> activityTabProvider,
             SnackbarManager snackbarManager,
             ActivityLifecycleDispatcher lifecycleDispatcher,
             TabModelSelector tabModelSelector,
@@ -519,7 +520,7 @@ public class NewTabPage
             WindowAndroid windowAndroid,
             JankTracker jankTracker,
             Supplier<Toolbar> toolbarSupplier,
-            HomeSurfaceTracker homeSurfaceTracker,
+            @Nullable HomeSurfaceTracker homeSurfaceTracker,
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
             ObservableSupplier<Integer> tabStripHeightSupplier,
             OneshotSupplier<ModuleRegistry> moduleRegistrySupplier,
@@ -793,14 +794,15 @@ public class NewTabPage
 
     private void initTopInsetCoordinatorObserver() {
         mTopInsetChangeObserver = this::onToEdgeChange;
-        if (mTopInsetCoordinatorSupplier.hasValue()) {
-            mTopInsetCoordinatorSupplier.get().addObserver(mTopInsetChangeObserver);
+        var topInsetCoordinator = mTopInsetCoordinatorSupplier.get();
+        if (topInsetCoordinator != null) {
+            topInsetCoordinator.addObserver(mTopInsetChangeObserver);
             return;
         }
 
         mTopInsetCoordinatorCallback =
-                topInsetCoordinator -> {
-                    topInsetCoordinator.addObserver(assumeNonNull(mTopInsetChangeObserver));
+                coordinator -> {
+                    coordinator.addObserver(assumeNonNull(mTopInsetChangeObserver));
                     if (mTopInsetCoordinatorCallback != null) {
                         mTopInsetCoordinatorSupplier.removeObserver(mTopInsetCoordinatorCallback);
                         mTopInsetCoordinatorCallback = null;
@@ -832,8 +834,7 @@ public class NewTabPage
     public static boolean isInSingleUrlBarMode(boolean isTablet, boolean searchProviderHasLogo) {
         return !isTablet
                 && (searchProviderHasLogo
-                        || (OmniboxFeatures.sOmniboxMobileParityUpdate.isEnabled()
-                                && OmniboxFeatures.sOmniboxMobileParityUpdateV2.isEnabled()));
+                        || OmniboxFeatures.sOmniboxMobileParityUpdateV2.isEnabled());
     }
 
     /**
@@ -902,19 +903,36 @@ public class NewTabPage
         return isInSingleUrlBarMode(mIsTablet, mSearchProviderHasLogo);
     }
 
-    private void updateSearchProvider() {
-        mSearchProviderHasLogo = mTemplateUrlService.doesDefaultSearchEngineHaveLogo();
-        mIsDefaultSearchEngineGoogle = mTemplateUrlService.isDefaultSearchEngineGoogle();
+    /**
+     * Updates the search provider params.
+     *
+     * @return Whether any of the search provider params changed.
+     */
+    private boolean updateSearchProvider() {
+        boolean searchProviderHasLogo = mTemplateUrlService.doesDefaultSearchEngineHaveLogo();
+        boolean isDefaultSearchEngineGoogle = mTemplateUrlService.isDefaultSearchEngineGoogle();
+        boolean isChanged =
+                mSearchProviderHasLogo != searchProviderHasLogo
+                        || mIsDefaultSearchEngineGoogle != isDefaultSearchEngineGoogle;
+
+        mSearchProviderHasLogo = searchProviderHasLogo;
+        mIsDefaultSearchEngineGoogle = isDefaultSearchEngineGoogle;
+        return isChanged;
     }
 
     private void onSearchEngineUpdated() {
-        updateSearchProvider();
+        boolean isChanged = updateSearchProvider();
 
         mNewTabPageLayout.setSearchProviderInfo(
                 mSearchProviderHasLogo, mIsDefaultSearchEngineGoogle);
         // TODO(crbug.com/40226731): Remove this call when the Feed position experiment is
         // cleaned up.
         updateMargins();
+
+        if (isChanged && !OmniboxFeatures.sOmniboxMobileParityUpdateV2.isEnabled()) {
+            NtpCustomizationConfigManager.getInstance()
+                    .notifyRefreshWindowInsets(isInSingleUrlBarMode());
+        }
     }
 
     /**
@@ -1129,8 +1147,9 @@ public class NewTabPage
             mHomeModulesCoordinator.destroy();
         }
 
-        if (mTopInsetCoordinatorSupplier.hasValue() && mTopInsetChangeObserver != null) {
-            mTopInsetCoordinatorSupplier.get().removeObserver(mTopInsetChangeObserver);
+        var topInsetCoordinator = mTopInsetCoordinatorSupplier.get();
+        if (topInsetCoordinator != null && mTopInsetChangeObserver != null) {
+            topInsetCoordinator.removeObserver(mTopInsetChangeObserver);
             mTopInsetChangeObserver = null;
         }
 
@@ -1260,7 +1279,15 @@ public class NewTabPage
                 && (mOmniboxStub != null && mOmniboxStub.isUrlBarFocused());
     }
 
-    public void listenToFeed(Supplier<ReadAloudController> readAloudControllerSupplier) {}
+    public void listenToFeed(Supplier<ReadAloudController> readAloudControllerSupplier) {
+        ReadAloudController readAloudController = readAloudControllerSupplier.get();
+        if (readAloudController == null) return;
+
+        List<String> feedUrls = mFeedSurfaceProvider.getFeedUrls();
+        if (feedUrls == null || feedUrls.isEmpty()) return;
+
+        readAloudController.playOverviewForUrls(feedUrls, Entrypoint.FEED_PLAYBACK);
+    }
 
     public FeedSurfaceCoordinator getCoordinatorForTesting() {
         return (FeedSurfaceCoordinator) mFeedSurfaceProvider;
@@ -1491,7 +1518,8 @@ public class NewTabPage
     @Nullable
     @Override
     public Tab getTrackingTab() {
-        if (!mMostRecentTabSupplier.hasValue()) {
+        var mostRecentTab = mMostRecentTabSupplier.get();
+        if (mostRecentTab == null) {
             return null;
         }
 
@@ -1502,7 +1530,7 @@ public class NewTabPage
     public boolean isHomeSurface() {
         // Can only show a local tab to resume if we we have a tracked tab. The presence of the
         // local tab to resume module is effectively what being a home surface is.
-        return mMostRecentTabSupplier.hasValue();
+        return mMostRecentTabSupplier.get() != null;
     }
 
     @Override
@@ -1517,5 +1545,9 @@ public class NewTabPage
 
     public @Nullable SmoothTransitionDelegate getSmoothTransitionDelegateForTesting() {
         return mSmoothTransitionDelegate;
+    }
+
+    public void enableSearchBoxEditText(boolean enable) {
+        mNewTabPageLayout.enableSearchBoxEditText(enable);
     }
 }

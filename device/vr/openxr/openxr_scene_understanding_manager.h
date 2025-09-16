@@ -4,6 +4,8 @@
 #ifndef DEVICE_VR_OPENXR_OPENXR_SCENE_UNDERSTANDING_MANAGER_H_
 #define DEVICE_VR_OPENXR_OPENXR_SCENE_UNDERSTANDING_MANAGER_H_
 
+#include "device/vr/openxr/openxr_anchor_manager.h"
+#include "device/vr/openxr/openxr_extension_handler_factory.h"
 #include "device/vr/openxr/openxr_hit_test_manager.h"
 #include "device/vr/openxr/openxr_plane_manager.h"
 #include "device/vr/public/mojom/vr_service.mojom.h"
@@ -23,7 +25,14 @@ class OpenXRSceneUnderstandingManager {
   OpenXRSceneUnderstandingManager();
   virtual ~OpenXRSceneUnderstandingManager();
 
+  // Called by the OpenXrApiWrapper when an event comes through that recommends
+  // the scene understanding manager run it's "discovery" code. Note that at
+  // present, this is really only meaningful for the spatial entities framework.
+  virtual void OnDiscoveryRecommended(
+      const XrEventDataSpatialDiscoveryRecommendedEXT* event_data);
+
   virtual OpenXrPlaneManager* GetPlaneManager() = 0;
+  virtual OpenXrAnchorManager* GetAnchorManager() = 0;
   virtual OpenXrHitTestManager* GetHitTestManager() = 0;
 };
 

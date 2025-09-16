@@ -314,6 +314,7 @@ bool PopupViewViews::Show(
     }
   }
 
+  MaybeAnnouncePasswordRecoveryPopup();
   MaybeA11yFocusInformationalSuggestion();
 
   return !CanActivate() || (GetWidget() && GetWidget()->IsActive());
@@ -448,7 +449,8 @@ bool PopupViewViews::HandleKeyPressEvent(
       // We do not want to handle Mod+TAB for other modifiers because this may
       // have other purposes (e.g., change the tab).
       if (!kHasNonShiftModifier) {
-        AcceptSelectedContentOrCreditCardCell();
+        AcceptSelectedContentOrCreditCardCell(
+            AutofillMetrics::SuggestionAcceptedMethod::kKeyboard);
       }
       return false;
     default:
@@ -640,7 +642,8 @@ bool PopupViewViews::SelectPreviousHorizontalCell() {
   return false;
 }
 
-bool PopupViewViews::AcceptSelectedContentOrCreditCardCell() {
+bool PopupViewViews::AcceptSelectedContentOrCreditCardCell(
+    AutofillMetrics::SuggestionAcceptedMethod accept_method) {
   std::optional<CellIndex> index = GetSelectedCell();
   if (!controller_ || !index) {
     return false;
@@ -655,7 +658,7 @@ bool PopupViewViews::AcceptSelectedContentOrCreditCardCell() {
     return false;
   }
 
-  controller_->AcceptSuggestion(index->first);
+  controller_->AcceptSuggestion(index->first, accept_method);
   return true;
 }
 
@@ -688,6 +691,7 @@ void PopupViewViews::OnSuggestionsChanged(bool prefer_prev_arrow_side) {
     return;
   }
 
+  MaybeAnnouncePasswordRecoveryPopup();
   MaybeA11yFocusInformationalSuggestion();
   ShowIPHFeaturePromos();
 }
@@ -902,6 +906,20 @@ void PopupViewViews::ShowIPHFeaturePromos() {
       BrowserUserEducationInterface::From(browser)->MaybeShowFeaturePromo(
           std::move(params));
     }
+  }
+}
+
+void PopupViewViews::MaybeAnnouncePasswordRecoveryPopup() {
+  if (!controller_ || controller_->GetSuggestions().empty()) {
+    return;
+  }
+
+  if (controller_->GetSuggestionAt(0).type ==
+      SuggestionType::kBackupPasswordEntry) {
+    a11y_announcer_.Run(
+        l10n_util::GetStringUTF16(
+            IDS_PASSWORD_MANAGER_UI_PASSWORD_RECOVERY_SHOWN_A11Y_ANNOUNCEMENT),
+        /*polite=*/true);
   }
 }
 

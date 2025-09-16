@@ -4,8 +4,13 @@
 
 package org.chromium.chrome.browser.share.send_tab_to_self;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.content.Context;
 
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
@@ -26,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** Coordinator for displaying the send tab to self feature. */
+@NullMarked
 public class SendTabToSelfCoordinator {
     /**
      * Waits for Sync to download the list of target devices after sign-in. Aborts if the
@@ -53,13 +59,15 @@ public class SendTabToSelfCoordinator {
             mGotDeviceListCallback = gotDeviceListCallback;
             mProfile = profile;
 
-            SyncServiceFactory.getForProfile(mProfile).addSyncStateChangedListener(this);
+            assumeNonNull(SyncServiceFactory.getForProfile(mProfile))
+                    .addSyncStateChangedListener(this);
             mBottomSheetController.addObserver(this);
             notifyAndDestroyIfDone();
         }
 
         private void destroy() {
-            SyncServiceFactory.getForProfile(mProfile).removeSyncStateChangedListener(this);
+            assumeNonNull(SyncServiceFactory.getForProfile(mProfile))
+                    .removeSyncStateChangedListener(this);
             mBottomSheetController.removeObserver(this);
         }
 
@@ -125,12 +133,13 @@ public class SendTabToSelfCoordinator {
         public void onSignInComplete(
                 CoreAccountInfo accountInfo,
                 AccountPickerDelegate.SigninStateController controller) {
+            controller.onSigninComplete();
             mOnSignInCompleteCallback.run();
         }
     }
 
     private final Context mContext;
-    private final WindowAndroid mWindowAndroid;
+    private final @Nullable WindowAndroid mWindowAndroid;
     private final String mUrl;
     private final String mTitle;
     private final BottomSheetController mController;
@@ -139,7 +148,7 @@ public class SendTabToSelfCoordinator {
 
     public SendTabToSelfCoordinator(
             Context context,
-            WindowAndroid windowAndroid,
+            @Nullable WindowAndroid windowAndroid,
             String url,
             String title,
             BottomSheetController controller,
@@ -184,10 +193,13 @@ public class SendTabToSelfCoordinator {
                                                     .signin_account_picker_bottom_sheet_subtitle_for_send_tab_to_self)
                                     .setDismissButtonStringId(R.string.cancel)
                                     .build();
+                    var identityManager =
+                            IdentityServicesProvider.get().getIdentityManager(mProfile);
+                    var signinManager = IdentityServicesProvider.get().getSigninManager(mProfile);
                     new AccountPickerBottomSheetCoordinator(
-                            mWindowAndroid,
-                            IdentityServicesProvider.get().getIdentityManager(mProfile),
-                            IdentityServicesProvider.get().getSigninManager(mProfile),
+                            assertNonNull(mWindowAndroid),
+                            assertNonNull(identityManager),
+                            assertNonNull(signinManager),
                             mController,
                             new SendTabToSelfAccountPickerDelegate(this::onSignInComplete),
                             strings,

@@ -23,6 +23,8 @@
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
@@ -279,10 +281,11 @@ mojom::ActionResultPtr PageTool::TimeOfUseValidation(
   // TODO(crbug.com/426021822): FindNodeAtPoint does not handle corner cases
   // like clip paths. Need more checks to ensure we don't drop actions
   // unnecessarily.
-  observed_target_node_info_ = FindLastObservedNodeForActionTarget(
-      last_observation, request_->GetTarget());
+  std::optional<TargetNodeInfo> observed_target_node_info =
+      FindLastObservedNodeForActionTarget(last_observation,
+                                          request_->GetTarget());
 
-  if (!observed_target_node_info_) {
+  if (!observed_target_node_info) {
     journal().Log(JournalURL(), task_id(), mojom::JournalTrack::kActor,
                   "TimeOfUseValidation", "No observed target found in APC.");
   }
@@ -294,12 +297,13 @@ mojom::ActionResultPtr PageTool::TimeOfUseValidation(
       last_observation) {
     if (!ValidateTargetFrameCandidate(request_->GetTarget(), frame,
                                       *tab->GetContents(),
-                                      observed_target_node_info_)) {
+                                      observed_target_node_info)) {
       return MakeResult(
           mojom::ActionResultCode::kFrameLocationChangedSinceObservation);
     }
   }
 
+  observed_target_ = ToMojoObservedToolTarget(observed_target_node_info);
   has_completed_time_of_use_ = true;
   target_document_ = frame->GetWeakDocumentPtr();
 
@@ -318,12 +322,16 @@ void PageTool::Invoke(InvokeCallback callback) {
   auto invocation = actor::mojom::ToolInvocation::New();
   invocation->action = request_->ToMojoToolAction();
   invocation->target = ToMojo(request_->GetTarget());
-  invocation->observed_target =
-      ToMojoObservedToolTarget(observed_target_node_info_);
+  invocation->observed_target = std::move(observed_target_);
+
   invocation->task_id = task_id().value();
 
   // ToolRequest params are checked for validity at creation.
   CHECK(invocation->action);
+
+  // Ensure the renderer believes it has focus. This ensures a realistic state
+  // needed for e.g. firing 'focus' events.
+  frame.GetRenderWidgetHost()->Focus();
 
   frame.GetRemoteAssociatedInterfaces()->GetInterface(&chrome_render_frame_);
 
@@ -401,6 +409,12 @@ void PageTool::UpdateTaskBeforeInvoke(ActorTask& task,
 void PageTool::FinishInvoke(mojom::ActionResultPtr result) {
   if (!invoke_callback_) {
     return;
+  }
+
+  // Blink state was set to focused as part of invocation. Reset Blink focus
+  // back to match the Views focus state.
+  if (GetFrame() && !GetFrame()->GetRenderWidgetHost()->GetView()->HasFocus()) {
+    GetFrame()->GetRenderWidgetHost()->Blur();
   }
 
   frame_change_observer_.reset();

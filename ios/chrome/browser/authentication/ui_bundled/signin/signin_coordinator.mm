@@ -198,6 +198,7 @@ using signin_metrics::PromoAction;
                                         browser:(Browser*)browser
                                    contextStyle:(SigninContextStyle)contextStyle
                                     accessPoint:(AccessPoint)accessPoint
+                                 prefilledEmail:(NSString*)email
                            continuationProvider:
                                (const ChangeProfileContinuationProvider&)
                                    continuationProvider {
@@ -211,6 +212,7 @@ using signin_metrics::PromoAction;
                      accessPoint:accessPoint
                      promoAction:PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO
                     signinIntent:AddAccountSigninIntent::kAddAccount
+                  prefilledEmail:email
             continuationProvider:continuationProvider];
 }
 
@@ -237,6 +239,7 @@ using signin_metrics::PromoAction;
                      accessPoint:accessPoint
                      promoAction:promoAction
                     signinIntent:AddAccountSigninIntent::kPrimaryAccountReauth
+                  prefilledEmail:nil
             continuationProvider:continuationProvider];
 }
 
@@ -263,6 +266,7 @@ using signin_metrics::PromoAction;
                      accessPoint:accessPoint
                      promoAction:promoAction
                     signinIntent:AddAccountSigninIntent::kResignin
+                  prefilledEmail:nil
             continuationProvider:continuationProvider];
 }
 
@@ -372,6 +376,14 @@ using signin_metrics::PromoAction;
   // `self.signinCompletion` needs to be set to nil before calling it.
   self.signinCompletion = nil;
   signinCompletion(signinResult, completionIdentity);
+}
+
+#pragma mark - BuggyAuthenticationViewOwner
+
+- (BOOL)viewWillPersist {
+  // Subclasses must implement this property. See the description in the header
+  // file for its implementation.
+  NOTREACHED();
 }
 
 @end

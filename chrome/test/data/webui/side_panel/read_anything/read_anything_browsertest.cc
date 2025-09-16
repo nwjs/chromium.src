@@ -76,8 +76,9 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, VoiceSelectionMenu) {
 }
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, VoiceLanguageUtil) {
-  RunSidePanelTest("side_panel/read_anything/voice_language_util_test.js",
-                   "mocha.run()");
+  RunSidePanelTest(
+      "side_panel/read_anything/voice_language_conversions_test.js",
+      "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, KeyboardUtil) {
@@ -239,6 +240,11 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, NodeStore) {
                    "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, ContentController) {
+  RunSidePanelTest("side_panel/read_anything/content_controller_test.js",
+                   "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, WordBoundaries) {
   RunSidePanelTest("side_panel/read_anything/word_boundaries_test.js",
                    "mocha.run()");
@@ -301,6 +307,11 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, ConnectedCallback) {
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, HighlightMenu) {
   RunSidePanelTest("side_panel/read_anything/highlight_menu_test.js",
+                   "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, TextSegmenter) {
+  RunSidePanelTest("side_panel/read_anything/text_segmenter_test.js",
                    "mocha.run()");
 }
 

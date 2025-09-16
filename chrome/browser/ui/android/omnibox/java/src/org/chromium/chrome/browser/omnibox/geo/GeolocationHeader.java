@@ -31,13 +31,17 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
+import org.chromium.components.browser_ui.site_settings.GeolocationSetting;
 import org.chromium.components.browser_ui.site_settings.PermissionInfo;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
-import org.chromium.components.content_settings.ContentSettingValues;
+import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
+import org.chromium.components.content_settings.ContentSetting;
 import org.chromium.components.content_settings.ContentSettingsType;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilitiesJni;
 import org.chromium.components.omnibox.OmniboxFeatures;
+import org.chromium.components.permissions.PermissionsAndroidFeatureList;
+import org.chromium.components.permissions.PermissionsAndroidFeatureMap;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.url.GURL;
 
@@ -297,11 +301,11 @@ public class GeolocationHeader {
         // TODO(raymes): The call to isDseOrigin is only needed if this could be called for
         // an origin that isn't the default search engine. Otherwise remove this line.
         boolean isDseOrigin = WebsitePreferenceBridge.isDSEOrigin(profile, uri.toString());
-        @ContentSettingValues
+        @ContentSetting
         @Nullable Integer settingValue = locationContentSettingForUrl(profile, uri);
 
         boolean enabled =
-                isDseOrigin && settingValue != null && settingValue == ContentSettingValues.ALLOW;
+                isDseOrigin && settingValue != null && settingValue == ContentSetting.ALLOW;
         return !enabled;
     }
 
@@ -309,10 +313,22 @@ public class GeolocationHeader {
      * Returns the location permission for sharing their location with url (e.g. via the geolocation
      * infobar).
      */
-    private static @ContentSettingValues @Nullable Integer locationContentSettingForUrl(
+    private static @ContentSetting @Nullable Integer locationContentSettingForUrl(
             Profile profile, Uri uri) {
-        return PermissionInfo.getContentSetting(
-                profile, ContentSettingsType.GEOLOCATION, uri.toString(), null);
+        if (PermissionsAndroidFeatureMap.isEnabled(
+                PermissionsAndroidFeatureList.APPROXIMATE_GEOLOCATION_PERMISSION)) {
+            GeolocationSetting setting =
+                    WebsitePreferenceBridgeJni.get()
+                            .getGeolocationSettingForOrigin(
+                                    profile,
+                                    ContentSettingsType.GEOLOCATION_WITH_OPTIONS,
+                                    uri.toString(),
+                                    uri.toString());
+            return setting.mPrecise;
+        } else {
+            return PermissionInfo.getContentSetting(
+                    profile, ContentSettingsType.GEOLOCATION, uri.toString(), null);
+        }
     }
 
     static void setAppPermissionGrantedForTesting(boolean appPermissionGrantedForTesting) {

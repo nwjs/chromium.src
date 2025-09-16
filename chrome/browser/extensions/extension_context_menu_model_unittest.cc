@@ -295,7 +295,6 @@ class ExtensionContextMenuModelTest : public ExtensionServiceTestBase {
   void TearDown() override;
 
  private:
-  std::unique_ptr<TestBrowserWindow> test_window_;
   std::unique_ptr<Browser> browser_;
   display::test::TestScreen test_screen_;
 };
@@ -347,8 +346,8 @@ void ExtensionContextMenuModelTest::InitializeAndAddExtension(
 Browser* ExtensionContextMenuModelTest::GetBrowser() {
   if (!browser_) {
     Browser::CreateParams params(profile(), true);
-    test_window_ = std::make_unique<TestBrowserWindow>();
-    params.window = test_window_.get();
+    auto test_window = std::make_unique<TestBrowserWindow>();
+    params.window = test_window.release();
     browser_ = Browser::DeprecatedCreateOwnedForTesting(params);
   }
   return browser_.get();
@@ -648,9 +647,9 @@ TEST_F(ExtensionContextMenuModelTest,
   }
 }
 
-TEST_F(ExtensionContextMenuModelTest,
-       ExtensionContextMenuOptionsEntryVisibility) {
+TEST_F(ExtensionContextMenuModelTest, ExtensionContextMenuOptionsEntry) {
   InitializeEmptyExtensionService();
+  AddTab(GURL("about:blank"));
 
   scoped_refptr<const Extension> extension =
       ExtensionBuilder("Extension")
@@ -685,6 +684,16 @@ TEST_F(ExtensionContextMenuModelTest,
                                    ContextMenuSource::kToolbarAction);
     EXPECT_EQ(GetCommandState(menu, ExtensionContextMenuModel::OPTIONS),
               CommandState::kEnabled);
+
+    // Verify the option page is opened when the command is executed.
+    menu.ExecuteCommand(ExtensionContextMenuModel::OPTIONS, 0);
+    // Test web contents need a poke to commit.
+    content::WebContents* web_contents =
+        GetBrowser()->tab_strip_model()->GetActiveWebContents();
+    content::NavigationController& controller = web_contents->GetController();
+    content::RenderFrameHostTester::CommitPendingLoad(&controller);
+    EXPECT_EQ(OptionsPageInfo::GetOptionsPage(extension_with_options.get()),
+              web_contents->GetLastCommittedURL());
   }
 }
 
@@ -1035,7 +1044,8 @@ TEST_F(ExtensionContextMenuModelTest, PageAccess_CustomizeByExtension_Submenu) {
 
     // Change extension to run "on click". Since we are revoking permissions, we
     // need to automatically accept the reload page bubble.
-    action_runner->accept_bubble_for_testing(true);
+    auto reload_page_dialog_reset =
+        ReloadPageDialogController::AcceptDialogForTesting(true);
     PermissionsManagerWaiter waiter(permissions_manager);
     menu.ExecuteCommand(kOnClick, 0);
     waiter.WaitForExtensionPermissionsUpdate();
@@ -1422,7 +1432,7 @@ TEST_F(ExtensionContextMenuModelTest,
 
   // Navigate to a url that should have "customize by extension" site
   // permissions by default (which allows us to test the page access submenu).
-  content::WebContents* web_contents = AddTab(kActiveUrl);
+  AddTab(kActiveUrl);
   EXPECT_EQ(
       permissions_manager->GetUserSiteSetting(url::Origin::Create(kActiveUrl)),
       PermissionsManager::UserSiteSetting::kCustomizeByExtension);
@@ -1446,8 +1456,8 @@ TEST_F(ExtensionContextMenuModelTest,
 
   // Change extension to run "on click". Since we are revoking permissions, we
   // need to automatically accept the reload page bubble.
-  ExtensionActionRunner::GetForWebContents(web_contents)
-      ->accept_bubble_for_testing(true);
+  auto reload_page_dialog_reset =
+      ReloadPageDialogController::AcceptDialogForTesting(true);
   PermissionsManagerWaiter waiter(permissions_manager);
   menu.ExecuteCommand(kOnClick, 0);
   waiter.WaitForExtensionPermissionsUpdate();
@@ -1645,8 +1655,8 @@ TEST_F(ExtensionContextMenuModelTest,
 
     // Set the extension to run "on click". Since we are revoking b.com
     // permissions, we need to automatically accept the reload page bubble.
-    ExtensionActionRunner::GetForWebContents(web_contents)
-        ->accept_bubble_for_testing(true);
+    auto reload_page_dialog_reset =
+        ReloadPageDialogController::AcceptDialogForTesting(true);
     PermissionsManagerWaiter waiter(permissions_manager);
     menu.ExecuteCommand(kOnClick, 0);
     waiter.WaitForExtensionPermissionsUpdate();
@@ -1683,7 +1693,7 @@ TEST_F(ExtensionContextMenuModelTest,
   EXPECT_FALSE(permissions_manager->HasWithheldHostPermissions(*extension));
 
   const GURL a_com("https://a.com");
-  content::WebContents* web_contents = AddTab(a_com);
+  AddTab(a_com);
 
   ExtensionContextMenuModel menu(extension.get(), GetBrowser(),
                                  /*is_pinned=*/true, nullptr, true,
@@ -1700,8 +1710,8 @@ TEST_F(ExtensionContextMenuModelTest,
   // Withhold access on a.com by setting the extension to run "on click". Since
   // we are revoking permissions, we need to automatically accept the reload
   // page bubble.
-  ExtensionActionRunner::GetForWebContents(web_contents)
-      ->accept_bubble_for_testing(true);
+  auto reload_page_dialog_reset =
+      ReloadPageDialogController::AcceptDialogForTesting(true);
   PermissionsManagerWaiter waiter(permissions_manager);
   menu.ExecuteCommand(kOnClick, 0);
   waiter.WaitForExtensionPermissionsUpdate();

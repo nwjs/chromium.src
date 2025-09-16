@@ -10,8 +10,7 @@
 
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/types/pass_key.h"
-#include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/addresses/contact_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
@@ -86,12 +85,6 @@ std::u16string AttributeInstance::GetInfo(
     const std::string& app_locale,
     base::optional_ref<const std::u16string> format_string) const {
   field_type = GetNormalizedFieldType(field_type);
-  if (!base::FeatureList::IsEnabled(features::kAutofillAiNoTagTypes)) {
-    if (field_type == UNKNOWN_TYPE) {
-      return u"";
-    }
-    CHECK(type_.field_subtypes().contains(field_type));
-  }
   return std::visit(
       absl::Overload{[&](const CountryInfo& country) {
                        return country.GetCountryName(app_locale);
@@ -103,28 +96,16 @@ std::u16string AttributeInstance::GetInfo(
                        return date.GetDate(format_string ? *format_string
                                                          : u"YYYY-MM-DD");
                      },
-                     [&](const NameInfo&) {
-                       return GetRawInfo(/*pass_key=*/{}, field_type);
-                     },
-                     [&](const StateInfo&) {
-                       return GetRawInfo(/*pass_key=*/{}, field_type);
-                     },
+                     [&](const NameInfo&) { return GetRawInfo(field_type); },
+                     [&](const StateInfo&) { return GetRawInfo(field_type); },
                      [&](const std::u16string&) {
-                       return Format(GetRawInfo(/*pass_key=*/{}, field_type),
-                                     format_string);
+                       return Format(GetRawInfo(field_type), format_string);
                      }},
       info_);
 }
 
-std::u16string AttributeInstance::GetRawInfo(GetRawInfoPassKey,
-                                             FieldType field_type) const {
+std::u16string AttributeInstance::GetRawInfo(FieldType field_type) const {
   field_type = GetNormalizedFieldType(field_type);
-  if (!base::FeatureList::IsEnabled(features::kAutofillAiNoTagTypes)) {
-    if (field_type == UNKNOWN_TYPE) {
-      return u"";
-    }
-    CHECK(type_.field_subtypes().contains(field_type));
-  }
   return std::visit(
       absl::Overload{
           [&](const CountryInfo& country) {
@@ -145,12 +126,6 @@ std::u16string AttributeInstance::GetRawInfo(GetRawInfoPassKey,
 VerificationStatus AttributeInstance::GetVerificationStatus(
     FieldType field_type) const {
   field_type = GetNormalizedFieldType(field_type);
-  if (!base::FeatureList::IsEnabled(features::kAutofillAiNoTagTypes)) {
-    if (field_type == UNKNOWN_TYPE) {
-      return VerificationStatus::kNoStatus;
-    }
-    CHECK(type_.field_subtypes().contains(field_type));
-  }
   return std::visit(
       absl::Overload{
           [&](const CountryInfo&) { return VerificationStatus::kNoStatus; },
@@ -172,12 +147,6 @@ void AttributeInstance::SetInfo(FieldType field_type,
                                 std::u16string_view format_string,
                                 VerificationStatus status) {
   field_type = GetNormalizedFieldType(field_type);
-  if (!base::FeatureList::IsEnabled(features::kAutofillAiNoTagTypes)) {
-    if (field_type == UNKNOWN_TYPE) {
-      return;
-    }
-    CHECK(type_.field_subtypes().contains(field_type));
-  }
   std::visit(
       absl::Overload{
           [&](CountryInfo& country) {
@@ -208,12 +177,6 @@ void AttributeInstance::SetRawInfo(FieldType field_type,
                                    const std::u16string& value,
                                    VerificationStatus status) {
   field_type = GetNormalizedFieldType(field_type);
-  if (!base::FeatureList::IsEnabled(features::kAutofillAiNoTagTypes)) {
-    if (field_type == UNKNOWN_TYPE) {
-      return;
-    }
-    CHECK(type_.field_subtypes().contains(field_type));
-  }
   std::visit(absl::Overload{
                  [&](CountryInfo& country) {
                    if (!country.SetCountryFromCountryCode(value)) {
@@ -237,35 +200,6 @@ void AttributeInstance::SetRawInfo(FieldType field_type,
 
 FieldType AttributeInstance::GetNormalizedFieldType(
     FieldType field_type) const {
-  if (!base::FeatureList::IsEnabled(features::kAutofillAiNoTagTypes)) {
-    if (type_.field_subtypes().contains(field_type)) {
-      return field_type;
-    }
-    if (field_type == type_.field_type()) {
-      // In some cases, a field might have `AutofillField::Type()` being the one
-      // corresponding to a structured attribute (e.g., PASSPORT_NAME_TAG). This
-      // should not usually happen but for now can, only in case a field
-      // couldn't be classified by Autofill's logic but was classified by the ML
-      // model. In that case, we assume the type is the top-level type of the
-      // attribute.
-      return std::visit(
-          absl::Overload{
-              [&](const CountryInfo&) { return type_.field_type(); },
-              [&](const DateInfo&) { return type_.field_type(); },
-              [&](const NameInfo&) { return NAME_FULL; },
-              [&](const StateInfo&) { return type_.field_type(); },
-              [&](const std::u16string&) { return type_.field_type(); }},
-          info_);
-    }
-    // In case the field classification is totally unrelated to the
-    // attribute type classification, we return UKNOWN_TYPE if the attribute is
-    // structured because we don't have information on how to break down the
-    // attribute with the given type. If the type is not structured we just
-    // return the corresponding field type of the attribute, just like we would
-    // do regardless of the type passed.
-    return IsTagType(type_.field_type()) ? UNKNOWN_TYPE : type_.field_type();
-  }
-
   return type_.field_subtypes().contains(field_type) ? field_type
                                                      : type_.field_type();
 }
@@ -282,18 +216,22 @@ EntityInstance::EntityInstance(
     EntityType type,
     base::flat_set<AttributeInstance, AttributeInstance::CompareByType>
         attributes,
-    base::Uuid guid,
+    EntityId guid,
     std::string nickname,
     base::Time date_modified,
     size_t use_count,
-    base::Time use_date)
+    base::Time use_date,
+    RecordType record_type,
+    AreAttributesReadOnly are_attributes_read_only)
     : type_(type),
       attributes_(std::move(attributes)),
       guid_(std::move(guid)),
       nickname_(std::move(nickname)),
       date_modified_(date_modified),
       use_count_(use_count),
-      use_date_(use_date) {
+      use_date_(use_date),
+      record_type_(record_type),
+      are_attributes_read_only_(are_attributes_read_only) {
   DCHECK(!attributes_.empty());
   DCHECK(std::ranges::all_of(attributes_, [this](const AttributeInstance& a) {
     return type_ == a.type().entity_type();
@@ -322,7 +260,7 @@ std::ostream& operator<<(std::ostream& os, const AttributeInstance& a) {
 std::ostream& operator<<(std::ostream& os, const EntityInstance& e) {
   os << "- name: " << '"' << e.type() << '"' << std::endl;
   os << "- nickname: " << '"' << e.nickname() << '"' << std::endl;
-  os << "- guid: " << '"' << e.guid().AsLowercaseString() << '"' << std::endl;
+  os << "- guid: " << '"' << e.guid() << '"' << std::endl;
   os << "- date modified: " << '"' << e.date_modified() << '"' << std::endl;
   for (const AttributeInstance& a : e.attributes()) {
     os << "- attribute " << a << std::endl;
@@ -364,8 +302,8 @@ EntityInstance::EntityMergeability EntityInstance::GetEntityMergeability(
   CHECK_EQ(type_, newer.type());
 
   auto normalized_value = [](const AttributeInstance& attribute) {
-    return AutofillProfileComparator::NormalizeForComparison(
-        attribute.GetRawInfo(/*pass_key=*/{}, attribute.type().field_type()));
+    return normalization::NormalizeForComparison(
+        attribute.GetRawInfo(attribute.type().field_type()));
   };
 
   // If a certain set of mergeable constraints for both entities have the same

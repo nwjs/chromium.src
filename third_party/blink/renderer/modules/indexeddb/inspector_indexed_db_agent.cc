@@ -181,7 +181,7 @@ class ExecutableWithIdbFactory
   }
 
   void GetBucketIDBFactory(LocalFrame* frame,
-                           const WTF::String& storage_bucket_name) {
+                           const String& storage_bucket_name) {
     LocalDOMWindow* dom_window = frame->DomWindow();
     CHECK(dom_window);
 
@@ -265,8 +265,8 @@ class ExecutableWithDatabase
     frame_ = frame;
     ExecutableWithIdbFactory::Start(
         frame_, std::move(storage_bucket),
-        WTF::BindOnce(&ExecutableWithDatabase::OnGetIDBFactory,
-                      WrapRefCounted(this)));
+        blink::BindOnce(&ExecutableWithDatabase::OnGetIDBFactory,
+                        WrapRefCounted(this)));
   }
 
  private:
@@ -341,7 +341,7 @@ class OpenDatabaseCallback final : public NativeEventListener {
     }
 
     IDBOpenDBRequest* idb_open_db_request =
-        static_cast<IDBOpenDBRequest*>(event->target());
+        static_cast<IDBOpenDBRequest*>(event->RawTarget());
     IDBAny* request_result = idb_open_db_request->ResultAsAny();
     if (request_result->GetType() != IDBAny::kIDBDatabaseType) {
       executable_with_database_->GetRequestCallback()->sendFailure(
@@ -391,7 +391,7 @@ class UpgradeDatabaseCallback final : public NativeEventListener {
     // had previously been enumerated was deleted. We don't want to
     // implicitly re-create it here, so abort the transaction.
     IDBOpenDBRequest* idb_open_db_request =
-        static_cast<IDBOpenDBRequest*>(event->target());
+        static_cast<IDBOpenDBRequest*>(event->RawTarget());
     NonThrowableExceptionState exception_state;
     idb_open_db_request->transaction()->abort(exception_state);
     executable_with_database_->GetRequestCallback()->sendFailure(
@@ -644,7 +644,7 @@ class OpenCursorCallback final : public NativeEventListener {
       return;
     }
 
-    IDBRequest* idb_request = static_cast<IDBRequest*>(event->target());
+    IDBRequest* idb_request = static_cast<IDBRequest*>(event->RawTarget());
     IDBAny* request_result = idb_request->ResultAsAny();
     if (request_result->GetType() == IDBAny::kIDBValueType) {
       end(false);
@@ -859,7 +859,7 @@ void InspectorIndexedDBAgent::requestDatabaseNames(
   LocalFrame* frame = frame_or_response.value();
   ExecutableWithIdbFactory::Start(
       frame, std::move(storage_bucket),
-      WTF::BindOnce(
+      BindOnce(
           [](std::unique_ptr<RequestDatabaseNamesCallback> request_callback,
              LocalFrame* frame, protocol::Response response,
              IDBFactory* idb_factory) {
@@ -873,8 +873,8 @@ void InspectorIndexedDBAgent::requestDatabaseNames(
                   protocol::Response::InternalError());
               return;
             }
-            idb_factory->GetDatabaseInfoForDevTools(WTF::BindOnce(
-                &OnGotDatabaseNames, std::move(request_callback)));
+            idb_factory->GetDatabaseInfoForDevTools(
+                BindOnce(&OnGotDatabaseNames, std::move(request_callback)));
           },
           std::move(request_callback), WrapPersistent(frame)));
 }
@@ -945,7 +945,7 @@ class GetMetadataListener final : public NativeEventListener {
       return;
     }
 
-    IDBRequest* idb_request = static_cast<IDBRequest*>(event->target());
+    IDBRequest* idb_request = static_cast<IDBRequest*>(event->RawTarget());
     IDBAny* request_result = idb_request->ResultAsAny();
     if (request_result->GetType() != IDBAny::kIntegerType) {
       NotifySubtaskDone(owner_, "Unexpected result type.");
@@ -1300,7 +1300,7 @@ void InspectorIndexedDBAgent::deleteDatabase(
   LocalFrame* frame = frame_or_response.value();
   ExecutableWithIdbFactory::Start(
       frame, std::move(storage_bucket),
-      WTF::BindOnce(
+      BindOnce(
           [](std::unique_ptr<DeleteDatabaseCallback> request_callback,
              LocalFrame* frame, String database_name,
              protocol::Response response, IDBFactory* idb_factory) {

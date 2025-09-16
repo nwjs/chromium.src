@@ -48,6 +48,12 @@ BASE_DECLARE_FEATURE(kAutofillPasswordUserPerceptionSurvey);
 // the autofill dropdown. This is now decoupled from
 // "PasswordManualFallbackAvailable" flag.
 BASE_DECLARE_FEATURE(kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
+
+// Undoes the effect of WebAuthnUsePasskeyFromAnotherDeviceInContextMenu by
+// adding the hybrid item back into the dropdown. It also adds the entry point
+// to autofill dropdowns.
+// Needs autofill::features::AutofillAndPasswordsInSameSurface to be enabled.
+BASE_DECLARE_FEATURE(kAutofillReintroduceHybridPasskeyDropdownItem);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Enables Biometrics for the Touch To Fill feature. This only effects Android.
@@ -57,11 +63,20 @@ BASE_DECLARE_FEATURE(kBiometricTouchToFill);
 // login success/failure.
 BASE_DECLARE_FEATURE(kCheckIfSubmittedFormIdenticalToObserved);
 
+// Identifies if the user is fully signed in in the main tab
+// before starting the Automated Password Change flow.
+BASE_DECLARE_FEATURE(kCheckLoginStateBeforePasswordChange);
+
 // Delete undecryptable passwords from the login database.
 BASE_DECLARE_FEATURE(kClearUndecryptablePasswords);
 
 // Delete undecryptable passwords from the store when Sync is active.
 BASE_DECLARE_FEATURE(kClearUndecryptablePasswordsOnSync);
+
+// Enables debug data popups on OTP fields for manual testing of
+// one-time-passwords. Only for OTP detection testing, not intended to be
+// launched.
+BASE_DECLARE_FEATURE(kDebugUiForOtps);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 // Enables the Mojo JavaScript API for the password manager, replacing the
@@ -69,10 +84,9 @@ BASE_DECLARE_FEATURE(kClearUndecryptablePasswordsOnSync);
 BASE_DECLARE_FEATURE(kEnablePasswordManagerMojoApi);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
-#if BUILDFLAG(IS_ANDROID)
-// Enables reading credentials from SharedPreferences.
-BASE_DECLARE_FEATURE(kFetchGaiaHashOnSignIn);
-#endif  // BUILDFLAG(IS_ANDROID)
+// Fetches change password url if the credential has been identified as leaked.
+// Later change password url is used during password change.
+BASE_DECLARE_FEATURE(kFetchChangePasswordUrlForPasswordChange);
 
 // Enables the experiment for the password manager to only fill on account
 // selection, rather than autofilling on page load, with highlighting of fields.
@@ -95,10 +109,6 @@ BASE_DECLARE_FEATURE(kIosCleanupHangingPasswordFormExtractionRequests);
 // milliseconds before the form extraction request times out.
 extern const base::FeatureParam<int>
     kIosPasswordFormExtractionRequestsTimeoutMs;
-
-// Enables the second version of the bottom sheet to fix a few bugs that we've
-// seen in production since the launch of the V1 of the feature.
-BASE_DECLARE_FEATURE(kIOSPasswordBottomSheetV2);
 
 // Enables password generation bottom sheet to be displayed (on iOS) when a user
 // is signed-in and taps on a new password field.
@@ -128,18 +138,10 @@ BASE_DECLARE_FEATURE(kPasswordManualFallbackAvailable);
 // terminal.
 BASE_DECLARE_FEATURE(kPasswordManagerLogToTerminal);
 
-// Detects password reuse based on hashed password values.
-BASE_DECLARE_FEATURE(kReuseDetectionBasedOnPasswordHashes);
-
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Enables "Needs access to keychain, restart chrome" bubble and banner.
 BASE_DECLARE_FEATURE(kRestartToGainAccessToKeychain);
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-
-#if BUILDFLAG(IS_CHROMEOS)
-// Enables biometric authentication on for Password Autofill on ChromeOS.
-BASE_DECLARE_FEATURE(kBiometricsAuthForPwdFill);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Sets request criticality when calling leak check service to detect leaked
 // passwords.
@@ -188,6 +190,11 @@ BASE_DECLARE_FEATURE(kMarkAllCredentialsAsLeaked);
 
 // Enables improvements to password change functionality.
 BASE_DECLARE_FEATURE(kImprovedPasswordChangeService);
+
+// In the automatic password change flow, Chrome will try to submit the change
+// password form with Enter key at the first place (still with the fall back of
+// calling the model to find the Submit button).
+BASE_DECLARE_FEATURE(kSubmitWithEnterDuringPasswordChange);
 
 #if BUILDFLAG(IS_ANDROID)
 // The feature flag for reloading passwords when the trusted vault encryption

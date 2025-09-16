@@ -345,7 +345,6 @@
 #include "third_party/blink/renderer/core/svg_element_factory.h"
 #include "third_party/blink/renderer/core/svg_names.h"
 #include "third_party/blink/renderer/core/timing/render_blocking_metrics_reporter.h"
-#include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_html.h"
 #include "third_party/blink/renderer/core/view_transition/page_reveal_event.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
@@ -1089,7 +1088,14 @@ Document::Document(const DocumentInit& initializer,
       features::kDelayAsyncScriptExecutionDelayByDefaultParam.Get()) {
     script_runner_delayer_->Activate();
   }
-
+  if (is_prerendering_ &&
+      GetPage()->ShouldPauseJavaScriptExecutionOnPrerender()) {
+    DCHECK(RuntimeEnabledFeatures::PrerenderUntilScriptEnabled());
+    prerender_script_runner_delayer_ =
+        MakeGarbageCollected<ScriptRunnerDelayer>(
+            script_runner_, ScriptRunner::DelayReason::kPausedForPrerender);
+    prerender_script_runner_delayer_->Activate();
+  }
   if (LocalFrame* frame = GetFrame()) {
     DCHECK(frame->GetPage());
     fetcher_ = FrameFetchContext::CreateFetcherForCommittedDocument(
@@ -1428,7 +1434,7 @@ std::pair<CustomElementRegistry*, AtomicString> FlattenCreateElementOptions(
         is = AtomicString(options->is());
       // 3-3. If registry is non-null and is is non-null, then throw a
       // "notSupportedError" DOMException.
-      if (registry != nullptr && !is.IsNull()) {
+      if (registry && !is.IsNull()) {
         exception_state.ThrowDOMException(
             DOMExceptionCode::kNotSupportedError,
             "The custom element registry and is option can't be set at the "
@@ -1436,8 +1442,7 @@ std::pair<CustomElementRegistry*, AtomicString> FlattenCreateElementOptions(
       }
       // 4. If registry is null then set registry to the result of looking up a
       // custom element registry given document.
-      if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
-          !registry) {
+      if (!registry) {
         registry = document->customElementRegistry();
       }
       break;
@@ -1560,7 +1565,6 @@ Element* Document::createElementNS(
   // 3. Let element be the result of creating an element.
   Element* element = CreateElement(
       q_name, CreateElementFlags::ByCreateElement(), is, registry);
-
   return element;
 }
 
@@ -1571,14 +1575,18 @@ Element* Document::CreateElement(const QualifiedName& q_name,
                                  const AtomicString& is,
                                  CustomElementRegistry* registry) {
   CustomElementDefinition* definition = nullptr;
+  // 2. If registry is "default", set registry to the result of looking
+  // up a custom element registry given document.
+  // Note that this step is currently only applicable to scenario when
+  // scoped registry is disabled as a valid registry should be assigned for
+  // default cases while flattening options. We could overload
+  // Document::CreateElement without registry argument and assign
+  // default value in implementation if the use case is ever needed.
+  if (!RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
+    registry = customElementRegistry();
+  }
   if (flags.IsCustomElements() &&
       q_name.NamespaceURI() == html_names::xhtmlNamespaceURI) {
-    // 2. If registry is "default", set registry to the result of looking up
-    // a custom element registry given document.
-    if (!RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() ||
-        !registry) {
-      registry = customElementRegistry();
-    }
     // 3. Let definition be the result of looking up a custom element definition
     // given registry, namespace, localName and is.
     const CustomElementDescriptor desc(is.IsNull() ? q_name.LocalName() : is,
@@ -1588,8 +1596,9 @@ Element* Document::CreateElement(const QualifiedName& q_name,
     }
   }
 
-  if (definition)
+  if (definition) {
     return definition->CreateElement(*this, q_name, flags, registry);
+  }
 
   return CustomElement::CreateUncustomizedOrUndefinedElement(
       *this, q_name, flags, is, registry);
@@ -1679,9 +1688,24 @@ Node* Document::importNode(Node* imported_node,
     subtree = !options->selfOnly();
   }
 
+  // 5-2. If options["customElementRegistry"] exists, then set registry to it.
   CustomElementRegistry* registry = nullptr;
   if (options->hasCustomElementRegistry()) {
+    CHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
     registry = options->customElementRegistry();
+    // 5-3. If registry's is scoped is false and registry is not this's custom
+    // element registry, then throw a "notSupportedError" DOMException.
+    if (registry->IsGlobalRegistry() && registry != customElementRegistry()) {
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kNotSupportedError,
+          "The registry provided is a global registry from another document.");
+      return nullptr;
+    }
+  }
+  // 6. If registry is null, then set registry to the result of looking up a
+  // custom element registry given this
+  if (!registry) {
+    registry = customElementRegistry();
   }
 
   return importNode(imported_node, subtree, registry, exception_state);
@@ -1716,14 +1740,16 @@ Node* Document::importNode(Node* imported_node,
     return nullptr;
   }
 
-  // 2. Return a clone of node, with context object, the clone children flag set
   // if deep is true, and the clone shadows flag set if this is a
   // DocumentFragment whose host is an HTML template element.
   NodeCloningData data;
   if (deep) {
     data.Put(CloneOption::kIncludeDescendants);
   }
-  return imported_node->Clone(*this, data, /*append_to*/ nullptr);
+
+  // 7. Return the result of cloning a node given node with document set to
+  // this, subtree set to subtree, and fallbackRegistry set to registry.
+  return imported_node->Clone(*this, data, /*append_to*/ nullptr, registry);
 }
 
 Node* Document::adoptNode(Node* source, ExceptionState& exception_state) {
@@ -2263,17 +2289,6 @@ String Document::visibilityStateAsString() const {
 bool Document::prerendering() const {
   return IsPrerendering();
 }
-uint32_t Document::softNavigations() const {
-  LocalDOMWindow* window = domWindow();
-  if (!window) {
-    return 0;
-  }
-  if (SoftNavigationHeuristics* heuristics =
-          window->GetSoftNavigationHeuristics()) {
-    return heuristics->SoftNavigationCount();
-  }
-  return 0;
-}
 
 bool Document::hidden() const {
   return !IsPageVisible();
@@ -2503,20 +2518,21 @@ static void AssertNodeClean(const Node& node) {
 }
 
 static void AssertLayoutTreeUpdatedForPseudoElements(const Element& element) {
-  WTF::Vector<PseudoId> pseudo_ids = {kPseudoIdFirstLetter,
-                                      kPseudoIdCheckMark,
-                                      kPseudoIdBefore,
-                                      kPseudoIdAfter,
-                                      kPseudoIdPickerIcon,
-                                      kPseudoIdMarker,
-                                      kPseudoIdBackdrop,
-                                      kPseudoIdScrollMarkerGroupBefore,
-                                      kPseudoIdScrollMarkerGroupAfter,
-                                      kPseudoIdScrollButtonBlockStart,
-                                      kPseudoIdScrollButtonInlineStart,
-                                      kPseudoIdScrollButtonInlineEnd,
-                                      kPseudoIdScrollButtonBlockEnd,
-                                      kPseudoIdScrollMarker};
+  Vector<PseudoId> pseudo_ids = {kPseudoIdFirstLetter,
+                                 kPseudoIdCheckMark,
+                                 kPseudoIdBefore,
+                                 kPseudoIdAfter,
+                                 kPseudoIdPickerIcon,
+                                 kPseudoIdInterestHint,
+                                 kPseudoIdMarker,
+                                 kPseudoIdBackdrop,
+                                 kPseudoIdScrollMarkerGroupBefore,
+                                 kPseudoIdScrollMarkerGroupAfter,
+                                 kPseudoIdScrollButtonBlockStart,
+                                 kPseudoIdScrollButtonInlineStart,
+                                 kPseudoIdScrollButtonInlineEnd,
+                                 kPseudoIdScrollButtonBlockEnd,
+                                 kPseudoIdScrollMarker};
   for (auto pseudo_id : pseudo_ids) {
     if (const PseudoElement* pseudo_element =
             element.GetPseudoElement(pseudo_id)) {
@@ -2533,8 +2549,9 @@ static void AssertLayoutTreeUpdatedForPseudoElements(const Element& element) {
   }
 }
 
-static void AssertLayoutTreeUpdated(Node& root,
-                                    bool allow_dirty_container_subtrees) {
+static void AssertLayoutTreeUpdated(
+    Node& root,
+    bool allow_dirty_container_subtrees = true) {
   Node* node = &root;
   while (node) {
     if (auto* element = DynamicTo<Element>(node)) {
@@ -2566,7 +2583,7 @@ static void AssertLayoutTreeUpdated(Node& root,
 
 #if EXPENSIVE_DCHECKS_ARE_ON()
 void Document::AssertLayoutTreeUpdatedAfterLayout() {
-  AssertLayoutTreeUpdated(*this, false /* allow_dirty_container_subtrees */);
+  AssertLayoutTreeUpdated(*this, /*allow_dirty_container_subtrees=*/false);
   DCHECK(!GetStyleEngine().SkippedContainerRecalc());
 }
 #endif
@@ -2632,8 +2649,7 @@ void Document::UpdateStyleAndLayoutTreeForThisDocument() {
                 .GetSlotAssignmentEngine()
                 .HasPendingSlotAssignmentRecalc());
     DCHECK(!owner->GetDocument().NeedsLayoutTreeUpdate());
-    AssertLayoutTreeUpdated(owner->GetDocument(),
-                            false /* allow_dirty_container_subtrees */);
+    AssertLayoutTreeUpdated(owner->GetDocument());
   }
 #endif  // EXPENSIVE_DCHECKS_ARE_ON()
 
@@ -2774,7 +2790,7 @@ void Document::UpdateStyleAndLayoutTreeForThisDocument() {
   ElementRuleCollector::DumpAndClearRulesPerfMap();
 
 #if DCHECK_IS_ON()
-  AssertLayoutTreeUpdated(*this, true /* allow_dirty_container_subtrees */);
+  AssertLayoutTreeUpdated(*this);
 #endif
 }
 
@@ -4378,7 +4394,7 @@ bool Document::CheckCompletedInternal() {
   DCHECK(fetcher_);
 
   fetcher_->ScheduleWarnUnusedPreloads(
-      WTF::BindOnce(&Document::OnWarnUnusedPreloads, WrapWeakPersistent(this)));
+      BindOnce(&Document::OnWarnUnusedPreloads, WrapWeakPersistent(this)));
 
   // The readystatechanged or load event may have disconnected this frame.
   if (!GetFrame() || !GetFrame()->IsAttached())
@@ -5179,10 +5195,10 @@ void Document::NotifyParserResumeByUserTiming() {
 void Document::DidLoadAllScriptBlockingResources() {
   // Use wrapWeakPersistent because the task should not keep this Document alive
   // just for executing scripts.
-  execute_scripts_waiting_for_resources_task_handle_ = PostCancellableTask(
-      *GetTaskRunner(TaskType::kNetworking), FROM_HERE,
-      WTF::BindOnce(&Document::ExecuteScriptsWaitingForResources,
-                    WrapWeakPersistent(this)));
+  execute_scripts_waiting_for_resources_task_handle_ =
+      PostCancellableTask(*GetTaskRunner(TaskType::kNetworking), FROM_HERE,
+                          BindOnce(&Document::ExecuteScriptsWaitingForResources,
+                                   WrapWeakPersistent(this)));
 
   if (IsA<HTMLDocument>(this) && body()) {
     // For HTML if we have no more stylesheets to load and we're past the body
@@ -5199,6 +5215,22 @@ void Document::ExecuteScriptsWaitingForResources() {
     return;
   if (ScriptableDocumentParser* parser = GetScriptableDocumentParser())
     parser->ExecuteScriptsWaitingForResources();
+}
+
+void Document::UnblockScriptExecutionForPrerenderActivation() {
+  if (!RuntimeEnabledFeatures::PrerenderUntilScriptEnabled()) {
+    return;
+  }
+  CHECK(!IsScriptBlockedUntilPrerenderActivation());
+  if (ScriptableDocumentParser* parser = GetScriptableDocumentParser()) {
+    parser->ExecuteScriptsWaitingForPrerenderActivation();
+  }
+
+  // TODO(https://crbug.com/42850021): Consider deactivating it later, because
+  // async scripts may not be critical for LCP.
+  if (prerender_script_runner_delayer_) {
+    prerender_script_runner_delayer_->Deactivate();
+  }
 }
 
 CSSStyleSheet& Document::ElementSheet() {
@@ -5472,6 +5504,7 @@ bool Document::CanAcceptChild(const Node* new_child,
 Node* Document::Clone(Document& factory,
                       NodeCloningData& data,
                       ContainerNode* append_to,
+                      CustomElementRegistry* fallback_registry,
                       ExceptionState& append_exception_state) const {
   DCHECK_EQ(this, &factory)
       << "Document::Clone() doesn't support importNode mode.";
@@ -5490,8 +5523,15 @@ Node* Document::Clone(Document& factory,
     data.PushPartRoot(*part_root);
     PartRoot::CloneParts(*this, *clone, data);
   }
+  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
+    // 2. If node's custom element registry's is scoped is true, then
+    // set copy's custom element registry to node's custom element registry.
+    if (fallback_registry && !fallback_registry->IsGlobalRegistry()) {
+      clone->SetCustomElementRegistry(fallback_registry);
+    }
+  }
   if (data.Has(CloneOption::kIncludeDescendants)) {
-    clone->CloneChildNodesFrom(*this, data);
+    clone->CloneChildNodesFrom(*this, data, fallback_registry);
   }
   DCHECK(!part_root || &data.CurrentPartRoot() == part_root);
   return clone;
@@ -5645,8 +5685,7 @@ class FlatTreeTraversalParentElementExceptSelectPopover {
   using Traversal = FlatTreeTraversal;
   using TraversalNodeType = Element;
   static TraversalNodeType* Next(const TraversalNodeType& node) {
-    if (HTMLSelectElement::CustomizableSelectEnabled(&node) &&
-        HTMLSelectElement::IsPopoverPickerElement(&node)) {
+    if (HTMLSelectElement::IsPopoverPickerElement(&node)) {
       return nullptr;
     }
     return Traversal::ParentElement(node);
@@ -6990,7 +7029,7 @@ mojom::blink::PermissionService* Document::GetPermissionService(
     execution_context->GetBrowserInterfaceBroker().GetInterface(
         data_->permission_service_.BindNewPipeAndPassReceiver(
             execution_context->GetTaskRunner(TaskType::kPermission)));
-    data_->permission_service_.set_disconnect_handler(WTF::BindOnce(
+    data_->permission_service_.set_disconnect_handler(BindOnce(
         &Document::PermissionServiceConnectionError, WrapWeakPersistent(this)));
   }
   return data_->permission_service_.get();
@@ -7045,8 +7084,8 @@ ScriptPromise<IDLBoolean> Document::hasPrivateToken(
         data_->trust_token_query_answerer_.BindNewPipeAndPassReceiver(
             GetExecutionContext()->GetTaskRunner(TaskType::kInternalDefault)));
     data_->trust_token_query_answerer_.set_disconnect_handler(
-        WTF::BindOnce(&Document::TrustTokenQueryAnswererConnectionError,
-                      WrapWeakPersistent(this)));
+        BindOnce(&Document::TrustTokenQueryAnswererConnectionError,
+                 WrapWeakPersistent(this)));
   }
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLBoolean>>(
       script_state, exception_state.GetContext());
@@ -7054,7 +7093,7 @@ ScriptPromise<IDLBoolean> Document::hasPrivateToken(
 
   data_->trust_token_query_answerer_->HasTrustTokens(
       issuer_origin,
-      WTF::BindOnce(
+      BindOnce(
           [](WeakPersistent<ScriptPromiseResolver<IDLBoolean>> resolver,
              WeakPersistent<Document> document,
              network::mojom::blink::HasTrustTokensResultPtr result) {
@@ -7157,15 +7196,15 @@ ScriptPromise<IDLBoolean> Document::hasRedemptionRecord(
         data_->trust_token_query_answerer_.BindNewPipeAndPassReceiver(
             GetExecutionContext()->GetTaskRunner(TaskType::kInternalDefault)));
     data_->trust_token_query_answerer_.set_disconnect_handler(
-        WTF::BindOnce(&Document::TrustTokenQueryAnswererConnectionError,
-                      WrapWeakPersistent(this)));
+        BindOnce(&Document::TrustTokenQueryAnswererConnectionError,
+                 WrapWeakPersistent(this)));
   }
 
   data_->pending_trust_token_query_resolvers_.insert(resolver);
 
   data_->trust_token_query_answerer_->HasRedemptionRecord(
       issuer_origin,
-      WTF::BindOnce(
+      BindOnce(
           [](WeakPersistent<ScriptPromiseResolver<IDLBoolean>> resolver,
              WeakPersistent<Document> document,
              network::mojom::blink::HasRedemptionRecordResultPtr result) {
@@ -9341,6 +9380,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(current_script_stack_);
   visitor->Trace(script_runner_);
   visitor->Trace(script_runner_delayer_);
+  visitor->Trace(prerender_script_runner_delayer_);
   visitor->Trace(lists_invalidated_at_document_);
   visitor->Trace(node_lists_);
   visitor->Trace(top_layer_elements_);
@@ -9498,10 +9538,9 @@ void Document::ProcessJavaScriptUrl(const KURL& url,
   pending_javascript_urls_.push_back(
       MakeGarbageCollected<PendingJavascriptUrl>(url, world));
   if (!javascript_url_task_handle_.IsActive()) {
-    javascript_url_task_handle_ =
-        PostCancellableTask(*GetTaskRunner(TaskType::kNetworking), FROM_HERE,
-                            WTF::BindOnce(&Document::ExecuteJavaScriptUrls,
-                                          WrapWeakPersistent(this)));
+    javascript_url_task_handle_ = PostCancellableTask(
+        *GetTaskRunner(TaskType::kNetworking), FROM_HERE,
+        BindOnce(&Document::ExecuteJavaScriptUrls, WrapWeakPersistent(this)));
   }
 }
 
@@ -9546,6 +9585,11 @@ void Document::SetShowBeforeUnloadDialog(bool show_dialog) {
   }
   mime_handler_view_before_unload_event_listener_->SetShowBeforeUnloadDialog(
       show_dialog);
+}
+
+bool Document::IsScriptBlockedUntilPrerenderActivation() const {
+  return is_prerendering_ &&
+         GetPage()->ShouldPauseJavaScriptExecutionOnPrerender();
 }
 
 mojom::blink::PreferredColorScheme Document::GetPreferredColorScheme() const {
@@ -9698,14 +9742,13 @@ void Document::ActivateForPrerendering(
   TRACE_EVENT_WITH_FLOW0("navigation", "Document::ActivateForPrerendering",
                          TRACE_ID_LOCAL(this),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
-
   DCHECK(is_prerendering_);
   is_prerendering_ = false;
 
   if (DocumentLoader* loader = Loader()) {
     loader->NotifyPrerenderingDocumentActivated(params);
   }
-
+  UnblockScriptExecutionForPrerenderActivation();
   Vector<base::OnceClosure> callbacks;
   callbacks.swap(will_dispatch_prerenderingchange_callbacks_);
   for (auto& callback : callbacks) {
@@ -9843,7 +9886,7 @@ void Document::EnqueuePageRevealEvent() {
 }
 
 Resource* Document::GetPendingLinkPreloadForTesting(const KURL& url) {
-  for (auto pending_preload : pending_link_header_preloads_) {
+  for (const auto& pending_preload : pending_link_header_preloads_) {
     Resource* resource = pending_preload->GetResourceForTesting();
     if (resource && resource->Url() == url) {
       return resource;

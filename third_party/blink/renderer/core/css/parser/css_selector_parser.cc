@@ -37,6 +37,7 @@ namespace blink {
 static void RecordUsageAndDeprecationsOneSelector(
     const CSSSelector* selector,
     const CSSParserContext* context,
+    CSSNestingType nesting_type,
     bool* has_visited_pseudo);
 
 namespace {
@@ -135,7 +136,7 @@ base::span<CSSSelector> CSSSelectorParser::ParseSelector(
     return {};
   }
 
-  parser.RecordUsageAndDeprecations(result);
+  parser.RecordUsageAndDeprecations(result, nesting_type);
   return result;
 }
 
@@ -157,7 +158,7 @@ base::span<CSSSelector> CSSSelectorParser::ConsumeSelector(
   ResultFlags result_flags = 0;
   base::span<CSSSelector> result = parser.ConsumeComplexSelectorList(
       stream, observer, nesting_type, result_flags);
-  parser.RecordUsageAndDeprecations(result, has_visited_style);
+  parser.RecordUsageAndDeprecations(result, nesting_type, has_visited_style);
   return result;
 }
 
@@ -181,7 +182,7 @@ base::span<CSSSelector> CSSSelectorParser::ParseScopeBoundary(
   if (result.empty() || !stream.AtEnd()) {
     return {};
   }
-  parser.RecordUsageAndDeprecations(result);
+  parser.RecordUsageAndDeprecations(result, nesting_type);
   return result;
 }
 
@@ -653,8 +654,7 @@ base::span<CSSSelector> CSSSelectorParser::ConsumeRelativeSelector(
   }
 
   // See ConsumeComplexSelector().
-  std::reverse(reset_vector.AddedElements().begin(),
-               reset_vector.AddedElements().end());
+  std::ranges::reverse(reset_vector.AddedElements());
 
   MarkAsEntireComplexSelector(reset_vector.AddedElements());
   return reset_vector.CommitAddedElements();
@@ -793,8 +793,7 @@ base::span<CSSSelector> CSSSelectorParser::ConsumeNestedRelativeSelector(
     return {};
   }
 
-  std::reverse(reset_vector.AddedElements().begin(),
-               reset_vector.AddedElements().end());
+  std::ranges::reverse(reset_vector.AddedElements());
 
   MarkAsEntireComplexSelector(reset_vector.AddedElements());
   return reset_vector.CommitAddedElements();
@@ -821,7 +820,7 @@ base::span<CSSSelector> CSSSelectorParser::ConsumeComplexSelector(
 
   // Reverse the compound selector, so that it comes out properly
   // after we reverse everything below.
-  std::reverse(compound_selector.begin(), compound_selector.end());
+  std::ranges::reverse(compound_selector);
 
   if (CSSSelector::RelationType combinator = ConsumeCombinator(stream)) {
     result_flags |= kContainsComplexSelector;
@@ -854,8 +853,7 @@ base::span<CSSSelector> CSSSelectorParser::ConsumeComplexSelector(
   // The boundaries between the compound selectors are implicit; they are given
   // by having a Relation() not equal to kSubSelector, so they follow
   // automatically when we do the reversal.
-  std::reverse(reset_vector.AddedElements().begin(),
-               reset_vector.AddedElements().end());
+  std::ranges::reverse(reset_vector.AddedElements());
 
   if (nesting_type != CSSNestingType::kNone) {
     // In nested top-level rules, if we do not have a & anywhere in the list,
@@ -902,7 +900,7 @@ bool CSSSelectorParser::ConsumePartialComplexSelector(
     compound_selector.back().SetRelation(combinator);
 
     // See ConsumeComplexSelector().
-    std::reverse(compound_selector.begin(), compound_selector.end());
+    std::ranges::reverse(compound_selector);
 
     if (previous_compound_flags & kHasPseudoElementForRightmostCompound) {
       // If we've already seen a compound that needs to be rightmost, and still
@@ -1144,7 +1142,9 @@ bool IsPseudoClassValidAfterPseudoElement(
     case CSSSelector::kPseudoScrollMarkerGroup:
       return pseudo_class == CSSSelector::kPseudoFocusWithin;
     case CSSSelector::kPseudoScrollMarker:
-      return pseudo_class == CSSSelector::kPseudoTargetCurrent;
+      return pseudo_class == CSSSelector::kPseudoTargetCurrent ||
+             pseudo_class == CSSSelector::kPseudoTargetBefore ||
+             pseudo_class == CSSSelector::kPseudoTargetAfter;
     case CSSSelector::kPseudoScrollButton:
       return pseudo_class == CSSSelector::kPseudoDisabled ||
              pseudo_class == CSSSelector::kPseudoEnabled;
@@ -1673,11 +1673,6 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
       return true;
     }
     case CSSSelector::kPseudoPicker:
-      /* This can't check for origin trials, unfortunately. */
-      if (!HTMLSelectElement::CustomizableSelectEnabledNoDocument()) {
-        return false;
-      }
-      [[fallthrough]];
     case CSSSelector::kPseudoDir:
     case CSSSelector::kPseudoState: {
       const CSSParserToken& ident = stream.Peek();
@@ -1806,16 +1801,115 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
       return true;
     }
     case CSSSelector::kPseudoLang: {
-      // FIXME: CSS Selectors Level 4 allows :lang(*-foo)
-      const CSSParserToken& ident = stream.Peek();
-      if (ident.GetType() != kIdentToken) {
+      // If flag is disabled, extended language ranges will not be parsed.
+      if (!RuntimeEnabledFeatures::CSSLangExtendedRangesEnabled()) {
+        const CSSParserToken& ident = stream.Peek();
+        if (ident.GetType() != kIdentToken) {
+          return false;
+        }
+        selector.SetArgumentList(std::make_unique<Vector<AtomicString>>(
+            Vector<AtomicString>{ident.Value().ToAtomicString()}));
+        stream.ConsumeIncludingWhitespace();
+        if (!stream.AtEnd()) {
+          return false;
+        }
+        output_.push_back(std::move(selector));
+        return true;
+      }
+
+      Vector<AtomicString> langs;
+
+      while (!stream.AtEnd()) {
+        StringBuilder lang_range_builder;
+        const CSSParserToken& first = stream.Peek();
+
+        // Initial subtag: identifier, string, or wildcard.
+        if (first.GetType() == kIdentToken) {
+          const StringView& value = first.Value();
+          // Reject identifiers starting with hyphen.
+          if (value.length() > 0 && value[0] == '-') {
+            return false;
+          }
+          lang_range_builder.Append(stream.Consume().Value());
+        } else if (first.GetType() == kStringToken) {
+          lang_range_builder.Append(stream.Consume().Value());
+        } else if (first.GetType() == kDelimiterToken &&
+                   first.Delimiter() == '*') {
+          lang_range_builder.Append('*');
+          stream.Consume();
+        } else {
+          return false;
+        }
+
+        // Hyphen-separated subtags: identifier, wildcard, or number.
+        while (!stream.AtEnd()) {
+          const CSSParserToken& next = stream.Peek();
+
+          if (next.GetType() == kDelimiterToken && next.Delimiter() == '-') {
+            // Isolated hyphen.
+            lang_range_builder.Append('-');
+            stream.Consume();
+
+            if (stream.AtEnd()) {
+              // Trailing hyphen.
+              return false;
+            }
+            const CSSParserToken& after_hyphen = stream.Peek();
+            if (after_hyphen.GetType() == kIdentToken) {
+              lang_range_builder.Append(stream.Consume().Value());
+            } else if (after_hyphen.GetType() == kStringToken) {
+              lang_range_builder.Append(stream.Consume().Value());
+            } else if (after_hyphen.GetType() == kDelimiterToken &&
+                       after_hyphen.Delimiter() == '*') {
+              lang_range_builder.Append('*');
+              stream.Consume();
+            } else if (after_hyphen.GetType() == kNumberToken &&
+                       after_hyphen.GetNumericValueType() ==
+                           kIntegerValueType &&
+                       after_hyphen.NumericValue() >= 0) {
+              lang_range_builder.AppendNumber(
+                  ClampTo<int>(after_hyphen.NumericValue()));
+              stream.Consume();
+            } else {
+              // Unexpected token after hyphen.
+              return false;
+            }
+          } else if (next.GetType() == kDelimiterToken &&
+                     next.Delimiter() == '*' &&
+                     lang_range_builder.ToString().EndsWith('-')) {
+            // Wildcard after hyphen.
+            lang_range_builder.Append('*');
+            stream.Consume();
+          } else if (next.GetType() == kIdentToken &&
+                     next.Value().length() > 0 && next.Value()[0] == '-') {
+            // Identifier that starts with hyphen.
+            lang_range_builder.Append(stream.Consume().Value());
+          } else {
+            break;
+          }
+        }
+
+        langs.push_back(lang_range_builder.ToAtomicString());
+        stream.ConsumeWhitespace();
+
+        if (!stream.AtEnd()) {
+          if (stream.Peek().GetType() != kCommaToken) {
+            return false;
+          }
+          stream.ConsumeIncludingWhitespace();
+          if (stream.AtEnd()) {
+            // Trailing comma.
+            return false;
+          }
+        }
+      }
+
+      if (langs.empty()) {
         return false;
       }
-      selector.SetArgument(ident.Value().ToAtomicString());
-      stream.ConsumeIncludingWhitespace();
-      if (!stream.AtEnd()) {
-        return false;
-      }
+
+      selector.SetArgumentList(
+          std::make_unique<Vector<AtomicString>>(std::move(langs)));
       output_.push_back(std::move(selector));
       return true;
     }
@@ -2401,6 +2495,7 @@ WebFeature FeatureForWebKitCustomPseudoElement(const AtomicString& name) {
 static void RecordUsageAndDeprecationsOneSelector(
     const CSSSelector* selector,
     const CSSParserContext* context,
+    CSSNestingType nesting_type,
     bool* has_visited_pseudo) {
   // Both the classic WebFeature and the newer WebDXFeature use counters can be
   // recorded. Some WebFeature counters are mapped to WebDXFeature counters in
@@ -2516,6 +2611,11 @@ static void RecordUsageAndDeprecationsOneSelector(
     case CSSSelector::kPseudoFutureCue:
       webdx_feature = WebDXFeature::kTimeRelativeSelectors;
       break;
+    case CSSSelector::kPseudoParent:
+      if (nesting_type == CSSNestingType::kScope) {
+        feature = WebFeature::kCSSPseudoParentInScope;
+      }
+      break;
     default:
       break;
   }
@@ -2535,7 +2635,7 @@ static void RecordUsageAndDeprecationsOneSelector(
   if (selector->SelectorList()) {
     for (const CSSSelector* current = selector->SelectorList()->First();
          current; current = current->NextSimpleSelector()) {
-      RecordUsageAndDeprecationsOneSelector(current, context,
+      RecordUsageAndDeprecationsOneSelector(current, context, nesting_type,
                                             has_visited_pseudo);
     }
   }
@@ -2543,6 +2643,7 @@ static void RecordUsageAndDeprecationsOneSelector(
 
 void CSSSelectorParser::RecordUsageAndDeprecations(
     const base::span<CSSSelector> selector_vector,
+    CSSNestingType nesting_type,
     bool* has_visited_pseudo) {
   if (!context_->IsUseCounterRecordingEnabled()) {
     return;
@@ -2552,7 +2653,7 @@ void CSSSelectorParser::RecordUsageAndDeprecations(
   }
 
   for (const CSSSelector& current : selector_vector) {
-    RecordUsageAndDeprecationsOneSelector(&current, context_,
+    RecordUsageAndDeprecationsOneSelector(&current, context_, nesting_type,
                                           has_visited_pseudo);
   }
 }

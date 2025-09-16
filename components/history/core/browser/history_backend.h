@@ -885,6 +885,7 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
       ui::PageTransition transition,
       bool hidden,
       VisitSource visit_source,
+      VisitResponseCodeCategory response_code_category,
       bool should_increment_typed_count,
       VisitID opener_visit,
       bool consider_for_ntp_most_visited,
@@ -1137,7 +1138,7 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
 
   // Listens for the system being under memory pressure.
-  std::unique_ptr<base::MemoryPressureListener> memory_pressure_listener_;
+  std::unique_ptr<base::AsyncMemoryPressureListener> memory_pressure_listener_;
 
   // Contains diagnostic information about the sql database that is non-empty
   // when a catastrophic error occurs.

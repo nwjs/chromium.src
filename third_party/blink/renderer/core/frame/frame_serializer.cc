@@ -492,7 +492,7 @@ class SerializerMarkupAccumulator : public MarkupAccumulator {
       center_y = page->GetChromeClient().WindowToViewportScalar(
           window->GetFrame(), center_y);
     }
-    if (!PhysicalRect(box->PhysicalLocation(), box->Size())
+    if (!PhysicalRect(box->PhysicalLocation(), box->StitchedSize())
              .Contains(LayoutUnit(center_x), LayoutUnit(center_y))) {
       return false;
     }
@@ -1214,6 +1214,7 @@ function main(metadata) {
       // Rules inheriting CSSGroupingRule
       case CSSRule::kNestedDeclarationsRule:
       case CSSRule::kMediaRule:
+      case CSSRule::kMixinRule:
       case CSSRule::kSupportsRule:
       case CSSRule::kContainerRule:
       case CSSRule::kLayerBlockRule:
@@ -1263,6 +1264,12 @@ function main(metadata) {
       case CSSRule::kFunctionDeclarationsRule:
       case CSSRule::kFunctionRule:
       case CSSRule::kCustomMediaRule:
+      case CSSRule::kContentsMixinRule:
+        break;
+
+      // FIXME(sesse): We can reference external resources in a @contents
+      // argument.
+      case CSSRule::kApplyMixinRule:
         break;
     }
   }

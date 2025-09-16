@@ -10,7 +10,9 @@
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/actor/ui/states/handoff_button_state.h"
+#include "ui/base/interaction/element_identifier.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_delegate.h"
 
 namespace views {
 class LabelButton;
@@ -54,6 +56,8 @@ class HandoffButtonController {
  public:
   explicit HandoffButtonController(tabs::TabInterface& tab_interface);
   virtual ~HandoffButtonController();
+
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kHandoffButtonElementId);
 
   HandoffButtonController(const HandoffButtonController&) = delete;
   HandoffButtonController& operator=(const HandoffButtonController&) = delete;

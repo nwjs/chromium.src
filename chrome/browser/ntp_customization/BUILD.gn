@@ -27,6 +27,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/ntp_customization/ntp_cards/NtpCardsCoordinator.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/ntp_cards/NtpCardsListContainerView.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/ntp_cards/NtpCardsMediator.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme/CropImageView.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/NtpThemeBottomSheetView.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/NtpThemeCoordinator.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/NtpThemeListItemView.java",
@@ -34,6 +35,10 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/NtpThemeMediator.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/NtpThemeProperty.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/NtpThemeViewBinder.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme/chrome_colors/NtpChromeColorsAdapter.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme/chrome_colors/NtpChromeColorsCoordinator.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme/chrome_colors/NtpThemeColorInfo.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme/chrome_colors/NtpThemeColorUtils.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/theme_collections/NtpSingleThemeCollectionCoordinator.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/theme_collections/NtpThemeCollectionsAdapter.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/theme_collections/NtpThemeCollectionsCoordinator.java",
@@ -60,7 +65,6 @@ android_library("java") {
     "//chrome/browser/util:java",
     "//components/browser_ui/bottomsheet/android:java",
     "//components/browser_ui/bottomsheet/android:java_resources",
-    "//components/browser_ui/edge_to_edge/android:java",
     "//components/browser_ui/share/android:java",
     "//components/browser_ui/styles/android:java",
     "//components/browser_ui/widget/android:java",
@@ -81,6 +85,7 @@ android_library("java") {
     "//third_party/androidx:androidx_core_core_java",
     "//third_party/androidx:androidx_recyclerview_recyclerview_java",
     "//ui/android:ui_java",
+    "//ui/edge_to_edge:java",
     "//url:url_java",
   ]
   resources_package = "org.chromium.chrome.browser.ntp_customization"
@@ -88,6 +93,11 @@ android_library("java") {
 
 android_resources("java_resources") {
   sources = [
+    "java/res/drawable/chrome_color_icon_list_selector.xml",
+    "java/res/drawable/chrome_color_icon_selected_background.xml",
+    "java/res/drawable/chrome_color_theme_icon_blue.xml",
+    "java/res/drawable/chrome_color_theme_icon_light_blue.xml",
+    "java/res/drawable/chrome_colors_icon_for_theme_bottom_sheet.xml",
     "java/res/drawable/edit_icon_circle_background.xml",
     "java/res/drawable/fitbit_heart_rate_icon.xml",
     "java/res/drawable/forward_arrow_icon.xml",
@@ -95,9 +105,12 @@ android_resources("java_resources") {
     "java/res/drawable/ntp_customization_bottom_sheet_list_item_background_middle.xml",
     "java/res/drawable/ntp_customization_bottom_sheet_list_item_background_single.xml",
     "java/res/drawable/ntp_customization_bottom_sheet_list_item_background_top.xml",
+    "java/res/drawable/pinch_to_resize_hand.xml",
     "java/res/drawable/upload_an_image_icon_for_theme_bottom_sheet.xml",
     "java/res/layout/bottom_sheet_list_item_view.xml",
     "java/res/layout/ntp_customization_bottom_sheet.xml",
+    "java/res/layout/ntp_customization_chrome_colors_bottom_sheet_layout.xml",
+    "java/res/layout/ntp_customization_chrome_colors_grid_item_layout.xml",
     "java/res/layout/ntp_customization_drag_handle_bar.xml",
     "java/res/layout/ntp_customization_feed_bottom_sheet.xml",
     "java/res/layout/ntp_customization_main_bottom_sheet.xml",
@@ -113,10 +126,12 @@ android_resources("java_resources") {
     "java/res/layout/ntp_customization_theme_list_chrome_default_item_layout.xml",
     "java/res/layout/ntp_customization_theme_list_theme_collections_item_layout.xml",
     "java/res/layout/ntp_customization_theme_list_upload_an_image_item_layout.xml",
+    "java/res/layout/ntp_customization_theme_preview_dialog_layout.xml",
     "java/res/values-night/colors.xml",
     "java/res/values/colors.xml",
     "java/res/values/dimens.xml",
     "java/res/values/ids.xml",
+    "java/res/values/styles.xml",
   ]
   deps = [
     "//components/browser_ui/strings/android:browser_ui_strings_grd",
@@ -153,9 +168,10 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/NtpThemeListThemeCollectionItemIconViewUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/NtpThemeMediatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/NtpThemeViewBinderUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/ntp_customization/theme/chrome_colors/NtpChromeColorsAdapterUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/ntp_customization/theme/chrome_colors/NtpChromeColorsCoordinatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/theme_collections/NtpSingleThemeCollectionCoordinatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/theme_collections/NtpThemeCollectionsAdapterUnitTest.java",
-    "junit/src/org/chromium/chrome/browser/ntp_customization/theme/theme_collections/NtpThemeCollectionsCoordinatorUnitTest.java",
   ]
   deps = [
     ":java",

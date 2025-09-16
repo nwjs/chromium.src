@@ -18,14 +18,17 @@ namespace tabs_api::events {
 // some of the conversions are not covered by unit tests and must be covered in
 // integration tests.
 
-mojom::OnTabsCreatedEventPtr ToEvent(const TabStripModelChange::Insert& insert,
-                                     TabStripModel* tab_strip_model);
+mojom::OnTabsCreatedEventPtr ToEvent(
+    const TabStripModelChange::Insert& insert,
+    const tabs_api::TabStripModelAdapter* adapter);
 mojom::OnTabsClosedEventPtr ToEvent(const TabStripModelChange::Remove& remove);
 mojom::OnTabMovedEventPtr ToEvent(const TabStripModelChange::Move& move);
-mojom::OnTabDataChangedEventPtr ToEvent(
+mojom::OnDataChangedEventPtr ToEvent(
     const tabs_api::TabStripModelAdapter* adapter,
     size_t index,
     TabChangeType change_type);
+std::vector<Event> ToEvent(const TabStripSelectionChange& selection,
+                           const tabs_api::TabStripModelAdapter* adapter);
 
 // When a tab group is opened, there're multiple events fired from
 // TabStripModelObserver. The following functions convert them to TabStripAPI
@@ -47,8 +50,9 @@ mojom::OnTabMovedEventPtr FromTabGroupedStateChangedToTabMovedEvent(
     std::optional<tab_groups::TabGroupId> new_group,
     tabs::TabInterface* tab,
     int index);
+mojom::OnDataChangedEventPtr ToEvent(const TabGroupChange& tab_group_change);
 
-mojom::OnTabGroupVisualsChangedEventPtr ToTabGroupVisualsChangedEvent(
+mojom::OnTabMovedEventPtr ToTabGroupMovedEvent(
     const TabGroupChange& tab_group_change);
 
 }  // namespace tabs_api::events

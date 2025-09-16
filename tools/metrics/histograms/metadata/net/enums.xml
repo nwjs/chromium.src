@@ -251,6 +251,10 @@ chromium-metrics-reviews@google.com.
   <int value="21" label="Missing scope"/>
   <int value="22" label="No credentials"/>
   <int value="23" label="Invalid include_site in scope"/>
+  <int value="24" label=".well-known unavailable"/>
+  <int value="25"
+      label=".well-known did not authorize registration by subdomain"/>
+  <int value="26" label=".well-known content malformed"/>
 </enum>
 
 <!-- LINT.ThenChange(//net/device_bound_sessions/session_error.h:DeviceBoundSessionError) -->
@@ -2556,6 +2560,20 @@ Called by update_net_trust_anchors.py.-->
   <int value="204" label="QUIC_TOO_MANY_CONNECTION_ID_WAITING_TO_RETIRE"/>
   <int value="205" label="QUIC_HTTP_RECEIVE_SERVER_PUSH"/>
   <int value="206" label="QUIC_INVALID_CHARACTER_IN_FIELD_VALUE"/>
+  <int value="207" label="QUIC_HTTP_INVALID_SETTING_VALUE"/>
+  <int value="208" label="QUIC_TLS_UNEXPECTED_KEYING_MATERIAL_EXPORT_LABEL"/>
+  <int value="209" label="QUIC_TLS_KEYING_MATERIAL_EXPORTS_MISMATCH"/>
+  <int value="210" label="QUIC_TLS_KEYING_MATERIAL_EXPORT_NOT_AVAILABLE"/>
+  <int value="211" label="QUIC_UNEXPECTED_DATA_BEFORE_ENCRYPTION_ESTABLISHED"/>
+  <int value="212" label="QUIC_PACKET_WRONG_VERSION"/>
+  <int value="213" label="QUIC_SERVER_UNHEALTHY"/>
+  <int value="214" label="QUIC_HANDSHAKE_FAILED_PACKETS_BUFFERED_TOO_LONG"/>
+  <int value="215" label="QUIC_CLIENT_LOST_NETWORK_ACCESS"/>
+  <int value="216" label="QUIC_HANDSHAKE_FAILED_INVALID_HOSTNAME"/>
+  <int value="217" label="QUIC_HANDSHAKE_FAILED_REJECTING_ALL_CONNECTIONS"/>
+  <int value="218" label="QUIC_HANDSHAKE_FAILED_INVALID_CONNECTION"/>
+  <int value="219" label="QUIC_HANDSHAKE_FAILED_SYNTHETIC_CONNECTION_CLOSE"/>
+  <int value="220" label="QUIC_HANDSHAKE_FAILED_CID_COLLISION"/>
 </enum>
 
 <enum name="QuicFindMatchingIpSessionResult">
@@ -3079,17 +3097,32 @@ Called by update_net_trust_anchors.py.-->
 
 <enum name="SSLTrustAnchorIDsResult">
   <summary>
-    The result of a TLS connection that advertised Trust Anchor IDs in DNS
+    Whether a TLS connection relied on the trust anchor ID retry.
   </summary>
-  <int value="0" label="The connection succeeded on the initial connection"/>
+  <int value="0"
+      label="There was a DNS hint, and the connection succeeded on the
+             initial connection"/>
   <int value="1"
-      label="The connection failed on the initial connection, and the client
-             didn't retry"/>
+      label="There was a DNS hint, and the connection failed on the initial
+             connection, without retrying"/>
   <int value="2"
-      label="The connection succeeded after retrying with fresh Trust Anchor
-             IDs"/>
+      label="There was a DNS hint, and the connection succeeded after
+             retrying with fresh Trust Anchor IDs"/>
   <int value="3"
-      label="The connection failed after retrying with fresh Trust Anchor IDs"/>
+      label="There was a DNS hint, and the connection failed after retrying
+             with fresh Trust Anchor IDs"/>
+  <int value="4"
+      label="There was no DNS hint, and the connection succeeded on the
+             initial connection"/>
+  <int value="5"
+      label="There was no DNS hint, and the connection failed on the initial
+             connection, without retrying"/>
+  <int value="6"
+      label="There was no DNS hint, and the connection succeeded after
+             retrying with fresh Trust Anchor IDs"/>
+  <int value="7"
+      label="There was no DNS hint, and the connection failed after retrying
+             with fresh Trust Anchor IDs"/>
 </enum>
 
 <enum name="StorageAccessNetRequestKind">

@@ -16,6 +16,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/time/time.h"
 #include "base/types/expected_macros.h"
 #include "cc/animation/animation.h"
 #include "cc/animation/animation_host.h"
@@ -520,13 +521,16 @@ base::expected<void, std::string> UpdateTransformTreeProperties(
   return base::ok();
 }
 
-base::expected<void, std::string> UpdateScrollTreeProperties(
+base::expected<bool, std::string> UpdateScrollTreeProperties(
     cc::PropertyTrees& trees,
     cc::ScrollTree& tree,
     const mojom::ScrollTreeUpdate& update) {
   tree.synced_scroll_offset_map() = update.synced_scroll_offsets;
   tree.scrolling_contents_cull_rects() = update.scrolling_contents_cull_rects;
-  return base::ok();
+  bool elastic_overscroll_changed =
+      tree.elastic_overscroll() != update.elastic_overscroll;
+  tree.elastic_overscroll() = update.elastic_overscroll;
+  return elastic_overscroll_changed;
 }
 
 void UpdateMirrorLayerExtra(const mojom::MirrorLayerExtraPtr& extra,
@@ -1447,6 +1451,11 @@ void LayerContextImpl::DoReturnResources() {
   }
 }
 
+void LayerContextImpl::HandleBadMojoMessage(const std::string& function,
+                                            const std::string& error) {
+  receiver_->ReportBadMessage(function + "() : " + error);
+}
+
 void LayerContextImpl::DidLoseLayerTreeFrameSinkOnImplThread() {
   NOTREACHED();
 }
@@ -1600,9 +1609,15 @@ void LayerContextImpl::SubmitCompositorFrame(CompositorFrame frame,
   // TODO(vmiura): Implement other functionality from
   // AsyncLayerTreeFrameSink::SubmitCompositorFrame()
 
-  compositor_sink_->SubmitCompositorFrame(
+  auto result = compositor_sink_->MaybeSubmitCompositorFrame(
       host_impl_->GetCurrentLocalSurfaceId(), std::move(frame),
       std::move(hit_test_region_list), 0);
+  if (result != SubmitResult::ACCEPTED) {
+    HandleBadMojoMessage(
+        "MaybeSubmitCompositorFrame",
+        CompositorFrameSinkSupport::GetSubmitResultAsString(result));
+    return;
+  }
 
   if (base::FeatureList::IsEnabled(features::kTreeAnimationsInViz)) {
     constexpr bool start_ready_animations = true;
@@ -1627,13 +1642,15 @@ void LayerContextImpl::UpdateDisplayTree(mojom::LayerTreeUpdatePtr update) {
   CHECK(receiver_);
 
   const BeginFrameArgs begin_frame_args = update->begin_frame_args;
+  auto start_update_display_tree = base::TimeTicks::Now();
   auto result = DoUpdateDisplayTree(std::move(update));
   if (!result.has_value()) {
-    receiver_->ReportBadMessage(result.error());
+    HandleBadMojoMessage("UpdateDisplayTree", result.error());
+    return;
   }
 
   // After a tree update, either Draw or schedule animations.
-  DoDraw(begin_frame_args);
+  DoDraw(begin_frame_args, start_update_display_tree);
 
   // We may have resources to return after a tree update and draw.
   DoReturnResources();
@@ -1671,9 +1688,13 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
   }
 
   if (update->scroll_tree_update) {
-    RETURN_IF_ERROR(UpdateScrollTreeProperties(
-        property_trees, property_trees.scroll_tree_mutable(),
-        *update->scroll_tree_update));
+    ASSIGN_OR_RETURN(const bool scroll_properties_changed,
+                     UpdateScrollTreeProperties(
+                         property_trees, property_trees.scroll_tree_mutable(),
+                         *update->scroll_tree_update));
+    if (scroll_properties_changed) {
+      layers.set_needs_update_draw_properties();
+    }
   }
 
   ASSIGN_OR_RETURN(const bool transform_nodes_changed,
@@ -1803,9 +1824,6 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
       !std::isfinite(update->max_safe_area_inset_bottom)) {
     return base::unexpected("Invalid max safe area inset bottom");
   }
-  if (layers.elastic_overscroll()->SetCurrent(update->elastic_overscroll)) {
-    layers.set_needs_update_draw_properties();
-  }
   layers.SetBrowserControlsParams(update->browser_controls_params);
   host_impl_->browser_controls_manager()->SetOffsetTagModifications(
       update->browser_controls_offset_tag_modifications);
@@ -1903,7 +1921,8 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
   return base::ok();
 }
 
-void LayerContextImpl::DoDraw(const BeginFrameArgs& begin_frame_args) {
+void LayerContextImpl::DoDraw(const BeginFrameArgs& begin_frame_args,
+                              base::TimeTicks start_update_display_tree) {
   if (base::FeatureList::IsEnabled(features::kTreeAnimationsInViz)) {
     compositor_sink_->SetLayerContextWantsBeginFrames(true);
   } else {
@@ -1911,10 +1930,15 @@ void LayerContextImpl::DoDraw(const BeginFrameArgs& begin_frame_args) {
       host_impl_->WillBeginImplFrame(begin_frame_args);
 
       cc::LayerTreeHostImpl::FrameData frame;
+      TreesInVizTiming stage_breakdown;
+      stage_breakdown.start_update_display_tree = start_update_display_tree;
       const bool has_damage = true;
       frame.begin_frame_ack = BeginFrameAck(begin_frame_args, has_damage);
       frame.origin_begin_main_frame_args = begin_frame_args;
+      stage_breakdown.start_prepare_to_draw = base::TimeTicks::Now();
       host_impl_->PrepareToDraw(&frame);
+      stage_breakdown.start_draw_layers = base::TimeTicks::Now();
+      frame.set_trees_in_viz_timestamps(std::move(stage_breakdown));
       host_impl_->DrawLayers(&frame);
       host_impl_->DidDrawAllLayers(frame);
       host_impl_->DidFinishImplFrame(begin_frame_args);
@@ -1927,7 +1951,7 @@ void LayerContextImpl::UpdateDisplayTiling(mojom::TilingPtr tiling,
   CHECK(receiver_);
   auto result = DoUpdateDisplayTiling(std::move(tiling), update_damage);
   if (!result.has_value()) {
-    receiver_->ReportBadMessage(result.error());
+    HandleBadMojoMessage("UpdateDisplayTiling", result.error());
   }
 }
 

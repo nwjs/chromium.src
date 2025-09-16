@@ -4,9 +4,10 @@
 
 #include "chrome/browser/content_settings/request_desktop_site_web_contents_observer_android.h"
 
-#include "base/android/build_info.h"
+#include "base/android/device_info.h"
 #include "base/command_line.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
@@ -15,6 +16,7 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/common/content_features.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
+#include "ui/display/screen.h"
 
 namespace rds_web_contents_observer {
 // Keep in sync with UserAgentRequestType in tools/metrics/histograms/enums.xml.
@@ -65,7 +67,7 @@ void RequestDesktopSiteWebContentsObserverAndroid::DidStartNavigation(
   bool is_global_setting = setting_info.primary_pattern.MatchesAllHosts();
 
   // RDS Window Setting support.
-  if (!base::android::BuildInfo::GetInstance()->is_automotive() &&
+  if (!base::android::device_info::is_automotive() &&
       pref_service_->GetBoolean(prefs::kDesktopSiteWindowSettingEnabled) &&
       desktop_mode && !always_request_desktop_site && is_global_setting) {
     int web_contents_width_dp =
@@ -75,6 +77,16 @@ void RequestDesktopSiteWebContentsObserverAndroid::DidStartNavigation(
       desktop_mode = false;
     }
   }
+
+  // Always request desktop site on external displays irrespective of the
+  // content setting.
+  bool is_on_external_display =
+      base::FeatureList::IsEnabled(
+          chrome::android::kDesktopUAOnConnectedDisplay) &&
+      (display::Screen::GetScreen()
+           ->GetDisplayNearestView(web_contents()->GetNativeView())
+           .id() != display::kDefaultDisplayId);
+  desktop_mode |= is_on_external_display;
 
   // Override UA for renderer initiated navigation only. UA override for browser
   // initiated navigation is handled on Java side. This is to workaround known

@@ -28,7 +28,7 @@ base::TimeTicks MotionEvent::GetLatestEventTime() const {
   return GetEventTime();
 }
 
-base::TimeTicks MotionEvent::GetDownTime() const {
+base::TimeTicks MotionEvent::GetRawDownTime() const {
   NOTREACHED();
 }
 
@@ -62,6 +62,10 @@ int MotionEvent::FindPointerIndexOfId(int id) const {
       return static_cast<int>(i);
   }
   return -1;
+}
+
+int MotionEvent::GetSource() const {
+  return 0;
 }
 
 int MotionEvent::GetSourceDeviceId(size_t pointer_index) const {

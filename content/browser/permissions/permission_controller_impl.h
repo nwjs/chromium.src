@@ -51,29 +51,34 @@ class CONTENT_EXPORT PermissionControllerImpl : public PermissionController {
 
   enum class OverrideStatus { kOverrideNotSet, kOverrideSet };
 
-  // For the given |origin|, grant permissions in |overrides| and reject all
-  // others. If no |origin| is specified, grant permissions to all origins in
-  // the browser context.
-  // TODO(crbug.com/427175363): Update SetOverrideForDevTools and
-  // GrantOverridesForDevTools to accept a requesting and embedding origin.
+  // For the given |requesting_origin| and |embedding_origin|, grant permissions
+  // in |overrides| and reject all others. If no |requesting_origin| and
+  // |embedding_origin| are specified, grant permissions globally for context.
+  // It is invalid to call these methods with exactly one non-null origin.
   OverrideStatus GrantOverridesForDevTools(
-      const std::optional<url::Origin>& origin,
+      base::optional_ref<const url::Origin> requesting_origin,
+      base::optional_ref<const url::Origin> embedding_origin,
       const std::vector<PermissionType>& permissions);
   OverrideStatus SetOverrideForDevTools(
-      const std::optional<url::Origin>& origin,
+      base::optional_ref<const url::Origin> requesting_origin,
+      base::optional_ref<const url::Origin> embedding_origin,
       PermissionType permission,
       const PermissionStatus& status);
   void ResetOverridesForDevTools();
 
-  // Sets status for |permissions| to GRANTED in |origin|, and DENIED
-  // for all others.
-  // Null |origin| grants permissions globally for context.
+  // Sets status for |permissions| to GRANTED for |requesting_origin| and
+  // |embedding_origin|, and DENIED for all others. Null |requesting_origin| and
+  // |embedding_origin| grants permissions globally for context.
+  // It is invalid to call these methods with exactly one non-null origin.
   OverrideStatus GrantPermissionOverrides(
-      const std::optional<url::Origin>& origin,
+      base::optional_ref<const url::Origin> requesting_origin,
+      base::optional_ref<const url::Origin> embedding_origin,
       const std::vector<PermissionType>& permissions);
-  OverrideStatus SetPermissionOverride(const std::optional<url::Origin>& origin,
-                                       PermissionType permission,
-                                       const PermissionStatus& status);
+  OverrideStatus SetPermissionOverride(
+      base::optional_ref<const url::Origin> requesting_origin,
+      base::optional_ref<const url::Origin> embedding_origin,
+      PermissionType permission,
+      const PermissionStatus& status);
   void ResetPermissionOverrides();
 
   void ResetPermission(PermissionType permission,
@@ -151,17 +156,17 @@ class CONTENT_EXPORT PermissionControllerImpl : public PermissionController {
   void RequestPermissions(
       RenderFrameHost* render_frame_host,
       PermissionRequestDescription request_description,
-      base::OnceCallback<void(const std::vector<PermissionStatus>&)> callback);
+      base::OnceCallback<void(const std::vector<PermissionResult>&)> callback);
   void RequestPermissionFromCurrentDocument(
       RenderFrameHost* render_frame_host,
       PermissionRequestDescription request_description,
-      base::OnceCallback<void(PermissionStatus)> callback) override;
+      base::OnceCallback<void(PermissionResult)> callback) override;
   // WARNING: Permission requests order is not guaranteed.
   // TODO(crbug.com/40864728): Migrate to `std::set`.
   void RequestPermissionsFromCurrentDocument(
       RenderFrameHost* render_frame_host,
       PermissionRequestDescription request_description,
-      base::OnceCallback<void(const std::vector<PermissionStatus>&)> callback)
+      base::OnceCallback<void(const std::vector<PermissionResult>&)> callback)
       override;
   void ResetPermission(blink::PermissionType permission,
                        const url::Origin& origin) override;

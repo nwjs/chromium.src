@@ -416,6 +416,23 @@ BASE_FEATURE(kLocalNetworkAccessForFencedFrameNavigationsWarningOnly,
              "LocalNetworkAccessForFencedFrameNavigationsWarningOnly",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, allows the ReusePrerenderingProcessForMainFrames feature
+// and the ProcessPerSiteUpToMainFrameThreshold feature to reuse processes
+// even when DevTools was ever attached.
+// This allows developers to test the process sharing mode,
+// since DevTools normally disables it for the field trial participants.
+BASE_FEATURE(kMainFrameProcessReuseAllowDevToolsAttached,
+             "MainFrameProcessReuseAllowDevToolsAttached",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, allows the ReusePrerenderingProcessForMainFrames feature
+// and the ProcessPerSiteUpToMainFrameThreshold feature to reuse processes
+// even for IP and localhost pages.
+// These pages are common targets for devtools.
+BASE_FEATURE(kMainFrameProcessReuseAllowIPAndLocalhost,
+             "MainFrameProcessReuseAllowIPAndLocalhost",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If this feature is enabled, media-device enumerations use a cache that is
 // invalidated upon notifications sent by base::SystemMonitor. If disabled, the
 // cache is considered invalid on every enumeration request.
@@ -582,6 +599,12 @@ BASE_FEATURE(kReloadHiddenTabsWithActiveCrashedSubframes,
              "ReloadHiddenTabsWithActiveCrashedSubframes",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, try to reuse any same-site process that is hosting
+// only prerendered frames for main-frame navigations.
+BASE_FEATURE(kReusePrerenderingProcessForMainFrames,
+             "ReusePrerenderingProcessForMainFrames",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 // If enabled, then orientation lock won't claim to work on anything but phone
 // form factors.  Tablets already do unpredictable things, such as letterboxing
@@ -728,11 +751,6 @@ BASE_FEATURE(kWebOTPAssertionFeaturePolicy,
 // Flag guard for fix for crbug.com/40942531.
 BASE_FEATURE(kLimitCrossOriginNonActivatedPaintHolding,
              "LimitCrossOriginNonActivatedPaintHolding",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Kill switch for post OOP-C cleanup crbug.com/391648152
-BASE_FEATURE(kDisallowRasterInterfaceWithoutSkiaBackend,
-             "DisallowRasterInterfaceWithoutSkiaBackend",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Please keep features in alphabetical order.

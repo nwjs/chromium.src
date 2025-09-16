@@ -25,10 +25,16 @@
   <template is="dom-if" if="[[showPage_(pageVisibility_.safetyHub)]]">
     <template is="dom-if" if="[[renderView_(
         routes_.PRIVACY, currentRoute, inSearchMode)]]">
-      <settings-section slot="view" id="safetyHubEntryPoint"
-          page-title="$i18n{safetyHub}">
-        <settings-safety-hub-entry-point></settings-safety-hub-entry-point>
-      </settings-section>
+      <settings-safety-hub-entry-point slot="view" id="safetyHubEntryPoint">
+      </settings-safety-hub-entry-point>
+    </template>
+
+    <template is="dom-if" if="[[renderView_(
+        routes_.SAFETY_HUB, currentRoute, inSearchMode)]]">
+      <!-- TODO(crbug.com/40267370): Make the page searchable.-->
+      <settings-safety-hub-page slot="view" id="safetyHub" no-search
+          data-parent-view-id="safetyHubEntryPoint" prefs="{{prefs}}">
+      </settings-safety-hub-page>
     </template>
   </template>
 
@@ -38,6 +44,167 @@
     <settings-basic-page slot="view" id="old" prefs="{{prefs}}"
         in-search-mode="[[inSearchMode]]">
     </settings-basic-page>
+  </template>
+
+  <template is="dom-if" if="[[isAdPrivacyAvailable_]]" restamp>
+    <template is="dom-if" if="[[renderView_(
+        routes_.PRIVACY_SANDBOX, currentRoute, inSearchMode)]]">
+      <settings-privacy-sandbox-page slot="view" id="privacySandbox"
+          data-parent-view-id="old" prefs="{{prefs}}">
+      </settings-privacy-sandbox-page>
+    </template>
+
+    <template is="dom-if" if="[[renderView_(
+        routes_.PRIVACY_SANDBOX_AD_MEASUREMENT, currentRoute, inSearchMode)]]">
+      <settings-privacy-sandbox-ad-measurement-subpage slot="view"
+          id="privacySandboxAdMeasurement" data-parent-view-id="old"
+          prefs="{{prefs}}">
+      </settings-privacy-sandbox-ad-measurement-subpage>
+    </template>
+  </template>
+
+  <template is="dom-if" if="[[!isPrivacySandboxRestricted_]]" restamp>
+    <template is="dom-if" if="[[renderView_(
+        routes_.PRIVACY_SANDBOX_FLEDGE, currentRoute, inSearchMode)]]">
+      <settings-privacy-sandbox-fledge-subpage slot="view"
+          id="privacySandboxFledge" data-parent-view-id="old" prefs="{{prefs}}">
+      </settings-privacy-sandbox-fledge-subpage>
+    </template>
+
+    <template is="dom-if" if="[[renderView_(
+          routes_.PRIVACY_SANDBOX_TOPICS, currentRoute, inSearchMode)]]">
+      <settings-privacy-sandbox-topics-subpage slot="view"
+          id="privacySandboxTopics" data-parent-view-id="old" prefs="{{prefs}}">
+      </settings-privacy-sandbox-topics-subpage>
+    </template>
+
+    <template is="dom-if" if="[[renderView_(
+          routes_.PRIVACY_SANDBOX_MANAGE_TOPICS, currentRoute, inSearchMode)]]">
+      <settings-privacy-sandbox-manage-topics-subpage slot="view"
+          id="privacySandboxManageTopics" data-parent-view-id="old"
+          prefs="{{prefs}}">
+      </settings-privacy-sandbox-manage-topics-subpage>
+    </template>
+  </template>
+
+  <!-- Keep entries below sorted based on the route name. -->
+
+  <template is="dom-if" if="[[renderView_(
+      routes_.COOKIES, currentRoute, inSearchMode)]]">
+    <settings-cookies-page slot="view" id="cookies" data-parent-view-id="old"
+        prefs="{{prefs}}">
+    </settings-cookies-page>
+  </template>
+
+  <template is="dom-if" if="[[enableIncognitoTrackingProtections_]]">
+    <template is="dom-if" if="[[renderView_(
+        routes_.INCOGNITO_TRACKING_PROTECTIONS, currentRoute, inSearchMode)]]">
+      <incognito-tracking-protections-page slot="view"
+          id="incognitoTrackingProtections" data-parent-view-id="old"
+          prefs="{{prefs}}">
+      </incognito-tracking-protections-page>
+    </template>
+  </template>
+
+  <template is="dom-if" if="[[enableSecurityKeysSubpage_]]">
+    <template is="dom-if" if="[[renderView_(
+        routes_.SECURITY_KEYS, currentRoute, inSearchMode)]]">
+      <settings-subpage slot="view" id="securityKeys"
+          data-parent-view-id="old" page-title="$i18n{securityKeysTitle}">
+        <security-keys-subpage></security-keys-subpage>
+      </settings-subpage>
+    </template>
+  </template>
+
+  <template is="dom-if" if="[[renderView_(
+      routes_.SITE_SETTINGS, currentRoute, inSearchMode)]]">
+    <settings-site-settings-page slot="view" id="siteSettings"
+        data-parent-view-id="old" prefs="{{prefs}}">
+    </settings-site-settings-page>
+  </template>
+
+  <template is="dom-if" if="[[renderView_(
+      routes_.SITE_SETTINGS_AUTOMATIC_FULLSCREEN, currentRoute,
+      inSearchMode)]]">
+    <settings-automatic-full-screen-page slot="view"
+        id="siteSettingsAutomaticFullscreen" data-parent-view-id="old"
+        search-term="[[searchFilter_]]">
+    </settings-automatic-full-screen-page>
+  </template>
+
+  <template is="dom-if" if="[[renderView_(
+      routes_.SITE_SETTINGS_HANDLERS, currentRoute, inSearchMode)]]">
+    <protocol-handlers slot="view" id="siteSettingsHandlers"
+        data-parent-view-id="old"
+        toggle-off-label="$i18n{siteSettingsHandlersBlocked}"
+        toggle-on-label="$i18n{siteSettingsHandlersAskRecommended}">
+    </protocol-handlers>
+  </template>
+
+  <template is="dom-if" if="[[enableKeyboardLockPrompt_]]">
+    <template is="dom-if" if="[[renderView_(
+        routes_.SITE_SETTINGS_KEYBOARD_LOCK, currentRoute, inSearchMode)]]">
+      <settings-keyboard-lock-page slot="view" id="siteSettingsKeyboardLock"
+          data-parent-view-id="old" search-term="[[searchFilter_]]">
+      </settings-keyboard-lock-page>
+    </template>
+  </template>
+
+  <template is="dom-if" if="[[enableLocalNetworkAccessSetting_]]">
+    <template is="dom-if" if="[[renderView_(
+        routes_.SITE_SETTINGS_LOCAL_NETWORK_ACCESS, currentRoute,
+        inSearchMode)]]">
+      <settings-local-network-access-page slot="view"
+          id="siteSettingsLocalNetworkAccess" data-parent-view-id="old"
+          search-term="[[searchFilter_]]">
+      </settings-local-network-access-page>
+    </template>
+  </template>
+
+  <template is="dom-if" if="[[renderView_(
+      routes_.SITE_SETTINGS_LOCATION, currentRoute, inSearchMode)]]">
+    <settings-geolocation-page slot="view" id="siteSettingsLocation"
+        data-parent-view-id="old" prefs="{{prefs}}">
+    </settings-location-page>
+  </template>
+
+  <template is="dom-if" if="[[renderView_(
+      routes_.SITE_SETTINGS_NOTIFICATIONS, currentRoute, inSearchMode)]]">
+    <settings-notifications-page slot="view" id="siteSettingsNotifications"
+        data-parent-view-id="old" prefs="{{prefs}}">
+    </settings-notifications-page>
+  </template>
+
+  <template is="dom-if" if="[[renderView_(
+      routes_.SITE_SETTINGS_PDF_DOCUMENTS, currentRoute, inSearchMode)]]">
+    <settings-pdf-documents-page slot="view" id="siteSettingsPdfDocuments"
+        data-parent-view-id="old" prefs="{{prefs}}">
+    </settings-pdf-documents-page>
+  </template>
+
+  <template is="dom-if" if="[[renderView_(
+      routes_.SITE_SETTINGS_SITE_DATA, currentRoute, inSearchMode)]]">
+    <settings-site-data slot="view" id="siteSettingsSiteData"
+        data-parent-view-id="old" prefs="{{prefs}}">
+    </settings-site-data>
+  </template>
+
+  <template is="dom-if" if="[[enableWebAppInstallation_]]">
+    <template is="dom-if" if="[[renderView_(
+        routes_.SITE_SETTINGS_WEB_APP_INSTALLATION, currentRoute,
+        inSearchMode)]]">
+      <settings-web-applications-page slot="view"
+          id="siteSettingsWebAppInstallation" data-parent-view-id="old"
+          search-term="[[searchFilter_]]">
+      </settings-web-applications-page>
+    </template>
+  </template>
+
+  <template is="dom-if" if="[[renderView_(
+      routes_.SITE_SETTINGS_ZOOM_LEVELS, currentRoute, inSearchMode)]]">
+    <zoom-levels slot="view" id="siteSettingsZoomLevels"
+        data-parent-view-id="old">
+    </zoom-levels>
   </template>
 
 </cr-view-manager>

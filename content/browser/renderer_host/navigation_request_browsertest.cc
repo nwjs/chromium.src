@@ -17,6 +17,7 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "build/build_config.h"
+#include "components/history/core/browser/features.h"
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/debug_urls.h"
 #include "content/browser/renderer_host/navigation_controller_impl.h"
@@ -2917,14 +2918,8 @@ class NavigationRequestUpdateHistoryBrowserTest
       public testing::WithParamInterface<bool> {
  public:
   NavigationRequestUpdateHistoryBrowserTest() {
-    const bool should_update_history_for_404_navigations = GetParam();
-    if (should_update_history_for_404_navigations) {
-      scoped_feature_list_.InitAndEnableFeature(
-          blink::features::kVisitedLinksOnErrorNavigation);
-    } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          blink::features::kVisitedLinksOnErrorNavigation);
-    }
+    scoped_feature_list_.InitWithFeatureState(history::kVisitedLinksOn404,
+                                              GetParam());
   }
 
  protected:
@@ -2933,10 +2928,6 @@ class NavigationRequestUpdateHistoryBrowserTest
 
 IN_PROC_BROWSER_TEST_P(NavigationRequestUpdateHistoryBrowserTest,
                        Reachable404) {
-  ASSERT_EQ(base::FeatureList::IsEnabled(
-                blink::features::kVisitedLinksOnErrorNavigation),
-            GetParam());
-
   base::RunLoop did_finish_navigation_run_loop;
   DidFinishNavigationObserver observer(
       shell()->web_contents(),
@@ -2947,12 +2938,11 @@ IN_PROC_BROWSER_TEST_P(NavigationRequestUpdateHistoryBrowserTest,
         ASSERT_TRUE(navigation_handle->GetResponseHeaders());
         ASSERT_EQ(navigation_handle->GetResponseHeaders()->response_code(),
                   404);
-        // If `blink::features::kVisitedLinksOnErrorNavigation` is enabled,
-        // history should be updated even for 404 navigations. If disabled,
-        // history should not be updated for navigations resulting in a 404.
+        // If `history::kVisitedLinksOn404` is enabled, history should be
+        // updated even for 404 navigations. If disabled, history should not be
+        // updated for navigations resulting in a 404.
         EXPECT_EQ(navigation_handle->ShouldUpdateHistory(),
-                  base::FeatureList::IsEnabled(
-                      blink::features::kVisitedLinksOnErrorNavigation));
+                  base::FeatureList::IsEnabled(history::kVisitedLinksOn404));
         did_finish_navigation_run_loop.Quit();
       }));
 
@@ -3809,12 +3799,12 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
     TestNavigationManager navigation_manager(web_contents, same_doc_url);
     testing::NiceMock<MockWebContentsObserver> observer(web_contents);
     EXPECT_CALL(observer, DidFinishNavigation(testing::_))
-        .WillOnce(testing::Invoke([](NavigationHandle* navigation_handle) {
+        .WillOnce([](NavigationHandle* navigation_handle) {
           NavigationRequest* request =
               NavigationRequest::From(navigation_handle);
           EXPECT_TRUE(request->is_synchronous_renderer_commit());
           EXPECT_TRUE(navigation_handle->GetRenderFrameHost());
-        }));
+        });
     EXPECT_TRUE(ExecJs(web_contents, "location.href = '#foo';"));
     ASSERT_TRUE(navigation_manager.WaitForNavigationFinished());
   }
@@ -3832,12 +3822,12 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
   {
     testing::NiceMock<MockWebContentsObserver> observer(popup);
     EXPECT_CALL(observer, DidFinishNavigation(testing::_))
-        .WillOnce(testing::Invoke([](NavigationHandle* navigation_handle) {
+        .WillOnce([](NavigationHandle* navigation_handle) {
           NavigationRequest* request =
               NavigationRequest::From(navigation_handle);
           EXPECT_TRUE(request->is_synchronous_renderer_commit());
           EXPECT_TRUE(navigation_handle->GetRenderFrameHost());
-        }));
+        });
     TestNavigationManager navigation_manager(popup, GURL("about:blank#foo"));
     EXPECT_TRUE(
         ExecJs(web_contents, "w.history.replaceState({}, '', '#foo');"));
@@ -3859,12 +3849,12 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
   {
     testing::NiceMock<MockWebContentsObserver> observer(web_contents);
     EXPECT_CALL(observer, DidFinishNavigation(testing::_))
-        .WillOnce(testing::Invoke([](NavigationHandle* navigation_handle) {
+        .WillOnce([](NavigationHandle* navigation_handle) {
           NavigationRequest* request =
               NavigationRequest::From(navigation_handle);
           EXPECT_TRUE(request->is_synchronous_renderer_commit());
           EXPECT_TRUE(navigation_handle->GetRenderFrameHost());
-        }));
+        });
     CreateSubframe(web_contents, "subframe", GURL(),
                    /*wait_for_navigation*/ true);
   }
@@ -3881,7 +3871,7 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
   {
     testing::NiceMock<MockWebContentsObserver> observer(popup);
     EXPECT_CALL(observer, DidFinishNavigation(testing::_))
-        .WillOnce(testing::Invoke([](NavigationHandle* navigation_handle) {
+        .WillOnce([](NavigationHandle* navigation_handle) {
           NavigationRequest* request =
               NavigationRequest::From(navigation_handle);
           EXPECT_TRUE(request->is_synchronous_renderer_commit());
@@ -3890,7 +3880,7 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
           // Ensure that response_should_be_rendered() is true even for pages
           // that do not require a URLLoader.
           EXPECT_TRUE(request->response_should_be_rendered());
-        }));
+        });
     CreateSubframe(popup, "popup_subframe", GURL(),
                    /*wait_for_navigation*/ true);
   }
@@ -4120,10 +4110,10 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
   EXPECT_FALSE(rfh->GetProcess()->IsUnused());
   if (AreAllSitesIsolatedForTesting()) {
     EXPECT_EQ("http://a.com/", rfh->GetSiteInstance()->GetSiteURL());
-    EXPECT_TRUE(rfh->GetProcess()->GetProcessLock().is_locked_to_site());
+    EXPECT_TRUE(rfh->GetProcess()->GetProcessLock().IsLockedToSite());
     EXPECT_EQ("http://a.com/", rfh->GetProcess()->GetProcessLock().site_url());
   } else {
-    EXPECT_TRUE(rfh->GetProcess()->GetProcessLock().allows_any_site());
+    EXPECT_TRUE(rfh->GetProcess()->GetProcessLock().AllowsAnySite());
   }
 }
 

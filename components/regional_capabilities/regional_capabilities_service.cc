@@ -24,10 +24,10 @@
 #include "components/regional_capabilities/regional_capabilities_prefs.h"
 #include "components/regional_capabilities/regional_capabilities_switches.h"
 #include "components/regional_capabilities/regional_capabilities_utils.h"
+#include "components/strings/grit/components_strings.h"
 #include "regional_capabilities_metrics.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/search_engines_data/resources/definitions/prepopulated_engines.h"
-#include "ui/base/device_form_factor.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/scoped_java_ref.h"
@@ -163,45 +163,69 @@ std::pair<CountryId, LoadedCountrySource> SelectCountryId(
           LoadedCountrySource::kPersistedPreferredOverFallback};
 }
 
-const ProgramSettings* CountryIdToProgram(CountryId country_id) {
+// Pass `out_scope_check_outcome` to collect information about the outcome of
+// the program checks.
+Program CountryIdToProgram(const CountryId& country_id) {
+  static constexpr Program kCountryDerivedPrograms[] = {
 #if BUILDFLAG(IS_IOS)
-  // TODO(crbug.com/423883216): Update logic to support Android.
-  if (IsInProgramRegion(Program::kTaiyaki, country_id)) {
-    switch (ui::GetDeviceFormFactor()) {
-      case ui::DEVICE_FORM_FACTOR_PHONE:
-      case ui::DEVICE_FORM_FACTOR_FOLDABLE:
-        if (base::FeatureList::IsEnabled(switches::kTaiyaki)) {
-          return &kTaiyakiSettings;
-        }
-        break;
-      case ui::DEVICE_FORM_FACTOR_DESKTOP:
-      case ui::DEVICE_FORM_FACTOR_TABLET:
-      case ui::DEVICE_FORM_FACTOR_TV:
-      case ui::DEVICE_FORM_FACTOR_AUTOMOTIVE:
-      case ui::DEVICE_FORM_FACTOR_XR:
-        break;
+      // Only iOS can derive Taiyaki scope directly from the country.
+      Program::kTaiyaki,
+#endif
+
+      Program::kWaffle,
+  };
+
+  for (Program program : kCountryDerivedPrograms) {
+    if (IsInProgramRegion(program, country_id) &&
+        IsClientCompatibleWithProgram(program)) {
+      return program;
     }
   }
-#endif  // BUILDFLAG(IS_IOS)
 
-  if (IsInProgramRegion(Program::kWaffle, country_id)) {
-    return &kWaffleSettings;
-  }
-
-  return &kDefaultSettings;
+  return Program::kDefault;
 }
 
-const ProgramSettings* CountryOverrideToProgram(
-    SearchEngineCountryOverride country_override) {
+std::optional<ProgramAndLocationMatch> GetProgramAndLocationMatch(
+    Program program,
+    CountryId profile_country,
+    CountryId variations_latest_country) {
+  if (program == Program::kDefault || !variations_latest_country.IsValid()) {
+    // Checking program and variations location against each other
+    // is irrelevant for the default program or when we don't have the
+    // variations country.
+    return std::nullopt;
+  }
+
+  if (profile_country == variations_latest_country) {
+    return ProgramAndLocationMatch::SameAsProfileCountry;
+  }
+
+  if (IsInProgramRegion(program, variations_latest_country)) {
+    return ProgramAndLocationMatch::SameRegionAsProgram;
+  }
+
+  return ProgramAndLocationMatch::NoMatch;
+}
+
+Program CountryOverrideToProgram(SearchEngineCountryOverride country_override) {
   return std::visit(
       absl::Overload{
           [](CountryId country_id) { return CountryIdToProgram(country_id); },
+          [](RegionalProgramOverride program_override) {
+            switch (program_override) {
+              case RegionalProgramOverride::kTaiyaki:
+                CHECK(IsClientCompatibleWithProgram(Program::kTaiyaki));
+                return Program::kTaiyaki;
+            }
+            NOTREACHED();
+          },
           [](SearchEngineCountryListOverride list_override) {
             switch (list_override) {
               case SearchEngineCountryListOverride::kEeaAll:
               case SearchEngineCountryListOverride::kEeaDefault:
-                return &kWaffleSettings;
+                return Program::kWaffle;
             }
+            NOTREACHED();
           },
       },
       country_override);
@@ -211,6 +235,16 @@ CountryId CountryOverrideToCountryId(
     SearchEngineCountryOverride country_override) {
   return std::visit(absl::Overload{
                         [](CountryId country_id) { return country_id; },
+                        [](RegionalProgramOverride program_override) {
+                          const ProgramSettings& settings =
+                              GetSettingsForProgram(
+                                  CountryOverrideToProgram(program_override));
+                          // For programs allowing to be overridden this way,
+                          // they should be configured to be able to be resolved
+                          // to a specific country.
+                          CHECK(!settings.associated_countries.empty());
+                          return settings.associated_countries.front();
+                        },
                         [](SearchEngineCountryListOverride list_override) {
                           return CountryId();
                         },
@@ -246,6 +280,7 @@ RegionalCapabilitiesService::GetRegionalPrepopulatedEngines() {
       case SearchEngineCountryListOverride::kEeaDefault:
         return GetDefaultPrepopulatedEngines();
     }
+    NOTREACHED();
   }
 
   return GetPrepopulatedEngines(
@@ -254,7 +289,46 @@ RegionalCapabilitiesService::GetRegionalPrepopulatedEngines() {
 }
 
 bool RegionalCapabilitiesService::IsInSearchEngineChoiceScreenRegion() {
-  return GetActiveProgramSettings().can_show_search_engine_choice_screen;
+  return GetChoiceScreenEligibilityConfig().has_value();
+}
+
+std::optional<RegionalCapabilitiesService::ChoiceScreenDesign>
+RegionalCapabilitiesService::GetChoiceScreenDesign() {
+  // TODO(crbug.com/440549533): Investigate minimizing apk size by excluding
+  // unused strings and OSE assets from builds.
+  switch (GetActiveProgramSettings().program) {
+    case Program::kDefault:
+      return std::nullopt;
+    case Program::kTaiyaki:
+      return RegionalCapabilitiesService::ChoiceScreenDesign{
+          .title_string_id = IDS_SEARCH_ENGINE_CHOICE_PAGE_TITLE,
+          // TODO(crbug.com/433501136): Need to add the string for the
+          // subtitle 1.
+          .subtitle_1_string_id = IDS_SEARCH_ENGINE_CHOICE_PAGE_SUBTITLE,
+          .subtitle_1_learn_more_suffix_string_id =
+              IDS_SEARCH_ENGINE_CHOICE_PAGE_SUBTITLE_INFO_LINK,
+          .subtitle_1_learn_more_a11y_string_id =
+              IDS_SEARCH_ENGINE_CHOICE_PAGE_SUBTITLE_INFO_LINK_A11Y_LABEL,
+          // TODO(crbug.com/433501136): Need to add the string for the
+          // subtitle 2.
+          .subtitle_2_string_id = IDS_SEARCH_ENGINE_CHOICE_PAGE_SUBTITLE,
+      };
+    case Program::kWaffle:
+      return RegionalCapabilitiesService::ChoiceScreenDesign{
+          .title_string_id = IDS_SEARCH_ENGINE_CHOICE_PAGE_TITLE,
+          .subtitle_1_string_id = IDS_SEARCH_ENGINE_CHOICE_PAGE_SUBTITLE,
+          .subtitle_1_learn_more_suffix_string_id =
+              IDS_SEARCH_ENGINE_CHOICE_PAGE_SUBTITLE_INFO_LINK,
+          .subtitle_1_learn_more_a11y_string_id =
+              IDS_SEARCH_ENGINE_CHOICE_PAGE_SUBTITLE_INFO_LINK_A11Y_LABEL,
+      };
+  }
+  NOTREACHED();
+}
+
+const std::optional<ChoiceScreenEligibilityConfig>&
+RegionalCapabilitiesService::GetChoiceScreenEligibilityConfig() {
+  return GetActiveProgramSettings().choice_screen_eligibility_config;
 }
 
 bool RegionalCapabilitiesService::IsInEeaCountry() {
@@ -276,7 +350,8 @@ const ProgramSettings& RegionalCapabilitiesService::GetActiveProgramSettings() {
   if (std::optional<SearchEngineCountryOverride> country_override =
           GetSearchEngineCountryOverride();
       country_override.has_value()) {
-    return CHECK_DEREF(CountryOverrideToProgram(country_override.value()));
+    return GetSettingsForProgram(
+        CountryOverrideToProgram(country_override.value()));
   }
 
   EnsureRegionalScopeCacheInitialized();
@@ -337,19 +412,61 @@ void RegionalCapabilitiesService::EnsureRegionalScopeCacheInitialized() {
                       is_current_country_from_fallback);
 
   country_id_cache_ = selected_country_and_source.first;
-  program_settings_cache_ =
-      CHECK_DEREF(CountryIdToProgram(country_id_cache_.value()));
+
+  Program program;
+
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(
+          switches::kResolveRegionalCapabilitiesFromDevice)) {
+    program = client_->GetDeviceProgram();
+
+    if (!IsInProgramRegion(program, country_id_cache_.value())) {
+      // Interim program inconsistencies originate from asynchronous nature of
+      // their resolution. For the time being, use a reasonable default.
+      program = Program::kDefault;
+    }
+  } else
+#endif  // BUILDFLAG(IS_ANDROID)
+  {
+    program = CountryIdToProgram(country_id_cache_.value());
+  }
+
+  program_settings_cache_ = GetSettingsForProgram(program);
 
   RecordLoadedCountrySource(selected_country_and_source.second);
+  if (auto program_and_location_match =
+          GetProgramAndLocationMatch(program, country_id_cache_.value(),
+                                     client_->GetVariationsLatestCountryId());
+      program_and_location_match.has_value()) {
+    RecordProgramAndLocationMatch(*program_and_location_match);
+  }
 }
 
-void RegionalCapabilitiesService::ClearCountryIdCacheForTesting() {
+ActiveRegionalProgram RegionalCapabilitiesService::GetActiveProgramForMetrics() {
+  switch (GetActiveProgramSettings().program) {
+    case Program::kDefault:
+      return ActiveRegionalProgram::kDefault;
+    case Program::kTaiyaki:
+      return ActiveRegionalProgram::kTaiyaki;
+    case Program::kWaffle:
+      return ActiveRegionalProgram::kWaffle;
+  }
+  NOTREACHED();
+}
+
+int RegionalCapabilitiesService::GetSerializedActiveProgram() {
+  return SerializeProgram(GetActiveProgramSettings().program);
+}
+
+void RegionalCapabilitiesService::ClearCacheForTesting() {
   CHECK_IS_TEST();
   country_id_cache_.reset();
+  program_settings_cache_.reset();
 }
 
-Program RegionalCapabilitiesService::GetActiveProgramForTesting() {
-  return GetActiveProgramSettings().program;
+const ProgramSettings&
+RegionalCapabilitiesService::GetActiveProgramSettingsForTesting() {
+  return GetActiveProgramSettings();
 }
 
 CountryId RegionalCapabilitiesService::GetPersistedCountryId() {

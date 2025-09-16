@@ -14,9 +14,11 @@
 //build/android
 //build/config
 //build/config/compiler
+//build/modules/linux-x64
 //build/rust
 //build/rust/allocator
 //build/rust/chromium_prelude
+//build/rust/gni_impl
 //build/rust/std
 //build/rust/std/rules
 //buildtools/third_party/libc++

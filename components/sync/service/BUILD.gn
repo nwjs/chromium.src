@@ -9,6 +9,7 @@ static_library("service") {
     "active_devices_provider.h",
     "backend_migrator.cc",
     "backend_migrator.h",
+    "configure_context.cc",
     "configure_context.h",
     "data_type_controller.cc",
     "data_type_controller.h",
@@ -126,7 +127,10 @@ static_library("service") {
       "../android/sync_service_android_bridge.cc",
       "../android/sync_service_android_bridge.h",
     ]
-    deps += [ "../android:jni_headers" ]
+    deps += [
+      "../android:jni_headers",
+      "//components/password_manager/core/browser:split_stores_and_local_upm",
+    ]
   }
 
   configs += [ "//build/config/compiler:wexit_time_destructors" ]

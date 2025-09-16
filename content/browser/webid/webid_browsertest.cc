@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include <memory>
 #include <string>
 #include <vector>
@@ -32,17 +27,17 @@
 #include "build/build_config.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "content/browser/in_memory_federated_permission_context.h"
+#include "content/browser/webid/delegation/jwt_signer.h"
+#include "content/browser/webid/delegation/sd_jwt.h"
 #include "content/browser/webid/fake_identity_request_dialog_controller.h"
 #include "content/browser/webid/identity_registry.h"
-#include "content/browser/webid/jwt_signer.h"
-#include "content/browser/webid/sd_jwt.h"
 #include "content/browser/webid/test/mock_digital_identity_provider.h"
 #include "content/browser/webid/test/mock_identity_request_dialog_controller.h"
 #include "content/browser/webid/test/mock_modal_dialog_view_delegate.h"
 #include "content/browser/webid/test/webid_test_content_browser_client.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/content_browser_client.h"
-#include "content/public/browser/webid/federated_auth_autofill_source.h"
+#include "content/public/browser/webid/autofill_source.h"
 #include "content/public/browser/webid/identity_request_account.h"
 #include "content/public/browser/webid/identity_request_dialog_controller.h"
 #include "content/public/common/content_client.h"
@@ -487,8 +482,7 @@ class WebIdIdPRegistryBrowserTest : public WebIdBrowserTest {
     features.push_back(net::features::kSplitCacheByNetworkIsolationKey);
     features.push_back(features::kFedCm);
     features.push_back(features::kFedCmIdPRegistration);
-    // Multi IdP is needed to request registered providers.
-    features.push_back(features::kFedCmMultipleIdentityProviders);
+
     scoped_feature_list_.InitWithFeatures(features, {});
 
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
@@ -1380,8 +1374,8 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
       .WillOnce(WithArg<3>(
           [&](DigitalIdentityProvider::DigitalIdentityCallback callback) {
             EXPECT_EQ(
-                "NotAllowedError: Only one navigator.credentials.get request "
-                "may be outstanding at one time.",
+                "NotAllowedError: Only one navigator.credentials.get/create "
+                "request may be outstanding at one time.",
                 ExtractJsError(RunDigitalIdentityValidRequest(shell())));
             std::move(callback).Run(
                 DigitalCredential("openid4vp", kResponse.Clone()));
@@ -2086,7 +2080,7 @@ IN_PROC_BROWSER_TEST_F(WebIdDelegationBrowserTest, ConditionalMediation) {
   run_loop.Run();
 
   // Gets the pending conditional request.
-  auto* source = FederatedAuthAutofillSource::FromPage(
+  auto* source = webid::AutofillSource::FromPage(
       shell()->web_contents()->GetPrimaryPage());
 
   EXPECT_TRUE(source != nullptr);
@@ -2173,7 +2167,7 @@ IN_PROC_BROWSER_TEST_F(WebIdDelegationBrowserTest,
   run_loop.Run();
 
   // Gets the pending conditional request.
-  auto* source = FederatedAuthAutofillSource::FromPage(
+  auto* source = webid::AutofillSource::FromPage(
       shell()->web_contents()->GetPrimaryPage());
 
   EXPECT_TRUE(source != nullptr);

@@ -16,6 +16,7 @@
 #include "cc/raster/playback_image_provider.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_2d_color_params.h"
 #include "third_party/blink/renderer/platform/graphics/flush_reason.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
 #include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
@@ -174,6 +175,42 @@ class PLATFORM_EXPORT CanvasResourceProvider
       base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
       Delegate* delegate = nullptr);
 
+  static std::unique_ptr<CanvasResourceProvider> CreateBitmapProvider(
+      gfx::Size size,
+      const Canvas2DColorParams& color_params,
+      ShouldInitialize initialize_provider,
+      Delegate* delegate = nullptr);
+
+  static std::unique_ptr<CanvasResourceProvider>
+  CreateSharedImageProviderForSoftwareCompositor(
+      gfx::Size size,
+      const Canvas2DColorParams& color_params,
+      ShouldInitialize initialize_provider,
+      WebGraphicsSharedImageInterfaceProvider* shared_image_interface_provider,
+      Delegate* delegate = nullptr);
+
+  static std::unique_ptr<CanvasResourceProvider> CreateSharedImageProvider(
+      gfx::Size size,
+      const Canvas2DColorParams& color_params,
+      ShouldInitialize initialize_provider,
+      base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
+      RasterMode raster_mode,
+      gpu::SharedImageUsageSet shared_image_usage_flags,
+      Delegate* delegate = nullptr);
+
+  static std::unique_ptr<CanvasResourceProvider> CreateWebGPUImageProvider(
+      gfx::Size size,
+      const Canvas2DColorParams& color_params,
+      gpu::SharedImageUsageSet shared_image_usage_flags = {},
+      Delegate* delegate = nullptr);
+
+  static std::unique_ptr<CanvasResourceProvider> CreateSwapChainProvider(
+      gfx::Size size,
+      const Canvas2DColorParams& color_params,
+      ShouldInitialize initialize_provider,
+      base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
+      Delegate* delegate = nullptr);
+
   // Use Snapshot() for capturing a frame that is intended to be displayed via
   // the compositor. Cases that are destined to be transferred via a
   // TransferableResource should call ProduceCanvasResource() instead.
@@ -259,8 +296,8 @@ class PLATFORM_EXPORT CanvasResourceProvider
   // `was_copy_performed` will be set to true if it is non-null.
   virtual scoped_refptr<gpu::ClientSharedImage>
   GetBackingClientSharedImageForExternalWrite(
-      gpu::SyncToken* internal_access_sync_token,
       gpu::SharedImageUsageSet required_shared_image_usages,
+      gpu::SyncToken& internal_access_sync_token,
       bool* was_copy_performed = nullptr) {
     return nullptr;
   }
@@ -274,18 +311,6 @@ class PLATFORM_EXPORT CanvasResourceProvider
     NOTREACHED();
   }
 
-  // Returns the ClientSharedImage backing this CanvasResourceProvider, if one
-  // exists, for the purpose of allowing the caller to overwrite its contents.
-  // First flushes the resource and signals that an external write will occur on
-  // it.
-  // TODO(crbug.com/340922308): Eliminate this method in favor of all callers
-  // calling the above method with explanations at callsites for why they don't
-  // need to wait for any internal writes to finish.
-  virtual scoped_refptr<gpu::ClientSharedImage>
-  GetBackingClientSharedImageForOverwrite() {
-    return GetBackingClientSharedImageForExternalWrite(
-        /*internal_access_sync_token=*/nullptr, gpu::SharedImageUsageSet());
-  }
   virtual gpu::SharedImageUsageSet GetSharedImageUsageFlags() const {
     NOTREACHED();
   }
@@ -405,6 +430,8 @@ class PLATFORM_EXPORT CanvasResourceProvider
 
   virtual void OnFlushForImage(cc::PaintImage::ContentId content_id);
   void OnMemoryDump(base::trace_event::ProcessMemoryDump*) override;
+
+  HighEntropyCanvasOpType GetRecorderHighEntropyCanvasOpTypes() const;
 
  private:
   friend class FlushForImageListener;

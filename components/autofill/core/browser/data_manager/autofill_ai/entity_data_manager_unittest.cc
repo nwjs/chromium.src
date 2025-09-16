@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/scoped_observation.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
@@ -16,6 +17,8 @@
 #include "base/uuid.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/foundations/test_autofill_client.h"
+#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/browser/webdata/autofill_ai/entity_table.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service_test_helper.h"
@@ -29,6 +32,8 @@
 namespace autofill {
 namespace {
 
+using base::Bucket;
+using base::BucketsAre;
 using ::testing::IsEmpty;
 using ::testing::Optional;
 using ::testing::UnorderedElementsAre;
@@ -52,12 +57,15 @@ class EntityDataManagerTest : public testing::Test {
 
   AutofillWebDataServiceTestHelper& helper() { return helper_; }
 
+  TestAutofillClient& client() { return client_; }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_{
       features::kAutofillAiWithDataSchema};
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   AutofillWebDataServiceTestHelper helper_{std::make_unique<EntityTable>()};
+  TestAutofillClient client_;
 };
 
 // Tests that the constructor of EntityDataManager queries the database.
@@ -71,7 +79,9 @@ TEST_F(EntityDataManagerTest, InitialPopulation) {
       dl, base::DoNothing());
   helper().WaitUntilIdle();
 
-  EntityDataManager entity_data_manager(helper().autofill_webdata_service(),
+  EntityDataManager entity_data_manager(/*pref_service=*/nullptr,
+                                        /*identity_manager=*/nullptr,
+                                        helper().autofill_webdata_service(),
                                         /*history_service=*/nullptr,
                                         /*strike_database=*/nullptr);
   EXPECT_THAT(entity_data_manager.GetEntityInstances(), IsEmpty());
@@ -79,6 +89,32 @@ TEST_F(EntityDataManagerTest, InitialPopulation) {
   helper().WaitUntilIdle();
   EXPECT_THAT(entity_data_manager.GetEntityInstances(),
               UnorderedElementsAre(pp, dl));
+}
+
+// Tests the emission of opt-in metrics that are emitted on EDM creation, i.e.
+// on profile startup.
+TEST_F(EntityDataManagerTest, OptInMetric) {
+  ASSERT_FALSE(GetAutofillAiOptInStatus(client()));
+  base::HistogramTester histogram_tester;
+  client().set_entity_data_manager(std::make_unique<EntityDataManager>(
+      client().GetPrefs(), client().GetIdentityManager(),
+      helper().autofill_webdata_service(), /*history_service=*/nullptr,
+      /*strike_database=*/nullptr));
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("Autofill.Ai.OptIn.Status.Startup"),
+      BucketsAre(Bucket(0, 1)));
+
+  client().SetUpPrefsAndIdentityForAutofillAi();
+  ASSERT_TRUE(GetAutofillAiOptInStatus(client()));
+
+  client().set_entity_data_manager(std::make_unique<EntityDataManager>(
+      client().GetPrefs(), client().GetIdentityManager(),
+      helper().autofill_webdata_service(),
+      /*history_service=*/nullptr,
+      /*strike_database=*/nullptr));
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("Autofill.Ai.OptIn.Status.Startup"),
+      BucketsAre(Bucket(0, 1), Bucket(1, 1)));
 }
 
 // Test fixture that starts with an empty database.
@@ -91,13 +127,16 @@ class EntityDataManagerTest_InitiallyEmpty : public EntityDataManagerTest {
     return entity_data_manager().GetEntityInstances();
   }
 
-  base::optional_ref<const EntityInstance> GetInstance(const base::Uuid& guid) {
+  base::optional_ref<const EntityInstance> GetInstance(
+      const EntityInstance::EntityId& guid) {
     helper().WaitUntilIdle();
     return entity_data_manager().GetEntityInstance(guid);
   }
 
  private:
-  EntityDataManager entity_data_manager_{helper().autofill_webdata_service(),
+  EntityDataManager entity_data_manager_{/*pref_service=*/nullptr,
+                                         /*identity_manager=*/nullptr,
+                                         helper().autofill_webdata_service(),
                                          /*history_service=*/nullptr,
                                          /*strike_database=*/nullptr};
 };
@@ -224,9 +263,9 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty, GetEntityInstance) {
   ASSERT_THAT(GetEntityInstances(), UnorderedElementsAre(pp, dl));
 
   EXPECT_THAT(entity_data_manager().GetEntityInstance(pp.guid()), Optional(pp));
-  EXPECT_EQ(
-      entity_data_manager().GetEntityInstance(base::Uuid::GenerateRandomV4()),
-      std::nullopt);
+  EXPECT_EQ(entity_data_manager().GetEntityInstance(
+                EntityInstance::EntityId(base::Uuid::GenerateRandomV4())),
+            std::nullopt);
 }
 
 }  // namespace

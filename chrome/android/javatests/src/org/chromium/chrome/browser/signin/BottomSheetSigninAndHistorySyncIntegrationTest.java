@@ -46,7 +46,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
-import org.chromium.base.BuildInfo;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.util.ApplicationTestUtils;
@@ -382,7 +382,7 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
         onView(allOf(withText(R.string.continue_button), isCompletelyDisplayed())).perform(click());
 
         mSigninTestRule.waitForSignin(TestAccounts.MANAGED_ACCOUNT);
-        if (BuildInfo.getInstance().isAutomotive) {
+        if (DeviceInfo.isAutomotive()) {
             verify(mDeviceLockActivityLauncher)
                     .launchDeviceLockActivity(any(), any(), anyBoolean(), any(), any(), any());
         }
@@ -498,7 +498,7 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
 
         // Verify signed-in state.
         mSigninTestRule.waitForSignin(TestAccounts.ACCOUNT1);
-        if (BuildInfo.getInstance().isAutomotive) {
+        if (DeviceInfo.isAutomotive()) {
             verify(mDeviceLockActivityLauncher)
                     .launchDeviceLockActivity(any(), any(), anyBoolean(), any(), any(), any());
         }
@@ -801,9 +801,12 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
     }
 
     private void verifyCollapsedBottomSheetAndSignin(CoreAccountInfo accountInfo) {
-        HistogramWatcher signinStartedWatcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Signin.SignIn.Started", mSigninAccessPoint);
+        HistogramWatcher signinHistogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords("Signin.SignIn.Started", mSigninAccessPoint)
+                        .expectAnyRecord("Signin.SignIn.Timestamps.Other.ManagementStatusLoaded")
+                        .expectAnyRecord("Signin.SignIn.Timestamps.Other.SigninCompleted")
+                        .build();
 
         // Start sign-in from the collapsed sign-in bottom-sheet shown.
         onView(
@@ -813,28 +816,28 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
                                 isCompletelyDisplayed()))
                 .perform(click());
 
-        signinStartedWatcher.assertExpected();
+        signinHistogramWatcher.assertExpected();
 
         // Verify signed-in state.
         mSigninTestRule.waitForSignin(accountInfo);
-        if (BuildInfo.getInstance().isAutomotive) {
+        if (DeviceInfo.isAutomotive()) {
             verify(mDeviceLockActivityLauncher)
                     .launchDeviceLockActivity(any(), any(), anyBoolean(), any(), any(), any());
         }
     }
 
     private void verifyNoAccountBottomSheetAndSignin() {
-        HistogramWatcher signinStartedWatcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Signin.SignIn.Started", mSigninAccessPoint);
-        HistogramWatcher addAccountStateWatcher =
+        HistogramWatcher signinHistogramWatcher =
                 HistogramWatcher.newBuilder()
+                        .expectIntRecords("Signin.SignIn.Started", mSigninAccessPoint)
                         .expectIntRecords(
                                 "Signin.AddAccountState",
                                 State.REQUESTED,
                                 State.STARTED,
                                 State.SUCCEEDED,
                                 State.ACTIVITY_SURVIVED)
+                        .expectAnyRecord("Signin.SignIn.Timestamps.Other.ManagementStatusLoaded")
+                        .expectAnyRecord("Signin.SignIn.Timestamps.Other.SigninCompleted")
                         .build();
 
         // Start sign-in from the 0-account sign-in bottom-sheet shown.
@@ -847,11 +850,10 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
         mSigninTestRule.setAddAccountFlowResult(TestAccounts.AADC_ADULT_ACCOUNT);
         onViewWaiting(AccountManagerTestRule.ADD_ACCOUNT_BUTTON_MATCHER).perform(click());
 
-        signinStartedWatcher.assertExpected();
-        addAccountStateWatcher.assertExpected();
+        signinHistogramWatcher.assertExpected();
 
         mSigninTestRule.waitForSignin(TestAccounts.AADC_ADULT_ACCOUNT);
-        if (BuildInfo.getInstance().isAutomotive) {
+        if (DeviceInfo.isAutomotive()) {
             verify(mDeviceLockActivityLauncher)
                     .launchDeviceLockActivity(any(), any(), anyBoolean(), any(), any(), any());
         }

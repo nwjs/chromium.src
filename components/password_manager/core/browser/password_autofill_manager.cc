@@ -49,6 +49,7 @@
 #include "components/password_manager/core/browser/password_feature_manager.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/browser/password_manager_driver.h"
+#include "components/password_manager/core/browser/password_manager_interface.h"
 #include "components/password_manager/core/browser/password_manager_metrics_recorder.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
@@ -155,6 +156,11 @@ void PasswordAutofillManager::ShowKeyboardReplacingSurface(
                                                  request);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
+
+std::optional<autofill::Suggestion>
+PasswordAutofillManager::GetWebauthnSignInWithAnotherDeviceSuggestion() const {
+  return suggestion_generator_.GetWebauthnSignInWithAnotherDeviceSuggestion();
+}
 
 std::variant<autofill::AutofillDriver*, PasswordManagerDriver*>
 PasswordAutofillManager::GetDriver() {

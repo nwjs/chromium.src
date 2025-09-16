@@ -385,6 +385,19 @@ HeapVector<Member<ScrollSnapshotClient>> CopyClients(
   return copy;
 }
 
+const char* DocumentReadyStateToString(
+    Document::DocumentReadyState ready_state) {
+  switch (ready_state) {
+    case Document::kLoading:
+      return "Loading";
+    case Document::kInteractive:
+      return "Interactive";
+    case Document::kComplete:
+      return "Complete";
+  }
+  NOTREACHED();
+}
+
 }  // namespace
 
 template class CORE_TEMPLATE_EXPORT Supplement<LocalFrame>;
@@ -407,7 +420,7 @@ void LocalFrame::Init(Frame* opener,
 
   CoreInitializer::GetInstance().InitLocalFrame(*this);
 
-  GetInterfaceRegistry()->AddInterface(WTF::BindRepeating(
+  GetInterfaceRegistry()->AddInterface(BindRepeating(
       &LocalFrame::BindTextFragmentReceiver, WrapWeakPersistent(this)));
   DCHECK(!mojo_handler_);
   mojo_handler_ = MakeGarbageCollected<LocalFrameMojoHandler>(*this);
@@ -999,9 +1012,14 @@ void LocalFrame::OnFirstPaint(bool text_painted, bool image_painted) {
   }
 }
 
-void LocalFrame::OnFirstContentfulPaint() {
+void LocalFrame::OnFirstContentfulPaint(
+    const base::TimeTicks& first_paint_time) {
   if (IsOutermostMainFrame()) {
     GetPage()->GetChromeClient().OnFirstContentfulPaint();
+  }
+  auto* widget = GetWidgetForLocalRoot();
+  if (widget) {
+    widget->OnFirstContentfulPaint(first_paint_time);
   }
 }
 
@@ -1872,7 +1890,7 @@ String LocalFrame::SelectedTextForClipboard() const {
   return Selection().SelectedTextForClipboard();
 }
 
-void LocalFrame::TextSelectionChanged(const WTF::String& selection_text,
+void LocalFrame::TextSelectionChanged(const String& selection_text,
                                       uint32_t offset,
                                       const gfx::Range& range) const {
   GetLocalFrameHostRemote().TextSelectionChanged(selection_text, offset, range);
@@ -2726,6 +2744,11 @@ void LocalFrame::SetAdEvidence(const FrameAdEvidence& ad_evidence) {
   UpdateAdHighlight();
   frame_scheduler_->SetIsAdFrame(is_ad_frame);
 
+  // TODO(yaoxia): Determine whether we can DCHECK(owner).
+  if (HTMLFrameOwnerElement* owner = DeprecatedLocalOwner()) {
+    owner->DidSetAdStatus();
+  }
+
   if (is_ad_frame) {
     UseCounter::Count(DomWindow(), WebFeature::kAdFrameDetected);
     InstanceCounters::IncrementCounter(InstanceCounters::kAdSubframeCounter);
@@ -2753,10 +2776,11 @@ void LocalFrame::UpdateAdHighlight() {
 
   // TODO(bokan): Fenced frames may need some work to propagate the ad
   // highlighting setting to the inner tree.
-  if (IsAdRoot() && GetPage()->GetSettings().GetHighlightAds())
-    SetSubframeColorOverlay(SkColorSetARGB(128, 255, 0, 0));
-  else
-    SetSubframeColorOverlay(SK_ColorTRANSPARENT);
+  if (IsAdRoot() && GetPage()->GetSettings().GetHighlightAds()) {
+    SetFrameColorOverlay(SkColorSetARGB(128, 255, 0, 0));
+  } else {
+    SetFrameColorOverlay(SK_ColorTRANSPARENT);
+  }
 }
 
 void LocalFrame::PauseSubresourceLoading(
@@ -2922,7 +2946,7 @@ class FrameColorOverlay final : public FrameOverlay::Delegate {
  public:
   explicit FrameColorOverlay(LocalFrame* frame, SkColor color)
       : color_(color), frame_(frame) {}
-  SkColor GetColorForTesting() const { return color_; }
+  SkColor GetColor() const { return color_; }
 
  private:
   void PaintFrameOverlay(const FrameOverlay& frame_overlay,
@@ -2968,21 +2992,11 @@ struct DowncastTraits<FrameColorOverlay> {
   }
 };
 
-std::optional<SkColor> LocalFrame::GetFrameOverlayColorForTesting() const {
+std::optional<SkColor> LocalFrame::GetFrameOverlayColor() const {
   if (!frame_color_overlay_)
     return std::nullopt;
   return DynamicTo<FrameColorOverlay>(frame_color_overlay_->GetDelegate())
-      ->GetColorForTesting();
-}
-
-void LocalFrame::SetMainFrameColorOverlay(SkColor color) {
-  DCHECK(IsMainFrame() && !IsInFencedFrameTree());
-  SetFrameColorOverlay(color);
-}
-
-void LocalFrame::SetSubframeColorOverlay(SkColor color) {
-  DCHECK(!IsMainFrame() || IsInFencedFrameTree());
-  SetFrameColorOverlay(color);
+      ->GetColor();
 }
 
 void LocalFrame::SetFrameColorOverlay(SkColor color) {
@@ -3209,7 +3223,32 @@ void LocalFrame::RequestExecuteScript(
   script_sources.AppendSpan(sources);
 
   ScriptState* script_state = ToScriptState(this, *world);
-  CHECK(script_state);
+  // TODO(https://crbug.com/435149285): Remove this block and revert back to
+  // CHECK(script_state) once the crash associated with the crbug above is resolved.
+  if (!script_state) {
+    SCOPED_CRASH_KEY_STRING256(
+        "Blink", "request_execute_script_script",
+        sources.empty() ? "" : sources[0].code.Utf8().substr(0, 256));
+    SCOPED_CRASH_KEY_NUMBER("Blink", "request_execute_script_world_id",
+                            world->GetWorldId());
+    SCOPED_CRASH_KEY_STRING256("Blink", "request_execute_script_url",
+                               GetDocument()
+                                   ? GetDocument()->Url().GetString().Utf8()
+                                   : "no document");
+    SCOPED_CRASH_KEY_BOOL("Blink", "request_execute_script_detached",
+                          IsDetached());
+    SCOPED_CRASH_KEY_STRING32(
+        "Blink", "req_exec_script_doc_ready_state",
+        GetDocument()
+            ? DocumentReadyStateToString(GetDocument()->GetReadyState())
+            : "no document");
+
+    base::debug::DumpWithoutCrashing();
+    if (callback) {
+      std::move(callback).Run(std::nullopt, base::TimeTicks::Now());
+    }
+    return;
+  }
   PausableScriptExecutor::CreateAndRun(
       script_state, std::move(script_sources), execute_script_policy,
       user_gesture, evaluation_timing, blocking_option, want_result_option,
@@ -3370,6 +3409,15 @@ bool LocalFrame::IsCapturingMedia() const {
 }
 
 SystemClipboard* LocalFrame::GetSystemClipboard() {
+  // PagePopup uses the SystemClipboard associated with its OwnerElement.
+  if (RuntimeEnabledFeatures::PagePopupCopyPasteEnabled()) {
+    if (auto* owner = PagePopupOwner()) {
+      if (auto* frame = owner->GetDocument().GetFrame()) {
+        return frame->GetSystemClipboard();
+      }
+    }
+  }
+
   if (!system_clipboard_)
     system_clipboard_ = MakeGarbageCollected<SystemClipboard>(this);
 
@@ -4187,9 +4235,9 @@ void LocalFrame::AllowStorageAccessAndNotify(
     base::OnceCallback<void(bool)> callback) {
   mojom::blink::StorageTypeAccessed mojo_storage_type =
       ToMojoStorageType(storage_type);
-  auto wrapped_callback = WTF::BindOnce(&LocalFrame::OnStorageAccessCallback,
-                                        WrapWeakPersistent(this),
-                                        std::move(callback), mojo_storage_type);
+  auto wrapped_callback = blink::BindOnce(
+      &LocalFrame::OnStorageAccessCallback, WrapWeakPersistent(this),
+      std::move(callback), mojo_storage_type);
   if (WebContentSettingsClient* content_settings_client =
           GetContentSettingsClient()) {
     content_settings_client->AllowStorageAccess(storage_type,

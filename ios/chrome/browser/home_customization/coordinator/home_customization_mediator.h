@@ -10,11 +10,13 @@
 #import "ios/chrome/browser/home_customization/ui/home_customization_mutator.h"
 
 class DiscoverFeedVisibilityBrowserAgent;
+class HomeBackgroundCustomizationService;
 @protocol HomeCustomizationDiscoverConsumer;
 @protocol HomeCustomizationMagicStackConsumer;
 @protocol HomeCustomizationMainConsumer;
 @protocol HomeCustomizationNavigationDelegate;
 class PrefService;
+class UserUploadedImageManager;
 
 namespace image_fetcher {
 class ImageFetcherService;
@@ -23,12 +25,16 @@ class ImageFetcherService;
 // The mediator for the Home surface's customization menu.
 @interface HomeCustomizationMediator : NSObject <HomeCustomizationMutator>
 
-// Initializes this mediator with a pref service.
+// Initializes this mediator with all dependencies.
 - (instancetype)initWithPrefService:(PrefService*)prefService
     discoverFeedVisibilityBrowserAgent:
         (DiscoverFeedVisibilityBrowserAgent*)discoverFeedVisibilityBrowserAgent
+                     backgroundService:
+                         (HomeBackgroundCustomizationService*)backgroundService
                    imageFetcherService:
                        (image_fetcher::ImageFetcherService*)imageFetcherService
+              userUploadedImageManager:
+                  (UserUploadedImageManager*)userUploadedImageManager
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
@@ -57,6 +63,10 @@ class ImageFetcherService;
 // Sets the data for the Magic Stack page's cells and sends it to the
 // `consumer`.
 - (void)configureMagicStackPageData;
+
+// Saves the currently selected theme data, if it has been changed by this
+// mediator.
+- (void)saveCurrentTheme;
 
 @end
 

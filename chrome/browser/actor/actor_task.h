@@ -7,15 +7,19 @@
 
 #include <iosfwd>
 #include <memory>
+#include <optional>
+#include <vector>
 
 #include "base/callback_list.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
+#include "base/timer/elapsed_timer.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/actor/task_id.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/common/actor.mojom-forward.h"
+#include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/tabs/public/tab_interface.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
@@ -28,12 +32,15 @@ class ExecutionEngine;
 namespace ui {
 class UiEventDispatcher;
 }
+struct ActionResultWithLatencyInfo;
 
 // Represents a task that Chrome is executing on behalf of the user.
 class ActorTask {
  public:
   using ActCallback =
-      base::OnceCallback<void(mojom::ActionResultPtr, std::optional<size_t>)>;
+      base::OnceCallback<void(mojom::ActionResultPtr,
+                              std::optional<size_t>,
+                              std::vector<ActionResultWithLatencyInfo>)>;
 
   ActorTask() = delete;
   ActorTask(Profile* profile,
@@ -50,13 +57,14 @@ class ActorTask {
   void SetIdForTesting(int id);
 
   // Once state leaves kCreated it should never go back. One state enters
-  // kFinished it should never change. We may want to add a kCancelled in the
-  // future, TBD.
+  // kFinished or kCancelled it should never change.
   enum class State {
     kCreated,
     kActing,
     kReflecting,
-    kPausedByClient,
+    kPausedByActor,
+    kPausedByUser,
+    kCancelled,
     kFinished
   };
 
@@ -68,18 +76,22 @@ class ActorTask {
   void Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
            ActCallback callback);
 
-  // Sets State to kFinished and cancels any pending actions.
-  void Stop();
+  // Sets State to kFinished if `success` is true or to kCancelled if
+  // `success` is false and cancels any pending actions.
+  void Stop(bool success);
 
-  // Pause() is called to indicate that the user is pausing server-driven
-  // actuation. This will cancel any ongoing actuation.
-  void Pause();
+  // Pause() is called to indicate that either the actor or user is pausing
+  // server-driven actuation determined by the `from_actor` flag. This will
+  // cancel any ongoing actuation.
+  void Pause(bool from_actor);
 
   // Resume() indicates the user wants server-driven actuation to resume. The
   // caller is responsible for sending new state to the server (e.g. APC).
   void Resume();
 
   bool IsPaused() const;
+
+  bool IsStopped() const;
 
   ExecutionEngine* GetExecutionEngine() const;
 
@@ -101,21 +113,34 @@ class ActorTask {
   tabs::TabInterface* GetTabForObservation() const;
 
   // The set of tabs that have been acted on at any point during this task.
-  const absl::flat_hash_set<tabs::TabHandle>& GetTabs() const {
-    return tab_handles_;
-  }
+  absl::flat_hash_set<tabs::TabHandle> GetTabs() const;
 
   // The set of tabs that were acted on by the last call to Act.
-  const absl::flat_hash_set<tabs::TabHandle>& GetLastActedTabs() const {
-    // TODO(bokan): Currently the client only acts on a single tab but this
-    // should track which tabs were acted on in the last call to Act.
-    return tab_handles_;
-  }
+  absl::flat_hash_set<tabs::TabHandle> GetLastActedTabs() const;
+
+  // The single tab that was acted on by the last call to Act.
+  tabs::TabHandle GetLastActedTab();
 
  private:
+  struct ActingTabState {
+    ActingTabState();
+    ~ActingTabState();
+    ActingTabState(ActingTabState&&);
+    ActingTabState& operator=(ActingTabState&&);
+
+    // Keeps the tab in "actuation mode". The runner is present when the tab is
+    // actively being kept awake and is reset during pause.
+    base::ScopedClosureRunner actuation_runner;
+    // Subscription for TabInterface::WillDetach.
+    base::CallbackListSubscription will_detach_subscription;
+  };
+
   void OnFinishedAct(ActCallback callback,
                      mojom::ActionResultPtr result,
-                     std::optional<size_t> index_of_failed_action);
+                     std::optional<size_t> index_of_failed_action,
+                     std::vector<ActionResultWithLatencyInfo> action_results);
+  void OnTabWillDetach(tabs::TabInterface* tab,
+                       tabs::TabInterface::DetachReason reason);
 
   State state_ = State::kCreated;
   raw_ptr<Profile> profile_;
@@ -131,14 +156,20 @@ class ActorTask {
 
   TaskId id_;
 
-  // The set of all tabs this task has acted upon.
-  absl::flat_hash_set<tabs::TabHandle> tab_handles_;
+  // A timer for the current state that is not paused.
+  std::optional<base::ElapsedTimer> current_timer_ = base::ElapsedTimer();
+  // An accumulation of elapsed times for previous "active" states.
+  base::TimeDelta total_active_time_;
 
-  // A map from a tab's handle to a ScopedClosureRunner that keeps the tab
-  // in "actuation mode". This is released when the tab is removed from the
-  // task.
-  absl::flat_hash_map<tabs::TabHandle, base::ScopedClosureRunner>
-      actuation_mode_runners_;
+  // A map from a tab's handle to state associated with that tab. The presence
+  // of a tab in this map signifies that it is part of the task.
+  absl::flat_hash_map<tabs::TabHandle, ActingTabState> acting_tabs_;
+
+  // Running number of steps this task has taken.
+  size_t number_of_steps_ = 0;
+
+  // The last tab that was acutated on.
+  tabs::TabHandle last_actuated_tab_handle_;
 
   base::WeakPtrFactory<ui::UiEventDispatcher> ui_weak_ptr_factory_;
   base::WeakPtrFactory<ActorTask> weak_ptr_factory_{this};

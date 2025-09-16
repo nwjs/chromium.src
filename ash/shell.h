@@ -266,6 +266,7 @@ class SystemTrayNotifier;
 class TabletModeController;
 class ToastManagerImpl;
 class ToplevelWindowEventHandler;
+class ClipboardImageModelFactory;
 class ClipboardHistoryControllerImpl;
 class TouchDevicesController;
 class UserEducationController;
@@ -399,7 +400,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   // Called when dictation is ended.
   void OnDictationEnded();
 
-  // DEPRECATED. Use display::Screen::GetScreen()->InTabletMode() instead.
+  // DEPRECATED. Use display::Screen::Get()->InTabletMode() instead.
   // TODO(crbug.com/40942452): Remove this.
   //
   // Returns whether the device is currently in tablet mode.
@@ -1146,6 +1147,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<SystemSoundsDelegate> system_sounds_delegate_;
   std::unique_ptr<api::TasksController> tasks_controller_;
   std::unique_ptr<ToastManagerImpl> toast_manager_;
+  std::unique_ptr<ClipboardImageModelFactory> clipboard_image_model_factory_;
   std::unique_ptr<ClipboardHistoryControllerImpl> clipboard_history_controller_;
   std::unique_ptr<TouchDevicesController> touch_devices_controller_;
   std::unique_ptr<UserEducationController> user_education_controller_;

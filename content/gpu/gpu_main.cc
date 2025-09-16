@@ -31,6 +31,7 @@
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/threading/hang_watcher.h"
 #include "base/threading/platform_thread.h"
+#include "base/threading/platform_thread_metrics.h"
 #include "base/threading/thread.h"
 #include "base/time/time.h"
 #include "base/timer/hi_res_timer_manager.h"
@@ -284,12 +285,12 @@ int GpuMain(MainFunctionParams parameters) {
     // CADisplayLink (Mac HW VSync) callback only works with NS_RUNLOOP.
     main_thread_task_executor =
         std::make_unique<base::SingleThreadTaskExecutor>(
-            base::MessagePumpType::NS_RUNLOOP);
+            base::MessagePumpType::NS_RUNLOOP, /*is_main_thread=*/true);
     main_thread_task_executor->SetWorkBatchSize(2);
 #else
     main_thread_task_executor =
         std::make_unique<base::SingleThreadTaskExecutor>(
-            base::MessagePumpType::DEFAULT);
+            base::MessagePumpType::DEFAULT, /*is_main_thread=*/true);
 #endif
   } else {
 #if BUILDFLAG(IS_WIN)
@@ -297,14 +298,14 @@ int GpuMain(MainFunctionParams parameters) {
     // is expected to run on this thread.
     main_thread_task_executor =
         std::make_unique<base::SingleThreadTaskExecutor>(
-            base::MessagePumpType::DEFAULT);
+            base::MessagePumpType::DEFAULT, /*is_main_thread=*/true);
 #elif BUILDFLAG(IS_OZONE)
     // The MessagePump type required depends on the Ozone platform selected at
     // runtime.
     if (!main_thread_task_executor) {
       main_thread_task_executor =
           std::make_unique<base::SingleThreadTaskExecutor>(
-              gpu_preferences.message_pump_type);
+              gpu_preferences.message_pump_type, /*is_main_thread=*/true);
     }
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #error "Unsupported Linux platform."
@@ -316,7 +317,7 @@ int GpuMain(MainFunctionParams parameters) {
     // type does not support NSObject.
     main_thread_task_executor =
         std::make_unique<base::SingleThreadTaskExecutor>(
-            base::MessagePumpType::NS_RUNLOOP);
+            base::MessagePumpType::NS_RUNLOOP, /*is_main_thread=*/true);
     // As part of the migration to DoWork(), this policy is required to keep
     // previous behavior and avoid regressions.
     // TODO(crbug.com/40668161): Consider updating the policy.
@@ -324,7 +325,7 @@ int GpuMain(MainFunctionParams parameters) {
 #else
     main_thread_task_executor =
         std::make_unique<base::SingleThreadTaskExecutor>(
-            base::MessagePumpType::DEFAULT);
+            base::MessagePumpType::DEFAULT, /*is_main_thread=*/true);
 #endif
   }
 
@@ -397,6 +398,11 @@ int GpuMain(MainFunctionParams parameters) {
                             uncovered_hang_watcher_time);
     base::HangWatcher::GetInstance()->Start();
   }
+
+#if BUILDFLAG(IS_ANDROID)
+  base::PlatformThreadPriorityMonitor::Get().RegisterCurrentThread("GpuMain");
+  base::PlatformThreadPriorityMonitor::Get().Start();
+#endif  // BUILDFLAG(IS_ANDROID)
 
   // Startup tracing creates a tracing thread, which is incompatible on
   // platforms that require single-threaded sandbox initialization. In these
@@ -531,9 +537,11 @@ bool StartSandboxLinux(gpu::GpuWatchdogThread* watchdog_thread,
   // Video decoding of many video streams can use thousands of FDs as well as
   // Exo clients.
   // See https://crbug.com/1417237
+  // With MappableSI the number of active GMBs has doubled.
+  // See https://crbug.com/404365358
   const auto current_max_fds =
       base::saturated_cast<unsigned int>(base::GetMaxFds());
-  constexpr unsigned int kMaxFDsDelta = 1u << 13;
+  constexpr unsigned int kMaxFDsDelta = 1u << 14;
   const auto new_max_fds =
       static_cast<unsigned int>(base::ClampMax(current_max_fds, kMaxFDsDelta));
   base::IncreaseFdLimitTo(new_max_fds);
@@ -584,7 +592,10 @@ bool StartSandboxWindows(const sandbox::SandboxInterfaceInfo* sandbox_info) {
   TRACE_EVENT("gpu,startup", "Lower token");
 
   // Set up DirectReceiver before the sandbox is enabled.
-  if (features::IsVizDirectCompositorThreadIpcNonRootEnabled()) {
+  const bool should_init_transport =
+      features::IsVizDirectCompositorThreadIpcNonRootEnabled() ||
+      features::IsVizDirectCompositorThreadIpcFrameSinkManagerEnabled();
+  if (should_init_transport) {
     // This pre-initializes a transport to be used for direct receiver since a
     // feature that will use it is enabled.
     mojo::CreateDirectReceiverTransportBeforeSandbox();

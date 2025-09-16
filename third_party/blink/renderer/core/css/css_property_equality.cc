@@ -214,6 +214,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.BaselineShift() == b.BaselineShift();
     case CSSPropertyID::kBaselineSource:
       return a.BaselineSource() == b.BaselineSource();
+    case CSSPropertyID::kBlockEllipsis:
+      return a.BlockEllipsis() == b.BlockEllipsis();
     case CSSPropertyID::kBorderBottomColor:
       return a.BorderBottomColor() == b.BorderBottomColor() &&
              a.InternalVisitedBorderBottomColor() ==
@@ -806,8 +808,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.ColumnGap() == b.ColumnGap();
     case CSSPropertyID::kRowGap:
       return a.RowGap() == b.RowGap();
-    case CSSPropertyID::kGapRulePaintOrder:
-      return a.GapRulePaintOrder() == b.GapRulePaintOrder();
+    case CSSPropertyID::kGapRuleOverlap:
+      return a.GapRuleOverlap() == b.GapRuleOverlap();
     case CSSPropertyID::kColumnRuleBreak:
       return a.ColumnRuleBreak() == b.ColumnRuleBreak();
     case CSSPropertyID::kRowRuleBreak:

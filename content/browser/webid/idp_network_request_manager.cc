@@ -18,10 +18,10 @@
 #include "base/values.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
-#include "content/browser/webid/fedcm_mappers.h"
-#include "content/browser/webid/fedcm_metrics.h"
 #include "content/browser/webid/flags.h"
 #include "content/browser/webid/identity_provider_info.h"
+#include "content/browser/webid/mappers.h"
+#include "content/browser/webid/metrics.h"
 #include "content/browser/webid/webid_utils.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_frame_host.h"
@@ -257,7 +257,7 @@ IdentityRequestAccountPtr ParseAccount(const base::Value::Dict& account,
 
   std::vector<std::string> labels;
   const base::ListValue* labels_list = nullptr;
-  if (IsFedCmUseOtherAccountAndLabelsNewSyntaxEnabled()) {
+  if (webid::IsUseOtherAccountAndLabelsNewSyntaxEnabled()) {
     labels_list = account.FindList(webid::kLabelHintsKey);
   } else {
     labels_list = account.FindList(webid::kLabelsKey);
@@ -277,7 +277,7 @@ IdentityRequestAccountPtr ParseAccount(const base::Value::Dict& account,
   std::string display_identifier;
   std::string display_name;
   std::string empty_string;
-  if (IsFedCmAlternativeIdentifiersEnabled()) {
+  if (webid::IsAlternativeIdentifiersEnabled()) {
     std::vector<std::string_view> identifiers;
     if (!IsEmptyOrWhitespace(name)) {
       identifiers.emplace_back(*name);
@@ -312,7 +312,7 @@ IdentityRequestAccountPtr ParseAccount(const base::Value::Dict& account,
     display_name = *name;
   }
 
-  RecordApprovedClientsExistence(approved_clients != nullptr);
+  webid::RecordApprovedClientsExistence(approved_clients != nullptr);
 
   std::optional<LoginState> approved_value;
   if (approved_clients) {
@@ -328,7 +328,7 @@ IdentityRequestAccountPtr ParseAccount(const base::Value::Dict& account,
       // kSignUp instead of leaving as nullopt.
       approved_value = LoginState::kSignUp;
     }
-    RecordApprovedClientsSize(approved_clients->size());
+    webid::RecordApprovedClientsSize(approved_clients->size());
   }
 
   return base::MakeRefCounted<IdentityRequestAccount>(
@@ -638,7 +638,7 @@ void OnConfigParsed(const GURL& provider,
   idp_metadata.idp_login_url =
       ExtractEndpoint(provider, response, kLoginUrlKey);
 
-  if (IsFedCmDelegationEnabled()) {
+  if (webid::IsDelegationEnabled()) {
     const base::Value::List* formats = response.FindList(kFormatsKey);
     if (formats) {
       for (const auto& format : *formats) {
@@ -649,7 +649,7 @@ void OnConfigParsed(const GURL& provider,
     }
   }
 
-  if (IsFedCmIdPRegistrationEnabled()) {
+  if (webid::IsIdPRegistrationEnabled()) {
     const base::Value::List* types = response.FindList(kTypesKey);
     if (types) {
       for (const auto& type : *types) {
@@ -661,7 +661,7 @@ void OnConfigParsed(const GURL& provider,
   }
 
   const std::string* requested_label = nullptr;
-  if (IsFedCmUseOtherAccountAndLabelsNewSyntaxEnabled()) {
+  if (webid::IsUseOtherAccountAndLabelsNewSyntaxEnabled()) {
     requested_label = response.FindString(kAccountLabelKey);
   } else {
     const base::Value::Dict* accounts_dict = response.FindDict(kAccountsKey);
@@ -674,7 +674,7 @@ void OnConfigParsed(const GURL& provider,
   }
 
   std::optional<bool> supports_add_account;
-  if (IsFedCmUseOtherAccountAndLabelsNewSyntaxEnabled()) {
+  if (webid::IsUseOtherAccountAndLabelsNewSyntaxEnabled()) {
     supports_add_account = response.FindBool(kSupportsUseOtherAccountKey);
   } else {
     const base::Value::Dict* modes_dict = response.FindDict(kModesKey);
@@ -740,7 +740,7 @@ void OnAccountsRequestParsed(
     data_decoder::DataDecoder::ValueOrError result) {
   std::vector<IdentityRequestAccountPtr> account_list;
   if (fetch_status.parse_status != ParseStatus::kSuccess) {
-    RecordAccountsResponseInvalidReason(
+    webid::RecordAccountsResponseInvalidReason(
         AccountsResponseInvalidReason::kResponseIsNotJsonOrDict);
     std::move(callback).Run(fetch_status, account_list);
     return;
@@ -750,7 +750,7 @@ void OnAccountsRequestParsed(
   const base::Value::List* accounts = response.FindList(kAccountsKey);
 
   if (!accounts) {
-    RecordAccountsResponseInvalidReason(
+    webid::RecordAccountsResponseInvalidReason(
         AccountsResponseInvalidReason::kNoAccountsKey);
     std::move(callback).Run(
         {ParseStatus::kInvalidResponseError, fetch_status.response_code},
@@ -759,7 +759,7 @@ void OnAccountsRequestParsed(
   }
 
   if (accounts->empty()) {
-    RecordAccountsResponseInvalidReason(
+    webid::RecordAccountsResponseInvalidReason(
         AccountsResponseInvalidReason::kAccountListIsEmpty);
     std::move(callback).Run(
         {ParseStatus::kEmptyListError, fetch_status.response_code},
@@ -776,7 +776,7 @@ void OnAccountsRequestParsed(
   if (!accounts_valid) {
     CHECK_NE(parsing_error,
              AccountsResponseInvalidReason::kResponseIsNotJsonOrDict);
-    RecordAccountsResponseInvalidReason(parsing_error);
+    webid::RecordAccountsResponseInvalidReason(parsing_error);
 
     std::move(callback).Run(
         {ParseStatus::kInvalidResponseError, fetch_status.response_code},
@@ -1147,7 +1147,7 @@ void IdpNetworkRequestManager::SendAccountsRequest(
     const GURL& accounts_url,
     const std::string& client_id,
     AccountsRequestCallback callback) {
-  if (IsFedCmLightweightModeEnabled()) {
+  if (webid::IsLightweightModeEnabled()) {
     base::Value::List accounts = permission_delegate_->GetAccounts(idp_origin);
     FetchStatus success_status = {
         .parse_status = ParseStatus::kSuccess,
@@ -1200,7 +1200,7 @@ void IdpNetworkRequestManager::SendTokenRequest(
 
   if (idp_blindness) {
     // IdP blindness can only be used when the feature is enabled.
-    DCHECK(IsFedCmDelegationEnabled());
+    DCHECK(webid::IsDelegationEnabled());
     // We have to set this to a Origin: null because the underlying loader
     // will  not let us send a request without Origin header if the request
     // method is POST.
@@ -1253,7 +1253,7 @@ void IdpNetworkRequestManager::SendSuccessfulTokenRequestMetrics(
 void IdpNetworkRequestManager::SendFailedTokenRequestMetrics(
     const GURL& metrics_endpoint_url,
     bool did_show_ui,
-    MetricsEndpointErrorCode error_code) {
+    webid::MetricsEndpointErrorCode error_code) {
   std::string url_encoded_post_data = base::StringPrintf(
       "outcome=failure&error_code=%d&did_show_ui=%s",
       static_cast<int>(error_code), base::ToString(did_show_ui));
@@ -1301,7 +1301,7 @@ void IdpNetworkRequestManager::SendDisconnectRequest(
 }
 
 bool IdpNetworkRequestManager::IsCrossSiteIframe() const {
-  return IsFedCmIframeOriginEnabled() && !rp_embedding_origin_.opaque() &&
+  return webid::IsIframeOriginEnabled() && !rp_embedding_origin_.opaque() &&
          !net::SchemefulSite::IsSameSite(relying_party_origin_,
                                          rp_embedding_origin_);
 }
@@ -1336,7 +1336,7 @@ void IdpNetworkRequestManager::FetchAccountPicturesAndBrandIcons(
                      std::move(idp_info), accounts, rp_brand_icon_url));
 
   for (const auto& account : accounts) {
-    if (IsFedCmLightweightModeEnabled() && account->from_accounts_push) {
+    if (webid::IsLightweightModeEnabled() && account->from_accounts_push) {
       FetchCachedAccountImage(url::Origin::Create(config_url), account->picture,
                               barrier_callback);
     } else {
@@ -1682,7 +1682,7 @@ IdpNetworkRequestManager::CreateCredentialedResourceRequest(
   resource_request->trusted_params = network::ResourceRequest::TrustedParams();
   net::IsolationInfo::RequestType request_type =
       net::IsolationInfo::RequestType::kOther;
-  if (IsFedCmSameSiteLaxEnabled()) {
+  if (webid::IsSameSiteLaxEnabled()) {
     // We use kMainFrame so that we can send SameSite=Lax cookies.
     request_type = net::IsolationInfo::RequestType::kMainFrame;
   }

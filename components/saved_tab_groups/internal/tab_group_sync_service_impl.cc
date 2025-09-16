@@ -179,6 +179,8 @@ TabGroupSyncServiceImpl::TabGroupSyncServiceImpl(
     std::unique_ptr<TabGroupSyncMetricsLogger> metrics_logger,
     optimization_guide::OptimizationGuideDecider* optimization_guide_decider,
     signin::IdentityManager* identity_manager,
+    data_sharing::personal_collaboration_data::PersonalCollaborationDataService*
+        personal_collaboration_data_service,
     std::unique_ptr<CollaborationFinder> collaboration_finder,
     data_sharing::Logger* logger)
     : model_(std::move(model)),
@@ -196,11 +198,16 @@ TabGroupSyncServiceImpl::TabGroupSyncServiceImpl(
       versioning_message_controller_(
           std::make_unique<VersioningMessageControllerImpl>(pref_service_,
                                                             this)) {
-  if (shared_tab_group_account_configuration) {
+  if (personal_collaboration_data_service) {
+    personal_collaboration_data_handler_ =
+        std::make_unique<TabGroupSyncPersonalCollaborationDataHandler>(
+            model_.get(), personal_collaboration_data_service);
+  } else if (shared_tab_group_account_configuration) {
     shared_tab_group_account_data_bridge_ =
         std::make_unique<SharedTabGroupAccountDataSyncBridge>(
             std::move(shared_tab_group_account_configuration), *model_);
   }
+
   collaboration_finder_->SetClient(this);
   model_->AddObserver(this);
   if (opt_guide_) {
@@ -485,6 +492,18 @@ void TabGroupSyncServiceImpl::UpdateGroupPosition(
 
   if (new_index.has_value()) {
     model_->ReorderGroupLocally(sync_id, new_index.value());
+  }
+}
+
+void TabGroupSyncServiceImpl::UpdateBookmarkNodeId(
+    const base::Uuid& sync_id,
+    std::optional<base::Uuid> bookmark_node_id) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  VLOG(2) << __func__;
+
+  const SavedTabGroup* tab_group = model_->Get(sync_id);
+  if (tab_group) {
+    model_->UpdateBookmarkNodeId(sync_id, bookmark_node_id);
   }
 }
 
@@ -860,6 +879,12 @@ void TabGroupSyncServiceImpl::MakeTabGroupSharedForTesting(
     const syncer::CollaborationId& collaboration_id) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   model_->MakeTabGroupSharedForTesting(local_group_id, collaboration_id);
+}
+
+void TabGroupSyncServiceImpl::MakeTabGroupUnsharedForTesting(
+    const LocalTabGroupID& local_group_id) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  model_->MakeTabGroupUnsharedForTesting(local_group_id);
 }
 
 bool TabGroupSyncServiceImpl::ShouldExposeSavedTabGroupInList(

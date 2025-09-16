@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -500,6 +495,10 @@ class MockContentBrowserClient : public ContentBrowserTestContentBrowserClient {
 
   void set_data_saver_enabled(bool enabled) { data_saver_enabled_ = enabled; }
 
+  void set_synthetic_response_enabled(bool enabled) {
+    synthetic_response_enabled_ = enabled;
+  }
+
   // ContentBrowserClient overrides:
   bool IsDataSaverEnabled(BrowserContext* context) override {
     return data_saver_enabled_;
@@ -508,7 +507,7 @@ class MockContentBrowserClient : public ContentBrowserTestContentBrowserClient {
   bool IsServiceWorkerSyntheticResponseAllowed(
       content::BrowserContext* browser_context,
       const GURL& url) override {
-    return true;
+    return synthetic_response_enabled_;
   }
 
   void OverrideWebPreferences(WebContents* web_contents,
@@ -519,6 +518,7 @@ class MockContentBrowserClient : public ContentBrowserTestContentBrowserClient {
 
  private:
   bool data_saver_enabled_;
+  bool synthetic_response_enabled_ = false;
 };
 
 // An observer that waits for the service worker to be running.
@@ -7622,7 +7622,7 @@ class ServiceWorkerSyntheticResponseBrowserTest
       : allowed_url_(GURL(base::StrCat({"https://", kHostname, kTargetPath}))) {
     feature_list_.InitWithFeaturesAndParameters(
         {{blink::features::kServiceWorkerSyntheticResponse,
-          {{blink::features::kServiceWorkerSyntheticResponseAllowedUrls.name,
+          {{blink::features::kServiceWorkerSyntheticResponseAllowedUrl.name,
             allowed_url_.spec()}}}},
         {});
   }
@@ -7672,6 +7672,12 @@ class ServiceWorkerSyntheticResponseBrowserTest
   }
 
  protected:
+  base::HistogramTester& histogram_tester() { return histogram_tester_; }
+  void SetUpMockContentBrowserClient() {
+    mock_content_browser_client = std::make_unique<MockContentBrowserClient>();
+    mock_content_browser_client->set_synthetic_response_enabled(true);
+  }
+
   std::unique_ptr<MockContentBrowserClient> mock_content_browser_client;
 
  private:
@@ -7697,7 +7703,10 @@ class ServiceWorkerSyntheticResponseBrowserTest
               "Test-Duplicated-Header: x\r\n";
 
           if (base::Contains(request.GetURL().query(),
-                             "header_mismatch_with_duplicated_header")) {
+                             "header_mismatch_ignored_header")) {
+            headers += "Alt-Svc: h2=\":443\"; ma=2592000;\r\n";
+          } else if (base::Contains(request.GetURL().query(),
+                                    "header_mismatch_with_duplicated_header")) {
             headers +=
                 "Test-Duplicated-Header: y, z\r\n"
                 "Test-Duplicated-Header: x\r\n";
@@ -7744,6 +7753,7 @@ class ServiceWorkerSyntheticResponseBrowserTest
   base::test::ScopedFeatureList feature_list_;
   GURL allowed_url_;
   ContentMockCertVerifier mock_cert_verifier_;
+  base::HistogramTester histogram_tester_;
 };
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
@@ -7783,7 +7793,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
                        MatchedPageIsServiceWorkerControlled) {
-  mock_content_browser_client = std::make_unique<MockContentBrowserClient>();
+  SetUpMockContentBrowserClient();
   // Navigated URL matched with the URL in the allowlist is controlled by
   // ServiceWorker.
   EXPECT_TRUE(NavigateToURL(
@@ -7796,7 +7806,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
                        ResponseHeaderIsStored) {
-  mock_content_browser_client = std::make_unique<MockContentBrowserClient>();
+  SetUpMockContentBrowserClient();
   // Navigate and store the response header.
   EXPECT_TRUE(NavigateToURL(
       shell(),
@@ -7808,6 +7818,13 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
   EXPECT_TRUE(ExecJs(shell()->web_contents()->GetPrimaryMainFrame(),
                      "Math.ceil(performance.getEntriesByType('navigation')[0]."
                      "responseStart) >= 2000"));
+  histogram_tester().ExpectBucketCount(
+      "ServiceWorker.SyntheticResponse.Eligibility",
+      static_cast<int>(ServiceWorkerMetrics::SyntheticResponseEligibility::
+                           kNotEligibleByNoHeaderStored),
+      1);
+  histogram_tester().ExpectBucketCount(
+      "ServiceWorker.SyntheticResponse.IsHeaderStored", true, 1);
 
   // The second navigation. The browser should have stored the response header
   // from the previous navigation, and receive the response header locally.
@@ -7821,11 +7838,16 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
   EXPECT_TRUE(ExecJs(shell()->web_contents()->GetPrimaryMainFrame(),
                      "Math.ceil(performance.getEntriesByType('navigation')[0]."
                      "responseStart) < 2000"));
+  histogram_tester().ExpectBucketCount(
+      "ServiceWorker.SyntheticResponse.Eligibility",
+      static_cast<int>(
+          ServiceWorkerMetrics::SyntheticResponseEligibility::kEligible),
+      1);
 }
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
                        InlineScriptIsNotAllowedUntilMetaCSPScriptSrc) {
-  mock_content_browser_client = std::make_unique<MockContentBrowserClient>();
+  SetUpMockContentBrowserClient();
   // Navigate and store the response header.
   EXPECT_TRUE(NavigateToURL(
       shell(),
@@ -7855,7 +7877,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
                        HeaderMismatch) {
-  mock_content_browser_client = std::make_unique<MockContentBrowserClient>();
+  SetUpMockContentBrowserClient();
   // Navigate and store the response header.
   EXPECT_TRUE(NavigateToURL(
       shell(),
@@ -7884,11 +7906,18 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
   EXPECT_TRUE(ExecJs(shell()->web_contents()->GetPrimaryMainFrame(),
                      "Math.ceil(performance.getEntriesByType('navigation')[0]."
                      "responseStart) >= 2000"));
+  // Reload navigation doesn't involve service worker anymore. Hence the
+  // histogram is not recorded.
+  histogram_tester().ExpectBucketCount(
+      "ServiceWorker.SyntheticResponse.Eligibility",
+      static_cast<int>(ServiceWorkerMetrics::SyntheticResponseEligibility::
+                           kNotEligibleByReload),
+      0);
 }
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
                        HeaderMismatch_DuplicatedHeader) {
-  mock_content_browser_client = std::make_unique<MockContentBrowserClient>();
+  SetUpMockContentBrowserClient();
   // Navigate and store the response header.
   EXPECT_TRUE(NavigateToURL(
       shell(),
@@ -7917,6 +7946,39 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
   EXPECT_TRUE(ExecJs(shell()->web_contents()->GetPrimaryMainFrame(),
                      "Math.ceil(performance.getEntriesByType('navigation')[0]."
                      "responseStart) >= 2000"));
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerSyntheticResponseBrowserTest,
+                       HeaderMismatch_IgnoredHeader) {
+  SetUpMockContentBrowserClient();
+  // Navigate and store the response header.
+  EXPECT_TRUE(NavigateToURL(
+      shell(),
+      https_server()->GetURL(
+          kHostname, base::StrCat({kTargetPath, "foo&echo=foo&server_slow"}))));
+  EXPECT_EQ("[SyntheticResponse] foo", GetInnerText());
+  // Without SyntheticResponse, `responseStart` is 2000ms due to the server
+  // delay.
+  EXPECT_TRUE(ExecJs(shell()->web_contents()->GetPrimaryMainFrame(),
+                     "Math.ceil(performance.getEntriesByType('navigation')[0]."
+                     "responseStart) >= 2000"));
+
+  // The second navigation. Headers stored in local and the network are not
+  // consistent, but the inconsistent header is in the ignored list. This case,
+  // the reload won't happen.
+  EXPECT_TRUE(NavigateToURL(
+      shell(),
+      https_server()->GetURL(
+          kHostname,
+          base::StrCat(
+              {kTargetPath,
+               "foo&echo=bar&server_slow&header_mismatch_ignored_header"}))));
+  EXPECT_EQ("[SyntheticResponse] bar", GetInnerText());
+  // Without SyntheticResponse, `responseStart` doesn't wait for the actual
+  // server response.
+  EXPECT_TRUE(ExecJs(shell()->web_contents()->GetPrimaryMainFrame(),
+                     "Math.ceil(performance.getEntriesByType('navigation')[0]."
+                     "responseStart) < 2000"));
 }
 
 }  // namespace content

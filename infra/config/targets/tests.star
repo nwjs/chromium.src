@@ -293,11 +293,6 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.gtest_test(
-    name = "blink_unit_tests",
-    binary = "blink_unittests",
-)
-
-targets.tests.gtest_test(
     name = "blink_unittests",
 )
 
@@ -601,6 +596,17 @@ targets.tests.gtest_test(
     ],
     args = [
         "--annotation=Restriction=Tablet,Restriction=TabletOrDesktop,ImportantFormFactors=Tablet,ImportantFormFactors=TabletOrDesktop",
+    ],
+    binary = "chrome_public_test_apk",
+)
+
+targets.tests.gtest_test(
+    name = "chrome_public_test_apk_desktop",
+    mixins = [
+        "skia_gold_test",
+    ],
+    args = [
+        "--annotation=Restriction=Desktop,Restriction=TabletOrDesktop,ImportantFormFactors=Desktop,ImportantFormFactors=TabletOrDesktop",
     ],
     binary = "chrome_public_test_apk",
 )
@@ -3274,11 +3280,6 @@ targets.tests.gpu_telemetry_test(
 targets.tests.script_test(
     name = "webkit_lint",
     script = "blink_lint_expectations.py",
-)
-
-targets.tests.gtest_test(
-    name = "webkit_unit_tests",
-    binary = "blink_unittests",
 )
 
 targets.tests.isolated_script_test(

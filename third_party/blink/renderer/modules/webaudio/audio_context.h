@@ -22,7 +22,6 @@
 #include "third_party/blink/renderer/core/frame/frame_visibility_observer.h"
 #include "third_party/blink/renderer/core/html/media/autoplay_policy.h"
 #include "third_party/blink/renderer/modules/webaudio/base_audio_context.h"
-#include "third_party/blink/renderer/modules/webaudio/setsinkid_resolver.h"
 #include "third_party/blink/renderer/platform/audio/audio_frame_stats_accumulator.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_deque.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -48,6 +47,7 @@ class MediaStreamAudioDestinationNode;
 class MediaStreamAudioSourceNode;
 class RealtimeAudioDestinationNode;
 class ScriptState;
+class V8UnionAudioSinkOptionsOrString;
 class WebAudioLatencyHint;
 
 // This is an BaseAudioContext which actually plays sound, unlike an
@@ -61,6 +61,50 @@ class MODULES_EXPORT AudioContext final
   DEFINE_WRAPPERTYPEINFO();
 
  public:
+  // SetSinkIdResolver is a helper class that manages the asynchronous operation
+  // of AudioContext.setSinkId(). It encapsulates a ScriptPromise that is
+  // resolved or rejected based on the success or failure of changing the audio
+  // output device.
+  class SetSinkIdResolver final : public GarbageCollected<SetSinkIdResolver> {
+   public:
+    SetSinkIdResolver(ScriptState*,
+                      AudioContext&,
+                      const V8UnionAudioSinkOptionsOrString&);
+    SetSinkIdResolver(const SetSinkIdResolver&) = delete;
+    SetSinkIdResolver& operator=(const SetSinkIdResolver&) = delete;
+    ~SetSinkIdResolver() = default;
+
+    void Trace(Visitor*) const;
+
+    void Start();
+
+    // Resolves the promise and sets `resolver_` to nullptr.
+    void Resolve();
+
+    // Rejects the promise with a DOMException and sets `resolver_` to nullptr.
+    void Reject(DOMException* exception);
+
+    // Rejects the promise with a v8::Local<v8::Value> and sets `resolver_` to
+    // nullptr. Used when creating an exception with
+    // V8ThrowDOMException::CreateOrEmpty.
+    void Reject(v8::Local<v8::Value>);
+
+    ScriptPromise<IDLUndefined> GetPromise();
+
+   private:
+    // Will decide whether to resolve or reject the promise based on `status`.
+    // After this method returns, `resolver_` is set to nullptr.
+    void HandleOutputDeviceStatus(media::OutputDeviceStatus status);
+
+    // This callback function is passed to 'AudioDestinationNode::SetSinkId()'.
+    // When the device status is okay, 'NotifySetSinkIdIsDone()' gets invoked.
+    void OnSetSinkIdComplete(media::OutputDeviceStatus status);
+
+    WeakMember<AudioContext> audio_context_;
+    Member<ScriptPromiseResolver<IDLUndefined>> resolver_;
+    WebAudioSinkDescriptor sink_descriptor_;
+  };
+
   static AudioContext* Create(ExecutionContext*,
                               const AudioContextOptions*,
                               ExceptionState&);
@@ -272,9 +316,6 @@ class MODULES_EXPORT AudioContext final
   // posting a main thread task to perform the actual resolving, if needed.
   void ResolvePromisesForUnpause();
 
-  AudioIOPosition OutputPosition() const
-      VALID_CONTEXT_REQUIRED(main_thread_sequence_checker_);
-
   // Send notification to browser that an AudioContext has started or stopped
   // playing audible audio.
   void NotifyAudibleAudioStarted()
@@ -332,7 +373,9 @@ class MODULES_EXPORT AudioContext final
   uint32_t context_id_;
   Member<ScriptPromiseResolver<IDLUndefined>> close_resolver_;
 
-  AudioIOPosition output_position_;
+  // Protected by the graph lock.
+  AudioIOPosition output_position_{0.0, 0.0, 0.0};
+
   AudioCallbackMetric callback_metric_;
 
   // Accessed only on the thread pulling audio from the graph.

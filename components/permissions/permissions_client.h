@@ -10,6 +10,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
+#include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/favicon/core/favicon_service.h"
 #include "components/permissions/features.h"
@@ -298,7 +299,7 @@ class PermissionsClient {
   // the custodian of a supervised user.
   virtual bool IsPermissionBlockedByDevicePolicy(
       content::WebContents* web_contents,
-      ContentSetting setting,
+      PermissionSetting setting,
       const content_settings::SettingInfo& info,
       ContentSettingsType type) const;
 
@@ -306,7 +307,7 @@ class PermissionsClient {
   // admins can use the whitelist to allow device access without prompt.
   virtual bool IsPermissionAllowedByDevicePolicy(
       content::WebContents* web_contents,
-      ContentSetting setting,
+      PermissionSetting setting,
       const content_settings::SettingInfo& info,
       ContentSettingsType type) const;
 
@@ -317,6 +318,10 @@ class PermissionsClient {
   // Returns `true` if Chrome can request system-level permission. Returns
   // `false` otherwise.
   virtual bool CanPromptSystemPermission(ContentSettingsType type) const;
+
+  // Returns true if an actor is currently operating on a tab.
+  virtual bool IsActorOperatingOnWebContents(
+      content::WebContents* web_contents) const;
 
   virtual favicon::FaviconService* GetFaviconService(
       content::BrowserContext* browser_context);

@@ -10,12 +10,15 @@
 #include "base/functional/callback.h"
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
+#include "base/time/time.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/renderer/actor/click_tool.h"
 #include "chrome/renderer/actor/drag_and_release_tool.h"
 #include "chrome/renderer/actor/journal.h"
 #include "chrome/renderer/actor/mouse_move_tool.h"
+#include "chrome/renderer/actor/no_op_tool.h"
 #include "chrome/renderer/actor/script_tool.h"
 #include "chrome/renderer/actor/scroll_tool.h"
 #include "chrome/renderer/actor/select_tool.h"
@@ -130,11 +133,23 @@ void ToolExecutor::InvokeTool(mojom::ToolInvocationPtr invocation,
           std::move(invocation->action->get_script_tool()));
       break;
     }
+    case actor::mojom::ToolAction::Tag::kScrollTo: {
+      // This is only used to call `EnsureTargetInView()`.
+      tool_ = std::make_unique<NoOpTool>(
+          frame_.get(), invocation->task_id, journal_.get(),
+          std::move(invocation->target),
+          std::move(invocation->observed_target));
+      break;
+    }
     default:
       NOTREACHED();
   }
 
   page_stability_monitor_ = std::make_unique<PageStabilityMonitor>(*frame_);
+
+  if (features::kGlicActorScrollTargetIntoView.Get()) {
+    tool_->EnsureTargetInView();
+  }
 
   execute_journal_entry_ = journal_->CreatePendingAsyncEntry(
       invocation->task_id, "ExecuteTool", tool_->DebugString());
@@ -146,6 +161,7 @@ void ToolExecutor::InvokeTool(mojom::ToolInvocationPtr invocation,
 void ToolExecutor::ToolFinished(int32_t task_id,
                                 mojom::ActionResultPtr result) {
   execute_journal_entry_.reset();
+  result->execution_end_time = base::TimeTicks::Now();
   page_stability_monitor_->WaitForStable(
       *tool_, task_id, *journal_,
       base::BindOnce(&ToolExecutor::PageStabilized,

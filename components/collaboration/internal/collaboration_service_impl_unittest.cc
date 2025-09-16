@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/android/device_info.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -27,9 +28,6 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-#if BUILDFLAG(IS_ANDROID)
-#include "base/android/build_info.h"
-#endif  // BUILDFLAG(IS_ANDROID)
 
 using data_sharing::GroupData;
 using data_sharing::GroupId;
@@ -37,7 +35,6 @@ using data_sharing::GroupMember;
 using data_sharing::MemberRole;
 using signin::PrimaryAccountChangeEvent;
 using testing::_;
-using testing::Invoke;
 using testing::Return;
 
 namespace collaboration {
@@ -62,7 +59,7 @@ class CollaborationServiceImplTest : public testing::Test {
 
   void SetUp() override {
 #if BUILDFLAG(IS_ANDROID)
-    if (base::android::BuildInfo::GetInstance()->is_automotive()) {
+    if (base::android::device_info::is_automotive()) {
       // TODO(crbug.com/399444939): Re-enable once automotive is supported.
       GTEST_SKIP() << "Test shouldn't run on automotive builders.";
     }
@@ -384,14 +381,14 @@ TEST_F(CollaborationServiceImplTest, DeleteGroup) {
   EXPECT_CALL(mock_tab_group_sync_service_,
               OnCollaborationRemoved(syncer::CollaborationId(kGroupId)));
   EXPECT_CALL(mock_data_sharing_service_, DeleteGroup(group_id, _))
-      .WillOnce(Invoke(
+      .WillOnce(
           [](const data_sharing::GroupId&,
              base::OnceCallback<void(
                  data_sharing::DataSharingService::PeopleGroupActionOutcome)>
                  callback) {
             std::move(callback).Run(data_sharing::DataSharingService::
                                         PeopleGroupActionOutcome::kSuccess);
-          }));
+          });
 
   base::RunLoop run_loop;
   service_->DeleteGroup(group_id,
@@ -409,14 +406,14 @@ TEST_F(CollaborationServiceImplTest, LeaveGroup) {
   EXPECT_CALL(mock_tab_group_sync_service_,
               OnCollaborationRemoved(syncer::CollaborationId(kGroupId)));
   EXPECT_CALL(mock_data_sharing_service_, LeaveGroup(group_id, _))
-      .WillOnce(Invoke(
+      .WillOnce(
           [](const data_sharing::GroupId&,
              base::OnceCallback<void(
                  data_sharing::DataSharingService::PeopleGroupActionOutcome)>
                  callback) {
             std::move(callback).Run(data_sharing::DataSharingService::
                                         PeopleGroupActionOutcome::kSuccess);
-          }));
+          });
 
   base::RunLoop run_loop;
   service_->LeaveGroup(group_id, base::BindOnce(

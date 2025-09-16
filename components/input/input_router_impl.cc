@@ -28,6 +28,7 @@
 #include "third_party/blink/public/mojom/input/input_event_result.mojom-shared.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-shared.h"
 #include "third_party/blink/public/mojom/input/touch_event.mojom.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/events/blink/blink_event_util.h"
 #include "ui/events/blink/blink_features.h"
 #include "ui/events/blink/did_overscroll_params.h"
@@ -714,14 +715,41 @@ void InputRouterImpl::FilterAndSendWebInputEvent(
                 ChromeLatencyInfo2::Step::STEP_SEND_DISPATCH_EVENT_MOJO_MESSAGE,
                 InputEventTypeToProto(input_event.GetType()));
           });
+      bool send_touch_event =
+          base::FeatureList::IsEnabled(
+              features::kSendEmptyGestureScrollUpdate) &&
+          event->Event().GetType() ==
+              blink::WebInputEvent::Type::kGestureScrollUpdate &&
+          last_touch_move_event_.has_value();
       client_->GetWidgetInputHandler()->DispatchEvent(
-          std::move(event), std::move(renderer_callback));
+          std::move(event),
+          send_touch_event ? std::move(last_touch_move_event_) : std::nullopt,
+          std::move(renderer_callback));
+      if (send_touch_event) {
+        last_touch_move_event_.reset();
+      }
     }
   } else {
-    TRACE_EVENT_INSTANT0("input", "InputEventSentNonBlocking",
-                         TRACE_EVENT_SCOPE_THREAD);
-    client_->GetWidgetInputHandler()->DispatchNonBlockingEvent(
-        std::move(event));
+    bool store_touch_move_event =
+        base::FeatureList::IsEnabled(features::kSendEmptyGestureScrollUpdate) &&
+        event->Event().GetType() == blink::WebInputEvent::Type::kTouchMove;
+    bool dispatch_last_event =
+        store_touch_move_event && last_touch_move_event_.has_value();
+
+    // If the previous touch move event was not followed by a gesture scroll
+    // update, dispatch it before storing the new touch move event.
+    if (!store_touch_move_event || dispatch_last_event) {
+      TRACE_EVENT_INSTANT0("input", "InputEventSentNonBlocking",
+                           TRACE_EVENT_SCOPE_THREAD);
+      client_->GetWidgetInputHandler()->DispatchNonBlockingEvent(
+          dispatch_last_event ? std::move(last_touch_move_event_.value())
+                              : std::move(event));
+    }
+
+    if (store_touch_move_event) {
+      last_touch_move_event_ = std::move(event);
+    }
+
     std::move(callback).Run(
         blink::mojom::InputEventResultSource::kBrowser, latency_info,
         blink::mojom::InputEventResultState::kIgnored, nullptr, nullptr);

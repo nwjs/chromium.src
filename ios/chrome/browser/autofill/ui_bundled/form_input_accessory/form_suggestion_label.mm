@@ -60,6 +60,9 @@ constexpr CGFloat kShadowOpacity = 1.0;
 // The preferred minimum width of the icon shown on the label.
 constexpr CGFloat kSuggestionIconWidth = 40;
 
+// The highlight color's alpha when using liquid glass.
+constexpr CGFloat kHighlightColorAlpha = 0.5;
+
 // Offset required to see half of the icon of the 2nd credit card suggestion
 // when the first credit card suggestion is at maximum width. This number
 // represents the width of the stack view minus the width of the first
@@ -355,7 +358,7 @@ NSString* AccessibilityLabel(NSString* suggestion_text,
 
 - (id)initWithSuggestion:(FormSuggestion*)suggestion
                     index:(NSUInteger)index
-           numSuggestions:(NSUInteger)numSuggestions
+      numberOfSuggestions:(NSUInteger)numberOfSuggestions
     accessoryTrailingView:(UIView*)accessoryTrailingView
                  delegate:(id<FormSuggestionLabelDelegate>)delegate {
   self = [super initWithFrame:CGRectZero];
@@ -456,16 +459,18 @@ NSString* AccessibilityLabel(NSString* suggestion_text,
                                   suggestionText, suggestion.displayDescription,
                                   suggestion.type ==
                                       SuggestionType::kBackupPasswordEntry)];
-    [self setAccessibilityValue:l10n_util::GetNSStringF(
-                                    IDS_IOS_AUTOFILL_SUGGESTION_INDEX_VALUE,
-                                    base::NumberToString16(index + 1),
-                                    base::NumberToString16(numSuggestions))];
+    [self
+        setAccessibilityValue:l10n_util::GetNSStringF(
+                                  IDS_IOS_AUTOFILL_SUGGESTION_INDEX_VALUE,
+                                  base::NumberToString16(index + 1),
+                                  base::NumberToString16(numberOfSuggestions))];
     [self
         setAccessibilityIdentifier:kFormSuggestionLabelAccessibilityIdentifier];
 
     // On phones, set a maximum width to save space on the keyboard accessory.
     if (!isTablet && IsKeyboardAccessoryUpgradeEnabled()) {
-      CGFloat maximumWidth = [self maximumWidth:accessoryTrailingView];
+      CGFloat maximumWidth = [self maximumWidth:accessoryTrailingView
+                                suggestionCount:numberOfSuggestions];
       if (maximumWidth < CGFLOAT_MAX) {
         [self.widthAnchor constraintLessThanOrEqualToConstant:maximumWidth]
             .active = YES;
@@ -502,7 +507,12 @@ NSString* AccessibilityLabel(NSString* suggestion_text,
 #pragma mark - UIResponder
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-  [self setBackgroundColor:[UIColor colorNamed:kGrey300Color]];
+  UIColor* highlightColor = [UIColor colorNamed:kGrey300Color];
+  if (IsLiquidGlassEffectEnabled()) {
+    highlightColor =
+        [highlightColor colorWithAlphaComponent:kHighlightColorAlpha];
+  }
+  [self setBackgroundColor:highlightColor];
 }
 
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
@@ -585,10 +595,11 @@ NSString* AccessibilityLabel(NSString* suggestion_text,
 
 // Computes the suggestion label's maximum width.
 // Returns CGFLOAT_MAX if there's no maximum width.
-- (CGFloat)maximumWidth:(UIView*)accessoryTrailingView {
+- (CGFloat)maximumWidth:(UIView*)accessoryTrailingView
+        suggestionCount:(NSUInteger)suggestionCount {
   CGFloat maxWidth = CGFLOAT_MAX;
-  // We're using the screen width because the 'window' member is nil at the
-  // moment of setting up the label's width anchor.
+  // Using the screen width because the `window` member is nil at the moment of
+  // setting up the label's width anchor.
   CGSize windowSize = [[UIScreen mainScreen] bounds].size;
   CGFloat portraitScreenWidth = MIN(windowSize.width, windowSize.height);
   switch (_suggestion.type) {
@@ -601,8 +612,10 @@ NSString* AccessibilityLabel(NSString* suggestion_text,
                  kHalfCreditCardIconOffset;
     } break;
     case SuggestionType::kAddressEntry:
-      // Max width is half width, in portrait mode.
-      maxWidth = portraitScreenWidth * 0.5;
+      if (suggestionCount > 1) {
+        // Max width is half width, in portrait mode.
+        maxWidth = portraitScreenWidth * 0.5;
+      }
       break;
     default:
       break;

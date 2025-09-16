@@ -9,7 +9,9 @@
 #include <vector>
 
 #include "base/types/expected.h"
+#include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/common/actor.mojom-forward.h"
+#include "chrome/common/actor/action_result.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
@@ -70,11 +72,15 @@ BuildToolRequestResult BuildToolRequest(
 // tabs relevant to the actions.
 void BuildActionsResultWithObservations(
     content::BrowserContext& browser_context,
+    base::TimeTicks start_time,
     mojom::ActionResultCode result_code,
     std::optional<size_t> index_of_failed_action,
+    std::vector<actor::ActionResultWithLatencyInfo> action_results,
     const ActorTask& task,
-    base::OnceCallback<void(
-        std::unique_ptr<optimization_guide::proto::ActionsResult>)> callback);
+    base::OnceCallback<
+        void(std::unique_ptr<optimization_guide::proto::ActionsResult>,
+             std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry>)>
+        callback);
 
 optimization_guide::proto::ActionsResult BuildErrorActionsResult(
     mojom::ActionResultCode result_code,
@@ -91,9 +97,9 @@ BuildToolRequestResult BuildToolRequest(
 // Converts a FetchPageContext result to a TabObservation proto. Note that this
 // does not fill in the (tab) `id` field on the proto, the caller is responsible
 // for that.
-optimization_guide::proto::TabObservation ConvertToTabObservation(
-    const page_content_annotations::FetchPageContextResult&
-        page_context_result);
+void FillInTabObservation(
+    const page_content_annotations::FetchPageContextResult& page_context_result,
+    optimization_guide::proto::TabObservation& tab_observation);
 
 // Builds the BrowserActionResult proto from the output of a call to the
 // ActorKeyedService::ActInFocusedTab API.
@@ -102,6 +108,21 @@ optimization_guide::proto::TabObservation ConvertToTabObservation(
 optimization_guide::proto::BrowserActionResult BuildBrowserActionResult(
     mojom::ActionResultCode result_code,
     int32_t tab_id);
+
+// Copies script tool results in `action_results` to the input proto.
+template <typename T>
+void CopyScriptToolResults(
+    T& proto,
+    const std::vector<ActionResultWithLatencyInfo>& action_results) {
+  for (size_t i = 0; i < action_results.size(); ++i) {
+    if (action_results[i].result->script_tool_response) {
+      auto* script_tool_result = proto.add_script_tool_results();
+      script_tool_result->set_index_of_script_tool_action(i);
+      script_tool_result->set_result(
+          *action_results[i].result->script_tool_response);
+    }
+  }
+}
 
 std::string ToBase64(const optimization_guide::proto::BrowserAction& actions);
 std::string ToBase64(const optimization_guide::proto::Actions& actions);

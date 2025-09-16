@@ -356,8 +356,8 @@ ScriptPromise<Blob> OffscreenCanvas::convertToBlob(
   if (image_bitmap) {
     auto intervention_type =
         CanvasInterventionsHelper::CanvasInterventionType::kNone;
-    if (CanvasInterventionsHelper::MaybeNoiseSnapshot(
-            context_, GetExecutionContext(), image_bitmap)) {
+    if (CanvasInterventionsHelper::MaybeNoiseSnapshot(GetExecutionContext(),
+                                                      image_bitmap)) {
       intervention_type =
           CanvasInterventionsHelper::CanvasInterventionType::kNoise;
     };
@@ -646,7 +646,10 @@ void OffscreenCanvas::UpdateMemoryUsage() {
     // allocations are not allowed, but calling
     // AdjustAmountOfExternalAllocatedMemory is safe, hence the
     // 'diposing_' condition in the DCHECK below.
-    DCHECK(ThreadState::Current()->IsAllocationAllowed() || disposing_);
+    // Since ThreadState::Current() might be nullptr at test shutdown,
+    // `disposing_` must be evaluated before `IsAllocationAllowed()`.
+    // See crbug.com/438132028 for the detail.
+    DCHECK(disposing_ || ThreadState::Current()->IsAllocationAllowed());
     external_memory_accounter_.Update(v8::Isolate::GetCurrent(), delta_bytes);
     memory_usage_ = new_memory_usage;
   }

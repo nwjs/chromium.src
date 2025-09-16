@@ -165,11 +165,12 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
                             bool do_fault_injection,
                             bool skip_download,
                             const base::Version& updater_version,
-                            const std::string& event_regex) const override {
+                            const std::string& event_regex,
+                            bool use_xz) const override {
     updater::test::ExpectUpdateSequence(
         updater_scope_, test_server, app_id, install_data_index, priority,
         from_version, to_version, do_fault_injection, skip_download,
-        updater_version);
+        updater_version, event_regex, use_xz);
   }
 
   void ExpectUpdateSequenceBadHash(
@@ -296,6 +297,11 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
     updater::test::RunServer(updater_scope_, exit_code, internal);
   }
 
+  void RunUpdateApps(int exit_code,
+                     const base::Version& version) const override {
+    updater::test::RunUpdateApps(updater_scope_, exit_code, version);
+  }
+
   void RegisterApp(const RegistrationRequest& registration) const override {
     updater::test::RegisterApp(updater_scope_, registration);
   }
@@ -389,6 +395,23 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
 
   void RunHandoff(const std::string& app_id) const override {
     updater::test::RunHandoff(updater_scope_, app_id);
+  }
+
+  void InstallScheduledTask(const std::string& task_name,
+                            bool use_task_subfolders) const override {
+    updater::test::InstallScheduledTask(updater_scope_, task_name,
+                                        use_task_subfolders);
+  }
+  void IsScheduledTaskRegisteredFromMedium(
+      const std::string& task_name,
+      bool use_task_subfolders) const override {
+    updater::test::IsScheduledTaskRegisteredFromMedium(
+        updater_scope_, task_name, use_task_subfolders);
+  }
+  void DeleteScheduledTask(const std::string& task_name,
+                           bool use_task_subfolders) const override {
+    updater::test::DeleteScheduledTask(updater_scope_, task_name,
+                                       use_task_subfolders);
   }
 #endif  // BUILDFLAG(IS_WIN)
 

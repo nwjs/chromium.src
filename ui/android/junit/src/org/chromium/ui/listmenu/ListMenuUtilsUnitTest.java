@@ -7,6 +7,7 @@ package org.chromium.ui.listmenu;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -32,8 +33,8 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
-import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.ui.modelutil.ListObservable;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -53,10 +54,10 @@ public class ListMenuUtilsUnitTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock private Callback<Integer> mClickCallback;
     @Mock private OnClickListener mItemClickListener;
     @Mock private Runnable mDismissDialog;
     @Mock private ListView mListView;
+    @Mock private ListObservable.ListObserver<Void> mListObserver;
 
     private final ModelList mModelList = new ModelList();
     private ListItem mListItemWithModelClickCallback;
@@ -279,8 +280,20 @@ public class ListMenuUtilsUnitTest {
     public void getItemList_withModelClickCallback_dismissAdded() {
         setupCallbacksRecursively(/* headerModelList= */ null, mModelList, mDismissDialog);
         mListItemWithModelClickCallback.model.get(CLICK_LISTENER).onClick(mListView);
-        verify(mClickCallback, never()).onResult(any());
         verify(mDismissDialog, times(1)).run();
+    }
+
+    @Test
+    public void getItemList_submenuNavigation_noOneByOneDataChange() {
+        setupCallbacksRecursively(/* headerModelList= */ null, mModelList, mDismissDialog);
+        mModelList.addObserver(mListObserver);
+        // Click into submenu 0
+        activateClickListener(mSubmenuLevel0);
+        // Assert that list observer was called once with correct arguments
+        verify(mListObserver, never()).onItemRangeRemoved(any(), anyInt(), anyInt());
+        verify(mListObserver, never()).onItemMoved(any(), anyInt(), anyInt());
+        verify(mListObserver, times(1)).onItemRangeChanged(mModelList, 0, 2, null);
+        verify(mListObserver, times(1)).onItemRangeInserted(mModelList, 2, 1);
     }
 
     private void activateClickListener(ListItem item) {

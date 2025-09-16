@@ -123,14 +123,12 @@ public abstract class DisplayUtil {
 
     /** Returns the given value converted from px to dp. */
     public static int pxToDp(DisplayAndroid display, int value) {
-        // Adding .5 is what Android does when doing this conversion.
-        return (int) (value / display.getDipScale() + 0.5f);
+        return Math.round(value / display.getDipScale());
     }
 
     /** Returns the given value converted from dp to px. */
     public static int dpToPx(DisplayAndroid display, int value) {
-        // Adding .5 is what Android does when doing this conversion.
-        return (int) (value * display.getDipScale() + 0.5f);
+        return Math.round(value * display.getDipScale());
     }
 
     /**
@@ -456,6 +454,44 @@ public abstract class DisplayUtil {
         } catch (NameNotFoundException e) {
             return false;
         }
+    }
+
+    /**
+     * If the provided Rect fits fully inside given display's bounds, this method returns a copy of
+     * the provided Rect.
+     *
+     * <p>Otherwise, the Rect returned will be a copy of the provided Rect modified so that it is
+     * fully inside given display's bounds and is the closest match to the provided Rect,
+     * prioritising preserving original width and height first, then minimizing the Manhattan
+     * distance between the original Rect and the adjusted one.
+     *
+     * <p>If the provided Rect is longer than given display's bounds in precisely one axis, the
+     * displacement alongside the other axis will be minimised between the provided Rect and the
+     * adjusted one.
+     *
+     * <p>If the provided Rect is longer than given display's bounds in both axes, the display's
+     * bounds will be returned.
+     *
+     * @param boundsPx The rectangle to adjust, in pixels. Its coordinates should be relative to the
+     *     display, with (0, 0) at the top-left corner and positive axes going rightward and
+     *     downward.
+     * @param display The display that defines the containing bounds.
+     * @return A new Rect, guaranteed to be fully within the display bounds. Uses the same
+     *     coordinate system as the initial Rect.
+     */
+    @SuppressWarnings("CheckResult")
+    public static Rect clampWindowToDisplay(Rect boundsPx, DisplayAndroid display) {
+        final Rect output = new Rect(boundsPx);
+        final Rect limitingBounds = display.getBounds();
+
+        output.offset(Math.max(limitingBounds.left - output.left, 0), 0);
+        output.offset(Math.min(limitingBounds.right - output.right, 0), 0);
+        output.offset(0, Math.max(limitingBounds.top - output.top, 0));
+        output.offset(0, Math.min(limitingBounds.bottom - output.bottom, 0));
+
+        output.intersect(limitingBounds);
+
+        return output;
     }
 
     public static void setCarmaPhase1Version2ComplianceForTesting(

@@ -75,7 +75,7 @@ bool IsAccessibilityPerformanceMeasurementExperimentEnabled() {
 
 BASE_FEATURE(kAccessibilityUseAXBitset,
              "AccessibilityUseAXBitset",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityUseAXBitsetEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityUseAXBitset);
 }
@@ -196,6 +196,15 @@ bool IsAccessibilityOnScreenAXModeEnabled() {
 }
 
 #if BUILDFLAG(IS_WIN)
+BASE_FEATURE(kFixNarratorWebContentContainment,
+             "FixNarratorWebContentContainment",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsFixNarratorWebContentContainmentEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kFixNarratorWebContentContainment);
+}
+
 BASE_FEATURE(kIChromeAccessible,
              "IChromeAccessible",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -207,7 +216,7 @@ BASE_FEATURE(kUiaDisconnectRootProviders,
              "UiaDisconnectRootProviders",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kUiaProvider, "UiaProvider", base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUiaProvider, "UiaProvider", base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUiaEventOptimization,
              "UiaEventOptimization",
@@ -233,13 +242,6 @@ BASE_FEATURE(kAccessibilityReducedAnimations,
 bool IsAccessibilityReducedAnimationsEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityReducedAnimations);
-}
-
-BASE_FEATURE(kAccessibilityFaceGaze,
-             "AccessibilityFaceGaze",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityFaceGazeEnabled() {
-  return base::FeatureList::IsEnabled(::features::kAccessibilityFaceGaze);
 }
 
 BASE_FEATURE(kAccessibilityReducedAnimationsInKiosk,
@@ -466,6 +468,15 @@ bool IsReadAnythingReadAloudPhraseHighlightingEnabled() {
              ::features::kReadAnythingReadAloudPhraseHighlighting);
 }
 
+BASE_FEATURE(kReadAnythingReadAloudTSTextSegmentation,
+             "ReadAnythingReadAloudTSTextSegmentation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsReadAnythingReadAloudTSTextSegmentationEnabled() {
+  return base::FeatureList::IsEnabled(::features::kReadAnythingReadAloud) &&
+         base::FeatureList::IsEnabled(
+             ::features::kReadAnythingReadAloudTSTextSegmentation);
+}
+
 BASE_FEATURE(kReadAnythingImagesViaAlgorithm,
              "ReadAnythingImagesViaAlgorithm",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -552,7 +563,7 @@ bool IsBlockRootWindowAccessibleNameChangeEventEnabled() {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kWasmTtsComponentUpdaterV3Enabled,
              "WasmTtsComponentUpdaterV3Enabled",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsWasmTtsComponentUpdaterV3Enabled() {
   return base::FeatureList::IsEnabled(
       ::features::kWasmTtsComponentUpdaterV3Enabled);

@@ -219,11 +219,7 @@ public class UrlBar extends AutocompleteEditText {
         setFocusableInTouchMode(false);
         setHorizontalFadingEdgeEnabled(true);
         setVerticalScrollBarEnabled(false);
-        // Disable elegant text height for now. We calculate font size at runtime, and try to
-        // respect the user's need to increase the font size.
-        // Enabling elegant text for UrlBar will likely produce smaller font when users ask for a
-        // larger one.
-        setElegantTextHeight(OmniboxFeatures.sElegantTextHeight.isEnabled());
+        setElegantTextHeight(true);
         // Use a global draw instead of View#onDraw in case this View is not visible.
         FirstDrawDetector.waitForFirstDraw(
                 this,
@@ -332,15 +328,6 @@ public class UrlBar extends AutocompleteEditText {
         mFocused = focused;
         if (!mFocused) mFocusEventEmitted = false;
         super.onFocusChanged(focused, direction, previouslyFocusedRect);
-
-        // TODO(crbug.com432311666): Confirm with UX if any of these settings could be persisted as
-        // the default height of the UrlBar.
-        setMinHeight(
-                getResources()
-                        .getDimensionPixelSize(
-                                focused
-                                        ? R.dimen.url_bar_default_height_active
-                                        : R.dimen.url_bar_default_height_inactive));
 
         setSingleLine(true);
         setMaxLines(1);
@@ -1283,16 +1270,9 @@ public class UrlBar extends AutocompleteEditText {
 
         float effectiveFontHeightPx = getMaxHeightOfFont();
 
-        if (getPaint().isElegantTextHeight()) {
-            // http://go/ui-font-deprecation: when enabled, line height will be increased by up to
-            // 60%.
-            effectiveFontHeightPx *= getLineHeight() / getTextSize();
-        } else {
-            // Otherwise, scale the font down a little bit so it doesn't extend edge to edge.
-            // This ensures we present the user with properly rendered UI and that we respect their
-            // choice to use larger font (within the bounds permitted by url bar height).
-            effectiveFontHeightPx *= LINE_HEIGHT_FACTOR;
-        }
+        // http://go/ui-font-deprecation: when enabled, line height will be increased by up to
+        // 60%.
+        effectiveFontHeightPx *= getLineHeight() / getTextSize();
 
         if (effectiveFontHeightPx > viewHeight) {
             // we need to shrink the text to fit in the text field.
