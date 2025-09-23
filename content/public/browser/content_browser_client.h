@@ -521,6 +521,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool DoesWebUIUrlRequireProcessLock(const GURL& url);
 
   virtual bool IsNWOrigin(const url::Origin& origin, BrowserContext* context);
+  virtual bool IsNWURL(const GURL& origin, content::BrowserContext* context);
 
   // Returns true if everything embedded inside a document with given scheme
   // should be treated as first-party content. |scheme| will be in canonical

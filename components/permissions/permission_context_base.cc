@@ -4,7 +4,8 @@
 
 #include "components/permissions/permission_context_base.h"
 
-#include "chrome/browser/chrome_content_browser_client.h"
+#include "content/public/common/content_client.h"
+#include "content/public/browser/content_browser_client.h"
 #include "extensions/browser/extension_registry.h"
 
 #include <stddef.h>
@@ -159,7 +160,7 @@ void PermissionContextBase::RequestPermission(
   const extensions::Extension* extension =
     extension_registry->enabled_extensions().GetByID(
         request_data->requesting_origin.host());
-  bool is_nw_origin = ChromeContentBrowserClient::IsNWURL(
+  bool is_nw_origin = content::GetContentClientForTesting()->browser()->IsNWURL(
       request_data->requesting_origin, web_contents->GetBrowserContext());
   if (is_nw_origin || (extension && extension->is_nwjs_app())) {
     result.status = PermissionStatus::GRANTED;

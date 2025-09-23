@@ -261,6 +261,10 @@ bool ContentBrowserClient::IsNWOrigin(const url::Origin& origin, BrowserContext*
   return false;
 }
 
+bool ContentBrowserClient::IsNWURL(const GURL& origin, content::BrowserContext* context) {
+  return false;
+}
+
 void ContentBrowserClient::OverrideURLLoaderFactoryParams(
     BrowserContext* browser_context,
     const url::Origin& origin,
