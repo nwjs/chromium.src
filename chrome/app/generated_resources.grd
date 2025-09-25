@@ -8581,6 +8581,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_NTP_COMPOSE_SUGGESTIONS_INFO" desc="The text underneath the composebox that explains to users how suggestions are generated.">
         Suggestions based on your <ph name="BEGIN_LINK_GOOGLE_ACTIVITY">&lt;a target="_blank" href="$1"&gt;</ph>Google activity<ph name="END_LINK_GOOGLE_ACTIVITY">&lt;/a&gt;</ph>
       </message>
+      <message name="IDS_NTP_COMPOSE_SMART_COMPOSE_TAB" desc="The label for the call to action to accept the inline suggestion.">
+        Tab
+      </message>
 
       <!-- NTP Modules -->
       <message name="IDS_NTP_MODULES_SETUP_LIST_DISABLE_TOAST_MESSAGE" desc="Text shown in the toast confirming a module has been disabled.">
@@ -10023,6 +10026,33 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_SPLIT_VIEW_NTP_CLOSE_BUTTON_ARIA_LABEL" desc="The screen reader text describing the split view new tab page close button.">
         Close this view
+      </message>
+      <message name="IDS_SPLIT_VIEW_DRAG_ENTRYPOINT_LABEL" desc="A label for the drag entrypoint indicating it can create a split view.">
+        Create split view
+      </message>
+      <message name="IDS_SPLIT_VIEW_TITLE_IPH" desc="The title text of the IPH describing pinning split view.">
+        Pin it for next time
+      </message>
+      <message name="IDS_SPLIT_VIEW_BODY_IPH" desc="The body text of the IPH describing pinning split view.">
+        Quickly create a split view when you need it
+      </message>
+      <message name="IDS_SPLIT_VIEW_PIN_ACTION_IPH" desc="The pin confirmation button of the IPH describing split view.">
+        Pin split view
+      </message>
+      <message name="IDS_SPLIT_VIEW_DISMISS_ACTION_IPH" desc="The pin confirmation button of the IPH describing split view.">
+        No thanks
+      </message>
+      <message name="IDS_SPLIT_VIEW_TAB_SWITCH_ENTRY_IPH_TITLE" desc="The title for intro of quick tab switch split view IPH tutorial.">
+        Split view makes it easier to multitask
+      </message>
+      <message name="IDS_SPLIT_VIEW_TAB_SWITCH_ENTRY_IPH_BODY" desc="The body for intro of quick tab switch split view IPH tutorial.">
+        Put pages side-by-side in the same tab so you can easily compare options and more
+      </message>
+      <message name="IDS_SPLIT_VIEW_TAB_SWITCH_STEP_IPH_BODY" desc="The body for first step of quick tab switch split view IPH tutorial.">
+        Right-click on this tab and select “Add tab to new split view”
+      </message>
+      <message name="IDS_SPLIT_VIEW_TAB_SWITCH_COMPLETION_IPH_BODY" desc="The body for completion of quick tab switch split view IPH tutorial.">
+        You can now use split view to compare, multitask, and more
       </message>
 
       <!-- Vertical Tab Strings -->

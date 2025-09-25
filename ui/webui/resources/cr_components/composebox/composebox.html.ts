@@ -29,21 +29,37 @@ export function getHtml(this: ComposeboxElement) {
       @focusin=${this.handleComposeboxFocusIn_}
       @focusout=${this.handleComposeboxFocusOut_}>
     <div id="inputContainer">
-      <ntp-composebox-file-carousel
+      <div id="textContainer" part="text-container">
+        <div id="iconContainer" part="icon-container">
+          <div id="aimIcon"></div>
+        </div>
+        <div id="inputWrapper">
+          <textarea autocomplete="off" id="input"
+            type="search" spellcheck="false"
+            placeholder="${this.inputPlaceholder_}"
+            part="input"
+            @input=${this.handleInput_}
+            @scroll="${this.handleScroll_}"
+            @focusin="${this.handleInputFocusIn_}"></textarea>
+          ${this.shouldShowSmartComposeInlineHint_() ? html`
+            <div id="smartCompose">
+              <!-- Comments in between spans to eliminate spacing between
+                   spans -->
+              <span id="invisibleText">${this.input_}</span><!--
+              --><span id="ghostText">${this.smartComposeInlineHint_}</span><!--
+              --><span id="tabChip">Tab</span>
+            </div>
+          `: ''}
+        </div>
+      </div>
+      ${this.showFileCarousel_ ? html`
+        <ntp-composebox-file-carousel
           id="carousel"
           .files=${Array.from(this.files_.values())}
           @delete-file=${this.onDeleteFile_}>
-      </ntp-composebox-file-carousel>
-      <div id="textContainer" part="text-container">
-        <div id="iconContainer" part="icon-container">
-          <cr-icon id="aimIcon" icon="composebox:searchSpark"></cr-icon>
-        </div>
-        <textarea autocomplete="off" id="input"
-          type="search" spellcheck="false"
-          placeholder="${this.inputPlaceholder_}"
-          part="input"
-          @input=${this.handleInput_}></textarea>
-      </div>
+        </ntp-composebox-file-carousel> ` : ''}
+      ${this.showDropdown_ && this.showFileCarousel_ ? html`
+      <div class="carousel-divider"></div>` : ''}
       <ntp-composebox-dropdown
           id="matches"
           role="listbox"
@@ -56,7 +72,13 @@ export function getHtml(this: ComposeboxElement) {
       </ntp-composebox-dropdown>
     ${this.contextMenuEnabled_ ? html`
       <composebox-context-menu-entrypoint id="contextEntrypoint"
-        class="icon-fade upload-icon no-overlap">
+          class="upload-icon no-overlap"
+          .tabSuggestions="${this.tabSuggestions_}"
+          @open-image-upload="${this.openImageUpload_}"
+          @open-file-upload="${this.openFileUpload_}"
+          @add-tab-context="${this.addTabContext_}"
+          @refresh-tab-suggestions="${this.refreshTabSuggestions_}"
+          ?inputs-disabled="${this.inputsDisabled_}">
       </composebox-context-menu-entrypoint>
     ` : html`
       <div id="uploadContainer" class="icon-fade">
@@ -81,29 +103,26 @@ export function getHtml(this: ComposeboxElement) {
       </div>
     `}
     </div>
+    <cr-icon-button
+        class="action-icon icon-fade icon-clear"
+        id="cancelIcon"
+        part="action-icon cancel-icon"
+        title="${this.computeCancelButtonTitle_()}"
+        @click="${this.onCancelClick_}">
+    </cr-icon-button>
+    <!-- A seperate container is needed for the submit button so the
+       expand/collapse animation can be applied without affecting the submit
+       button enabled/disabled state. -->
+    <div id="submitContainer" class="icon-fade" part="submit">
       <cr-icon-button
-          class="action-icon icon-fade icon-clear"
-          id="cancelIcon"
-          part="action-icon cancel-icon"
-          title="${this.computeCancelButtonTitle_()}"
-          @click="${this.onCancelClick_}">
+        class="action-icon icon-arrow-upward"
+        id="submitIcon"
+        part="action-icon"
+        title="${this.i18n('composeboxSubmitButtonTitle')}"
+        @click="${this.submitQuery_}"
+        ?disabled="${!this.submitEnabled_}"
+        @focusin="${this.handleSubmitFocusIn_}">
       </cr-icon-button>
-      <!-- A seperate container is needed for the submit button so the
-         expand/collapse animation can be applied without affecting the submit
-         button enabled/disabled state. -->
-      <div id="submitContainer" class="icon-fade" part="submit">
-        <cr-icon-button
-          class="action-icon icon-arrow-upward"
-          id="submitIcon"
-          part="action-icon"
-          title="$i18n{composeboxSubmitButtonTitle}"
-          @click="${this.submitQuery_}"
-          ?disabled="${!this.submitEnabled_}">
-        </cr-icon-button>
-      </div>
-      <div id="label" class="icon-fade" part="label">
-        $i18n{searchboxComposeButtonText}
-      </div>
     </div>
   </div>
   <input type="file"
@@ -118,6 +137,13 @@ export function getHtml(this: ComposeboxElement) {
       @change="${this.onFileChange_}"
       hidden>
   </input>
+  ${this.shouldShowSuggestionActivityLink_() ? html`
+    <div id="suggestionActivity">
+      <localized-link
+        localized-string="${this.i18nAdvanced('suggestionActivityLink')}">
+      </localized-link>
+    </div>
+  `: ''}
 <!--_html_template_end_-->`;
   // clang-format on
 }

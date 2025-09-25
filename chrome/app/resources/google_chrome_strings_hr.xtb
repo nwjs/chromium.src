@@ -447,7 +447,7 @@
 <translation id="6321592572353357376">Proširenje <ph name="EXTENSION_NAME" /> traži da se prijavite u Chrome</translation>
 <translation id="6326175484149238433">Ukloni iz programa Chrome</translation>
 <translation id="6327105987658262776">Ažuriranja nisu dostupna.</translation>
-<translation id="6334815226785304306">Postavi Google Chrome kao zadani preglednik i prikvači ga na traku sa zadacima</translation>
+<translation id="6334815226785304306">Postavite Google Chrome kao zadani preglednik i prikvačite ga na traku sa zadacima</translation>
 <translation id="6360449101159168105">Dok je ova kartica bila neaktivna, memorija je oslobođena kako bi Chrome ostao brz. Možete odabrati da ta web-lokacija uvijek bude neaktivna.</translation>
 <translation id="6388799252195623474">trebam pomoć</translation>
 <translation id="6412673304250309937">Provjerava URL-ove s popisom nesigurnih web-lokacija pohranjenih u Chromeu. Ako neka web-lokacija pokuša ukrasti vašu zaporku ili ako preuzmete štetnu datoteku, Chrome također može poslati URL-ove, uključujući dijelove sadržaja web-stranice, Sigurnom pregledavanju.</translation>
@@ -615,6 +615,7 @@
 <translation id="8336463659890584292">Kad web-lokacija zatraži privatno predučitavanje veza na stranici, Chrome upotrebljava Googleove poslužitelje. Na taj se način vaš identitet sakriva od predučitane web-lokacije, ali Google saznaje koje se web-lokacije predučitavaju.</translation>
 <translation id="8342675569599923794">Datoteka je opasna i Chrome ju je blokirao.</translation>
 <translation id="8349094670477064572">Možete spremati i upotrebljavati zaporke i druge podatke na svojem Google računu kad ste prijavljeni u Chrome. <ph name="LEARN_MORE" /></translation>
+<translation id="835927394551949760">Postavljanje pitanja Googleu</translation>
 <translation id="8362914115861174987">Jezik prijevoda</translation>
 <translation id="8366770919198174997">Slabi izvedbu, ali Chrome čini otpornijim na napade</translation>
 <translation id="8370517070665726704">Autorska prava <ph name="YEAR" />. Google LLC. Sva prava pridržana.</translation>

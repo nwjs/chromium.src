@@ -196,6 +196,14 @@ bool IsAccessibilityOnScreenAXModeEnabled() {
 }
 
 #if BUILDFLAG(IS_WIN)
+BASE_FEATURE(kAccessibilityWinAXFragmentRootParent,
+             "AccessibilityWinAXFragmentRootParent",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+bool IsAccessibilityWinAXFragmentRootParentEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityWinAXFragmentRootParent);
+}
+
 BASE_FEATURE(kFixNarratorWebContentContainment,
              "FixNarratorWebContentContainment",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -577,5 +585,13 @@ bool IsWasmTtsEngineAutoInstallDisabled() {
       ::features::kWasmTtsEngineAutoInstallDisabled);
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+BASE_FEATURE(kAccessibilityHitTestPointCopy,
+             "AccessibilityHitTestPointCopy",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+bool IsAccessibilityHitTestPointCopyEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityHitTestPointCopy);
+}
 
 }  // namespace features

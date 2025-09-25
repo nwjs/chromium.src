@@ -2317,6 +2317,10 @@ void Browser::ActivateContents(WebContents* contents) {
   window_->Activate();
 }
 
+bool Browser::IsContentsActive(content::WebContents* contents) {
+  return tab_strip_model_->GetActiveWebContents() == contents;
+}
+
 void Browser::LoadingStateChanged(WebContents* source,
                                   bool should_show_loading_ui) {
   ScheduleUIUpdate(source, content::INVALIDATE_TYPE_LOAD);
@@ -3113,6 +3117,19 @@ void Browser::SetWebContentsBlocked(content::WebContents* web_contents,
 web_modal::WebContentsModalDialogHost* Browser::GetWebContentsModalDialogHost(
     content::WebContents* web_contents) {
   return window_->GetWebContentsModalDialogHostFor(web_contents);
+}
+
+void Browser::OnWebContentsModalDialogShown(
+    content::WebContents* web_contents) {
+  // Check that the WebContents isn't already active to avoid re-entrancy in
+  // TabStripModel when activating a tab triggers a dialog to show.
+  if (base::FeatureList::IsEnabled(features::kSideBySide) &&
+      tab_strip_model_->GetActiveWebContents() != web_contents) {
+    const int tab_index = tab_strip_model_->GetIndexOfWebContents(web_contents);
+    if (tab_strip_model_->IsTabInForeground(tab_index)) {
+      tab_strip_model_->ActivateTabAt(tab_index);
+    }
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -496,7 +496,7 @@
 <translation id="288655811176831528">Закрыть вкладку</translation>
 <translation id="2888631381369839306">Уведомления об изменении цен включены.</translation>
 <translation id="2893168226686371498">Браузер по умолчанию</translation>
-<translation id="2894757982205307093">Добавить новую вкладку в группу</translation>
+<translation id="2894757982205307093">Добавить вкладку в группу</translation>
 <translation id="2902312830803030883">Другие действия</translation>
 <translation id="2904788871580817212">На одной из открытых вкладок появилась скидка. Цена снизилась с <ph name="PREVIOUS_PRICE" /> до <ph name="PRICE" />. Товар: "<ph name="PRODUCT_NAME" />". Домен: <ph name="DOMAIN" />.</translation>
 <translation id="2905479111267140204">Повторяющихся паролей: <ph name="NUMBER_OF_PASSWORDS" />. Ваша безопасность под угрозой.</translation>
@@ -582,7 +582,7 @@
 <translation id="3235063766008841141">Введен на обманном сайте и использовался для кражи данных.</translation>
 <translation id="3235242129752692527">Измените информацию о событии и нажмите "Сохранить".</translation>
 <translation id="323863549127671026">Открытые вкладки и группы вкладок</translation>
-<translation id="3240426699337459095">Ссылка скопирована.</translation>
+<translation id="3240426699337459095">Ссылка скопирована</translation>
 <translation id="3244271242291266297">ММ</translation>
 <translation id="3245429137663807393">Если вы также отправляете отчеты об использовании Chrome, в них включаются URL посещенных вами страниц.</translation>
 <translation id="3245744387817103524">Не удалось сохранить изменения.</translation>
@@ -1270,6 +1270,7 @@
 <translation id="5956112131836209882">Вкладка с группами вкладок. <ph name="TAB_INDEX_IN_GROUP" /> из <ph name="NUMBER_OF_TABS_IN_GROUP" />.</translation>
 <translation id="595769230373966252">Поиск в <ph name="SEARCH_PROVIDER" /></translation>
 <translation id="5963939892571022323">Не удалось создать ссылку на выделенный текст.</translation>
+<translation id="5968400720580217226">Режим ИИ</translation>
 <translation id="5971459446352190251">Поиск по QR-коду</translation>
 <translation id="5971872012779224351">{count,plural, =1{Удалена 1 закладка.}one{Удалена {count} закладка.}few{Удалено {count} закладки.}many{Удалено {count} закладок.}other{Удалено {count} закладки.}}</translation>
 <translation id="5972844218283131174">Отменить выбор</translation>
@@ -1378,7 +1379,7 @@
 <translation id="6341140761912903432">Вход в управляемый аккаунт позволяет разделить рабочие и личные данные в браузере, например вкладки, историю и пароли.
 
        Уже имеющиеся данные о работе в браузере будут храниться отдельно. Чтобы их использовать, выйдите из управляемого аккаунта.</translation>
-<translation id="6342069812937806050">только что</translation>
+<translation id="6342069812937806050">Только что</translation>
 <translation id="6344533709188026708">Отдельное пространство для работы</translation>
 <translation id="6347953390226388422">{count,plural, =1{Адрес будет удален с этого устройства и из вашего аккаунта Google (<ph name="USER_EMAIL" />)}one{Адреса будут удалены с этого устройства и из вашего аккаунта Google (<ph name="USER_EMAIL" />)}few{Адреса будут удалены с этого устройства и из вашего аккаунта Google (<ph name="USER_EMAIL" />)}many{Адреса будут удалены с этого устройства и из вашего аккаунта Google (<ph name="USER_EMAIL" />)}other{Адреса будут удалены с этого устройства и из вашего аккаунта Google (<ph name="USER_EMAIL" />)}}</translation>
 <translation id="634878792104344809">Синхронизируйте пароли, историю и другие данные на всех ваших устройствах.</translation>
@@ -1797,7 +1798,7 @@
 <translation id="7952353944614086413">Открытые вкладки и группы</translation>
 <translation id="7952670906562503188">Вы собираетесь удалить ключи доступа ({passkey_count}), а также список сайтов и приложений, данные для входа в которые не сохраняются. Аккаунты, созданные для сайтов и приложений, не будут удалены.</translation>
 <translation id="7958575506592576831">Сведения о надежности страницы</translation>
-<translation id="7961015016161918242">Нет</translation>
+<translation id="7961015016161918242">Никогда</translation>
 <translation id="7971136598759319605">Последние действия: 1 день назад</translation>
 <translation id="7975036700432177008">Запуск</translation>
 <translation id="797588153137233716">Меню → История → Удалить данные о работе в браузере</translation>
@@ -2026,7 +2027,7 @@
 <translation id="8764015330924122850">Отменить подписку на <ph name="DOMAIN_NAME" /></translation>
 <translation id="8766790350274092814">Пароли для <ph name="WEBSITE" /> и <ph name="SECOND_WEBSITE" /> будут удалены. При этом сохранятся другие данные аккаунтов для этих сайтов.</translation>
 <translation id="8775144690796719618">Недействительный URL</translation>
-<translation id="8781834595282316166">Добавить новую вкладку в группу</translation>
+<translation id="8781834595282316166">Добавить вкладку в группу</translation>
 <translation id="8786100550345425552">Настроить разрешения</translation>
 <translation id="878871978861915380">Скрыть карточку "Отслеживание цен"</translation>
 <translation id="8792626944327216835">микрофон</translation>

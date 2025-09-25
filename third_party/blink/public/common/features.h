@@ -45,6 +45,12 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
 // Avoids copying ResourceRequest::TrustedParams when possible.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kAvoidTrustedParamsCopies);
 
+// Sends touch moves async once the scroll has already started. This means the
+// generation of GestureScrollUpdate is not blocked on touch moves being handled
+// by RendererMain.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
+    kAsyncTouchMovesImmediatelyAfterScroll);
+
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kLowerHighResolutionTimerThreshold);
 
 // Allows running DevTools main thread debugger even when a renderer process
@@ -1685,6 +1691,10 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
     bool,
     kServiceWorkerSyntheticResponseReportInconsistentHeader);
+
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    bool,
+    kServiceWorkerSyntheticResponseDryRun);
 
 // 'Mode' parameter for blink::features::kSoftNavigationHeuristics.
 enum class SoftNavigationHeuristicsMode : uint8_t {

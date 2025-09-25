@@ -2474,6 +2474,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="5097099694988056070">Device statistics such as CPU/RAM usage</translation>
 <translation id="5097468150760963273">27 in x 39 in</translation>
 <translation id="5097501891273180634">A2</translation>
+<translation id="5102512728737175215">Press Tab then Enter to ask AI Mode</translation>
 <translation id="510644072453496781">Cardboard (end)</translation>
 <translation id="5106648964679263509">Virtual card for <ph name="BNPL_ISSUER_NAME" /> filled</translation>
 <translation id="5108567515277121477">Loyalty card</translation>
@@ -3081,7 +3082,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="612178891608320683">Vegan cuisine</translation>
 <translation id="6122181661879998141">front of your card</translation>
 <translation id="6124058285696691147">Download the attachment</translation>
-<translation id="6124432979022149706">Chrome Enterprise connectors</translation>
+<translation id="6124432979022149706">Chrome Enterprise Connectors</translation>
 <translation id="6126565365696310362">Envelope Chinese no.2</translation>
 <translation id="6127379762771434464">Item removed</translation>
 <translation id="6131824478727057281">location</translation>
@@ -3482,6 +3483,7 @@ This will otherwise be blocked by your privacy settings. This will allow the con
 <translation id="6786145470008421571">Envelope 6 x 9 in</translation>
 <translation id="6786747875388722282">Extensions</translation>
 <translation id="6787094689637422836">We’re launching new privacy features that give you more choice over the ads that you see.</translation>
+<translation id="6788615780749001893">AI Mode button, press Enter to ask AI Mode</translation>
 <translation id="6789062271869667677">Continuous (long)</translation>
 <translation id="678982761784843853">Protected content IDs</translation>
 <translation id="6790428901817661496">Play</translation>
@@ -3837,7 +3839,7 @@ Additional details:
 <translation id="7393475648162498734">Show which rewards and benefits are available for your cards at checkout</translation>
 <translation id="7393971683644170444">Connecting to your card provider…</translation>
 <translation id="739728382607845710">Payment handler icon</translation>
-<translation id="7399616692258236448">Location requests are automatically blocked for all sites except ones you allow</translation>
+<translation id="7399616692258236448">Location requests are automatically blocked for all sites except the ones you allow</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7403392780200267761">Share this tab by sharing the link, creating a QR code, casting and more</translation>
 <translation id="7403591733719184120">Your <ph name="DEVICE_NAME" /> is managed</translation>

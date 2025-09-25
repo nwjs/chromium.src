@@ -142,6 +142,7 @@ source_set("permissions") {
     "//components/services/on_device_translation/buildflags",
     "//components/strings:components_branded_strings_grit",
     "//components/strings:components_strings_grit",
+    "//components/tabs:public",
     "//components/ukm/content",
     "//components/url_formatter",
     "//components/variations",

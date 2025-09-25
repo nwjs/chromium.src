@@ -26,6 +26,10 @@ class PrefRegistrySimple;
 class PrefService;
 class TemplateURLService;
 
+namespace base {
+struct Feature;
+}
+
 namespace network {
 class SimpleURLLoader;
 class SharedURLLoaderFactory;
@@ -35,6 +39,13 @@ class SharedURLLoaderFactory;
 class AimEligibilityService : public KeyedService,
                               public signin::IdentityManager::Observer {
  public:
+  // Helper that individual AIM features can use to check if they should be
+  // enabled. Unlike most chrome features, which simply check if the
+  // `base::Feature` is enabled, AIM features should use this because we want to
+  // auto-launch them when the eligibility service launches.
+  static bool GenericKillSwitchFeatureCheck(
+      const AimEligibilityService* aim_eligibility_service,
+      const base::Feature& feature);
   // See comment for `WriteToPref()`.
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
   // Returns true if the AIM is allowed per the policy.
@@ -87,7 +98,8 @@ class AimEligibilityService : public KeyedService,
   enum class RequestSource {
     kStartup = 0,
     kCookieChange = 1,
-    kMaxValue = kCookieChange,
+    kPrimaryAccountChange = 2,
+    kMaxValue = kPrimaryAccountChange,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/histograms.xml:AimEligibilityRequestSource)
 
@@ -116,10 +128,14 @@ class AimEligibilityService : public KeyedService,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:AimEligibilityResponseSource)
 
-  // Initializes the service.
+  // Initializes the service. This isn't inlined in the constructor because
+  // initialization may have to be delayed until after `template_url_service_`
+  // has loaded.
   void Initialize();
 
   // signin::IdentityManager::Observer:
+  void OnPrimaryAccountChanged(
+      const signin::PrimaryAccountChangeEvent& event) override;
   void OnAccountsInCookieUpdated(
       const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
       const GoogleServiceAuthError& error) override;

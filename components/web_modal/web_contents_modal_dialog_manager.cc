@@ -35,15 +35,17 @@ void WebContentsModalDialogManager::ShowDialogWithManager(
     gfx::NativeWindow dialog,
     std::unique_ptr<SingleWebContentsDialogManager> manager) {
   observer_list_.Notify(&Observer::OnWillShow);
-  if (delegate_)
+  if (delegate_) {
     manager->HostChanged(
         delegate_->GetWebContentsModalDialogHost(web_contents()));
+  }
   child_dialogs_.emplace_back(dialog, std::move(manager));
 
   if (child_dialogs_.size() == 1) {
     BlockWebContentsInteraction(true);
-    if (!web_contents()->is_silent_printing() && delegate_ && delegate_->IsWebContentsVisible(web_contents()))
-      child_dialogs_.back().manager->Show();
+    if (!web_contents()->is_silent_printing() && delegate_ && delegate_->IsWebContentsVisible(web_contents())) {
+      ShowNextDialog();
+    }
   }
 }
 
@@ -82,15 +84,16 @@ void WebContentsModalDialogManager::WillClose(gfx::NativeWindow dialog) {
 
   // The Views tab contents modal dialog calls WillClose twice.  Ignore the
   // second invocation.
-  if (dlg == child_dialogs_.end())
+  if (dlg == child_dialogs_.end()) {
     return;
+  }
 
   bool removed_topmost_dialog = dlg == child_dialogs_.begin();
   child_dialogs_.erase(dlg);
   if (!closing_all_dialogs_ &&
       (!child_dialogs_.empty() && removed_topmost_dialog) &&
       (delegate_ && delegate_->IsWebContentsVisible(web_contents()))) {
-    child_dialogs_.front().manager->Show();
+    ShowNextDialog();
   }
 
   BlockWebContentsInteraction(!child_dialogs_.empty());
@@ -132,8 +135,14 @@ void WebContentsModalDialogManager::BlockWebContentsInteraction(bool blocked) {
   } else {
     scoped_ignore_input_events_.reset();
   }
-  if (delegate_)
+  if (delegate_) {
     delegate_->SetWebContentsBlocked(contents, blocked);
+  }
+}
+
+void WebContentsModalDialogManager::ShowNextDialog() {
+  delegate_->OnWebContentsModalDialogShown(web_contents());
+  child_dialogs_.front().manager->Show();
 }
 
 void WebContentsModalDialogManager::CloseAllDialogs() {
@@ -150,8 +159,9 @@ void WebContentsModalDialogManager::CloseAllDialogs() {
 void WebContentsModalDialogManager::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
   if (!navigation_handle->IsInPrimaryMainFrame() ||
-      !navigation_handle->HasCommitted())
+      !navigation_handle->HasCommitted()) {
     return;
+  }
 
   if (!child_dialogs_.empty()) {
     // Disable BFCache for the page which had any modal dialog open.
@@ -205,7 +215,7 @@ void WebContentsModalDialogManager::OnVisibilityChanged(
        web_contents_visibility_ == content::Visibility::VISIBLE &&
        !child_dialogs_.front().manager->IsActive())) {
     // TODO(crbug.com/40283251): Add an interaction test for this.
-    child_dialogs_.front().manager->Show();
+    ShowNextDialog();
   }
 }
 

@@ -1141,7 +1141,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="6312687380483398334">Ứng dụng web (im lặng)</translation>
 <translation id="6315386555979018699">Xoá và tiếp tục</translation>
 <translation id="6316139424528454185">Phiên bản Android không được hỗ trợ</translation>
-<translation id="6324916366299863871">Chỉnh sửa phím tắt</translation>
+<translation id="6324916366299863871">Chỉnh sửa lối tắt</translation>
 <translation id="6324977638108296054">Không thể tạo đường liên kết đến văn bản được làm nổi bật</translation>
 <translation id="6333140779060797560">Chia sẻ qua <ph name="APPLICATION" /></translation>
 <translation id="6335454563754888572">Chỉnh sửa URL trỏ đến trang trên: <ph name="PAGE_URL" /></translation>
@@ -1810,7 +1810,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="9148126808321036104">Đăng nhập lại</translation>
 <translation id="9157212632995922070">Chọn một tài khoản để tiếp tục trên <ph name="SITE_ETLD_PLUS_ONE" /></translation>
 <translation id="9158770349521403363">Chỉ chia sẻ nội dung</translation>
-<translation id="9161172953291434881">Bạn có tin tưởng trang web này không?</translation>
+<translation id="9161172953291434881">Bạn có tin tưởng để trang web này sử dụng dữ liệu của mình không?</translation>
 <translation id="916607977885256133">Ảnh trong ảnh</translation>
 <translation id="9168847423516963845">Chuyển thanh địa chỉ xuống dưới cùng</translation>
 <translation id="9169507124922466868">Lịch sử di chuyển đang mở ở nửa dưới màn hình</translation>

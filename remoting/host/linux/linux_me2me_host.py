@@ -1235,6 +1235,23 @@ class WaylandDesktop(Desktop):
       sys.exit(1)
     else:
       self.child_env["WAYLAND_DISPLAY"] = self._wayland_socket
+    # Remove the display layout file, which will cause problems if it is applied
+    # right after the gnome session is launched. See: http://crbug.com/444052254
+    display_layout_file = os.path.join(
+        CONFIG_DIR, "host#%s.display_layout.pb" % g_host_hash)
+    logging.info("Existing display layout file deleted.")
+    try:
+      os.remove(display_layout_file)
+    except FileNotFoundError:
+      pass
+
+    # Remove variables from the systemd environment that are known to cause
+    # problems in the GNOME Wayland session if present - see
+    # http://crbug.com/444255720.
+    subprocess.call(["systemctl", "--user", "unset-environment",
+                     "GDK_BACKEND", "SSH_CONNECTION"],
+                    stdout=subprocess.DEVNULL)
+
     self.server_proc = subprocess.Popen([GNOME_SESSION],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.STDOUT,

@@ -504,7 +504,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="1817364650920811003">Rolle: Chrome-Tipp. Bedienungshilfen-Label: <ph name="CHROME_TIP" /></translation>
 <translation id="1818522458013171885">Blockierung aufheben</translation>
 <translation id="1818585559878922121">Dokumentarfilme</translation>
-<translation id="182139138257690338">Auto-Downloads</translation>
+<translation id="182139138257690338">Automatische Downloads</translation>
 <translation id="1821930232296380041">Anfrage oder Anfrageparameter ungültig</translation>
 <translation id="1822540298136254167">Von dir besuchte Websites und Dauer des Besuchs</translation>
 <translation id="1822995137827688764">Grundstückerschließung</translation>
@@ -1667,7 +1667,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="3744111561329211289">Hintergrundsynchronisierung</translation>
 <translation id="3744212718085287312">Nächstes Mal mit virtueller Karte noch sicherer bezahlen?</translation>
 <translation id="3744899669254331632">Du kannst <ph name="SITE" /> zurzeit nicht aufrufen, weil die Website verschlüsselte Anmeldedaten gesendet hat, die von Chromium nicht verarbeitet werden können. Netzwerkfehler und Angriffe sind in der Regel nur vorübergehend, sodass die Seite wahrscheinlich später wieder funktioniert.</translation>
-<translation id="3745599309295009257">Dein Text sowie der Inhalt und die URL der Seite, auf der du schreibst, werden an Google gesendet, manuell überprüft und zur Verbesserung dieser Funktion verwendet. Vermeide die Eingabe personenbezogener Daten (z. B. medizinische oder finanzielle Daten) und vermeide die Nutzung des Tools auf Websites, die private oder vertrauliche Informationen enthalten.</translation>
+<translation id="3745599309295009257">Dein Text sowie der Inhalt und die URL der Seite, auf der du schreibst, werden an Google gesendet, manuell geprüft und zur Verbesserung dieser Funktion verwendet. Vermeide die Eingabe personenbezogener Daten (z. B. medizinische oder finanzielle Daten) und vermeide die Nutzung des Tools auf Websites, die private oder vertrauliche Informationen enthalten.</translation>
 <translation id="3748009735914587286">Metall (hochglanz)</translation>
 <translation id="3749600200023337912">Für diese Zahlung kann die Zahlungsmethode verwendet werden, die du für automatische Zahlungen festgelegt hast. Wenn du E‑Wallets oder Zahlungs-Apps in Chrome deaktivieren möchtest, rufe deine <ph name="BEGIN_LINK1" />Zahlungseinstellungen<ph name="END_LINK1" /> auf.</translation>
 <translation id="3752181611900535304">Adresse im Konto speichern?</translation>
@@ -2472,6 +2472,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="5097099694988056070">Gerätestatistiken, z. B. CPU/RAM-Nutzung</translation>
 <translation id="5097468150760963273">27 x 39 Zoll</translation>
 <translation id="5097501891273180634">A2</translation>
+<translation id="5102512728737175215">Tabulator- und dann Eingabetaste drücken, um den KI‑Modus zu fragen</translation>
 <translation id="510644072453496781">Karton (Ende)</translation>
 <translation id="5106648964679263509">Virtuelle Karte für <ph name="BNPL_ISSUER_NAME" /> ausgefüllt</translation>
 <translation id="5108567515277121477">Kundenkarte</translation>
@@ -2807,7 +2808,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="5645719697465708351">Produkte und Dienste für Partys und besondere Anlässe</translation>
 <translation id="5645854190134202180">Zweite Schicht</translation>
 <translation id="5648166631817621825">Letzte 7 Tage</translation>
-<translation id="5649053991847567735">Auto-Downloads</translation>
+<translation id="5649053991847567735">Automatische Downloads</translation>
 <translation id="5651323159439184939">Endlosdruck</translation>
 <translation id="5654927323611874862">ID für hochgeladenen Absturzbericht:</translation>
 <translation id="5654965123204121933">Die URL enthält nicht den erforderlichen Ersatzstring „<ph name="SEARCH_TERMS_REPLACEMENT" />“: <ph name="SEARCH_URL" /></translation>
@@ -3480,6 +3481,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="6786145470008421571">Umschlag 6 × 9 Zoll</translation>
 <translation id="6786747875388722282">Erweiterungen</translation>
 <translation id="6787094689637422836">Wir führen neue Datenschutzeinstellungen ein, mit denen du mehr Auswahlmöglichkeiten in Bezug auf die angezeigte Werbung hast.</translation>
+<translation id="6788615780749001893">Schaltfläche für den KI‑Modus, Eingabetaste drücken, um den KI-Modus zu fragen</translation>
 <translation id="6789062271869667677">Endlos (lang)</translation>
 <translation id="678982761784843853">Geschützte Inhalts-IDs</translation>
 <translation id="6790428901817661496">Wiedergabe</translation>

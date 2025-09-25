@@ -200,6 +200,7 @@ Semak kata laluan anda pada bila-bila masa dalam <ph name="GOOGLE_PASSWORD_MANAG
 <translation id="1129348283834595293">Siberpunk</translation>
 <translation id="1129420403709586868">Lihat foto dan media telefon anda</translation>
 <translation id="1129850422003387628">Urus apl</translation>
+<translation id="1130116586186908674">Buat paparan pisah</translation>
 <translation id="1130430615924359526">{0,plural, =1{Tutup Inkognito}other{Tutup Inkognito (# windows)}}</translation>
 <translation id="113050636487300043">Pilih nama dan tema warna untuk membezakan satu profil daripada profil yang lain</translation>
 <translation id="1130589222747246278"><ph name="WINDOW_TITLE" /> - Sebahagian daripada kumpulan <ph name="GROUP_NAME" /></translation>
@@ -429,6 +430,7 @@ Semak kata laluan anda pada bila-bila masa dalam <ph name="GOOGLE_PASSWORD_MANAG
 <translation id="1277020343994096713">Buat PIN baharu yang berbeza daripada PIN semasa anda</translation>
 <translation id="1277597051786235230">&amp;Cari <ph name="SEARCH_ENGINE" /> untuk “<ph name="SEARCH_TERMS" />” dalam Tab Baharu</translation>
 <translation id="127849925363482083">Tekan <ph name="SHORTCUT_TEXT" /> sekali lagi untuk menutup tab tersemat</translation>
+<translation id="1278542245784398460">Klik kanan tab ini dan pilih “Tambahkan tab pada paparan pisah baharu”</translation>
 <translation id="1278859221870828664">Semak apl dan perkhidmatan Google Play</translation>
 <translation id="1279024913354609713">Jangan Benarkan</translation>
 <translation id="127946606521051357">Peranti yang berdekatan sedang berkongsi</translation>
@@ -737,6 +739,7 @@ Kebenaran yang telah anda berikan kepada apl mungkin dikenakan pada akaun ini. A
 <translation id="1503392482221435031">Menghantar statistik penggunaan kepada Google secara automatik. Anda boleh menghidupkan atau mematikan laporan ranap sistem dalam tetapan peranti anda.</translation>
 <translation id="1503556098270577657">Anda telah log masuk ke <ph name="USER_EMAIL" /> menggunakan telefon Android anda</translation>
 <translation id="150411034776756821">Alih keluar <ph name="SITE" /></translation>
+<translation id="1504253885059472207">Sematkan paparan pisah</translation>
 <translation id="1504551620756424144">Folder kongsi tersedia dalam Windows di <ph name="BASE_DIR" />.</translation>
 <translation id="1505494256539862015">eksport kata laluan</translation>
 <translation id="1505654899813338756">Anda boleh mengumpulkan tab untuk menyimpan halaman yang berkaitan bersama-sama dan disimpan merentas peranti anda</translation>
@@ -884,6 +887,7 @@ Kebenaran yang telah anda berikan kepada apl mungkin dikenakan pada akaun ini. A
 <translation id="1597806446183714225">Tingkatkan kualiti audio supaya suara kedengaran semula jadi dan jelas.</translation>
 <translation id="1598163867407640634">Gunakan <ph name="SITE_ETLD_PLUS_ONE" /> dengan <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /></translation>
 <translation id="1598233202702788831">Kemas kini dilumpuhkan oleh pentadbir anda</translation>
+<translation id="1598293830962835699">Buat paparan pisah dengan pantas apabila diperlukan</translation>
 <translation id="1600857548979126453">Akses bahagian belakang penyahpepijat halaman</translation>
 <translation id="1601481906560916994">Laman Pengecualian</translation>
 <translation id="1601560923496285236">Gunakan</translation>
@@ -3039,7 +3043,6 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="3048589239114571785">Main (k)</translation>
 <translation id="3048742847101793553">Organisasi anda menyekat fail ini kerana imbasan gagal.</translation>
 <translation id="3048917188684939573">Log Hantar dan Peranti</translation>
-<translation id="3049525403650329038">Kongsi kandungan halaman dengan Gemini untuk mendapatkan jawapan yang lebih berkaitan. Data anda tidak digunakan untuk meningkatkan model AI generatif.</translation>
 <translation id="3051250416341590778">Saiz paparan</translation>
 <translation id="3053013834507634016">Penggunaan Penting Sijil</translation>
 <translation id="3053273573829329829">Dayakan PIN pengguna</translation>
@@ -3123,6 +3126,7 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="3122883569442693641">Lagi butiran</translation>
 <translation id="3124111068741548686">Pemegang USER</translation>
 <translation id="3124332159330678621">Sesuaikan Chrome untuk memberikan penyemak imbas anda rupa baharu</translation>
+<translation id="3125361247594231799">Sematkan untuk kali seterusnya</translation>
 <translation id="3125816458150005808">Anda boleh menyahsematkan dan membuka bar alat ini daripada menu</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3127860049873093642">Untuk mengelakkan isu pengecasan dan prestasi, gunakan penyesuai kuasa Dell atau USB Jenis-C yang serasi.</translation>
@@ -4848,6 +4852,7 @@ Anda boleh mengurus tetapan akaun ini dengan memasang apl Family Link pada peran
 <translation id="4310139701823742692">Format fail salah. Semak fail PPD dan cuba lagi.</translation>
 <translation id="4310496734563057511">Jika anda berkongsi peranti ini dengan orang lain, anda boleh menghidupkan Windows Hello untuk mengesahkan orang itu ialah anda setiap kali anda menggunakan kata laluan yang disimpan</translation>
 <translation id="431076611119798497">&amp;Butiran</translation>
+<translation id="431127643228811252">Paparan pisah memudahkan berbilang tugas</translation>
 <translation id="4311284648179069796">Tidak dibenarkan untuk membaca &amp; menukar</translation>
 <translation id="4312701113286993760">{COUNT,plural, =1{1 Google Account}other{<ph name="EXTRA_ACCOUNTS" /> Google Account}}</translation>
 <translation id="4312866146174492540">Sekat (lalai)</translation>
@@ -8108,6 +8113,7 @@ Anda mempunyai # lagi kata laluan yang terjejas. Google Password Manager mengesy
 <translation id="6657240842932274095">Benarkan perkhidmatan sistem untuk menggunakan lokasi anda?</translation>
 <translation id="6657585470893396449">Kata laluan</translation>
 <translation id="6659213950629089752">Halaman ini telah dizum oleh pelanjutan "<ph name="NAME" />"</translation>
+<translation id="6659594942844771486">Tab</translation>
 <translation id="6660099350750552197"><ph name="WINDOW_TITLE" /> - Rakaman kamera</translation>
 <translation id="6660301751798595791">Pemilihan suara</translation>
 <translation id="6660819301598582123">The quick brown fox jumped over the lazy dog.</translation>
@@ -8524,6 +8530,7 @@ Anda mempunyai # lagi kata laluan yang terjejas. Google Password Manager mengesy
 <translation id="6931690462168617033">Klik kekuatan</translation>
 <translation id="6933321725007230600">Hidupkan &amp;penyegerakan...</translation>
 <translation id="693459579445775904">Fail suara dikongsi antara beberapa pengguna untuk menjimatkan ruang cakera</translation>
+<translation id="6934597021412437058">Kini anda kini boleh menggunakan paparan pisah untuk membuat perbandingan, berbilang tugas dan pelbagai lagi</translation>
 <translation id="6935031746833428401">Ketahui lebih lanjut tentang Pengurusan Peranti</translation>
 <translation id="6935286146439255109">Dulang kertas tiada</translation>
 <translation id="6938386202199793006">Anda mempunyai 1 pencetak yang disimpan.</translation>
@@ -9627,6 +9634,7 @@ Maklumat ini termasuk maklumat tentang perisian yang dipasang, fail, penyemak im
 <translation id="7705276765467986571">Tidak dapat memuatkan model penanda halaman.</translation>
 <translation id="7705334495398865155">Merawakkan ID perkakasan anda (BSSID) untuk menghalang orang lain daripada menjejaki peranti ini.</translation>
 <translation id="7705524343798198388">VPN</translation>
+<translation id="7706742200777909964">Letakkan halaman secara bersebelahan dalam tab yang sama supaya anda dapat membandingkan pilihan dengan mudah dan pelbagai lagi</translation>
 <translation id="7707108266051544351">Tapak ini telah disekat daripada menggunakan penderia gerakan.</translation>
 <translation id="7707922173985738739">Gunakan data mudah alih</translation>
 <translation id="770831926727930011">Data setempat dilindungi oleh kata laluan lama anda. Masukkan kata laluan lama anda untuk memulihkan data setempat.</translation>

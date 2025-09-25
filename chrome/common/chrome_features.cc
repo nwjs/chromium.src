@@ -484,6 +484,17 @@ BASE_FEATURE_PARAM(
     "glic-shortcuts-tab-access-toggle-learn-more-url-data-protected",
     "");
 BASE_FEATURE_PARAM(std::string,
+                   kGlicDefaultTabAccessToggleLearnMoreURL,
+                   &kGlicLearnMoreURLConfig,
+                   "glic-default-tab-access-toggle-learn-more-url",
+                   "");
+BASE_FEATURE_PARAM(
+    std::string,
+    kGlicDefaultTabAccessToggleLearnMoreURLDataProtected,
+    &kGlicLearnMoreURLConfig,
+    "glic-default-tab-access-toggle-learn-more-url-data-protected",
+    "");
+BASE_FEATURE_PARAM(std::string,
                    kGlicSettingsPageLearnMoreURL,
                    &kGlicLearnMoreURLConfig,
                    "glic-settings-page-learn-more-url",
@@ -1305,6 +1316,11 @@ BASE_FEATURE(ProcessPerSiteSkipEnterpriseUsers,
 // Note: The "ProcessPerSiteUpToMainFrameThreshold" feature is defined in
 // //content.
 BASE_FEATURE(ProcessPerSiteForDSE, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Consider the default search engine (DSE) warmup page as a search results page
+// (SRP), for the purpose of applying the "process per site for DSE SRP" policy
+// (`kProcessPerSiteForDSE`).
+BASE_FEATURE(ConsiderDSEWarmUpPageAsSRP, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Enables the SkyVault (cloud-first) changes, some of which are also controlled

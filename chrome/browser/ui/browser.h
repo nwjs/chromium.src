@@ -744,6 +744,7 @@ class Browser : public TabStripModelObserver,
 
   // Overridden from content::WebContentsDelegate:
   void ActivateContents(content::WebContents* contents) override;
+  bool IsContentsActive(content::WebContents* contents) override;
   void SetTopControlsShownRatio(content::WebContents* web_contents,
                                 float ratio) override;
   int GetTopControlsHeight() override;
@@ -1123,6 +1124,8 @@ class Browser : public TabStripModelObserver,
   void SetWebContentsBlocked(content::WebContents* web_contents,
                              bool blocked) override;
   web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost(
+      content::WebContents* web_contents) override;
+  void OnWebContentsModalDialogShown(
       content::WebContents* web_contents) override;
 
   // Overridden from BookmarkTabHelperObserver:

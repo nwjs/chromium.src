@@ -533,6 +533,7 @@ void SecondDeviceAuthBroker::FetchChallengeBytes(
       /*identity_manager=*/nullptr,
       EndpointFetcher::RequestParams::Builder(kHttpPost,
                                               kChallengeDataAnnotation)
+          .SetAuthType(endpoint_fetcher::CHROME_API_KEY)
           .SetChannel(ash::GetChannel())
           .SetContentType(kHttpContentType)
           .SetPostData(kGetChallengeDataRequest)
@@ -592,6 +593,7 @@ void SecondDeviceAuthBroker::FetchAuthCode(
       /*identity_manager=*/nullptr,
       EndpointFetcher::RequestParams::Builder(kHttpPost,
                                               kStartSessionAnnotation)
+          .SetAuthType(endpoint_fetcher::CHROME_API_KEY)
           .SetChannel(ash::GetChannel())
           .SetContentType(kHttpContentType)
           .SetPostData(

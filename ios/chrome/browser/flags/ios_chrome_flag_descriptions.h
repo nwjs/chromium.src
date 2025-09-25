@@ -281,6 +281,9 @@ extern const char kDefaultBrowserPromoPropensityModelDescription[];
 extern const char kDefaultBrowserTriggerCriteriaExperimentName[];
 extern const char kDefaultBrowserTriggerCriteriaExperimentDescription[];
 
+extern const char kPersistentDefaultBrowserPromoName[];
+extern const char kPersistentDefaultBrowserPromoDescription[];
+
 extern const char kDeprecateFeedHeaderExperimentName[];
 extern const char kDeprecateFeedHeaderExperimentDescription[];
 
@@ -419,6 +422,9 @@ extern const char kIndicateIdentityErrorInOverflowMenuDescription[];
 
 extern const char kInProductHelpDemoModeName[];
 extern const char kInProductHelpDemoModeDescription[];
+
+extern const char kIOSAppBundlePromoEphemeralCardName[];
+extern const char kIOSAppBundlePromoEphemeralCardDescription[];
 
 extern const char kIOSBrowserEditMenuMetricsName[];
 extern const char kIOSBrowserEditMenuMetricsDescription[];

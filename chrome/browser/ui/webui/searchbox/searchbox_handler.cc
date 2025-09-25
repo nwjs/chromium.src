@@ -7,6 +7,7 @@
 #include "base/base64.h"
 #include "base/base64url.h"
 #include "base/containers/contains.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/branding_buildflags.h"
@@ -21,8 +22,12 @@
 #include "chrome/browser/preloading/search_preload/search_preload_service.h"
 #include "chrome/browser/preloading/search_preload/search_preload_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_renderer_data.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/bookmarks/browser/bookmark_model.h"
@@ -35,8 +40,10 @@
 #include "components/variations/variations_client.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "content/public/common/url_constants.h"
 #include "third_party/omnibox_proto/answer_data.pb.h"
 #include "third_party/omnibox_proto/answer_type.pb.h"
+#include "third_party/omnibox_proto/groups.pb.h"
 #include "third_party/omnibox_proto/rich_answer_template.pb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -380,6 +387,9 @@ std::vector<searchbox::mojom::AutocompleteMatchPtr> CreateAutocompleteMatches(
 
     mojom_match->tail_suggest_common_prefix = match.tail_suggest_common_prefix;
 
+    mojom_match->is_noncanned_aim_suggestion =
+        match.suggestion_group_id == omnibox::GROUP_MIA_RECOMMENDATIONS;
+
     matches.push_back(std::move(mojom_match));
     line++;
   }
@@ -442,7 +452,8 @@ searchbox::mojom::AutocompleteResultPtr CreateAutocompleteResult(
       input,
       CreateSuggestionGroupsMap(result, prefs, result.suggestion_groups_map()),
       CreateAutocompleteMatches(result, edit_model, bookmark_model,
-                                result.suggestion_groups_map(), turl_service));
+                                result.suggestion_groups_map(), turl_service),
+      base::UTF8ToUTF16(result.smart_compose_inline_hint()));
 }
 
 }  // namespace
@@ -480,6 +491,8 @@ void SearchboxHandler::SetupWebUIDataSource(content::WebUIDataSource* source,
       // Composebox.
       {"addContext", IDS_NTP_COMPOSE_ADD_CONTEXT},
       {"addContextTitle", IDS_NTP_COMPOSE_ADD_CONTEXT_TITLE},
+      {"addImage", IDS_NTP_COMPOSE_ADD_IMAGE},
+      {"addTab", IDS_NTP_COMPOSE_ADD_TAB},
       {"searchboxComposeButtonText", IDS_NTP_COMPOSE_ENTRYPOINT},
       {"searchboxComposeButtonTitle", IDS_NTP_COMPOSE_ENTRYPOINT_A11Y_LABEL},
       {"composeboxCancelButtonTitle", IDS_NTP_COMPOSE_CANCEL_BUTTON_A11Y_LABEL},
@@ -506,12 +519,20 @@ void SearchboxHandler::SetupWebUIDataSource(content::WebUIDataSource* source,
        IDS_NTP_COMPOSE_FILE_UPLOAD_VALIDATION_FAILED},
       {"composeboxFileUploadFailed", IDS_NTP_COMPOSE_FILE_UPLOAD_FAILED},
       {"composeboxFileUploadExpired", IDS_NTP_COMPOSE_FILE_UPLOAD_EXPIRED},
+      {"menu", IDS_MENU},
+      {"uploadFile", IDS_NTP_COMPOSE_UPLOAD_FILE},
   };
   source->AddLocalizedStrings(kStrings);
   source->AddString("searchboxComposePlaceholder",
                     ntp_composebox::FeatureConfig::Get()
                         .config.composebox()
                         .input_placeholder_text());
+  source->AddString(
+      "suggestionActivityLink",
+      l10n_util::GetStringFUTF16(IDS_NTP_COMPOSE_SUGGESTIONS_INFO,
+                                 u"https://myactivity.google.com/"
+                                 u"activitycontrols?settings=search&utm_source="
+                                 u"aim&utm_campaign=aim_str"));
 
   source->AddBoolean(
       "searchboxMatchSearchboxTheme",
@@ -847,6 +868,87 @@ void SearchboxHandler::OnNavigationLikely(
     search_preload_service->OnNavigationLikely(
         line, *match, navigation_predictor, web_contents_);
   }
+}
+
+void SearchboxHandler::DeleteAutocompleteMatch(uint8_t line, const GURL& url) {
+  const AutocompleteMatch* match = GetMatchWithUrl(line, url);
+  if (!match || !match->SupportsDeletion()) {
+    // This can happen due to asynchronous updates changing the result while
+    // the web UI is referencing a stale match.
+    return;
+  }
+  omnibox_controller()->StopAutocomplete(/*clear_result=*/false);
+  autocomplete_controller()->DeleteMatch(*match);
+}
+
+void SearchboxHandler::GetRecentTabs(GetRecentTabsCallback callback) {
+  std::vector<searchbox::mojom::TabInfoPtr> tabs;
+
+  auto* browser_window_interface =
+      webui::GetBrowserWindowInterface(web_contents_);
+  if (!browser_window_interface) {
+    std::move(callback).Run(std::move(tabs));
+    return;
+  }
+
+  // Iterate through the tab strip model, getting the data for each tab
+  auto* tab_strip_model = browser_window_interface->GetTabStripModel();
+  UMA_HISTOGRAM_COUNTS_1000(
+      "NewTabPage.Composebox.ActiveTabsCountOnContextMenuOpen",
+      tab_strip_model->count());
+
+  for (int i = 0; i < tab_strip_model->count(); i++) {
+    content::WebContents* web_contents = tab_strip_model->GetWebContentsAt(i);
+    tabs::TabInterface* const tab = tab_strip_model->GetTabAtIndex(i);
+    TabRendererData tab_renderer_data =
+        TabRendererData::FromTabInModel(tab_strip_model, i);
+    const auto& last_committed_url = tab_renderer_data.last_committed_url;
+    // Skip tabs that are still loading, and skip webui.
+    if (!last_committed_url.is_valid() || last_committed_url.is_empty() ||
+        last_committed_url.SchemeIs(content::kChromeUIScheme) ||
+        last_committed_url.SchemeIs(content::kChromeUIUntrustedScheme)) {
+      continue;
+    }
+    auto tab_data = searchbox::mojom::TabInfo::New();
+    tab_data->tab_id = tab->GetHandle().raw_value();
+    tab_data->title = base::UTF16ToUTF8(tab_renderer_data.title);
+    tab_data->url = last_committed_url;
+    tab_data->last_active =
+        std::max(web_contents->GetLastActiveTimeTicks(),
+                 web_contents->GetLastInteractionTimeTicks());
+    tabs.push_back(std::move(tab_data));
+  }
+
+  // Count duplicate tab titles to record in an UMA histogram.
+  // For example, If 2 tabs with title "Wikipedia" and 3 tabs with title
+  // "Weather" are open, this histogram will record 2.
+  std::map<std::string, int> title_counts;
+  for (const auto& tab : tabs) {
+    title_counts[tab->title]++;
+  }
+  int duplicate_count =
+      std::count_if(title_counts.begin(), title_counts.end(),
+                    [](const std::pair<const std::string, int>& pair) {
+                      return pair.second > 1;
+                    });
+  UMA_HISTOGRAM_COUNTS_100000(
+      "NewTabPage.Composebox.DuplicateTabTitlesShownCount", duplicate_count);
+
+  // Sort the tabs by last active time, and truncate to the maximum number of
+  // tabs to return.
+  int max_tab_suggestions =
+      std::min(static_cast<int>(tabs.size()),
+               ntp_composebox::kContextMenuMaxTabSuggestions.Get());
+  std::partial_sort(
+      tabs.begin(), tabs.begin() + max_tab_suggestions, tabs.end(),
+      [](const searchbox::mojom::TabInfoPtr& a,
+         const searchbox::mojom::TabInfoPtr& b) {
+        return a->last_active > b->last_active;
+      });
+  tabs.resize(max_tab_suggestions);
+
+  // Invoke the callback with the results.
+  std::move(callback).Run(std::move(tabs));
 }
 
 void SearchboxHandler::OnResultChanged(AutocompleteController* controller,

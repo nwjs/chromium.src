@@ -139,6 +139,8 @@ BASE_DECLARE_FEATURE(kPressAndHoldEscToExitBrowserFullscreen);
 
 BASE_DECLARE_FEATURE(kReloadSelectionModel);
 
+BASE_DECLARE_FEATURE(kCloseActiveTabInSplitViewViaHotkey);
+
 BASE_DECLARE_FEATURE(kScrimForBrowserWindowModal);
 
 BASE_DECLARE_FEATURE(KScrimForTabModal);
@@ -173,6 +175,11 @@ BASE_DECLARE_FEATURE_PARAM(
     kSideBySideDropTargetNudgeToFullTargetWidthPercentage);
 // The ratio of window width that will trigger a nudge to show/hide.
 BASE_DECLARE_FEATURE_PARAM(double, kSideBySideDropTargetNudgeShowRatio);
+// The total amount of times the nudge may be shown before we stop showing it.
+BASE_DECLARE_FEATURE_PARAM(int, kSideBySideDropTargetNudgeShownLimit);
+// The total amount of times the drop target may be used with a link before we
+// stop showing the nudge.
+BASE_DECLARE_FEATURE_PARAM(int, kSideBySideDropTargetNudgeUsedLimit);
 
 enum class MiniToolbarActiveConfiguration {
   // Hides the toolbar in the active view.
@@ -187,6 +194,8 @@ BASE_DECLARE_FEATURE_PARAM(MiniToolbarActiveConfiguration,
                            kSideBySideMiniToolbarActiveConfiguration);
 
 BASE_DECLARE_FEATURE_PARAM(int, kSideBySideSnapDistance);
+
+BASE_DECLARE_FEATURE_PARAM(int, kSideBySideIphTabSwitchCount);
 
 BASE_DECLARE_FEATURE(kSideBySideSessionRestore);
 

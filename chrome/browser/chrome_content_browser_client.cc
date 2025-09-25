@@ -1385,9 +1385,24 @@ bool IsDefaultSearchEngine(Profile* profile, const GURL& url) {
   const TemplateURL* default_search_engine =
       template_url_service->GetDefaultSearchProvider();
 
-  return default_search_engine &&
-         template_url_service->IsSearchResultsPageFromDefaultSearchProvider(
-             url);
+  if (!default_search_engine) {
+    return false;
+  }
+
+  if (template_url_service->IsSearchResultsPageFromDefaultSearchProvider(url)) {
+    return true;
+  }
+
+  if (base::FeatureList::IsEnabled(features::kConsiderDSEWarmUpPageAsSRP)) {
+    const GURL prewarm_url = GURL(features::kPrewarmUrl.Get());
+    if (prewarm_url.is_valid() && url == prewarm_url &&
+        template_url_service->GetDefaultSearchProviderOrigin().IsSameOriginWith(
+            prewarm_url)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 }  // namespace
@@ -1994,7 +2009,7 @@ bool ChromeContentBrowserClient::ShouldUseProcessPerSite(
 }
 
 bool ChromeContentBrowserClient::
-    ShouldReuseExistingProcessForNewMainFrameSiteInstance(
+    ShouldReuseAnyExistingProcessForNewMainFrameSiteInstance(
         content::BrowserContext* browser_context,
         const GURL& site_instance_original_url) {
   // When `kProcessPerSiteForDSE` is disabled,

@@ -106,6 +106,10 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
 
   virtual gfx::NativeViewAccessible GetNativeViewAccessible() = 0;
 
+  // Returns the NativeViewAccessible for the parent Widget's RootView if the
+  // parent is a Views-owned Widget; otherwise nullptr.
+  virtual gfx::NativeViewAccessible GetParentNativeViewAccessible() = 0;
+
   // on windows, maximizing sometime is sent through WM_SIZE, not
   // WM_SYSCOMMAND, see node-webkit#753
   virtual bool ShouldHandleOnSize() const = 0;

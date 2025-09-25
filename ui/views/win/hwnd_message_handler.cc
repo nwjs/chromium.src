@@ -1438,7 +1438,10 @@ gfx::NativeViewAccessible HWNDMessageHandler::GetChildOfAXFragmentRoot() {
 }
 
 gfx::NativeViewAccessible HWNDMessageHandler::GetParentOfAXFragmentRoot() {
-  return nullptr;
+  if (!features::IsAccessibilityWinAXFragmentRootParentEnabled()) {
+    return nullptr;
+  }
+  return delegate_->GetParentNativeViewAccessible();
 }
 
 bool HWNDMessageHandler::IsAXFragmentRootAControlElement() {

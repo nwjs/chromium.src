@@ -1841,6 +1841,11 @@
     "expiry_milestone": 144
   },
   {
+    "name": "composebox-uses-chrome-compose-client",
+    "owners": ["niharm@google.com", "chrome-desktop-ntp@google.com"],
+    "expiry_milestone": 145
+  },
+  {
     "name": "conch",
     "owners": ["hsuanling@google.com", "chromeos-recorder-app@google.com"],
     "expiry_milestone": 145
@@ -2165,7 +2170,7 @@
   {
     "name": "dbd-revamp-desktop",
     "owners": [ "zalmashni@google.com", "chrome-browser-privacy-team@google.com" ],
-    "expiry_milestone": 140
+    "expiry_milestone": 145
   },
   {
     "name": "dcheck-is-fatal",
@@ -5996,6 +6001,11 @@
     "expiry_milestone": 143
   },
   {
+    "name": "ios-app-bundle-promo-magic-stack",
+    "owners": ["ericekey@google.com", "bling-pandamonium@google.com"],
+    "expiry_milestone": 144
+  },
+  {
     "name": "ios-best-features-screen",
     "owners": [ "hiramahmood@google.com", "bling-pandamonium@google.com" ],
     "expiry_milestone": 138
@@ -6167,7 +6177,7 @@
   },
   {
     "name": "ios-segmentation-ephemeral-card-ranker",
-    "owners": [ "ericekey@google.com", "thegreenfrog@google.com", "bling-pandamonium@google.com" ],
+    "owners": [ "thegreenfrog@google.com", "bling-pandamonium@google.com" ],
     "expiry_milestone": 144
   },
   {
@@ -8030,6 +8040,11 @@
       "drmasquatch@chromium.org"
     ],
     "expiry_milestone": 130
+  },
+  {
+    "name": "persistent-default-browser-promo",
+    "owners": [ "gujen@google.com", "bling-mony-pod@google.com", "bling-flags@google.com" ],
+    "expiry_milestone": 150
   },
   {
     "name": "picture-in-picture-show-window-animation",

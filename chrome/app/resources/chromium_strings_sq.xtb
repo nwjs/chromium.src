@@ -105,6 +105,7 @@ Disa funksione mund të mos ofrohen dhe ndryshimet në preferenca nuk do të ruh
 <translation id="2307973900865360088">Mbaje në "Stacion"</translation>
 <translation id="2313870531055795960">Kontrollon URL-të kundrejt një liste sajtesh të pasigurta të ruajtur në Chromium. Nëse një sajt përpiqet të vjedhë fjalëkalimin tënd ose kur shkarkon një skedar të dëmshëm, Chromium mund t'i dërgojë gjithashtu URL-të, duke përfshirë pjesë të përmbajtjes së faqes, te "Shfletimi i sigurt".</translation>
 <translation id="2343156876103232566">Për të dërguar një numër nga këtu te telefoni yt Android, identifikohu në Chromium në të dyja pajisjet.</translation>
+<translation id="2356070529366658676">Pyet</translation>
 <translation id="2359808026110333948">Vazhdo</translation>
 <translation id="2361918034042471035">Shtesa "<ph name="EXTENSION_NAME" />" kërkon që të identifikohesh në Chromium</translation>
 <translation id="236943522426971115">Çaktivizo ekzekutimin e Chromium në sfond për aplikacionet</translation>
@@ -618,6 +619,7 @@ Chromium nuk është në gjendje të rikuperojë cilësimet e tua.</translation>
 <translation id="878572486461146056">Gabim gjatë instalimit: Administratori i rrjetit ka zbatuar një politikë grupi që parandalon instalimin: <ph name="INSTALL_ERROR" /></translation>
 <translation id="8796602469536043152">Chromium ka nevojë për leje për t'u qasur te kamera dhe mikrofoni yt për këtë sajt</translation>
 <translation id="8818550178040858407">Do të identifikohesh në Chromium?</translation>
+<translation id="8823401858233292222">Bëje Chromium shfletuesin e parazgjedhur dhe gozhdoje te shiriti i veglave</translation>
 <translation id="8826492472752484139">Kliko te “Menaxheri i fjalëkalimeve”</translation>
 <translation id="8833697763442816810">Sistemi ChromiumOS</translation>
 <translation id="8852026904190808918">Kjo gjuhë përdoret për të shfaqur menytë, cilësimet, sinjalizimet dhe tekste të tjera në Chromium</translation>

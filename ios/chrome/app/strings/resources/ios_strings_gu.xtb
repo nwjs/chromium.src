@@ -1270,6 +1270,7 @@
 <translation id="5956112131836209882">ટૅબનું ગ્રૂપ ટૅબ. <ph name="NUMBER_OF_TABS_IN_GROUP" />માંથી <ph name="TAB_INDEX_IN_GROUP" />.</translation>
 <translation id="595769230373966252"><ph name="SEARCH_PROVIDER" /> વડે શોધો</translation>
 <translation id="5963939892571022323">હાઇલાઇટ કરેલી ટેક્સ્ટની લિંક બનાવી શકાતી નથી.</translation>
+<translation id="5968400720580217226">AI મોડ</translation>
 <translation id="5971459446352190251">QR કોડની શોધ</translation>
 <translation id="5971872012779224351">{count,plural, =1{1 બુકમાર્ક ડિલીટ કર્યું}one{{count} બુકમાર્ક ડિલીટ કર્યું}other{{count} બુકમાર્ક ડિલીટ કર્યા}}</translation>
 <translation id="5972844218283131174">તમામને નાપસંદ કરો</translation>
@@ -1518,7 +1519,7 @@
 <translation id="6858855187367714033">સ્કૅન કર્યો</translation>
 <translation id="6859944681507688231">QR કોડ અથવા ક્રેડિટ કાર્ડ સ્કૅન કરવા માટે, સેટિંગમાં કૅમેરા ચાલુ કરો.</translation>
 <translation id="6867369562105931222">પાસવર્ડ</translation>
-<translation id="6867400383614725881">નવી છૂપી ટૅબ</translation>
+<translation id="6867400383614725881">નવું છૂપું ટૅબ</translation>
 <translation id="686831807558000905">સાઇન ઇન કરશો નહીં</translation>
 <translation id="686899695320434745">સરનામાઓને તમારા પાસફ્રેઝ વડે એન્ક્રિપ્ટ કરવામાં આવતા નથી. આ તમને Googleની અન્ય સેવાઓમાં તેનો ઉપયોગ કરવા દે છે.</translation>
 <translation id="687135068089457384">સેટિંગ બતાવો</translation>

@@ -200,6 +200,7 @@ Du kan når som helst sjekke passordene dine i <ph name="GOOGLE_PASSWORD_MANAGER
 <translation id="1129348283834595293">Cyberpunk</translation>
 <translation id="1129420403709586868">Se bilder og medier fra telefonen</translation>
 <translation id="1129850422003387628">Administrer apper</translation>
+<translation id="1130116586186908674">Lag delt visning</translation>
 <translation id="1130430615924359526">{0,plural, =1{Lukk Inkognito}other{Lukk Inkognito (# vinduer)}}</translation>
 <translation id="113050636487300043">Velg et navn og en farge for å differensiere profilene</translation>
 <translation id="1130589222747246278"><ph name="WINDOW_TITLE" /> – del av gruppen <ph name="GROUP_NAME" /></translation>
@@ -429,6 +430,7 @@ Du kan når som helst sjekke passordene dine i <ph name="GOOGLE_PASSWORD_MANAGER
 <translation id="1277020343994096713">Opprett en ny PIN-kode som ikke er lik den nåværende PIN-koden</translation>
 <translation id="1277597051786235230">&amp;Åpne <ph name="SEARCH_ENGINE" /> på en ny fane og søk etter «<ph name="SEARCH_TERMS" />»</translation>
 <translation id="127849925363482083">Trykk på <ph name="SHORTCUT_TEXT" /> igjen for å lukke den festede fanen</translation>
+<translation id="1278542245784398460">Høyreklikk på denne fanen, og velg «Legg til fanen i en ny delt visning»</translation>
 <translation id="1278859221870828664">Gjennomgå Google Play-apper og -tjenester</translation>
 <translation id="1279024913354609713">Ikke tillat</translation>
 <translation id="127946606521051357">En enhet i nærheten deler</translation>
@@ -737,6 +739,7 @@ Tillatelser du allerede har gitt apper, kan gjelde for denne kontoen. Du kan sty
 <translation id="1503392482221435031">Sender bruksstatistikk til Google automatisk. Du kan slå programstopprapporter på eller av i enhetsinnstillingene.</translation>
 <translation id="1503556098270577657">Du har logget på <ph name="USER_EMAIL" /> med Android-telefonen din</translation>
 <translation id="150411034776756821">Fjern <ph name="SITE" /></translation>
+<translation id="1504253885059472207">Fest delt visning</translation>
 <translation id="1504551620756424144">Delte mapper er tilgjengelige i Windows i <ph name="BASE_DIR" />.</translation>
 <translation id="1505494256539862015">eksportere passord</translation>
 <translation id="1505654899813338756">Du kan gruppere faner for å holde relaterte sider samlet og lagret på alle enhetene dine</translation>
@@ -881,6 +884,7 @@ Tillatelser du allerede har gitt apper, kan gjelde for denne kontoen. Du kan sty
 <translation id="1597806446183714225">Forbedre lydkvaliteten, slik at stemmene høres naturlige og klare ut.</translation>
 <translation id="1598163867407640634">Bruk <ph name="SITE_ETLD_PLUS_ONE" /> hos <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /></translation>
 <translation id="1598233202702788831">Administratoren din har slått av oppdateringer.</translation>
+<translation id="1598293830962835699">Lag raskt en delt visning når du trenger det</translation>
 <translation id="1600857548979126453">få tilgang til bakdata for sidefeilsøkingsprogrammet</translation>
 <translation id="1601481906560916994">Ekskluder nettsted</translation>
 <translation id="1601560923496285236">Bruk</translation>
@@ -3033,7 +3037,6 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="3048589239114571785">Spill av (K)</translation>
 <translation id="3048742847101793553">Organisasjonen din har blokkert denne filen fordi skanningen mislyktes.</translation>
 <translation id="3048917188684939573">Logger for casting og enheter</translation>
-<translation id="3049525403650329038">Del sideinnhold med Gemini for å få mer relevante svar. Dataene dine brukes ikke til å forbedre generative AI-modeller.</translation>
 <translation id="3051250416341590778">Skjermstørrelse</translation>
 <translation id="3053013834507634016">Bruk av sertifikatnøkkel</translation>
 <translation id="3053273573829329829">Slå på bruker-PIN-kode</translation>
@@ -3117,6 +3120,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="3122883569442693641">Mer informasjon</translation>
 <translation id="3124111068741548686">BRUKEREN håndterer</translation>
 <translation id="3124332159330678621">Tilpass Chrome for å gi nettleseren et nytt utseende</translation>
+<translation id="3125361247594231799">Fest den til neste gang</translation>
 <translation id="3125816458150005808">Du kan løsne det og åpne det fra menyen</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3127860049873093642">For å unngå problemer med lading og ytelse, bruk en kompatibel Dell- eller USB-C-strømadapter.</translation>
@@ -4840,6 +4844,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="4310139701823742692">Filen har feil format. Sjekk PPD-filen og prøv på nytt.</translation>
 <translation id="4310496734563057511">Hvis du deler denne enheten med andre, kan du slå på Windows Hello for å bekrefte at det er deg, når du bruker lagrede passord</translation>
 <translation id="431076611119798497">&amp;Detaljer</translation>
+<translation id="431127643228811252">Med delt visning er det enklere å multitaske</translation>
 <translation id="4311284648179069796">Har ikke tillatelse til å lese og endre</translation>
 <translation id="4312701113286993760">{COUNT,plural, =1{1 Google-konto}other{<ph name="EXTRA_ACCOUNTS" /> Google-kontoer}}</translation>
 <translation id="4312866146174492540">Blokkér (standard)</translation>
@@ -8097,6 +8102,7 @@ Du har # passord til som er utsatt for sikkerhetsbrudd. Google Passordlagring an
 <translation id="6657240842932274095">Vil du la systemtjenester bruke posisjonen din?</translation>
 <translation id="6657585470893396449">Passord</translation>
 <translation id="6659213950629089752">Denne siden ble zoomet inn av utvidelsen «<ph name="NAME" />»</translation>
+<translation id="6659594942844771486">Fane</translation>
 <translation id="6660099350750552197"><ph name="WINDOW_TITLE" /> – kameraopptak</translation>
 <translation id="6660301751798595791">Stemmevalg</translation>
 <translation id="6660819301598582123">Høvdingens kjære squaw får litt pizza i Mexico by.</translation>
@@ -8513,6 +8519,7 @@ Du har # passord til som er utsatt for sikkerhetsbrudd. Google Passordlagring an
 <translation id="6931690462168617033">Klikkstyrke</translation>
 <translation id="6933321725007230600">Slå på &amp;synkronisering…</translation>
 <translation id="693459579445775904">Språkfiler deles mellom brukere for å spare diskplass</translation>
+<translation id="6934597021412437058">Nå kan du bruke delt visning til å sammenligne, multitaske med mer</translation>
 <translation id="6935031746833428401">Finn ut mer om administrering av enheter</translation>
 <translation id="6935286146439255109">En papirskuff mangler</translation>
 <translation id="6938386202199793006">Du har 1 lagret skriver.</translation>
@@ -9329,6 +9336,7 @@ Du har # passord til som er utsatt for sikkerhetsbrudd. Google Passordlagring an
 <translation id="7508971277215079477">{MULTI_GROUP_TAB_COUNT,plural, =0{Vil du lukke fanen og slette gruppen?}=1{Vil du lukke fanene og slette gruppen?}other{Vil du lukke fanene og slette gruppene?}}</translation>
 <translation id="7509097596023256288">Konfigurerer av administrasjon</translation>
 <translation id="7509539379068593709">Avinstaller appen</translation>
+<translation id="7513438205469584978">Forslag basert på <ph name="BEGIN_LINK_GOOGLE_ACTIVITY" />Google-aktiviteten<ph name="END_LINK_GOOGLE_ACTIVITY" /> din</translation>
 <translation id="7514239104543605883">Kopiér til enheten din</translation>
 <translation id="7514365320538308">Last ned</translation>
 <translation id="7514417110442087199">Legg til tilordning</translation>
@@ -9615,6 +9623,7 @@ Dette kan omfatte informasjon om installert programvare, filer, nettleseren, enh
 <translation id="7705276765467986571">Kan ikke laste inn bokmerkemodell.</translation>
 <translation id="7705334495398865155">En tilfeldig maskinvare-ID (BSSID) for å forhindre at andre sporer denne enheten.</translation>
 <translation id="7705524343798198388">VPN</translation>
+<translation id="7706742200777909964">Plasser sider side om side i samme fane, slik at du enkelt kan sammenligne alternativer med mer</translation>
 <translation id="7707108266051544351">Dette nettstedet er blokkert fra å bruke bevegelsessensorer.</translation>
 <translation id="7707922173985738739">Bruk mobildata</translation>
 <translation id="770831926727930011">Lokale data er beskyttet av det gamle passordet ditt. Skriv inn det gamle passordet ditt for å gjenopprette lokale data.</translation>

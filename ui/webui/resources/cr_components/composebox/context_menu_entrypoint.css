@@ -9,18 +9,83 @@
  * #include=cr-icons-lit
  * #css_wrapper_metadata_end */
 
-#contextButton {
+:host {
   --cr-focus-outline-color: var(--color-searchbox-results-icon-focused-outline);
-  border: initial;
-  color: var(--color-new-tab-page-composebox-cancel-button);
-  gap: 2px;
 }
 
-cr-icon {
+#entrypoint {
+  --cr-button-disabled-text-color:
+      var(--color-new-tab-page-composebox-context-entrypoint-text-disabled);
+  --cr-button-text-color: var(--color-new-tab-page-composebox-file-chip-text);
+  --cr-hover-background-color:
+      var(--color-new-tab-page-composebox-context-entrypoint-hover-background);
+  border: initial;
+  gap: 2px;
+  padding-bottom: 10px;
+}
+
+#entrypoint cr-icon {
   padding: 2px;
 }
 
 #description {
   display: block;
   font-size: 13px;
+}
+
+#menu {
+  --color-sys-divider:
+      var(--color-new-tab-page-composebox-file-carousel-divider);
+  --cr-menu-background-color: var(--color-new-tab-page-composebox-background);
+  --cr-menu-border-radius: 16px;
+  --cr-primary-text-color: var(--color-new-tab-page-composebox-file-chip-text);
+  --cr-hover-background-color:
+      var(--color-new-tab-page-composebox-context-entrypoint-hover-background);
+}
+
+#tabHeader {
+  color: var(--cr-primary-text-color);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  margin: 0;
+  padding: 8px 14px 4px 14px;
+}
+
+.dropdown-item {
+  --iron-icon-height: 16px;
+  --iron-icon-width: 16px;
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: var(--cr-primary-text-color);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 400;
+  gap: 8px;
+  height: 32px;
+  justify-content: flex-start;
+  max-width: 320px;
+  padding: 6px 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.dropdown-item:hover {
+  background-color: var(--cr-hover-background-color);
+}
+
+#menu hr {
+  background: var(--color-sys-divider);
+  border: none;
+  height: 1px;
+  margin: 8px 0;
+}
+
+.tab-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

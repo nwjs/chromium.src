@@ -468,13 +468,6 @@ const FeatureEntry::Choice kUseAngleChoicesWindows[] = {
      gl::kANGLEImplementationD3D9Name},
     {flag_descriptions::kUseAngleD3D11Warp, switches::kUseANGLE,
      gl::kANGLEImplementationD3D11WarpName}};
-#elif BUILDFLAG(IS_MAC)
-const FeatureEntry::Choice kUseAngleChoicesMac[] = {
-    {flag_descriptions::kUseAngleDefault, "", ""},
-    {flag_descriptions::kUseAngleGL, switches::kUseANGLE,
-     gl::kANGLEImplementationOpenGLName},
-    {flag_descriptions::kUseAngleMetal, switches::kUseANGLE,
-     gl::kANGLEImplementationMetalName}};
 #elif BUILDFLAG(IS_ANDROID)
 const FeatureEntry::Choice kUseAngleChoicesAndroid[] = {
     {flag_descriptions::kUseAngleDefault, "", ""},
@@ -1665,6 +1658,15 @@ const FeatureEntry::FeatureParam kComposeboxNoEscClosure[] = {
 const FeatureEntry::FeatureParam kComposeboxShowContextMenu[] = {
     {"ShowContextMenu", "true"},
 };
+const FeatureEntry::FeatureParam kComposeboxShowContextMenuAndZps[] = {
+    {"ShowComposeboxZps", "true"},
+    {"ShowContextMenu", "true"},
+};
+const FeatureEntry::FeatureParam kComposeboxShowContextMenuAndZpsMultiFile[] = {
+    {"MaxNumFiles", "5"},
+    {"ShowComposeboxZps", "true"},
+    {"ShowContextMenu", "true"},
+};
 
 const FeatureEntry::FeatureVariation kNtpComposeboxVariations[] = {
     {"- Show ZPS", kComposeboxShowZps, std::size(kComposeboxShowZps), nullptr},
@@ -1676,6 +1678,11 @@ const FeatureEntry::FeatureVariation kNtpComposeboxVariations[] = {
      std::size(kComposeboxNoEscClosure), nullptr},
     {"- Show Contextual Input Menu", kComposeboxShowContextMenu,
      std::size(kComposeboxShowContextMenu), nullptr},
+    {"- Show Contextual Input Menu and ZPS", kComposeboxShowContextMenuAndZps,
+     std::size(kComposeboxShowContextMenuAndZps), nullptr},
+    {"- Show Contextual Input Menu and ZPS 5 File Limit",
+     kComposeboxShowContextMenuAndZpsMultiFile,
+     std::size(kComposeboxShowContextMenuAndZpsMultiFile), nullptr},
 };
 
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) ||
@@ -2934,12 +2941,16 @@ const FeatureEntry::FeatureVariation kAndroidAppIntegrationModuleVariations[] =
       std::size(kAndroidAppIntegrationModule_ForceCardShown_NonPixel),
       nullptr}};
 
+const FeatureEntry::FeatureParam kAndroidComposeplate_V2Enabled[] = {
+    {"v2_enabled", "true"}};
 const FeatureEntry::FeatureParam kAndroidComposeplate_HideIncognitoButton[] = {
     {"hide_incognito_button", "true"}};
 const FeatureEntry::FeatureParam kAndroidComposeplate_SkipLocaleCheck[] = {
     {"skip_locale_check", "true"}};
 
 const FeatureEntry::FeatureVariation kAndroidComposeplateVariations[] = {
+    {"V2 enabled", kAndroidComposeplate_V2Enabled,
+     std::size(kAndroidComposeplate_V2Enabled), nullptr},
     {"Hide incognito button", kAndroidComposeplate_HideIncognitoButton,
      std::size(kAndroidComposeplate_HideIncognitoButton), nullptr},
     {"Skip locale check", kAndroidComposeplate_SkipLocaleCheck,
@@ -7501,6 +7512,12 @@ const FeatureEntry kFeatureEntries[] = {
                                     kNtpComposeboxVariations,
                                     "NtpComposebox")},
 
+    {"composebox-uses-chrome-compose-client",
+     flag_descriptions::kNtpComposeboxUsesChromeComposeClientName,
+     flag_descriptions::kNtpComposeboxUsesChromeComposeClientDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(omnibox::kComposeboxUsesChromeComposeClient)},
+
     {"ntp-drive-module", flag_descriptions::kNtpDriveModuleName,
      flag_descriptions::kNtpDriveModuleDescription, kOsDesktop,
      FEATURE_WITH_PARAMS_VALUE_TYPE(ntp_features::kNtpDriveModule,
@@ -8293,14 +8310,10 @@ const FeatureEntry kFeatureEntries[] = {
     {"use-angle", flag_descriptions::kUseAngleName,
      flag_descriptions::kUseAngleDescriptionWindows, kOsWin,
      MULTI_VALUE_TYPE(kUseAngleChoicesWindows)},
-#elif BUILDFLAG(IS_MAC)
-    {"use-angle", flag_descriptions::kUseAngleName,
-     flag_descriptions::kUseAngleDescriptionMac, kOsMac,
-     MULTI_VALUE_TYPE(kUseAngleChoicesMac)},
 #elif BUILDFLAG(IS_ANDROID)
-        {"use-angle", flag_descriptions::kUseAngleName,
-         flag_descriptions::kUseAngleDescriptionAndroid, kOsAndroid,
-         MULTI_VALUE_TYPE(kUseAngleChoicesAndroid)},
+    {"use-angle", flag_descriptions::kUseAngleName,
+     flag_descriptions::kUseAngleDescriptionAndroid, kOsAndroid,
+     MULTI_VALUE_TYPE(kUseAngleChoicesAndroid)},
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)

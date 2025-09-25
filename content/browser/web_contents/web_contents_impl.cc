@@ -3017,6 +3017,10 @@ bool WebContentsImpl::HasRecentInteraction() {
   return delta <= kMaxInterval;
 }
 
+base::TimeTicks WebContentsImpl::GetLastInteractionTimeTicks() {
+  return last_interaction_time_;
+}
+
 WebContents::ScopedIgnoreInputEvents WebContentsImpl::IgnoreInputEvents(
     std::optional<WebInputEventAuditCallback> audit_callback) {
   OPTIONAL_TRACE_EVENT0("content", "WebContentsImpl::IgnoreInputEvents");
@@ -8949,6 +8953,10 @@ void WebContentsImpl::RunFileChooser(
   };
   if (visibility_ == Visibility::HIDDEN) {
     // Do not allow background tab to open file chooser.
+    return;
+  }
+  if (!delegate_->IsContentsActive(this)) {
+    // Do not allow inactive tabs to open file chooser.
     return;
   }
   if (active_file_chooser_) {

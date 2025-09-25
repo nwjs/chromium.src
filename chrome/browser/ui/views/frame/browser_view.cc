@@ -121,6 +121,7 @@
 #include "chrome/browser/ui/sync/one_click_signin_links_delegate_impl.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert.h"
 #include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -156,6 +157,7 @@
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view_delegate.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view_drop_target_controller.h"
+#include "chrome/browser/ui/views/frame/multi_contents_view_mini_toolbar.h"
 #include "chrome/browser/ui/views/frame/native_browser_frame.h"
 #include "chrome/browser/ui/views/frame/scrim_view.h"
 #include "chrome/browser/ui/views/frame/tab_modal_dialog_host.h"
@@ -189,6 +191,7 @@
 #include "chrome/browser/ui/views/sharing/sharing_dialog_view.h"
 #include "chrome/browser/ui/views/sharing_hub/screenshot/screenshot_captured_bubble.h"
 #include "chrome/browser/ui/views/sharing_hub/sharing_hub_bubble_view_impl.h"
+#include "chrome/browser/ui/views/sharing_hub/sharing_hub_icon_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
@@ -830,19 +833,7 @@ class BrowserViewLayoutDelegateImpl : public BrowserViewLayoutDelegate {
     // based on whether it is visible instead of setting the height to 0px. This
     // will enable BrowserViewLayout to hide the contents separator on its own
     // using the same logic used by normal BrowserElementsViews.
-    // The separator should not be shown when in split view, unless the browser
-    // is in immersive fullscreen with the toolbar hidden.
-    bool is_immersive_fullscreen_no_toolbar =
-        browser_view_->IsFullscreen() &&
-        browser_view_->immersive_mode_controller()->IsEnabled()
-#if BUILDFLAG(IS_MAC)
-        &&
-        !fullscreen_utils::IsAlwaysShowToolbarEnabled(browser_view_->browser())
-#endif
-        ;
-
-    return !browser_view_->browser()->app_controller() &&
-           (is_immersive_fullscreen_no_toolbar || !IsActiveTabSplit());
+    return !browser_view_->browser()->app_controller();
   }
 
   bool IsActiveTabSplit() const override {
@@ -1051,10 +1042,10 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
   toolbar_ = top_container_->AddChildView(
       std::make_unique<ToolbarView>(browser_.get(), this));
 
-  contents_separator_ =
+  top_container_separator_ =
       top_container_->AddChildView(std::make_unique<ContentsSeparator>());
-  contents_separator_->SetProperty(views::kElementIdentifierKey,
-                                   kContentsSeparatorViewElementId);
+  top_container_separator_->SetProperty(views::kElementIdentifierKey,
+                                        kContentsSeparatorTopEdgeElementId);
 
   contents_container_ = AddChildView(std::move(contents_container));
   set_contents_view(contents_container_);
@@ -1067,29 +1058,33 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
         AddChildView(std::move(vertical_tab_strip_container));
   }
 
-  right_aligned_side_panel_separator_ =
-      AddChildView(std::make_unique<ContentsSeparator>());
-  right_aligned_side_panel_separator_->SetProperty(
-      views::kElementIdentifierKey,
-      kRightAlignedSidePanelSeparatorViewElementId);
-
   const bool is_right_aligned = GetProfile()->GetPrefs()->GetBoolean(
       prefs::kSidePanelHorizontalAlignment);
   unified_side_panel_ = AddChildView(std::make_unique<SidePanel>(
       this, is_right_aligned ? SidePanel::HorizontalAlignment::kRight
                              : SidePanel::HorizontalAlignment::kLeft));
-  left_aligned_side_panel_separator_ =
-      AddChildView(std::make_unique<ContentsSeparator>());
-  left_aligned_side_panel_separator_->SetProperty(
-      views::kElementIdentifierKey,
-      kLeftAlignedSidePanelSeparatorViewElementId);
-  side_panel_rounded_corner_ =
-      AddChildView(std::make_unique<ContentsRoundedCorner>(
-          this, views::ShapeContextTokens::kContentSeparatorRadius,
-          base::BindRepeating(&SidePanel::IsRightAligned,
-                              base::Unretained(unified_side_panel_))));
-  side_panel_rounded_corner_->SetProperty(views::kElementIdentifierKey,
-                                          kSidePanelRoundedCornerViewElementId);
+
+  // `MultiContentsView` owns separators when `SideBySide` is enabled.
+  if (!multi_contents_view_) {
+    right_aligned_side_panel_separator_ =
+        AddChildView(std::make_unique<ContentsSeparator>());
+    right_aligned_side_panel_separator_->SetProperty(
+        views::kElementIdentifierKey,
+        kRightAlignedSidePanelSeparatorViewElementId);
+
+    left_aligned_side_panel_separator_ =
+        AddChildView(std::make_unique<ContentsSeparator>());
+    left_aligned_side_panel_separator_->SetProperty(
+        views::kElementIdentifierKey,
+        kLeftAlignedSidePanelSeparatorViewElementId);
+    side_panel_rounded_corner_ =
+        AddChildView(std::make_unique<ContentsRoundedCorner>(
+            this, views::ShapeContextTokens::kContentSeparatorRadius,
+            base::BindRepeating(&SidePanel::IsRightAligned,
+                                base::Unretained(unified_side_panel_))));
+    side_panel_rounded_corner_->SetProperty(
+        views::kElementIdentifierKey, kSidePanelRoundedCornerViewElementId);
+  }
 
   // InfoBarContainer needs to be added as a child here for drop-shadow, but
   // needs to come after toolbar in focus order (see EnsureFocusOrder()).
@@ -1263,7 +1258,7 @@ BrowserView::~BrowserView() {
 
   webui_tab_strip_ = nullptr;
   toolbar_ = nullptr;
-  contents_separator_ = nullptr;
+  top_container_separator_ = nullptr;
   loading_bar_ = nullptr;
   find_bar_host_view_ = nullptr;
   infobar_container_ = nullptr;
@@ -2504,6 +2499,12 @@ void BrowserView::UpdateToolbar(content::WebContents* contents) {
   if (toolbar_) {
     toolbar_->Update(contents);
   }
+  if (multi_contents_view_) {
+    for (ContentsContainerView* contents_container :
+         multi_contents_view_->contents_container_views()) {
+      contents_container->mini_toolbar()->UpdateContents();
+    }
+  }
 }
 
 bool BrowserView::UpdateToolbarSecurityState() {
@@ -2934,8 +2935,6 @@ void BrowserView::UpdateSidePanelHorizontalAlignment() {
       is_right_aligned ? SidePanel::HorizontalAlignment::kRight
                        : SidePanel::HorizontalAlignment::kLeft);
   GetBrowserViewLayout()->Layout(this);
-  side_panel_rounded_corner_->DeprecatedLayoutImmediately();
-  side_panel_rounded_corner_->SchedulePaint();
 }
 
 void BrowserView::FocusBookmarksToolbar() {
@@ -3424,6 +3423,11 @@ BrowserView::ShowSendTabToSelfPromoBubble(content::WebContents* web_contents,
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
+views::Button* BrowserView::GetSharingHubIconButton() {
+  return toolbar_button_provider()->GetPageActionIconView(
+      PageActionIconType::kSharingHub);
+}
+
 void BrowserView::ToggleMultitaskMenu() const {
   auto* frame_view =
       static_cast<BrowserNonClientFrameViewChromeOS*>(frame_->GetFrameView());
@@ -3443,6 +3447,12 @@ sharing_hub::SharingHubBubbleView* BrowserView::ShowSharingHubBubble(
       toolbar_button_provider()->GetAnchorView(std::nullopt), attempt,
       sharing_hub::SharingHubBubbleController::CreateOrGetFromWebContents(
           attempt.web_contents.get()));
+  PageActionIconView* icon_view =
+      toolbar_button_provider()->GetPageActionIconView(
+          PageActionIconType::kSharingHub);
+  if (icon_view) {
+    bubble->SetHighlightedButton(icon_view);
+  }
 
   views::BubbleDialogDelegateView::CreateBubble(bubble);
   // This is always triggered due to a user gesture, c.f. method documentation.
@@ -3883,6 +3893,11 @@ void BrowserView::OnSplitTabChanged(const SplitTabChange& change) {
       }
       break;
     }
+  }
+
+  // TabDialogManager handles updates based on web contents resizing.
+  if (change.type != SplitTabChange::Type::kVisualsChanged) {
+    UpdateTabModalDialogBounds();
   }
 }
 
@@ -4338,8 +4353,17 @@ void BrowserView::ReparentTopContainerForEndOfImmersive() {
   if (top_container()->parent() == this) {
     return;
   }
+  // TODO(crbug.com/442255944): In the case top_container() is not a child of
+  // BrowserView, we expect the overlay widget and overlay view to still be
+  // present. Investigate why this may not always be the case on Mac and remove
+  // this check.
+  if (!overlay_view_tracker_) {
+    LOG(ERROR) << "ReparentTopContainerForEndOfImmersive() called after "
+                  "overlay_view_ destroyed.";
+    return;
+  }
 
-  overlay_view_->SetVisible(false);
+  overlay_view_tracker_.view()->SetVisible(false);
   top_container()->DestroyLayer();
   AddChildViewAt(top_container(), 0);
   EnsureFocusOrder();
@@ -4635,11 +4659,13 @@ views::ClientView* BrowserView::CreateClientView(views::Widget* widget) {
 }
 
 views::View* BrowserView::CreateOverlayView() {
-  overlay_view_ = new TopContainerOverlayView(weak_ptr_factory_.GetWeakPtr());
-  overlay_view_->SetVisible(false);
-  overlay_view_->SetEventTargeter(std::make_unique<views::ViewTargeter>(
+  auto* overlay_view =
+      new TopContainerOverlayView(weak_ptr_factory_.GetWeakPtr());
+  overlay_view_tracker_.SetView(overlay_view);
+  overlay_view->SetVisible(false);
+  overlay_view->SetEventTargeter(std::make_unique<views::ViewTargeter>(
       std::make_unique<OverlayViewTargeterDelegate>()));
-  return overlay_view_;
+  return overlay_view;
 }
 
 #if BUILDFLAG(IS_MAC)
@@ -4694,7 +4720,7 @@ views::View* BrowserView::CreateMacOverlayView() {
 
   overlay_view->SetEventTargeter(std::make_unique<views::ViewTargeter>(
       std::make_unique<OverlayViewTargeterDelegate>()));
-  overlay_view_ = overlay_view.get();
+  overlay_view_tracker_.SetView(overlay_view.get());
   overlay_widget_->GetRootView()->AddChildView(std::move(overlay_view));
 
   if (UsesImmersiveFullscreenTabbedMode()) {
@@ -4711,7 +4737,7 @@ views::View* BrowserView::CreateMacOverlayView() {
         std::move(tab_overlay_view));
   }
 
-  return overlay_view_;
+  return overlay_view_tracker_.view();
 }
 #endif  // IS_MAC
 
@@ -4961,6 +4987,21 @@ bool BrowserView::IsTabChangeInSplitView(content::WebContents* old_contents,
              old_contents &&
          multi_contents_view_->GetInactiveContentsView()->web_contents() ==
              new_contents;
+}
+
+void BrowserView::UpdateTabModalDialogBounds() {
+  multi_contents_view_->ExecuteOnEachVisibleContentsView(
+      base::BindRepeating([](ContentsWebView* contents_view) {
+        if (contents_view->web_contents()) {
+          tabs::TabFeatures* tab_features =
+              tabs::TabInterface::GetFromContents(contents_view->web_contents())
+                  ->GetTabFeatures();
+          // When the browser is closing, TabFeatures may be destroyed.
+          if (tab_features) {
+            tab_features->tab_dialog_manager()->UpdateModalDialogBounds();
+          }
+        }
+      }));
 }
 
 void BrowserView::MaybeUpdateStoredFocusForWebContents(
@@ -5488,7 +5529,7 @@ void BrowserView::AddedToWidget() {
           contents_container_, multi_contents_view_,
           left_aligned_side_panel_separator_, unified_side_panel_,
           right_aligned_side_panel_separator_, side_panel_rounded_corner_,
-          contents_separator_));
+          top_container_separator_));
   browser_view_layout->SetUseBrowserContentMinimumSize(
       ShouldUseBrowserContentMinimumSize());
 
@@ -6388,8 +6429,9 @@ void BrowserView::OnImmersiveRevealStarted() {
 
   top_container()->SetPaintToLayer();
   top_container()->layer()->SetFillsBoundsOpaquely(false);
-  overlay_view_->AddChildViewRaw(top_container());
-  overlay_view_->SetVisible(true);
+  CHECK(overlay_view_tracker_);
+  overlay_view_tracker_.view()->AddChildViewRaw(top_container());
+  overlay_view_tracker_.view()->SetVisible(true);
   InvalidateLayout();
   GetWidget()->GetRootView()->DeprecatedLayoutImmediately();
 

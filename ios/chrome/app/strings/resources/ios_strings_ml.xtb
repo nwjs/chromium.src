@@ -1270,6 +1270,7 @@
 <translation id="5956112131836209882">ടാബ് ഗ്രൂപ്പ് ടാബ്. <ph name="NUMBER_OF_TABS_IN_GROUP" />-ൽ <ph name="TAB_INDEX_IN_GROUP" />-ാമത്തേത്.</translation>
 <translation id="595769230373966252"><ph name="SEARCH_PROVIDER" /> ഉപയോഗിച്ച് തിരയുക</translation>
 <translation id="5963939892571022323">ഹൈലൈറ്റിലേക്കുള്ള ലിങ്ക് സൃഷ്‌ടിക്കാനാകുന്നില്ല.</translation>
+<translation id="5968400720580217226">AI മോഡ്</translation>
 <translation id="5971459446352190251">QR കോഡ് തിരയൽ</translation>
 <translation id="5971872012779224351">{count,plural, =1{ഒരു ബുക്ക്‌മാർക്ക് ഇല്ലാതാക്കി}other{{count} ബുക്ക്‌മാർക്കുകൾ ഇല്ലാതാക്കി}}</translation>
 <translation id="5972844218283131174">തിരഞ്ഞെടുത്തത് എല്ലാം മാറ്റുക</translation>
@@ -1820,7 +1821,7 @@
 <translation id="8023878949384262191">വിഭാഗത്തെ വിപുലീകരിക്കുന്നു.</translation>
 <translation id="8027581147000338959">പുതിയ വിന്‍ഡോയില്‍ തുറക്കുക</translation>
 <translation id="8029092694585014252">റിമൈൻഡർ സജ്ജീകരിക്കുക</translation>
-<translation id="8032569120109842252">പിന്തുടരുന്നു</translation>
+<translation id="8032569120109842252">ഫോളോയിംഗ്</translation>
 <translation id="8035133914807600019">പുതിയ ഫോൾഡർ…</translation>
 <translation id="8035412398498507358">ഫോട്ടോകൾ</translation>
 <translation id="8040407350301524547">വഴി ഓപ്ഷനുകൾക്ക് “വഴികൾ നേടുക” ടാപ്പ് ചെയ്യുക.</translation>

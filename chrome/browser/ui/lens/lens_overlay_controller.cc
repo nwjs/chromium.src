@@ -1631,7 +1631,7 @@ void LensOverlayController::ShowOverlay() {
   // Sanity check that the overlay view is above the contents web view.
   auto* parent_view = overlay_view_->parent();
   views::View* child_contents_view = contents_web_view;
-  // TODO(crbug.com/406794005): Remove this block if overlay_view_ ends up
+  // TODO(crbug.com/443102583): Remove this block if overlay_view_ ends up
   // getting reparented such that it always shares a parent with
   // contents_web_view.
   if (base::FeatureList::IsEnabled(features::kSideBySide)) {
@@ -2074,9 +2074,12 @@ void LensOverlayController::OnSidePanelDidOpen() {
 
 void LensOverlayController::SetOverlayRoundedCorner() {
   CHECK(overlay_view_ && overlay_web_view_);
+  if (!base::FeatureList::IsEnabled(features::kSideBySide)) {
+    return;
+  }
 
   const bool should_round_corner =
-      results_side_panel_coordinator_->IsEntryShowing() && tab_->IsSplit();
+      results_side_panel_coordinator_->IsEntryShowing();
   const float radius =
       should_round_corner
           ? overlay_web_view_->GetLayoutProvider()->GetCornerRadiusMetric(
@@ -2652,8 +2655,12 @@ void LensOverlayController::HideOverlay() {
 
   // Hide the overlay view, but keep the web view attached to the overlay view
   // so that the overlay can be re-shown without creating a new web view.
-  preselection_widget_anchor_->SetVisible(false);
-  overlay_web_view_->SetVisible(false);
+  if (preselection_widget_anchor_) {
+    preselection_widget_anchor_->SetVisible(false);
+  }
+  if (overlay_web_view_) {
+    overlay_web_view_->SetVisible(false);
+  }
   MaybeHideSharedOverlayView();
 
   // Save the current value of whether live blur is enabled so that it can be

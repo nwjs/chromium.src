@@ -379,13 +379,17 @@ void OmniboxViewViews::InstallPlaceholderText() {
     // If `keyword_placeholder()` is set, then the user is in a keyword mode
     // that has placeholder text, so display that.
     SetPlaceholderText(model()->keyword_placeholder());
-  } else if (model()->is_caret_visible()) {
-    // If the Omnibox is visibly focused, display the AI Mode placeholder text
-    // to suggest tabbing into AI Mode. Note, even if the AI placeholder text is
-    // installed, it will only be visible if ShouldShowAimPlaceholderText() is
-    // also true.
+  } else if (ShouldInstallAimPlaceholderText()) {
+    // If the Omnibox is visibly focused w/ AI Mode enabled, display the AI Mode
+    // placeholder text to suggest tabbing into AI Mode. Note, even if the AI
+    // placeholder text is installed, it will only be visible if
+    // ShouldShowAimPlaceholderText() is also true.
     SetPlaceholderText(
         l10n_util::GetStringUTF16(IDS_OMNIBOX_AIM_PLACEHOLDER_TEXT));
+    // Override the AIM accessibility placeholder text, so that the tab icon is
+    // not announced.
+    GetViewAccessibility().SetPlaceholder(
+        l10n_util::GetStringUTF8(IDS_ACC_AI_MODE_PLACEHOLDER_TEXT));
   } else if (const auto* default_provider = controller()
                                                 ->client()
                                                 ->GetTemplateURLService()
@@ -1028,7 +1032,11 @@ void OmniboxViewViews::ClearAccessibilityLabel() {
 void OmniboxViewViews::SetAccessibilityLabel(const std::u16string& display_text,
                                              const AutocompleteMatch& match,
                                              bool notify_text_changed) {
-  if (model()->GetPopupSelection().line == OmniboxPopupSelection::kNoMatch) {
+  if (model()->GetPopupSelection().state ==
+          OmniboxPopupSelection::LineState::FOCUSED_BUTTON_AIM) {
+    friendly_suggestion_text_ =
+        model()->GetPopupAccessibilityLabelForAimButton();
+  } else if (model()->GetPopupSelection().line == OmniboxPopupSelection::kNoMatch) {
     // If nothing is selected in the popup, we are in the no-default-match edge
     // case, and |match| is a synthetically generated match. In that case,
     // bypass OmniboxPopupModel and get the label from our synthetic |match|.
@@ -2345,14 +2353,22 @@ void OmniboxViewViews::UpdatePlaceholderTextColor() {
   if (!GetColorProvider()) {
     return;
   }
+  bool dse_placeholder_installed = model()->keyword_placeholder().empty() &&
+      !ShouldInstallAimPlaceholderText();
   set_placeholder_text_color(GetColorProvider()->GetColor(
-      model()->keyword_placeholder().empty() && !model()->is_caret_visible()
-          ? kColorOmniboxText : kColorOmniboxTextDimmed));
+      dse_placeholder_installed ? kColorOmniboxText : kColorOmniboxTextDimmed));
+}
+
+bool OmniboxViewViews::ShouldInstallAimPlaceholderText() const {
+  return omnibox_feature_configs::AiModeOmniboxEntryPoint::Get().enabled &&
+         model()->is_caret_visible();
 }
 
 bool OmniboxViewViews::ShouldShowAimPlaceholderText() const {
-  // If the AIM button is not visible, the placeholder text is not shown.
-  if (!AimButtonVisible()) {
+  // If the hint text is hidden or the AIM button is not visible, the
+  // placeholder text is not shown.
+  if (omnibox_feature_configs::AiModeOmniboxEntryPoint::Get()
+          .hide_aim_hint_text || !AimButtonVisible()) {
     return false;
   }
   // The placeholder text should only be shown when the omnibox is visibly

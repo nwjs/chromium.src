@@ -498,6 +498,13 @@ const char kDefaultBrowserTriggerCriteriaExperimentDescription[] =
     "When enabled, default browser promo will be displayed to user without "
     "matching all the trigger criteria.";
 
+const char kPersistentDefaultBrowserPromoName[] =
+    "Persist default browser promo through app backgrounding";
+const char kPersistentDefaultBrowserPromoDescription[] =
+    "When enabled, the default browser promo will persist through "
+    "backgrounding the app so the instructions remain visible when coming "
+    "back.";
+
 const char kDeprecateFeedHeaderExperimentName[] =
     "Deprecate feed header toggle experiment";
 const char kDeprecateFeedHeaderExperimentDescription[] =
@@ -736,6 +743,12 @@ const char kInProductHelpDemoModeDescription[] =
     "start. Enabled causes all in-product help promotions to occur. Enabling "
     "an individual promotion causes that promotion but no other promotions to "
     "occur.";
+
+const char kIOSAppBundlePromoEphemeralCardName[] =
+    "Enable App Bundle Promo Magic Stack Card";
+const char kIOSAppBundlePromoEphemeralCardDescription[] =
+    "Enables showing a promotional card for the Best of Google app "
+    "bundle in the Magic Stack.";
 
 const char kIOSBrowserEditMenuMetricsName[] = "Browser edit menu metrics";
 const char kIOSBrowserEditMenuMetricsDescription[] =

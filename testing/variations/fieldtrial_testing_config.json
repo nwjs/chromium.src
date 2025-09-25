@@ -697,6 +697,15 @@
             ],
             "experiments": [
                 {
+                    "name": "EnabledV2",
+                    "params": {
+                        "v2_enabled": "true"
+                    },
+                    "enable_features": [
+                        "AndroidComposeplate"
+                    ]
+                },
+                {
                     "name": "Enabled",
                     "enable_features": [
                         "AndroidComposeplate"
@@ -1373,6 +1382,21 @@
             ]
         }
     ],
+    "AppBundlePromoMagicStackStudy": [
+        {
+            "platforms": [
+                "ios"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "AppBundlePromoEphemeralCard"
+                    ]
+                }
+            ]
+        }
+    ],
     "AppListLaunchRecorder": [
         {
             "platforms": [
@@ -1828,6 +1852,26 @@
                     "name": "Enabled",
                     "enable_features": [
                         "AsyncQuicSession"
+                    ]
+                }
+            ]
+        }
+    ],
+    "AsyncTouchMovesImmediatelyAfterScroll": [
+        {
+            "platforms": [
+                "android",
+                "android_webview",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "AsyncTouchMovesImmediatelyAfterScroll"
                     ]
                 }
             ]
@@ -8092,7 +8136,8 @@
                     },
                     "enable_features": [
                         "Prerender2ReuseHost",
-                        "Prewarm"
+                        "Prewarm",
+                        "ReusePrerenderingProcessForMainFrames"
                     ]
                 }
             ]
@@ -9246,6 +9291,24 @@
             ]
         }
     ],
+    "DisplayMediaRejectLongDomains": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "DisplayMediaRejectLongDomains"
+                    ]
+                }
+            ]
+        }
+    ],
     "DlpRegionalizedEndpoints": [
         {
             "platforms": [
@@ -10010,6 +10073,22 @@
                     "name": "Enabled",
                     "enable_features": [
                         "EnablePolicyPromotionBanner"
+                    ]
+                }
+            ]
+        }
+    ],
+    "EnablePreferencesAccountStorageChromeOS": [
+        {
+            "platforms": [
+                "chromeos"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "EnablePreferencesAccountStorage",
+                        "SyncSupportAlwaysSyncingPriorityPreferences"
                     ]
                 }
             ]
@@ -12754,6 +12833,15 @@
                     "name": "EnabledWithEnlargedFakeboxNoIncognito",
                     "params": {
                         "kNTPMIAEntrypointParam": "kNTPMIAEntrypointParamEnlargedFakeboxNoIncognito"
+                    },
+                    "enable_features": [
+                        "kNTPMIAEntrypoint"
+                    ]
+                },
+                {
+                    "name": "EnabledWithAIMInQuickActions",
+                    "params": {
+                        "kNTPMIAEntrypointParam": "kNTPMIAEntrypointParamAIMInQuickActions"
                     },
                     "enable_features": [
                         "kNTPMIAEntrypoint"
@@ -16345,9 +16433,13 @@
                 {
                     "name": "Enabled",
                     "params": {
-                        "ConfigParam": "CgIIAxI8CAEQARoXCAAQ4MZbGMAMIMAMKCgyB2ltYWdlLyoiGwiAhK9fEhQucGRmLGFwcGxpY2F0aW9uL3BkZigB"
+                        "ConfigParam": "CgIIAxI8CAEQARoXCAAQ4MZbGMAMIMAMKCgyB2ltYWdlLyoiGwiAhK9fEhQucGRmLGFwcGxpY2F0aW9uL3BkZigB",
+                        "SendLnsSurfaceParam": "true",
+                        "ShowComposeboxZps": "true",
+                        "ShowContextMenu": "true"
                     },
                     "enable_features": [
+                        "ComposeboxUsesChromeComposeClient",
                         "NtpComposebox"
                     ]
                 }
@@ -17031,6 +17123,23 @@
                     },
                     "enable_features": [
                         "OptimizationHints"
+                    ]
+                }
+            ]
+        }
+    ],
+    "OptimizationGuideOnDeviceModelCpuBackend": [
+        {
+            "platforms": [
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "OnDeviceModelCpuBackend"
                     ]
                 }
             ]
@@ -18737,6 +18846,24 @@
                     "enable_features": [
                         "NetworkContextPrefetch",
                         "PrefetchManagerUseNetworkContextPrefetch"
+                    ]
+                }
+            ]
+        }
+    ],
+    "PrefetchNewTabPageTrigger": [
+        {
+            "platforms": [
+                "linux",
+                "mac",
+                "windows",
+                "chromeos"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "NewTabPageTriggerForPrefetch"
                     ]
                 }
             ]
@@ -23079,6 +23206,35 @@
             ]
         }
     ],
+    "SendEmptyGestureScrollUpdate": [
+        {
+            "platforms": [
+                "android",
+                "android_webview",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "SendEmptyGestureScrollUpdate"
+                    ]
+                },
+                {
+                    "name": "FilterOutEmptyUpdates",
+                    "params": {
+                        "filter_out_empty_updates": "true"
+                    },
+                    "enable_features": [
+                        "SendEmptyGestureScrollUpdate"
+                    ]
+                }
+            ]
+        }
+    ],
     "SendTabToSelfIOSPushNotifications": [
         {
             "platforms": [
@@ -25900,6 +26056,21 @@
             ]
         }
     ],
+    "UseEncryptedReportingPipelineToReportArcAppInstallEvents": [
+        {
+            "platforms": [
+                "chromeos"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "UseEncryptedReportingPipelineToReportArcAppInstallEvents"
+                    ]
+                }
+            ]
+        }
+    ],
     "UseFinchPermanentCountyForFetchCountryId": [
         {
             "platforms": [
@@ -26497,6 +26668,25 @@
                     "name": "Enabled",
                     "enable_features": [
                         "VSyncDecoding"
+                    ]
+                }
+            ]
+        }
+    ],
+    "VariationsHeaderForCrossSiteSpeculationRulesPrefetch": [
+        {
+            "platforms": [
+                "android",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "VariationsHeaderForCrossSiteSpeculationRulesPrefetch"
                     ]
                 }
             ]
@@ -28517,6 +28707,25 @@
                     },
                     "enable_features": [
                         "ZeroStateSuggestionsV2"
+                    ]
+                }
+            ]
+        }
+    ],
+    "ZstdForCrossSiteSpeculationRulesPrefetch": [
+        {
+            "platforms": [
+                "android",
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "ZstdForCrossSiteSpeculationRulesPrefetch"
                     ]
                 }
             ]

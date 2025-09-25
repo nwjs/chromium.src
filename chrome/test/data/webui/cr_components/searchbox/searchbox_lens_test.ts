@@ -34,6 +34,7 @@ function createAutocompleteMatch(): AutocompleteMatch {
     descriptionClass: [{offset: 0, style: 0}],
     destinationUrl: {url: ''},
     inlineAutocompletion: stringToMojoString16(''),
+    isNoncannedAimSuggestion: false,
     fillIntoEdit: stringToMojoString16(''),
     iconPath: '',
     iconUrl: {url: ''},
@@ -133,6 +134,7 @@ suite('Lens search', () => {
       input: stringToMojoString16(realbox.$.input.value.trimStart()),
       matches,
       suggestionGroupsMap: {},
+      smartComposeInlineHint: stringToMojoString16(''),
     });
     await testProxy.callbackRouterRemote.$.flushForTesting();
     assertTrue(areMatchesShowing());

@@ -582,7 +582,7 @@
 <translation id="7896673875602241923">Seseorang telah masuk ke Chrome pada komputer ini sebagai <ph name="ACCOUNT_EMAIL_LAST" />. Harap buat pengguna Chrome baru untuk memisahkan informasi Anda.</translation>
 <translation id="7904985524660297937">Coba Gemini di Google Chrome</translation>
 <translation id="7917876797003313048">Anda dapat mengelola Akun Google yang Anda gunakan untuk login. Akun Google Anda digunakan untuk browser Chrome, Play Store, Gmail, dan lainnya. Jika Anda ingin menambahkan akun untuk orang lain, seperti anggota keluarga, tambahkan pengguna baru ke <ph name="DEVICE_TYPE" />. <ph name="LINK_BEGIN" />Pelajari lebih lanjut<ph name="LINK_END" /></translation>
-<translation id="7936702483636872823">Chrome memblokir download ini karena file tersebut menipu dan dapat menyebabkan perubahan tak terduga di perangkat Anda</translation>
+<translation id="7936702483636872823">Chrome memblokir download ini karena file tersebut tidak jujur dan dapat menyebabkan perubahan tak terduga di perangkat Anda</translation>
 <translation id="7951272445806340501">ChromeOS Flex perlu dimulai ulang untuk menerapkan update.</translation>
 <translation id="7959172989483770734">Kelola Profil Chrome</translation>
 <translation id="7962410387636238736">Komputer ini tidak akan menerima update Google Chrome lagi karena Windows XP dan Windows Vista sudah tidak didukung</translation>
@@ -615,6 +615,7 @@
 <translation id="8336463659890584292">Saat sebuah situs meminta untuk melakukan pramuat link yang ada di halamannya secara pribadi, Chrome akan menggunakan server Google. Hal ini akan menyembunyikan identitas Anda dari situs yang dipramuat, tetapi Google akan mempelajari situs apa yang dipramuat.</translation>
 <translation id="8342675569599923794">File ini berbahaya, jadi Chrome telah memblokirnya.</translation>
 <translation id="8349094670477064572">Anda akan menyimpan dan menggunakan sandi serta data lainnya di Akun Google Anda setiap kali Anda login ke Chrome. <ph name="LEARN_MORE" /></translation>
+<translation id="835927394551949760">Tanya Google</translation>
 <translation id="8362914115861174987">Terjemahkan ke</translation>
 <translation id="8366770919198174997">Menurunkan performa tetapi membuat Chrome lebih tahan terhadap serangan</translation>
 <translation id="8370517070665726704">Hak cipta <ph name="YEAR" /> Google LLC. Semua hak dilindungi undang-undang.</translation>

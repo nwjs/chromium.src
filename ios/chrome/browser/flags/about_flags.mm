@@ -99,6 +99,7 @@
 #import "ios/chrome/browser/browsing_data/model/browsing_data_features.h"
 #import "ios/chrome/browser/crash_report/model/features.h"
 #import "ios/chrome/browser/credential_provider/model/features.h"
+#import "ios/chrome/browser/default_browser/model/features.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/download/ui/features.h"
 #import "ios/chrome/browser/enterprise/data_controls/features.h"
@@ -174,6 +175,8 @@ const FeatureEntry::FeatureParam
 const FeatureEntry::FeatureParam kNTPMIAEntrypointEnlargedFakeboxNoIncognito[] =
     {{kNTPMIAEntrypointParam,
       kNTPMIAEntrypointParamEnlargedFakeboxNoIncognito}};
+const FeatureEntry::FeatureParam kNTPMIAEntrypointAIMInQuickActions[] = {
+    {kNTPMIAEntrypointParam, kNTPMIAEntrypointParamAIMInQuickActions}};
 
 const FeatureEntry::FeatureVariation kNTPMIAEntrypointVariations[] = {
     {"A: Contained in Omnibox, single button",
@@ -188,6 +191,9 @@ const FeatureEntry::FeatureVariation kNTPMIAEntrypointVariations[] = {
     {"D: Contained in enlarged fakebox, without incognito shortcut",
      kNTPMIAEntrypointEnlargedFakeboxNoIncognito,
      std::size(kNTPMIAEntrypointEnlargedFakeboxNoIncognito), nullptr},
+    {"E: AIM entry point in quick actions, enlarged fakebox",
+     kNTPMIAEntrypointAIMInQuickActions,
+     std::size(kNTPMIAEntrypointAIMInQuickActions), nullptr},
 };
 
 const FeatureEntry::FeatureParam kOmniboxUIMaxAutocompleteMatches3[] = {
@@ -1894,6 +1900,10 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(
          feature_engagement::kDefaultBrowserTriggerCriteriaExperiment)},
+    {"persistent-default-browser-promo",
+     flag_descriptions::kPersistentDefaultBrowserPromoName,
+     flag_descriptions::kPersistentDefaultBrowserPromoDescription,
+     flags_ui::kOsIos, FEATURE_VALUE_TYPE(kPersistentDefaultBrowserPromo)},
     {"blue-dot-on-tools-menu-button",
      flag_descriptions::kBlueDotOnToolsMenuButtonName,
      flag_descriptions::kBlueDotOnToolsMenuButtonDescription, flags_ui::kOsIos,
@@ -2923,6 +2933,12 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kAutofillBottomSheetNewBlurName,
      flag_descriptions::kAutofillBottomSheetNewBlurDescription,
      flags_ui::kOsIos, FEATURE_VALUE_TYPE(kAutofillBottomSheetNewBlur)},
+    {"ios-app-bundle-promo-magic-stack",
+     flag_descriptions::kIOSAppBundlePromoEphemeralCardName,
+     flag_descriptions::kIOSAppBundlePromoEphemeralCardDescription,
+     flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(
+         segmentation_platform::features::kAppBundlePromoEphemeralCard)},
 };
 
 bool SkipConditionalFeatureEntry(const flags_ui::FeatureEntry& entry) {

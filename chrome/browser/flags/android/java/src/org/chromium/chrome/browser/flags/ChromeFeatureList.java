@@ -1458,6 +1458,8 @@ public abstract class ChromeFeatureList {
     public static final BooleanCachedFeatureParam sAndroidComposeplateHideIncognitoButton =
             newBooleanCachedFeatureParam(ANDROID_COMPOSEPLATE, "hide_incognito_button", false);
 
+    public static final BooleanCachedFeatureParam sAndroidComposeplateV2Enabled =
+            newBooleanCachedFeatureParam(ANDROID_COMPOSEPLATE, "v2_enabled", false);
     public static final BooleanCachedFeatureParam sAndroidBottomToolbarDefaultToTop =
             newBooleanCachedFeatureParam(ANDROID_BOTTOM_TOOLBAR, "default_to_top", true);
 
@@ -1719,6 +1721,13 @@ public abstract class ChromeFeatureList {
                     "read_aloud_audio_overviews_speed_addition_percentage",
                     20);
 
+    public static final BooleanCachedFeatureParam sShouldConsiderLanguageInOverviewReadability =
+            newBooleanCachedFeatureParam(
+              READALOUD_AUDIO_OVERVIEWS,
+              "read_aloud_audio_overviews_should_consider_language_in_overview_readability",
+              false
+            );
+
     /** Controls whether Referrer App ID is passed to Search Results Page via client= param. */
     public static final BooleanCachedFeatureParam sSearchinCctApplyReferrerId =
             newBooleanCachedFeatureParam(SEARCH_IN_CCT, "apply_referrer_id", false);
@@ -1794,6 +1803,7 @@ public abstract class ChromeFeatureList {
                     sAndroidBottomToolbarDefaultToTop,
                     sAndroidComposeplateHideIncognitoButton,
                     sAndroidComposeplateSkipLocaleCheck,
+                    sAndroidComposeplateV2Enabled,
                     sAndroidThemeModuleForceDependencies,
                     sAndroidThemeResourceProviderForceLight,
                     sBackgroundThreadPoolFieldTrialConfig,
@@ -1852,6 +1862,7 @@ public abstract class ChromeFeatureList {
                     sReadAloudAudioOverviewsSpeedAdditionPercentage,
                     sSearchinCctApplyReferrerId,
                     sSearchinCctOmniboxAllowedPackageNames,
+                    sShouldConsiderLanguageInOverviewReadability,
                     sStartSurfaceReturnTimeTabletSecs,
                     sTabGroupListContainment,
                     sTabStripLayoutOptimizationOemAllowlist,

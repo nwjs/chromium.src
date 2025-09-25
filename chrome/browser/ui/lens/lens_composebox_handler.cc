@@ -49,8 +49,10 @@ LensComposeboxHandler::LensComposeboxHandler(
 
 LensComposeboxHandler::~LensComposeboxHandler() = default;
 
-void LensComposeboxHandler::SubmitQuery(const std::string& query_text,
-                                        WindowOpenDisposition disposition) {
+void LensComposeboxHandler::SubmitQuery(
+    const std::string& query_text,
+    WindowOpenDisposition disposition,
+    std::map<std::string, std::string> additional_params) {
   lens_composebox_controller_->IssueComposeboxQuery(query_text);
 }
 
@@ -70,24 +72,32 @@ void LensComposeboxHandler::SubmitQuery(const std::string& query_text,
                                         bool ctrl_key,
                                         bool meta_key,
                                         bool shift_key) {
-  SubmitQuery(query_text, ui::DispositionFromClick(
-                              /*middle_button=*/mouse_button == 1, alt_key,
-                              ctrl_key, meta_key, shift_key));
+  SubmitQuery(query_text,
+              ui::DispositionFromClick(
+                  /*middle_button=*/mouse_button == 1, alt_key, ctrl_key,
+                  meta_key, shift_key),
+              /*additional_params=*/{});
 }
 
 void LensComposeboxHandler::FocusChanged(bool focused) {
   lens_composebox_controller_->OnFocusChanged(focused);
 }
 
-void LensComposeboxHandler::AddFile(
+void LensComposeboxHandler::AddFileContext(
     composebox::mojom::SelectedFileInfoPtr file_info_mojom,
     mojo_base::BigBuffer file_bytes,
-    AddFileCallback callback) {
+    AddFileContextCallback callback) {
   // Ignored, intentionally unimplemented for Lens. Adding files via the
   // composebox is not yet supported.
 }
 
-void LensComposeboxHandler::DeleteFile(
+void LensComposeboxHandler::AddTabContext(int32_t tab_id,
+                                          AddTabContextCallback callback) {
+  // Ignored, intentionally unimplemented for Lens. Adding tabs via the
+  // composebox is not yet supported.
+}
+
+void LensComposeboxHandler::DeleteContext(
     const base::UnguessableToken& file_token) {
   // Ignored, intentionally unimplemented for Lens. Adding files via the
   // composebox is not yet supported.

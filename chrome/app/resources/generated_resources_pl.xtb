@@ -200,6 +200,7 @@ Twoje hasła przechowuje <ph name="GOOGLE_PASSWORD_MANAGER" />. Możesz je spraw
 <translation id="1129348283834595293">Cyberpunk</translation>
 <translation id="1129420403709586868">Wyświetlaj zdjęcia i pliki multimedialne z telefonu</translation>
 <translation id="1129850422003387628">Zarządzaj aplikacjami</translation>
+<translation id="1130116586186908674">Utwórz widok dzielony</translation>
 <translation id="1130430615924359526">{0,plural, =1{Zamknij tryb incognito}few{Zamknij tryb incognito (# okna)}many{Zamknij tryb incognito (# okien)}other{Zamknij tryb incognito (# okna)}}</translation>
 <translation id="113050636487300043">Wybierz nazwę i motyw kolorystyczny, aby rozróżniać profile</translation>
 <translation id="1130589222747246278"><ph name="WINDOW_TITLE" /> – należy do grupy <ph name="GROUP_NAME" /></translation>
@@ -431,6 +432,7 @@ Domena <ph name="DOMAIN" /> wymaga, by karta inteligentna pozostała w gnieźdz
 <translation id="1277020343994096713">Nowy kod PIN musi różnić się od bieżącego</translation>
 <translation id="1277597051786235230">&amp;Szukaj „<ph name="SEARCH_TERMS" />” w <ph name="SEARCH_ENGINE" /> na stronie Nowa karta</translation>
 <translation id="127849925363482083">Naciśnij ponownie <ph name="SHORTCUT_TEXT" />, aby zamknąć przypiętą kartę</translation>
+<translation id="1278542245784398460">Kliknij tę kartę prawym przyciskiem i wybierz „Dodaj kartę do nowego widoku dzielonego”</translation>
 <translation id="1278859221870828664">Zapoznaj się z dokumentami dotyczącymi aplikacji i usług Google Play</translation>
 <translation id="1279024913354609713">Nie zezwalaj</translation>
 <translation id="127946606521051357">Urządzenie w pobliżu udostępnia dane</translation>
@@ -738,6 +740,7 @@ Na tym koncie mogą obowiązywać uprawnienia przyznane wcześniej aplikacjom. U
 <translation id="1503392482221435031">Automatycznie wysyła statystyki użytkowania do Google. Raporty o awariach możesz włączać i wyłączać w ustawieniach urządzenia.</translation>
 <translation id="1503556098270577657">Zalogowałeś(-aś) się na konto <ph name="USER_EMAIL" /> przy użyciu telefonu z Androidem</translation>
 <translation id="150411034776756821">Usuń <ph name="SITE" /></translation>
+<translation id="1504253885059472207">Przypnij widok dzielony</translation>
 <translation id="1504551620756424144">Foldery udostępnione są dostępne w systemie Windows w folderze <ph name="BASE_DIR" />.</translation>
 <translation id="1505494256539862015">wyeksportować hasła</translation>
 <translation id="1505654899813338756">Możesz pogrupować karty, aby powiązane strony były razem i aby zostały zapisane na wszystkich Twoich urządzeniach</translation>
@@ -885,6 +888,7 @@ Na tym koncie mogą obowiązywać uprawnienia przyznane wcześniej aplikacjom. U
 <translation id="1597806446183714225">Popraw jakość dźwięku, aby głosy brzmiały naturalnie i wyraźnie.</translation>
 <translation id="1598163867407640634">Korzystaj z witryny <ph name="SITE_ETLD_PLUS_ONE" />, używając: <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /></translation>
 <translation id="1598233202702788831">Aktualizacje zostały wyłączone przez administratora.</translation>
+<translation id="1598293830962835699">Szybko twórz widok dzielony, gdy go potrzebujesz</translation>
 <translation id="1600857548979126453">Dostęp do backendu debugera stron</translation>
 <translation id="1601481906560916994">Wyklucz witrynę</translation>
 <translation id="1601560923496285236">Zastosuj</translation>
@@ -3012,7 +3016,6 @@ Domena <ph name="DOMAIN" /> wymaga, by karta inteligentna pozostała w gnieźdz
 <translation id="3048589239114571785">Odtwórz (k)</translation>
 <translation id="3048742847101793553">Twoja organizacja zablokowała ten plik, ponieważ skanowanie się nie powiodło.</translation>
 <translation id="3048917188684939573">Dzienniki przesyłania i urządzenia</translation>
-<translation id="3049525403650329038">Udostępnij Gemini zawartość strony, aby otrzymywać trafniejsze odpowiedzi. Nie używamy Twoich danych do ulepszania modeli generatywnej AI.</translation>
 <translation id="3051250416341590778">Rozmiar wyświetlacza</translation>
 <translation id="3053013834507634016">Użycie klucza certyfikatu</translation>
 <translation id="3053273573829329829">Włącz kod PIN użytkownika</translation>
@@ -3096,6 +3099,7 @@ Domena <ph name="DOMAIN" /> wymaga, by karta inteligentna pozostała w gnieźdz
 <translation id="3122883569442693641">Więcej szczegółów</translation>
 <translation id="3124111068741548686">Uchwyty USER</translation>
 <translation id="3124332159330678621">Spersonalizuj Chrome, aby zmienić wygląd przeglądarki</translation>
+<translation id="3125361247594231799">Przypnij na następny raz</translation>
 <translation id="3125816458150005808">Możesz je odpiąć i otworzyć z poziomu menu</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3127860049873093642">Aby uniknąć problemów z ładowaniem i działaniem urządzenia, używaj zgodnego z nim zasilacza firmy Dell lub zasilacza USB typu C.</translation>
@@ -3515,7 +3519,7 @@ Domena <ph name="DOMAIN" /> wymaga, by karta inteligentna pozostała w gnieźdz
 <translation id="3435896845095436175">Włącz</translation>
 <translation id="3436118221454753036">Zapytaj w trybie AI</translation>
 <translation id="3437072258256045988">Zarządzaj aktywnością w aplikacjach z Gemini</translation>
-<translation id="3437397693214267762">Wyświetlanie kalendarza Outlooka i plików SharePoint oraz OneDrive</translation>
+<translation id="3437397693214267762">Wyświetlaj kalendarz Outlooka i pliki SharePoint oraz OneDrive</translation>
 <translation id="3438633801274389918">Ninja</translation>
 <translation id="3439153939049640737">Zawsze zezwalaj witrynie <ph name="HOST" /> na dostęp do mikrofonu</translation>
 <translation id="3439970425423980614">Otwieranie podglądu PDF</translation>
@@ -4815,6 +4819,7 @@ Domena <ph name="DOMAIN" /> wymaga, by karta inteligentna pozostała w gnieźdz
 <translation id="4310139701823742692">Plik ma niewłaściwy format. Sprawdź plik PPD i spróbuj ponownie.</translation>
 <translation id="4310496734563057511">Jeśli udostępniasz to urządzenie innym osobom, możesz włączyć funkcję Windows Hello, aby urządzenie potwierdzało Twoją tożsamość za każdym razem, gdy używasz zapisanego hasła</translation>
 <translation id="431076611119798497">&amp;Szczegóły</translation>
+<translation id="431127643228811252">Widok dzielony ułatwia wielozadaniowość</translation>
 <translation id="4311284648179069796">Nie zezwolono na odczytywanie ani zmienianie danych</translation>
 <translation id="4312701113286993760">{COUNT,plural, =1{1 konto Google}few{<ph name="EXTRA_ACCOUNTS" /> konta Google}many{<ph name="EXTRA_ACCOUNTS" /> kont Google}other{<ph name="EXTRA_ACCOUNTS" /> konta Google}}</translation>
 <translation id="4312866146174492540">Blokuj (domyślnie)</translation>
@@ -8076,6 +8081,7 @@ Masz jeszcze # przejętego hasła. Menedżer haseł Google zaleca, aby jak najs
 <translation id="6657240842932274095">Zezwolić usługom systemowym na korzystanie z Twojej lokalizacji?</translation>
 <translation id="6657585470893396449">Hasło</translation>
 <translation id="6659213950629089752">Powiększenie strony zostało zmienione przez rozszerzenie „<ph name="NAME" />”</translation>
+<translation id="6659594942844771486">Karta</translation>
 <translation id="6660099350750552197"><ph name="WINDOW_TITLE" /> – nagrywanie za pomocą kamery</translation>
 <translation id="6660301751798595791">Wybierz głos</translation>
 <translation id="6660819301598582123">Pchnąć w tę łódź jeża lub ośm skrzyń fig.</translation>
@@ -8490,6 +8496,7 @@ Masz jeszcze # przejętego hasła. Menedżer haseł Google zaleca, aby jak najs
 <translation id="6931690462168617033">Siła kliknięcia</translation>
 <translation id="6933321725007230600">Włącz &amp;synchronizację…</translation>
 <translation id="693459579445775904">Pliki pakietów językowych są udostępniane wszystkim użytkownikom urządzenia, aby nie zajmowały za dużo miejsca na dysku</translation>
+<translation id="6934597021412437058">Teraz możesz używać widoku dzielonego do porównywania, wykonywania wielu zadań jednocześnie i nie tylko</translation>
 <translation id="6935031746833428401">Więcej informacji o zarządzaniu urządzeniem</translation>
 <translation id="6935286146439255109">Brakuje zasobnika na papier</translation>
 <translation id="6938386202199793006">Masz jedną zapisaną drukarkę.</translation>
@@ -9592,6 +9599,7 @@ Mogą one obejmować informacje o zainstalowanym oprogramowaniu, plikach, przeg
 <translation id="7705276765467986571">Nie można wczytać modelu zakładek.</translation>
 <translation id="7705334495398865155">Aby uniemożliwić innym śledzenie tego urządzenia, włącz randomizację jego identyfikatora (BSSID).</translation>
 <translation id="7705524343798198388">VPN</translation>
+<translation id="7706742200777909964">Umieść strony obok siebie na tej samej karcie, aby łatwo porównywać opcje i inne elementy</translation>
 <translation id="7707108266051544351">Tej stronie zablokowano używanie czujników ruchu.</translation>
 <translation id="7707922173985738739">Użycie mobilnej transmisji danych</translation>
 <translation id="770831926727930011">Dane lokalne są chronione starym hasłem. Wpisz je, aby odzyskać te dane.</translation>

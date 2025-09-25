@@ -1270,6 +1270,7 @@
 <translation id="5956112131836209882">分頁群組分頁。第 <ph name="TAB_INDEX_IN_GROUP" /> 個，共 <ph name="NUMBER_OF_TABS_IN_GROUP" /> 個。</translation>
 <translation id="595769230373966252">使用「<ph name="SEARCH_PROVIDER" />」搜尋</translation>
 <translation id="5963939892571022323">無法建立醒目顯示文字的連結。</translation>
+<translation id="5968400720580217226">AI 模式</translation>
 <translation id="5971459446352190251">QR code 搜尋</translation>
 <translation id="5971872012779224351">{count,plural, =1{已刪除 1 個書籤}other{已刪除 {count} 個書籤}}</translation>
 <translation id="5972844218283131174">全部取消選取</translation>
@@ -1884,7 +1885,7 @@
 <translation id="826614135184049678">你已在重設 iPad 時登出帳戶 (<ph name="USER_NAME" />)，如要重新登入，請輕觸下方的「繼續」。</translation>
 <translation id="8273982424131314219">資訊即將填入到「<ph name="URL" />」</translation>
 <translation id="8275068909952022340">更多…</translation>
-<translation id="8277328362018795342">分享頁面內容，提供更符合需求的答案</translation>
+<translation id="8277328362018795342">允許系統分享頁面內容，以提供更符合需求的答案</translation>
 <translation id="8278488584187265939">自訂首頁</translation>
 <translation id="8281781826761538115">預設 - <ph name="DEFAULT_LOCALE" /></translation>
 <translation id="8281886186245836920">略過</translation>

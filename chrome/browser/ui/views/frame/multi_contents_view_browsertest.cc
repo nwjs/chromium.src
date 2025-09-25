@@ -38,6 +38,7 @@
 #include "ui/base/ozone_buildflags.h"
 #include "ui/compositor/layer_tree_owner.h"
 #include "ui/ozone/public/ozone_platform.h"
+#include "ui/views/controls/separator.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/view_utils.h"
 #include "url/gurl.h"
@@ -108,7 +109,8 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewBrowserTest,
   ui::DropTargetEvent event(data, point, point, ui::DragDropTypes::DRAG_LINK);
 
   drop_target_view()->Show(MultiContentsDropTargetView::DropSide::END,
-                           MultiContentsDropTargetView::DropTargetState::kFull);
+                           MultiContentsDropTargetView::DropTargetState::kFull,
+                           MultiContentsDropTargetView::DragType::kLink);
   auto drop_cb = drop_target_view()->GetDropCallback(event);
   EXPECT_FALSE(multi_contents_view()->IsInSplitView());
 
@@ -144,7 +146,8 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewBrowserTest,
   ui::DropTargetEvent event(data, point, point, ui::DragDropTypes::DRAG_LINK);
 
   drop_target_view()->Show(MultiContentsDropTargetView::DropSide::START,
-                           MultiContentsDropTargetView::DropTargetState::kFull);
+                           MultiContentsDropTargetView::DropTargetState::kFull,
+                           MultiContentsDropTargetView::DragType::kLink);
   auto drop_cb = drop_target_view()->GetDropCallback(event);
   EXPECT_FALSE(multi_contents_view()->IsInSplitView());
 
@@ -180,7 +183,8 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewBrowserTest,
   ui::DropTargetEvent event(data, point, point, ui::DragDropTypes::DRAG_LINK);
 
   drop_target_view()->Show(MultiContentsDropTargetView::DropSide::START,
-                           MultiContentsDropTargetView::DropTargetState::kFull);
+                           MultiContentsDropTargetView::DropTargetState::kFull,
+                           MultiContentsDropTargetView::DragType::kLink);
   auto drop_cb = drop_target_view()->GetDropCallback(event);
   EXPECT_FALSE(multi_contents_view()->IsInSplitView());
 
@@ -216,7 +220,8 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewBrowserTest,
 
   // Show the drop target on the end side.
   drop_target_view()->Show(MultiContentsDropTargetView::DropSide::END,
-                           MultiContentsDropTargetView::DropTargetState::kFull);
+                           MultiContentsDropTargetView::DropTargetState::kFull,
+                           MultiContentsDropTargetView::DragType::kLink);
 
   // Create a second browser with a tab to be dragged.
   Browser* browser2 = CreateBrowser(browser()->profile());
@@ -261,7 +266,8 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewBrowserTest,
 
   // Show the drop target on the start side.
   drop_target_view()->Show(MultiContentsDropTargetView::DropSide::START,
-                           MultiContentsDropTargetView::DropTargetState::kFull);
+                           MultiContentsDropTargetView::DropTargetState::kFull,
+                           MultiContentsDropTargetView::DragType::kLink);
 
   // Create a second browser with a tab to be dragged.
   Browser* browser2 = CreateBrowser(browser()->profile());
@@ -516,4 +522,139 @@ IN_PROC_BROWSER_TEST_F(
 
   // Should resized twice.
   EXPECT_EQ(GetResizeCount(split_tab), 2);
+}
+
+IN_PROC_BROWSER_TEST_F(MultiContentsViewBrowserTest, SeparatorLayout) {
+  MultiContentsView* view = multi_contents_view();
+  view->SetShouldShowTrailingSeparator(true);
+  view->SetShouldShowLeadingSeparator(true);
+  view->SetShouldShowTopSeparator(true);
+
+  gfx::Rect initial_bounds(10, 20, 100, 80);
+  std::vector<views::ChildLayout> actual_child_layouts;
+
+  gfx::Rect remaining_space =
+      view->CalculateSeparatorLayouts(initial_bounds, actual_child_layouts);
+
+  constexpr int kSeparatorThickness = views::Separator::kThickness;
+
+  gfx::Rect expected_remaining_space(
+      initial_bounds.x() + kSeparatorThickness,
+      initial_bounds.y() + kSeparatorThickness,
+      initial_bounds.width() - 2 * kSeparatorThickness,
+      initial_bounds.height() - kSeparatorThickness);
+  EXPECT_EQ(expected_remaining_space, remaining_space);
+
+  std::vector<views::ChildLayout> expected_separator_layouts;
+  expected_separator_layouts.emplace_back(
+      view->contents_separators_.top_separator.get(), true,
+      gfx::Rect(10, 20, 100, kSeparatorThickness));
+  expected_separator_layouts.emplace_back(
+      view->contents_separators_.leading_separator.get(), true,
+      gfx::Rect(10, 20, kSeparatorThickness, 80));
+  expected_separator_layouts.emplace_back(
+      view->contents_separators_.trailing_separator.get(), true,
+      gfx::Rect(10 + 100 - kSeparatorThickness, 20, kSeparatorThickness, 80));
+  expected_separator_layouts.emplace_back(
+      view->contents_separators_.top_leading_rounded_corner.get(), true,
+      gfx::Rect(initial_bounds.origin(),
+                view->contents_separators_.top_leading_rounded_corner
+                    ->GetPreferredSize()));
+  expected_separator_layouts.emplace_back(
+      view->contents_separators_.top_trailing_rounded_corner.get(), true,
+      gfx::Rect(
+          gfx::Point(initial_bounds.right() -
+                         view->contents_separators_.top_trailing_rounded_corner
+                             ->GetPreferredSize()
+                             .width(),
+                     initial_bounds.y()),
+          view->contents_separators_.top_trailing_rounded_corner
+              ->GetPreferredSize()));
+
+  EXPECT_THAT(actual_child_layouts,
+              testing::UnorderedElementsAreArray(expected_separator_layouts));
+}
+
+IN_PROC_BROWSER_TEST_F(MultiContentsViewBrowserTest, DropTargetLayout) {
+// TODO(crbug.com/425715421): Fix drag and drop on Wayland.
+#if BUILDFLAG(IS_OZONE)
+  if (!ui::OzonePlatform::GetInstance()
+           ->GetPlatformProperties()
+           .supports_split_view_drag_and_drop) {
+    return;
+  }
+#endif
+
+  MultiContentsView* view = multi_contents_view();
+  gfx::Rect initial_bounds(10, 20, 100, 80);
+
+  // Drop target hidden.
+  {
+    std::vector<views::ChildLayout> actual_child_layouts;
+    view->drop_target_view_->SetVisible(false);
+    view->drop_target_view_->animation_for_testing().End();
+    gfx::Rect remaining_space =
+        view->CalculateDropTargetLayout(initial_bounds, actual_child_layouts);
+
+    EXPECT_EQ(initial_bounds, remaining_space);
+    EXPECT_EQ(1u, actual_child_layouts.size());
+    EXPECT_EQ(view->drop_target_view_.get(),
+              actual_child_layouts[0].child_view);
+    EXPECT_FALSE(actual_child_layouts[0].visible);
+  }
+
+  // Drop target is on the START side.
+  {
+    std::vector<views::ChildLayout> actual_child_layouts;
+    view->drop_target_view_->Show(
+        MultiContentsDropTargetView::DropSide::START,
+        MultiContentsDropTargetView::DropTargetState::kFull,
+        MultiContentsDropTargetView::DragType::kLink);
+    view->drop_target_view_->animation_for_testing().End();
+    gfx::Rect remaining_space =
+        view->CalculateDropTargetLayout(initial_bounds, actual_child_layouts);
+
+    const int drop_target_width =
+        view->drop_target_view_->GetPreferredWidth(initial_bounds.width());
+    gfx::Rect expected_remaining_space(
+        initial_bounds.x() + drop_target_width, initial_bounds.y(),
+        initial_bounds.width() - drop_target_width, initial_bounds.height());
+    EXPECT_EQ(expected_remaining_space, remaining_space);
+
+    std::vector<views::ChildLayout> expected_child_layouts;
+    expected_child_layouts.emplace_back(
+        view->drop_target_view_.get(), true,
+        gfx::Rect(initial_bounds.x(), initial_bounds.y(), drop_target_width,
+                  initial_bounds.height()));
+    EXPECT_THAT(actual_child_layouts,
+                testing::UnorderedElementsAreArray(expected_child_layouts));
+  }
+
+  // Drop target is on the END side.
+  {
+    std::vector<views::ChildLayout> actual_child_layouts;
+    view->drop_target_view_->Show(
+        MultiContentsDropTargetView::DropSide::END,
+        MultiContentsDropTargetView::DropTargetState::kFull,
+        MultiContentsDropTargetView::DragType::kLink);
+    view->drop_target_view_->animation_for_testing().End();
+    gfx::Rect remaining_space =
+        view->CalculateDropTargetLayout(initial_bounds, actual_child_layouts);
+
+    const int drop_target_width =
+        view->drop_target_view_->GetPreferredWidth(initial_bounds.width());
+    gfx::Rect expected_remaining_space(
+        initial_bounds.x(), initial_bounds.y(),
+        initial_bounds.width() - drop_target_width, initial_bounds.height());
+    EXPECT_EQ(expected_remaining_space, remaining_space);
+
+    std::vector<views::ChildLayout> expected_child_layouts;
+    expected_child_layouts.emplace_back(
+        view->drop_target_view_.get(), true,
+        gfx::Rect(initial_bounds.right() - drop_target_width,
+                  initial_bounds.y(), drop_target_width,
+                  initial_bounds.height()));
+    EXPECT_THAT(actual_child_layouts,
+                testing::UnorderedElementsAreArray(expected_child_layouts));
+  }
 }

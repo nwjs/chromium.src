@@ -60,6 +60,10 @@ WebContents* WebContentsDelegate::AddNewContents(
   return nullptr;
 }
 
+bool WebContentsDelegate::IsContentsActive(WebContents* contents) {
+  return true;
+}
+
 bool WebContentsDelegate::CanOverscrollContent() {
   return false;
 }

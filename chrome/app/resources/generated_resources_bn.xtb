@@ -200,6 +200,7 @@
 <translation id="1129348283834595293">সাইবারপাঙ্ক</translation>
 <translation id="1129420403709586868">আপনার ফোনের ফটো ও মিডিয়া দেখুন</translation>
 <translation id="1129850422003387628">অ্যাপ ম্যানেজ করুন</translation>
+<translation id="1130116586186908674">স্প্লিট ভিউ তৈরি করুন</translation>
 <translation id="1130430615924359526">{0,plural, =1{'ছদ্মবেশী' উইন্ডো বন্ধ করুন}one{'ছদ্মবেশী' উইন্ডো বন্ধ করুন (#টি উইন্ডো)}other{'ছদ্মবেশী' উইন্ডো বন্ধ করুন (#টি উইন্ডো)}}</translation>
 <translation id="113050636487300043">বিভিন্ন প্রোফাইল আলাদা করে দেখাতে, কোনও নাম ও কালার প্রোফাইল বেছে নিন</translation>
 <translation id="1130589222747246278"><ph name="WINDOW_TITLE" /> - <ph name="GROUP_NAME" /> গ্রুপের অংশ</translation>
@@ -430,6 +431,7 @@
 <translation id="1277020343994096713">আপনার বর্তমান পিন থেকে আলাদা একটি নতুন পিন তৈরি করুন</translation>
 <translation id="1277597051786235230">&amp; <ph name="SEARCH_ENGINE" />-এ নতুন ট্যাবে “<ph name="SEARCH_TERMS" />” সার্চ করুন</translation>
 <translation id="127849925363482083">পিন করা ট্যাব বন্ধ করতে <ph name="SHORTCUT_TEXT" /> আবার প্রেস করুন</translation>
+<translation id="1278542245784398460">এই ট্যাবে গিয়ে ডানদিকের বোতামে ক্লিক করুন এবং “নতুন স্প্লিট ভিউতে ট্যাব যোগ করুন” বিকল্প বেছে নিন</translation>
 <translation id="1278859221870828664">Google Play অ্যাপ এবং পরিষেবার পর্যালোচনা করুন</translation>
 <translation id="1279024913354609713">অনুমতি দেবেন না</translation>
 <translation id="127946606521051357">আশেপাশে থাকা ডিভাইস ডেটা শেয়ার করছে</translation>
@@ -738,6 +740,7 @@
 <translation id="1503392482221435031">Google-কে অটোমেটিক ব্যবহারের পরিসংখ্যান পাঠায়। আপনার ডিভাইসের সেটিংসে ক্র্যাশ রিপোর্ট চালু বা বন্ধ করতে পারেন।</translation>
 <translation id="1503556098270577657">আপনার Android ফোন ব্যবহার করার সময় আপনি <ph name="USER_EMAIL" />-এ সাইন-ইন করেছেন</translation>
 <translation id="150411034776756821"><ph name="SITE" /> সরান</translation>
+<translation id="1504253885059472207">স্প্লিট ভিউ পিন করুন</translation>
 <translation id="1504551620756424144">শেয়ার করা ফোল্ডার, Windows-এর মধ্যে <ph name="BASE_DIR" />-এ পাওয়া যাবে।</translation>
 <translation id="1505494256539862015">পাসওয়ার্ড এক্সপোর্ট করুন</translation>
 <translation id="1505654899813338756">একই ধরণের বিষয়ের পৃষ্ঠাগুলিকে একসাথে রাখার জন্য আপনি ট্যাব গ্রুপ তৈরি করতে পারেন। এইসব গ্রুপ আপনার সব ডিভাইস জুড়ে সেভ করা হয়</translation>
@@ -885,6 +888,7 @@
 <translation id="1597806446183714225">অডিও কোয়ালিটি উন্নত করুন যাতে ভয়েস স্বাভাবিক ও পরিস্কার শোনায়।</translation>
 <translation id="1598163867407640634"><ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" />-এর সাথে <ph name="SITE_ETLD_PLUS_ONE" /> ব্যবহার করুন</translation>
 <translation id="1598233202702788831">আপনার প্রশাসক দ্বারা আপডেট অক্ষম করা হয়েছে।</translation>
+<translation id="1598293830962835699">প্রয়োজন হলেই ঝটপট স্প্লিট ভিউ তৈরি করুন</translation>
 <translation id="1600857548979126453">পৃষ্ঠা ডিবাগার ব্যাকএন্ড অ্যাক্সেস করুন</translation>
 <translation id="1601481906560916994">সাইট বাদ দিন</translation>
 <translation id="1601560923496285236">প্রয়োগ করুন</translation>
@@ -3040,7 +3044,6 @@
 <translation id="3048589239114571785">চালু করুন (k)</translation>
 <translation id="3048742847101793553">স্ক্যান না হওয়ায় আপনার সংস্থা এই ফাইল ব্লক করে দিয়েছে।</translation>
 <translation id="3048917188684939573">Cast ও ডিভাইস লগ</translation>
-<translation id="3049525403650329038">আরও বেশি প্রাসঙ্গিক উত্তর পাওয়ার জন্য Gemini-র সাথে পৃষ্ঠার কন্টেন্ট শেয়ার করুন। জেনারেটিভ AI মডেল উন্নত করতে আপনার ডেটা ব্যবহার করা হয় নি।</translation>
 <translation id="3051250416341590778">ডিসপ্লে সাইজ</translation>
 <translation id="3053013834507634016">সার্টিফিকেট কী ব্যবহার</translation>
 <translation id="3053273573829329829">ব্যবহারকারীর জন্য পিন চালু করুন</translation>
@@ -3124,6 +3127,7 @@
 <translation id="3122883569442693641">আরও বিবরণ</translation>
 <translation id="3124111068741548686">ব্যবহারকারীর হ্যান্ডলগুলি</translation>
 <translation id="3124332159330678621">আপনার ব্রাউজারকে একটি নতুন চেহারা দিতে Chrome কাস্টমাইজ করুন</translation>
+<translation id="3125361247594231799">পরের বারের জন্য পিন করে রাখুন</translation>
 <translation id="3125816458150005808">আপনি এটি আনপিন করে মেনু থেকে খুলতে পারবেন</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3127860049873093642">চার্জ করা ও পারফর্ম্যান্স সংক্রান্ত সমস্যা এড়াতে মানানসই USB টাইপ-সি পাওয়ার অ্যাডাপ্টার ব্যবহার করুন।</translation>
@@ -4849,6 +4853,7 @@
 <translation id="4310139701823742692">ফাইলের ফর্ম্যাটটি ভুল। PPD ফাইল ঠিক আছে কিনা দেখে নিয়ে আবার চেষ্টা করুন।</translation>
 <translation id="4310496734563057511">আপনি অন্যদের সাথে এই ডিভাইসটি শেয়ার করলে, আপনি যখনই একটি সেভ করা পাসওয়ার্ড ব্যবহার করেন তখন আপনার পরিচয় যাচাই করতে Windows Hello চালু করতে পারেন</translation>
 <translation id="431076611119798497">&amp;বিশদ বিবরণ</translation>
+<translation id="431127643228811252">স্প্লিট ভিউ ব্যবহার করলে সহজে মাল্টিটাস্ক করা যায়</translation>
 <translation id="4311284648179069796">পড়ার ও পরিবর্তন করার অনুমতি দেওয়া হয়নি</translation>
 <translation id="4312701113286993760">{COUNT,plural, =1{১টি Google অ্যাকাউন্ট}one{<ph name="EXTRA_ACCOUNTS" />টি Google অ্যাকাউন্ট}other{<ph name="EXTRA_ACCOUNTS" />টি Google অ্যাকাউন্ট}}</translation>
 <translation id="4312866146174492540">অবরুদ্ধ করুন (ডিফল্ট)</translation>
@@ -8112,6 +8117,7 @@
 <translation id="6657240842932274095">আপনার লোকেশন ব্যবহার করার জন্য সিস্টেম সার্ভিসকে অনুমতি দিতে চান?</translation>
 <translation id="6657585470893396449">পাসওয়ার্ড</translation>
 <translation id="6659213950629089752">"<ph name="NAME" />" এক্সটেনশন দিয়ে এই পৃষ্ঠাটি জুম করা হয়েছে</translation>
+<translation id="6659594942844771486">ট্যাব</translation>
 <translation id="6660099350750552197"><ph name="WINDOW_TITLE" /> - ক্যামেরা রেকর্ড করছে</translation>
 <translation id="6660301751798595791">ভয়েস বেছে নেওয়া</translation>
 <translation id="6660819301598582123">খয়েরি রঙয়ের শিয়ালটি অলস কুকুরের উপর দ্রুত লাফিয়ে উঠল।</translation>
@@ -8528,6 +8534,7 @@
 <translation id="6931690462168617033">স্ট্রেংথ বিকল্পে ক্লিক করুন</translation>
 <translation id="6933321725007230600">&amp;সিঙ্ক চালু করুন...</translation>
 <translation id="693459579445775904">ডিস্ক স্পেস সাশ্রয় করতে ব্যবহারকারীদের মধ্যে ভয়েস ফাইল শেয়ার করা হয়</translation>
+<translation id="6934597021412437058">আপনি এখন স্প্লিট ভিউ ব্যবহার করে একাধিক জিনিসের তুলনা, মাল্টিটাস্ক সহ আরও অনেক কিছু করতে পারবেন</translation>
 <translation id="6935031746833428401">ডিভাইস ম্যানেজমেন্ট সম্পর্কে আরও জানুন</translation>
 <translation id="6935286146439255109">একটি কাগজের ট্রে পাওয়া যাচ্ছে না</translation>
 <translation id="6938386202199793006">আপনার কাছে আগে থেকেই ১টি প্রিন্টার সেভ করা আছে।</translation>
@@ -9344,6 +9351,7 @@
 <translation id="7508971277215079477">{MULTI_GROUP_TAB_COUNT,plural, =0{ট্যাব বন্ধ করে গ্রুপ মুছে দেবেন?}=1{ট্যাব বন্ধ করে গ্রুপ মুছে দেবেন?}one{ট্যাব বন্ধ করে গ্রুপ মুছে দেবেন?}other{ট্যাব বন্ধ করে গ্রুপগুলি মুছে দেবেন?}}</translation>
 <translation id="7509097596023256288">ম্যানেজমেন্ট সেট আপ করা হচ্ছে</translation>
 <translation id="7509539379068593709">অ্যাপ আনইনস্টল করুন</translation>
+<translation id="7513438205469584978">আপনার <ph name="BEGIN_LINK_GOOGLE_ACTIVITY" />Google অ্যাক্টিভিটি<ph name="END_LINK_GOOGLE_ACTIVITY" />র ভিত্তিতে সাজেশন দেখানো হচ্ছে</translation>
 <translation id="7514239104543605883">আপনার ডিভাইসে কপি করুন</translation>
 <translation id="7514365320538308">ডাউনলোড করুন</translation>
 <translation id="7514417110442087199">অ্যাকশনের জন্য কোনও সুইচ অ্যাসাইন করুন</translation>
@@ -9630,6 +9638,7 @@
 <translation id="7705276765467986571">বুকমার্ক মডেল লোড করা যায়নি৷</translation>
 <translation id="7705334495398865155">অন্যদের এই ডিভাইসটিকে ট্র্যাক করা থেকে আটকাতে আপনার হার্ডওয়্যারের আইডি (BSSID) র‍্যান্ডমাইজ করুন।</translation>
 <translation id="7705524343798198388">VPN</translation>
+<translation id="7706742200777909964">একাধিক পৃষ্ঠা একই ট্যাবে পাশাপাশি রেখে বিকল্প তুলনা করে দেখা সহ অন্যান্য কাজ আরও সহজে করুন</translation>
 <translation id="7707108266051544351">এই সাইটকে মোশন সেন্সর ব্যবহার করা থেকে ব্লক করা হয়েছে।</translation>
 <translation id="7707922173985738739">মোবাইল ডেটা ব্যবহার করুন</translation>
 <translation id="770831926727930011">আপনার স্থানীয় ডেটা পুরনো পাসওয়ার্ড দ্বারা সুরক্ষিত। স্থানীয় ডেটা আগের অবস্থায় ফেরানোর জন্য পুরনো পাসওয়ার্ড লিখুন।</translation>

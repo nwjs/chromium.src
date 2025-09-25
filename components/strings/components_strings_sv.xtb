@@ -880,9 +880,9 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="2441854154602066476">De tillgängliga betalningsmetoderna som kan fyllas i med ett tryck. Tangentbordet är dolt.</translation>
 <translation id="2442865686365739754">Följande sparas <ph name="BEGIN_EMPHASIS" />inte<ph name="END_EMPHASIS" /> i Chrome:
         <ph name="BEGIN_LIST" />
-          <ph name="LIST_ITEM" />Din webbhistorik
-          <ph name="LIST_ITEM" />Cookies och webbplatsdata
-          <ph name="LIST_ITEM" />Uppgifter som anges i formulär
+          <ph name="LIST_ITEM" />din webbhistorik
+          <ph name="LIST_ITEM" />cookies och webbplatsdata
+          <ph name="LIST_ITEM" />uppgifter som anges i formulär.
         <ph name="END_LIST" /></translation>
 <translation id="2448295565072560657">Kringutrustning som är ansluten till enheten när du är inloggad</translation>
 <translation id="2450019289047528273">Betalningsmetoder och annan information från Google Wallet</translation>
@@ -2474,6 +2474,7 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="5097099694988056070">Enhetsstatistik, till exempel processor- och RAM-användning</translation>
 <translation id="5097468150760963273">27 x 39 tum</translation>
 <translation id="5097501891273180634">A2</translation>
+<translation id="5102512728737175215">Tryck på Tabb och sedan på Retur för att fråga AI-läget</translation>
 <translation id="510644072453496781">Kartong (slut)</translation>
 <translation id="5106648964679263509">Virtuellt kort för <ph name="BNPL_ISSUER_NAME" /> har fyllts i</translation>
 <translation id="5108567515277121477">Stamkundskort</translation>
@@ -3288,7 +3289,7 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="6437647869369934905">Google Teckningar</translation>
 <translation id="643917412048333145">Klänningar</translation>
 <translation id="6440503408713884761">Ignoreras</translation>
-<translation id="6443406338865242315">Vilka tillägg och pluginprogram som du har installerat</translation>
+<translation id="6443406338865242315">Vilka tillägg och plugins som du har installerat</translation>
 <translation id="6444329331928531170">Pension</translation>
 <translation id="6445051938772793705">Land</translation>
 <translation id="6446608382365791566">Lägg till mer information</translation>
@@ -3482,6 +3483,7 @@ Annars blockeras detta av integritetsinställningarna. Om du tillåter detta kan
 <translation id="6786145470008421571">Kuvert, 6 x 9 tum</translation>
 <translation id="6786747875388722282">Tillägg</translation>
 <translation id="6787094689637422836">Vi lanserar nya integritetsfunktioner som ger dig större kontroll över vilka annonser du ser.</translation>
+<translation id="6788615780749001893">Knapp för AI-läget, tryck på Retur för att fråga AI-läget</translation>
 <translation id="6789062271869667677">Kontinuerlig (lång)</translation>
 <translation id="678982761784843853">Skyddade innehålls-id:n</translation>
 <translation id="6790428901817661496">Spela</translation>

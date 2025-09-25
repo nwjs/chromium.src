@@ -200,6 +200,7 @@ Vous pouvez vérifier vos mots de passe en tout temps dans le menu <ph name="GOO
 <translation id="1129348283834595293">Cyberpunk</translation>
 <translation id="1129420403709586868">Affichez les photos et les fichiers multimédias de votre téléphone</translation>
 <translation id="1129850422003387628">Gérer les applications</translation>
+<translation id="1130116586186908674">Créer un affichage divisé</translation>
 <translation id="1130430615924359526">{0,plural, =1{Fermer la fenêtre en mode Navigation privée}one{Fermer la fenêtre en mode Navigation privée (# fenêtre)}other{Fermer les fenêtres en mode Navigation privée (# fenêtres)}}</translation>
 <translation id="113050636487300043">Choisissez un nom et un thème de couleur pour différencier les profils</translation>
 <translation id="1130589222747246278"><ph name="WINDOW_TITLE" /> : fait partie du groupe <ph name="GROUP_NAME" /></translation>
@@ -430,6 +431,7 @@ Vous pouvez vérifier vos mots de passe en tout temps dans le menu <ph name="GOO
 <translation id="1277020343994096713">Créez un NIP différent de votre NIP actuel</translation>
 <translation id="1277597051786235230">&amp;Rechercher « <ph name="SEARCH_TERMS" /> » dans <ph name="SEARCH_ENGINE" /> dans un nouvel onglet</translation>
 <translation id="127849925363482083">Appuyez de nouveau sur <ph name="SHORTCUT_TEXT" /> pour fermer l'onglet épinglé</translation>
+<translation id="1278542245784398460">Faites un clic droit sur cet onglet et sélectionnez « Ajouter un onglet au nouvel affichage partagé »</translation>
 <translation id="1278859221870828664">Examiner les applications et services Google Play</translation>
 <translation id="1279024913354609713">Ne pas autoriser</translation>
 <translation id="127946606521051357">Un appareil à proximité partage des contenus</translation>
@@ -737,6 +739,7 @@ Les autorisations que vous avez déjà accordées à des applications peuvent s'
 <translation id="1503392482221435031">Envoie automatiquement des statistiques d'utilisation à Google. Vous pouvez activer ou désactiver les rapports de plantage dans les paramètres de votre appareil.</translation>
 <translation id="1503556098270577657">Vous vous êtes connecté à <ph name="USER_EMAIL" /> à l'aide de votre téléphone Android</translation>
 <translation id="150411034776756821">Supprimer <ph name="SITE" /></translation>
+<translation id="1504253885059472207">Épingler l'affichage partagé</translation>
 <translation id="1504551620756424144">Sous Windows, les dossiers partagés sont accessibles ici : <ph name="BASE_DIR" />.</translation>
 <translation id="1505494256539862015">exporter les mots de passe</translation>
 <translation id="1505654899813338756">Vous pouvez regrouper des onglets pour garder les pages connexes ensemble et les enregistrer sur l'ensemble de vos appareils</translation>
@@ -884,6 +887,7 @@ Les autorisations que vous avez déjà accordées à des applications peuvent s'
 <translation id="1597806446183714225">Améliorez la qualité audio pour que les voix soient naturelles et claires.</translation>
 <translation id="1598163867407640634">Utiliser <ph name="SITE_ETLD_PLUS_ONE" /> avec <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /></translation>
 <translation id="1598233202702788831">Votre administrateur a désactivé les mises à jour.</translation>
+<translation id="1598293830962835699">Créez rapidement un affichage partagé lorsque vous en avez besoin</translation>
 <translation id="1600857548979126453">Accéder au système du débogueur de pages</translation>
 <translation id="1601481906560916994">Exclure le site</translation>
 <translation id="1601560923496285236">Appliquer</translation>
@@ -3029,7 +3033,6 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="3048589239114571785">Lire (K)</translation>
 <translation id="3048742847101793553">Votre organisation a bloqué ce fichier parce que l'analyse a échoué.</translation>
 <translation id="3048917188684939573">Journaux de diffusion et de l'appareil</translation>
-<translation id="3049525403650329038">Partagez le contenu de la page avec Gemini pour obtenir des réponses plus pertinentes. Vos données ne sont pas utilisées pour améliorer les modèles d'IA générative.</translation>
 <translation id="3051250416341590778">Dimensions de l'écran</translation>
 <translation id="3053013834507634016">Utilisation de la clé de certificat</translation>
 <translation id="3053273573829329829">Activer le NIP de l'utilisateur</translation>
@@ -3113,6 +3116,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="3122883569442693641">Plus de détails</translation>
 <translation id="3124111068741548686">Descripteurs de l'UTILISATEUR</translation>
 <translation id="3124332159330678621">Personnaliser Chrome pour donner un nouveau style à votre navigateur</translation>
+<translation id="3125361247594231799">L'épingler pour la prochaine fois</translation>
 <translation id="3125816458150005808">Vous pouvez annuler l'épinglage et l'ouvrir à partir du menu.</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3127860049873093642">Pour éviter les problèmes de recharge et de performance, servez-vous d'un adaptateur d'alimentation conçu par Dell ou d'un adaptateur USB de type C.</translation>
@@ -4838,6 +4842,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4310139701823742692">Le format du fichier est incorrect. Vérifiez le fichier PPD et réessayez.</translation>
 <translation id="4310496734563057511">Si vous partagez cet appareil avec d'autres personnes, vous pouvez activer Windows Hello pour vérifier qu'il s'agit bien de vous lorsque vous utilisez un mot de passe enregistré</translation>
 <translation id="431076611119798497">&amp;Détails</translation>
+<translation id="431127643228811252">L'affichage partagé facilite le travail multitâche</translation>
 <translation id="4311284648179069796">Interdiction de lire et de modifier</translation>
 <translation id="4312701113286993760">{COUNT,plural, =1{1 compte Google}one{<ph name="EXTRA_ACCOUNTS" /> compte Google}other{<ph name="EXTRA_ACCOUNTS" /> comptes Google}}</translation>
 <translation id="4312866146174492540">Bloquer (par défaut)</translation>
@@ -8098,6 +8103,7 @@ Vous avez # autres mots de passe compromis. Le gestionnaire de mots de passe de
 <translation id="6657240842932274095">Autoriser les services système à utiliser votre position?</translation>
 <translation id="6657585470893396449">Mot de passe</translation>
 <translation id="6659213950629089752">Zoom effectué par l'extension « <ph name="NAME" /> » sur cette page</translation>
+<translation id="6659594942844771486">Onglet</translation>
 <translation id="6660099350750552197"><ph name="WINDOW_TITLE" /> – Enregistrement par appareil photo</translation>
 <translation id="6660301751798595791">Sélection de la voix</translation>
 <translation id="6660819301598582123">Voici à quoi ressemblera votre texte.</translation>
@@ -8514,6 +8520,7 @@ Vous pouvez gérer les paramètres à partir du menu de la carte ou afficher plu
 <translation id="6931690462168617033">Niveau de pression du clic</translation>
 <translation id="6933321725007230600">Activer la &amp;synchronisation…</translation>
 <translation id="693459579445775904">Les fichiers vocaux sont partagés entre les utilisateurs pour économiser de l'espace disque</translation>
+<translation id="6934597021412437058">Vous pouvez désormais utiliser l'affichage partagé pour faire des comparaisons, effectuer plusieurs tâches simultanément et plus encore</translation>
 <translation id="6935031746833428401">Apprenez-en plus à propos de la gestion d'appareils</translation>
 <translation id="6935286146439255109">Il manque un bac à papier</translation>
 <translation id="6938386202199793006">Vous avez 1 imprimante enregistrée.</translation>
@@ -9329,6 +9336,7 @@ Vous pouvez gérer les paramètres à partir du menu de la carte ou afficher plu
 <translation id="7508971277215079477">{MULTI_GROUP_TAB_COUNT,plural, =0{Fermer l'onglet et supprimer le groupe?}=1{Fermer l'onglet et supprimer le groupe?}one{Fermer l'onglet et supprimer le groupe?}other{Fermer les onglets et supprimer les groupes?}}</translation>
 <translation id="7509097596023256288">Configuration de la gestion en cours…</translation>
 <translation id="7509539379068593709">Désinstaller l'application</translation>
+<translation id="7513438205469584978">Suggestions basées sur votre <ph name="BEGIN_LINK_GOOGLE_ACTIVITY" />activité Google<ph name="END_LINK_GOOGLE_ACTIVITY" /></translation>
 <translation id="7514239104543605883">Copier vers votre appareil</translation>
 <translation id="7514365320538308">Télécharger</translation>
 <translation id="7514417110442087199">Attribuer une action</translation>
@@ -9615,6 +9623,7 @@ Cela peut inclure des renseignements sur les fichiers, les logiciels installés,
 <translation id="7705276765467986571">Échec de chargement du modèle de favori.</translation>
 <translation id="7705334495398865155">Attribuez l’identifiant de votre matériel (BSSID) de manière aléatoire pour empêcher le suivi de cet appareil par d’autres utilisateurs.</translation>
 <translation id="7705524343798198388">RPV</translation>
+<translation id="7706742200777909964">Placez les pages côte à côte dans le même onglet pour pouvoir comparer facilement les options et plus encore</translation>
 <translation id="7707108266051544351">L'utilisation de capteurs de mouvement a été bloquée pour ce site.</translation>
 <translation id="7707922173985738739">Utiliser les données mobiles</translation>
 <translation id="770831926727930011">Vos données locales sont protégées par votre ancien mot de passe. Entrez votre ancien mot de passe pour récupérer les données locales.</translation>

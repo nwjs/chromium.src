@@ -1201,6 +1201,7 @@ void RenderWidgetHostViewAndroid::ShowWithVisibility(
 
   page_visibility_ = page_visibility;
   is_showing_ = true;
+  view_.SetIsHitTestEligible(is_showing_);
   ShowInternal();
 }
 
@@ -1210,6 +1211,7 @@ void RenderWidgetHostViewAndroid::Hide() {
 
   page_visibility_ = PageVisibilityState::kHidden;
   is_showing_ = false;
+  view_.SetIsHitTestEligible(is_showing_);
   HideInternal();
 }
 
@@ -2283,6 +2285,10 @@ void RenderWidgetHostViewAndroid::HideInternal() {
   // notifications to eventually clear the frontbuffer.
   bool stop_observing_root_window = !is_showing_ && hide_frontbuffer;
 
+  // Clear any tooltip to help avoid crashes due to android race condition for
+  // tooltips on a backgrounded app. crbug.com/441235003.
+  UpdateTooltip(std::u16string());
+
   if (hide_frontbuffer) {
     view_.GetLayer()->SetHideLayerAndSubtree(true);
     delegated_frame_host_->WasHidden();
@@ -2792,8 +2798,15 @@ void RenderWidgetHostViewAndroid::UpdateNativeViewTree(
   bool resize = false;
   if (will_build_tree != has_view_tree) {
     if (has_view_tree) {
-      view_.RemoveObserver(this);
-      view_.RemoveFromParent();
+      // TODO(crbug.com/440324557): Unconditionally remove parent before
+      // removing `this` as an observer.
+      if (input_transfer_handler_) {
+        view_.RemoveFromParent();
+        view_.RemoveObserver(this);
+      } else {
+        view_.RemoveObserver(this);
+        view_.RemoveFromParent();
+      }
       view_.GetLayer()->RemoveFromParent();
     }
     if (will_build_tree) {

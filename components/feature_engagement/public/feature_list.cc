@@ -250,6 +250,8 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHReadingListInSidePanelFeature,
     &kIPHReadingModeSidePanelFeature,
     &kIPHShoppingCollectionFeature,
+    &kIPHSideBySidePinnableFeature,
+    &kIPHSideBySideTabSwitchFeature,
     &kIPHSidePanelGenericPinnableFeature,
     &kIPHSidePanelLensOverlayPinnableFeature,
     &kIPHSidePanelLensOverlayPinnableFollowupFeature,

@@ -217,8 +217,10 @@ class BrowserView : public BrowserWindow,
   views::Widget* overlay_widget() { return overlay_widget_.get(); }
   const views::Widget* overlay_widget() const { return overlay_widget_.get(); }
 
-  views::View* overlay_view() { return overlay_view_.get(); }
-  const views::View* overlay_view() const { return overlay_view_.get(); }
+  views::View* overlay_view() { return overlay_view_tracker_.view(); }
+  const views::View* overlay_view() const {
+    return overlay_view_tracker_.view();
+  }
 
   views::Widget* tab_overlay_widget() { return tab_overlay_widget_.get(); }
   const views::Widget* tab_overlay_widget() const {
@@ -598,6 +600,7 @@ class BrowserView : public BrowserWindow,
       content::WebContents* contents,
       bool show_signin_button) override;
 #if BUILDFLAG(IS_CHROMEOS)
+  views::Button* GetSharingHubIconButton() override;
   void ToggleMultitaskMenu() const override;
 #else
   sharing_hub::SharingHubBubbleView* ShowSharingHubBubble(
@@ -928,6 +931,8 @@ class BrowserView : public BrowserWindow,
   bool IsTabChangeInSplitView(content::WebContents* old_contents,
                               content::WebContents* new_contents);
 
+  void UpdateTabModalDialogBounds();
+
   // Updates stored focus for web contents that is being activated.
   void MaybeUpdateStoredFocusForWebContents(content::WebContents*);
 
@@ -1183,7 +1188,7 @@ private:
   // during immersive reveal.
   // On Aura, this view is owned by the browser frame. On mac, this view is
   // owned by `overlay_widget_`.
-  raw_ptr<views::View, DanglingUntriaged> overlay_view_ = nullptr;
+  views::ViewTracker overlay_view_tracker_;
 
 #if BUILDFLAG(IS_MAC)
   // Used when calling CreateMacOverlayView(). This widget owns `overlay_view_`.
@@ -1209,7 +1214,11 @@ private:
   std::unique_ptr<TabSearchBubbleHost> tab_search_bubble_host_;
 
   // Separator between top container and contents.
-  raw_ptr<views::View> contents_separator_ = nullptr;
+  // Note: when `SideBySide` feature is disabled, this separator is also
+  // used when not in `TopContainerOverlayView. Once the feature is fully
+  // rolled out, we can rely on `MultiContentsView` to manage the contents
+  // separator when not overlaid (i.e. no immersive fullscreen).
+  raw_ptr<views::View> top_container_separator_ = nullptr;
 
   // Loading bar (part of top container for / WebUI tab strip).
   raw_ptr<TopContainerLoadingBar> loading_bar_ = nullptr;
@@ -1248,6 +1257,9 @@ private:
   // Conceptually this member should exist if and only if the
   // side_panel_coordinator is created.
   raw_ptr<SidePanel> unified_side_panel_ = nullptr;
+
+  // These are only non-null when the `SideBySide` feature is disabled.
+  // Otherwise, `multi_contents_view_` will create its own separators.
   raw_ptr<views::View> right_aligned_side_panel_separator_ = nullptr;
   raw_ptr<views::View> left_aligned_side_panel_separator_ = nullptr;
   raw_ptr<views::View> side_panel_rounded_corner_ = nullptr;

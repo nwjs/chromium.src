@@ -110,6 +110,12 @@ BASE_FEATURE(kReloadSelectionModel,
              "ReloadSelectionModel",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enforces close tab hotkey to only close the active view of a split tab,
+// when it is the only tab in selection model.
+BASE_FEATURE(kCloseActiveTabInSplitViewViaHotkey,
+             "CloseActiveTabInSplitViewViaHotkey",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, a scrim is shown behind window modal dialogs to cover the
 // entire browser window. This gives user a visual cue that the browser window
 // is not interactable.
@@ -222,6 +228,16 @@ BASE_FEATURE_PARAM(double,
                    &kSideBySideDropTargetNudge,
                    "drop_target_nudge_show_ratio",
                    0.4f);
+BASE_FEATURE_PARAM(int,
+                   kSideBySideDropTargetNudgeShownLimit,
+                   &kSideBySideDropTargetNudge,
+                   "drop_target_nudge_shown_limit",
+                   6);
+BASE_FEATURE_PARAM(int,
+                   kSideBySideDropTargetNudgeUsedLimit,
+                   &kSideBySideDropTargetNudge,
+                   "drop_target_nudge_used_limit",
+                   1);
 
 constexpr base::FeatureParam<MiniToolbarActiveConfiguration>::Option
     kMiniToolbarActiveConfigurationOptions[] = {
@@ -242,6 +258,12 @@ BASE_FEATURE_PARAM(int,
                    &kSideBySide,
                    "snap_distance",
                    15);
+
+BASE_FEATURE_PARAM(int,
+                   kSideBySideIphTabSwitchCount,
+                   &kSideBySide,
+                   "side_by_side_iph_tab_switch_count",
+                   3);
 
 // When enabled along with SideBySide flag, split tabs will be restored on
 // startup.

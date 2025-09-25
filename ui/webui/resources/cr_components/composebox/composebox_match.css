@@ -54,7 +54,7 @@
 #iconContainer {
   align-items: center;
   display: flex;
-  padding-inline-start: 16px;
+  padding-inline-start: 18px;
   justify-content: center;
 }
 
@@ -62,14 +62,39 @@
   -webkit-mask-position: center;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: cover;
-  background-color: var(--color-new-tab-page-composebox-results-icon);
-  height: 24px;
-  width: 24px;
+  background-color: var(--color-new-tab-page-composebox-input-icon);
+  height: 20px;
+  width: 20px;
 }
 
 #textContainer {
   align-content: center;
   color: var(--color-new-tab-page-composebox-font-light);
   font-size: 16px;
-  padding-inline-start: var(--input-inline-spacing);
+  overflow: hidden;
+  padding-inline: var(--input-inline-spacing) 64px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#remove {
+  --cr-icon-button-fill-color:
+      var(--color-searchbox-results-icon-selected);
+  --cr-icon-button-icon-size: 16px;
+  --cr-icon-button-hover-background-color:
+      var(--color-searchbox-results-background-hovered);
+  display: none;
+  position: absolute;
+  top: 6px;
+  right: 12px;
+}
+
+:host-context([dir='rtl']) #remove {
+  left: 12px;
+  right: unset;
+}
+
+.container:hover #remove:not([hidden]),
+:host-context(ntp-composebox-match:-webkit-any(:focus-within, [selected])) #remove:not([hidden]) {
+  display: inline-flex;
 }

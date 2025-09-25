@@ -809,15 +809,12 @@ void ChromePasswordManagerClient::NotifyStorePasswordCalled() {
 bool ChromePasswordManagerClient::IsPasswordChangeOngoing() {
   ChromePasswordChangeService* password_change_service =
       PasswordChangeServiceFactory::GetForProfile(profile_);
-  if (password_change_service) {
-    auto* delegate =
-        password_change_service->GetPasswordChangeDelegate(web_contents());
-    if (delegate) {
-      return delegate->GetCurrentState() ==
-             PasswordChangeDelegate::State::kChangingPassword;
-    }
+  if (!password_change_service) {
+    return false;
   }
-  return false;
+
+  return password_change_service->GetPasswordChangeDelegate(web_contents()) !=
+         nullptr;
 }
 
 void ChromePasswordManagerClient::NotifyOnSuccessfulLogin(
@@ -1974,7 +1971,8 @@ void ChromePasswordManagerClient::OnFieldTypesDetermined(
         auto predictions = manager.GetHeursticPredictionForForm(
             autofill::HeuristicSource::kPasswordManagerMachineLearning, form_id,
             field_ids);
-        if (base::FeatureList::IsEnabled(
+        if (apply_client_side_prediction_override_ ||
+            base::FeatureList::IsEnabled(
                 password_manager::features::
                     kApplyClientsideModelPredictionsForPasswordTypes)) {
           password_manager_.ProcessClassificationModelPredictions(driver, form,

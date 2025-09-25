@@ -92,9 +92,11 @@ class PasswordChangeDelegateImpl : public PasswordChangeDelegate,
   void OnPasswordFormSubmission(content::WebContents* web_contents) override;
   void OnPrivacyNoticeAccepted() override;
   void OnPasswordChangeDeclined() override;
-  void ProceedToChangePassword() override;
+  void OnUserSkippedLoginCheck() override;
   void AddObserver(PasswordChangeDelegate::Observer* observer) override;
   void RemoveObserver(PasswordChangeDelegate::Observer* observer) override;
+
+  void ProceedToChangePassword();
 
   void OnOtpNotFound();
 
@@ -169,6 +171,9 @@ class PasswordChangeDelegateImpl : public PasswordChangeDelegate,
       otp_observation_{this};
 
   ukm::SourceId ukm_source_id_ = ukm::kInvalidSourceId;
+
+  // Whether a blocking challenge (e.g. an OTP) was detected in the main tab.
+  bool blocking_challenge_detected_ = false;
 
   base::WeakPtrFactory<PasswordChangeDelegateImpl> weak_ptr_factory_{this};
 };

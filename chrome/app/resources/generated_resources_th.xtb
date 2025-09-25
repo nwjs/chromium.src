@@ -200,6 +200,7 @@
 <translation id="1129348283834595293">ไซเบอร์พังก์</translation>
 <translation id="1129420403709586868">ดูรูปภาพและสื่อของโทรศัพท์</translation>
 <translation id="1129850422003387628">จัดการแอป</translation>
+<translation id="1130116586186908674">สร้างมุมมองแบบแยก</translation>
 <translation id="1130430615924359526">{0,plural, =1{ปิดหน้าต่างที่ไม่ระบุตัวตน}other{ปิดหน้าต่างที่ไม่ระบุตัวตน (# หน้าต่าง)}}</translation>
 <translation id="113050636487300043">เลือกชื่อและธีมสีเพื่อให้แตกต่างจากโปรไฟล์อื่น</translation>
 <translation id="1130589222747246278"><ph name="WINDOW_TITLE" /> - ส่วนหนึ่งของกลุ่ม <ph name="GROUP_NAME" /></translation>
@@ -429,6 +430,7 @@
 <translation id="1277020343994096713">สร้าง PIN ใหม่ที่ต่างจาก PIN ปัจจุบัน</translation>
 <translation id="1277597051786235230">&amp;ค้นหา "<ph name="SEARCH_TERMS" />" ด้วย <ph name="SEARCH_ENGINE" /> ในแท็บใหม่</translation>
 <translation id="127849925363482083">กด <ph name="SHORTCUT_TEXT" /> อีกครั้งเพื่อปิดแท็บที่ปักหมุด</translation>
+<translation id="1278542245784398460">คลิกขวาที่แท็บนี้แล้วเลือก "เพิ่มแท็บไปยังมุมมองแบบแยกใหม่"</translation>
 <translation id="1278859221870828664">ตรวจสอบแอปและบริการของ Google Play</translation>
 <translation id="1279024913354609713">ไม่อนุญาต</translation>
 <translation id="127946606521051357">อุปกรณ์ใกล้เคียงกำลังจะแชร์</translation>
@@ -736,6 +738,7 @@
 <translation id="1503392482221435031">ส่งสถิติการใช้งานให้ Google โดยอัตโนมัติ คุณเปิดหรือปิดรายงานข้อขัดข้องได้ในการตั้งค่าของอุปกรณ์</translation>
 <translation id="1503556098270577657">คุณลงชื่อเข้าใช้ <ph name="USER_EMAIL" /> ด้วยโทรศัพท์ Android</translation>
 <translation id="150411034776756821">นำ <ph name="SITE" /> ออก</translation>
+<translation id="1504253885059472207">ปักหมุดมุมมองแบบแยก</translation>
 <translation id="1504551620756424144">โฟลเดอร์ที่แชร์จะอยู่ใน Windows ที่ <ph name="BASE_DIR" /></translation>
 <translation id="1505494256539862015">ส่งออกรหัสผ่าน</translation>
 <translation id="1505654899813338756">คุณสามารถจัดกลุ่มแท็บเพื่อเก็บหน้าที่เกี่ยวข้องกันไว้ด้วยกันและบันทึกไว้ในอุปกรณ์ต่างๆ</translation>
@@ -883,6 +886,7 @@
 <translation id="1597806446183714225">ปรับปรุงคุณภาพเสียงเพื่อให้เสียงฟังดูเป็นธรรมชาติและชัดเจน</translation>
 <translation id="1598163867407640634">ใช้ <ph name="SITE_ETLD_PLUS_ONE" /> ด้วย <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /></translation>
 <translation id="1598233202702788831">ผู้ดูแลระบบปิดใช้การอัปเดต</translation>
+<translation id="1598293830962835699">สร้างมุมมองแบบแยกได้อย่างรวดเร็วเมื่อต้องการ</translation>
 <translation id="1600857548979126453">เข้าถึงแบ็คเอนด์เครื่องซ่อมแซมหน้าเว็บ</translation>
 <translation id="1601481906560916994">ยกเว้นเว็บไซต์</translation>
 <translation id="1601560923496285236">นำไปใช้</translation>
@@ -3026,7 +3030,6 @@
 <translation id="3048589239114571785">เล่น (k)</translation>
 <translation id="3048742847101793553">องค์กรบล็อกไฟล์นี้เนื่องจากสแกนไม่สำเร็จ</translation>
 <translation id="3048917188684939573">บันทึกการแคสต์และอุปกรณ์</translation>
-<translation id="3049525403650329038">แชร์เนื้อหาของหน้าเว็บกับ Gemini เพื่อรับคำตอบที่เกี่ยวข้องมากขึ้น ระบบไม่ได้ใช้ข้อมูลของคุณในการปรับปรุงโมเดล Generative AI</translation>
 <translation id="3051250416341590778">ขนาดการแสดงผล</translation>
 <translation id="3053013834507634016">การใช้คีย์ใบรับรอง </translation>
 <translation id="3053273573829329829">เปิดใช้ PIN ของผู้ใช้</translation>
@@ -3110,6 +3113,7 @@
 <translation id="3122883569442693641">รายละเอียดเพิ่มเติม</translation>
 <translation id="3124111068741548686">ผู้ใช้จัดการ</translation>
 <translation id="3124332159330678621">ปรับแต่ง Chrome เพื่อสร้างรูปลักษณ์ใหม่ๆ ให้เบราว์เซอร์</translation>
+<translation id="3125361247594231799">ปักหมุดไว้สำหรับครั้งถัดไป</translation>
 <translation id="3125816458150005808">คุณเลิกปักหมุดและเปิดจากเมนูได้</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3127860049873093642">โปรดใช้อะแดปเตอร์ Dell หรือ USB Type-C เพื่อหลีกเลี่ยงปัญหาด้านการชาร์จและประสิทธิภาพ</translation>
@@ -4833,6 +4837,7 @@
 <translation id="4310139701823742692">รูปแบบไฟล์ไม่ถูกต้อง ตรวจสอบไฟล์ PPD แล้วลองอีกครั้ง</translation>
 <translation id="4310496734563057511">หากแชร์อุปกรณ์นี้กับผู้อื่น คุณสามารถเปิด Windows Hello เพื่อยืนยันตัวตนทุกครั้งที่ใช้รหัสผ่านที่บันทึกไว้</translation>
 <translation id="431076611119798497">&amp;รายละเอียด</translation>
+<translation id="431127643228811252">มุมมองแบบแยกหน้าจอช่วยให้ทำงานหลายอย่างพร้อมกันได้ง่ายขึ้น</translation>
 <translation id="4311284648179069796">ไม่ได้รับอนุญาตให้อ่านและเปลี่ยนแปลง</translation>
 <translation id="4312701113286993760">{COUNT,plural, =1{บัญชี Google 1 บัญชี}other{บัญชี Google <ph name="EXTRA_ACCOUNTS" /> บัญชี}}</translation>
 <translation id="4312866146174492540">บล็อก (ค่าเริ่มต้น)</translation>
@@ -8088,6 +8093,7 @@
 <translation id="6657240842932274095">อนุญาตให้บริการของระบบใช้ตำแหน่งของคุณไหม</translation>
 <translation id="6657585470893396449">รหัสผ่าน</translation>
 <translation id="6659213950629089752">หน้านี้ซูมด้วยส่วนขยาย "<ph name="NAME" />"</translation>
+<translation id="6659594942844771486">แท็บ</translation>
 <translation id="6660099350750552197"><ph name="WINDOW_TITLE" /> - กำลังบันทึกกล้อง</translation>
 <translation id="6660301751798595791">ตัวเลือกในการพูด</translation>
 <translation id="6660819301598582123">สุนัขจิ้งจอกที่ปราดเปรียวกระโดดข้ามสุนัขที่เกียจคร้าน</translation>
@@ -8504,6 +8510,7 @@
 <translation id="6931690462168617033">ความแรงในการคลิก</translation>
 <translation id="6933321725007230600">เปิด&amp;การซิงค์...</translation>
 <translation id="693459579445775904">ไฟล์เสียงจะแชร์กับผู้ใช้เพื่อประหยัดพื้นที่ในดิสก์</translation>
+<translation id="6934597021412437058">ตอนนี้คุณใช้มุมมองแบบแยกเพื่อเปรียบเทียบ ทำงานหลายอย่างพร้อมกัน และอื่นๆ ได้แล้ว</translation>
 <translation id="6935031746833428401">ดูข้อมูลเพิ่มเติมเกี่ยวกับการจัดการอุปกรณ์</translation>
 <translation id="6935286146439255109">ไม่มีถาดกระดาษ</translation>
 <translation id="6938386202199793006">คุณมีเครื่องพิมพ์ที่บันทึกไว้ 1 เครื่อง</translation>
@@ -9319,6 +9326,7 @@
 <translation id="7508971277215079477">{MULTI_GROUP_TAB_COUNT,plural, =0{ปิดแท็บและลบกลุ่มใช่ไหม}=1{ปิดแท็บและลบกลุ่มใช่ไหม}other{ปิดแท็บและลบกลุ่มใช่ไหม}}</translation>
 <translation id="7509097596023256288">กำลังตั้งค่าการจัดการ</translation>
 <translation id="7509539379068593709">ถอนการติดตั้งแอป</translation>
+<translation id="7513438205469584978">คำแนะนำอิงตาม<ph name="BEGIN_LINK_GOOGLE_ACTIVITY" />กิจกรรมใน Google<ph name="END_LINK_GOOGLE_ACTIVITY" /> ของคุณ</translation>
 <translation id="7514239104543605883">คัดลอกไปยังอุปกรณ์ของคุณ</translation>
 <translation id="7514365320538308">ดาวน์โหลด</translation>
 <translation id="7514417110442087199">เพิ่มการกำหนด</translation>
@@ -9605,6 +9613,7 @@
 <translation id="7705276765467986571">ไม่สามารถโหลดรูปแบบบุ๊กมาร์ก</translation>
 <translation id="7705334495398865155">สุ่มรหัสของฮาร์ดแวร์ (BSSID) เพื่อป้องกันไม่ให้ผู้อื่นติดตามอุปกรณ์นี้</translation>
 <translation id="7705524343798198388">VPN</translation>
+<translation id="7706742200777909964">เปิดหน้าเว็บข้างกันในแท็บเดียวกันเพื่อให้คุณเปรียบเทียบตัวเลือกและอื่นๆ ได้ง่ายๆ</translation>
 <translation id="7707108266051544351">เว็บไซต์นี้ถูกบล็อกไม่ให้ใช้เซ็นเซอร์ตรวจจับการเคลื่อนไหว</translation>
 <translation id="7707922173985738739">ใช้เน็ตมือถือ</translation>
 <translation id="770831926727930011">ข้อมูลในเครื่องได้รับการปกป้องโดยรหัสผ่านเก่า โปรดป้อนรหัสผ่านเก่าเพื่อกู้คืนข้อมูลในเครื่อง</translation>

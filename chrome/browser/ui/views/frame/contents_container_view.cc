@@ -335,20 +335,26 @@ void ContentsContainerView::UpdateDevToolsDockedPlacement() {
   }
 }
 
-void ContentsContainerView::ShowCaptureContentsBorder(
-    std::optional<gfx::Rect> border_location) {
+void ContentsContainerView::ShowCaptureContentsBorder() {
   if (!capture_contents_border_widget_) {
     CreateCaptureContentsBorder();
   }
 
-  dynamic_capture_content_border_bounds_ = border_location;
-  capture_contents_border_widget_->Show();
   UpdateCaptureContentsBorderLocation();
+  capture_contents_border_widget_->Show();
 }
 
 void ContentsContainerView::HideCaptureContentsBorder() {
   if (capture_contents_border_widget_) {
     capture_contents_border_widget_->Hide();
+  }
+}
+
+void ContentsContainerView::SetCaptureContentsBorderLocation(
+    std::optional<gfx::Rect> border_location) {
+  dynamic_capture_content_border_bounds_ = border_location;
+  if (capture_contents_border_widget_) {
+    UpdateCaptureContentsBorderLocation();
   }
 }
 
@@ -384,7 +390,15 @@ void ContentsContainerView::CreateCaptureContentsBorder() {
 
 void ContentsContainerView::UpdateCaptureContentsBorderLocation() {
   gfx::Point contents_top_left;
+#if BUILDFLAG(IS_CHROMEOS)
+  // On Ash placing the border widget on top of the contents container
+  // does not require an offset -- see crbug.com/1030925.
+  const gfx::Rect bounds_in_browser =
+      views::View::ConvertRectToTarget(this, browser_view_, GetLocalBounds());
+  contents_top_left = gfx::Point(bounds_in_browser.x(), bounds_in_browser.y());
+#else
   views::View::ConvertPointToScreen(this, &contents_top_left);
+#endif
   gfx::Rect rect;
   if (dynamic_capture_content_border_bounds_) {
     rect = gfx::Rect(
@@ -508,9 +522,13 @@ views::ProposedLayout ContentsContainerView::CalculateProposedLayout(
 
   if (mini_toolbar_) {
     // |mini_toolbar_| should be offset in the bottom right corner, overlapping
-    // the outline.
+    // the outline. Shrink the available space by corner radius to ensure we
+    // have space to draw it at the corners.
+    views::SizeBounds available_space(width, height);
+    available_space.Enlarge(-ContentsContainerOutline::kCornerRadius,
+                            -ContentsContainerOutline::kCornerRadius);
     gfx::Size mini_toolbar_size =
-        mini_toolbar_->GetPreferredSize(views::SizeBounds(width, height));
+        mini_toolbar_->GetPreferredSize(available_space);
     const int offset_x = width - mini_toolbar_size.width();
     const int offset_y = height - mini_toolbar_size.height();
     const gfx::Rect mini_toolbar_rect =

@@ -105,7 +105,7 @@
 <translation id="1177863135347784049">سفارشی</translation>
 <translation id="1178581264944972037">مکث</translation>
 <translation id="1178821169867863726">۱۶ × ۱۲ اینچ</translation>
-<translation id="1181037720776840403">حذف</translation>
+<translation id="1181037720776840403">برداشتن</translation>
 <translation id="1181381397492575884">‏Chrome سایت‌هایی را که بااستفاده از کوکی‌های طرف سوم، شما را هنگام مرور وب ردیابی می‌کنند مسدود می‌کند. برای <ph name="LINK" />، به تنظیمات بروید.</translation>
 <translation id="1185343831726846924">درستی‌سنجی کارت مجازی روشن نشد</translation>
 <translation id="1186201132766001848">بررسی گذرواژه‌ها</translation>
@@ -2197,7 +2197,7 @@
 <translation id="4644567637638438744">‏فایل‌ها تنها درصورتی بارگذاری می‌شوند که به سیستم Microsoft OneDrive وارد شده باشید</translation>
 <translation id="4644670975240021822">روبه‌پایین به‌ترتیب معکوس</translation>
 <translation id="4648262692072505866">‏درهم‌سازی باید در قالب SHA-256 باشد.</translation>
-<translation id="4652266463001779298">مجاز نیست</translation>
+<translation id="4652266463001779298">اجازه نداشتن</translation>
 <translation id="4652440160515225514">سازمانتان این سایت را مسدود کرده است زیرا خط‌مشی‌ای را نقض می‌کند.</translation>
 <translation id="4658638640878098064">منگنه در بالا سمت چپ</translation>
 <translation id="4660592918803576381">‏باز کردن در Drive</translation>
@@ -2474,6 +2474,7 @@
 <translation id="5097099694988056070">‏آمار دستگاه مانند استفاده از CPU یا RAM</translation>
 <translation id="5097468150760963273">۳۹ × ۲۷ اینچ</translation>
 <translation id="5097501891273180634">A2</translation>
+<translation id="5102512728737175215">‏برای پرسیدن از «حالت هوش مصنوعی»، کلید Tab و سپس Enter را فشار دهید</translation>
 <translation id="510644072453496781">مقوا (نهایی)</translation>
 <translation id="5106648964679263509">کارت مجازی <ph name="BNPL_ISSUER_NAME" /> تکمیل شد</translation>
 <translation id="5108567515277121477">کارت وفاداری</translation>
@@ -2827,7 +2828,7 @@
 <translation id="5679086391497468752">نشانی خانه</translation>
 <translation id="5680642791693447368">فیلم‌های هیجان‌انگیز، جنایی، و رازآلود</translation>
 <translation id="568292603005599551">‏موقعیت X تصویر</translation>
-<translation id="5684874026226664614">متأسفیم. این صفحه ترجمه نشد.</translation>
+<translation id="5684874026226664614">متأسفانه این صفحه ترجمه نشد.</translation>
 <translation id="5688137257686092846">متخصص لوازم آرایشی و زیبایی</translation>
 <translation id="5689199277474810259">‏صادر کردن به JSON</translation>
 <translation id="5689516760719285838">مکان</translation>
@@ -3482,6 +3483,7 @@
 <translation id="6786145470008421571">پاکت ۹×۶ اینچی</translation>
 <translation id="6786747875388722282">افزونه‌ها</translation>
 <translation id="6787094689637422836">درحال راه‌اندازی ویژگی‌های حریم خصوصی جدیدی هستیم که حق انتخاب بیشتری در آگهی‌هایی که می‌بینید به شما می‌دهد.</translation>
+<translation id="6788615780749001893">‏دکمه «حالت هوش مصنوعی»؛ برای پرسیدن از «حالت هوش مصنوعی»، کلید Enter را فشار دهید</translation>
 <translation id="6789062271869667677">پیوسته (بلند)</translation>
 <translation id="678982761784843853">شناسه‌های محتوای محافظت‌شده</translation>
 <translation id="6790428901817661496">پخش</translation>
@@ -4175,7 +4177,7 @@
 <translation id="79338296614623784">شماره تلفن معتبری وارد کنید</translation>
 <translation id="7934414805353235750">‏<ph name="URL" /> می‌خواهد محتوای محافظت‌شده را پخش کند. شناسه دستگاه شما توسط Google درستی‌سنجی خواهد شد.</translation>
 <translation id="7935318582918952113">DOM Distiller</translation>
-<translation id="7937163678541954811">برای تسویه‌حساب سریع‌تر، کد تأیید این کارت رمزگذاری خواهد شد و در دستگاهتان ذخیره می‌شود</translation>
+<translation id="7937163678541954811">‏برای تسویه‌حساب سریع‌تر، کد CVC این کارت رمزگذاری خواهد شد و در دستگاهتان ذخیره می‌شود</translation>
 <translation id="7937554595067888181">در <ph name="EXPIRATION_DATE_ABBR" /> منقضی می‌شود</translation>
 <translation id="7938958445268990899">گواهی سرور هنوز معتبر نیست.</translation>
 <translation id="7941628148012649605">پاکت چو ۴</translation>

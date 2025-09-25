@@ -62,6 +62,11 @@ BASE_FEATURE(AndroidSpellcheckFullApiBlink, base::FEATURE_DISABLED_BY_DEFAULT);
 // Avoids copying ResourceRequest::TrustedParams when possible.
 BASE_FEATURE(AvoidTrustedParamsCopies, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Async touchmoves after scroll.
+BASE_FEATURE(kAsyncTouchMovesImmediatelyAfterScroll,
+             "AsyncTouchMovesImmediatelyAfterScroll",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Block all MIDI access with the MIDI_SYSEX permission
 BASE_FEATURE(BlockMidiByDefault, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -2179,6 +2184,17 @@ BASE_FEATURE_PARAM(bool,
                    kServiceWorkerSyntheticResponseReportInconsistentHeader,
                    &kServiceWorkerSyntheticResponse,
                    "report_inconsistent_header",
+                   false);
+
+// If true, the browser enables synthetic response with the dry run mode. With
+// this mode, the navigation request is involved with the service worker code
+// path, and the synthetic response eligiblity is evaluated as if the feature is
+// enabled. But it doesn't store response headers and actually "synthesize"
+// responses with them. This mode is used to compare the metrics.
+BASE_FEATURE_PARAM(bool,
+                   kServiceWorkerSyntheticResponseDryRun,
+                   &kServiceWorkerSyntheticResponse,
+                   "dry_run",
                    false);
 
 // 'Mode' parameter for blink::features::kSoftNavigationHeuristics.

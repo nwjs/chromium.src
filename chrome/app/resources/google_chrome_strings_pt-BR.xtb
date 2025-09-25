@@ -32,7 +32,7 @@
 <translation id="1356661055722410047">Novidade! Agora é possível traduzir textos e imagens na tela.</translation>
 <translation id="1363996462118479832">O ChromeOS não pôde sincronizar seus dados devido a um erro durante o login.</translation>
 <translation id="137466361146087520">Google Chrome Beta</translation>
-<translation id="1383876407941801731">Pesquisar</translation>
+<translation id="1383876407941801731">Pesquise</translation>
 <translation id="1399397803214730675">Este computador já tem uma versão mais recente do Google Chrome. Caso o software não esteja funcionando, desinstale-o e tente novamente.</translation>
 <translation id="141901961143729572">Envie feedback</translation>
 <translation id="1425903838053942728">{COUNT,plural, =0{O Chrome foi atualizado. Reinicie para usar a versão mais recente. Depois disso, as guias atuais serão reabertas.}=1{O Chrome foi atualizado. Reinicie para usar a versão mais recente. Depois disso, as guias atuais serão reabertas. Sua janela anônima não será aberta novamente.}one{O Chrome foi atualizado. Reinicie para usar a versão mais recente. Depois disso, as guias atuais serão reabertas. Sua # janela anônima não será aberta novamente.}other{O Chrome foi atualizado. Reinicie para usar a versão mais recente. Depois disso, as guias atuais serão reabertas. Suas # janelas anônimas não serão abertas novamente.}}</translation>
@@ -447,6 +447,7 @@
 <translation id="6321592572353357376">A extensão "<ph name="EXTENSION_NAME" />" quer que você faça login no Chrome</translation>
 <translation id="6326175484149238433">Remover do Google Chrome</translation>
 <translation id="6327105987658262776">Nenhuma atualização disponível.</translation>
+<translation id="6334815226785304306">Definir o Google Chrome como navegador padrão e fixar na barra de tarefas</translation>
 <translation id="6360449101159168105">Enquanto esta guia estava inativa, a memória foi liberada para manter o Chrome rápido. Você pode optar por sempre excluir este site do status de inatividade.</translation>
 <translation id="6388799252195623474">me ajude com isso</translation>
 <translation id="6412673304250309937">Verifica se os URLs estão em uma lista de sites não seguros armazenada no Chrome. Se um site tentar roubar sua senha ou se você fizer o download de um arquivo nocivo, o Chrome também poderá enviar URLs, incluindo partes do conteúdo da página, para o "Navegação segura".</translation>
@@ -614,6 +615,7 @@
 <translation id="8336463659890584292">Quando um site pede para pré-carregar links anonimamente, o Chrome usa os servidores do Google. Isso oculta sua identidade para o site, mas o Google aprende quais sites são pré-carregados.</translation>
 <translation id="8342675569599923794">Esse arquivo é perigoso, por isso ele foi bloqueado pelo Chrome.</translation>
 <translation id="8349094670477064572">Você vai salvar e usar senhas e outros dados na sua Conta do Google sempre que fizer login no Chrome. <ph name="LEARN_MORE" /></translation>
+<translation id="835927394551949760">Pergunte ao Google</translation>
 <translation id="8362914115861174987">Traduzir para </translation>
 <translation id="8366770919198174997">Reduz o desempenho, mas torna o Chrome mais resistente a ataques</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Todos os direitos reservados.</translation>

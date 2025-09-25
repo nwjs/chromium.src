@@ -50,46 +50,16 @@ bool IsLensOverlayContextualSearchboxEnabled() {
 }
 
 bool IsAimM3Enabled(Profile* profile) {
-  if (!lens::features::IsAimM3Enabled()) {
-    return false;
-  }
-
+  // Lens has a feature param to bypass eligibility (both server & local)
+  // altogether. Unsure if this is necessary, but since it's default true, it
+  // can't hurt.
   if (!lens::features::ShouldUseAimEligibilityService()) {
-    return true;
+    return lens::features::IsAimM3Enabled();
   }
 
-  const auto* aim_eligibility_service =
-      AimEligibilityServiceFactory::GetForProfile(profile);
-
-  if (!aim_eligibility_service) {
-    return false;
-  }
-
-  // IsAimEligible() checks the local (DSE and Enterprise policy) eligibility
-  // and server eligibility requirements.
-  return aim_eligibility_service->IsAimEligible();
-}
-
-bool IsLensOverlayEduActionChipEnabled() {
-  if (!lens::features::IsLensOverlayEduActionChipEnabled()) {
-    return false;
-  }
-
-  if (!g_browser_process) {
-    DCHECK(g_browser_process) << "g_browser_process is null";
-    return false;
-  }
-
-  // Features and locale storage should exist.
-  auto* features = g_browser_process->GetFeatures();
-  if (!features || !features->application_locale_storage()) {
-    return false;
-  }
-
-  // Enable for English only. Three-letter language codes for non-English
-  // languages are theoretically possible so make sure we don't enable on them.
-  std::string locale = features->application_locale_storage()->Get();
-  return locale == "en" || locale.starts_with("en-");
+  return AimEligibilityService::GenericKillSwitchFeatureCheck(
+      AimEligibilityServiceFactory::GetForProfile(profile),
+      lens::features::kLensSearchAimM3);
 }
 
 }  // namespace lens

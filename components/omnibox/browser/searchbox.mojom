@@ -59,6 +59,8 @@ struct AutocompleteMatch {
   // The image url for entity suggestions. |image_url| is an external url or
   // a data URI.
   string image_url;
+  // Used to determine if the match is a non-canned AI suggestion.
+  bool is_noncanned_aim_suggestion;
   // Used to determine if the match has an image, calculator answer,
   // suggestion answer, or enterprise search aggregator people suggestion.
   bool is_rich_suggestion;
@@ -77,6 +79,18 @@ struct AutocompleteMatch {
   // holes for sale in" is "hobbit holes for sale" and the match contents
   // would be the text following "sale".
   mojo_base.mojom.String16? tail_suggest_common_prefix;
+};
+
+// Information about a suggested tab in the WebUI.
+struct TabInfo {
+  // The unique identifier of the tab.
+  int32 tab_id;
+  // The title of the tab.
+  string title;
+  // The URL of the tab.
+  url.mojom.Url url;
+  // The time the tab was last active.
+  mojo_base.mojom.TimeTicks last_active;
 };
 
 // Indicates whether a suggestion group is in the primary or the secondary
@@ -105,6 +119,7 @@ struct AutocompleteResult {
   // Map of suggestion group IDs to their respective info.
   map<int32, SuggestionGroup> suggestion_groups_map;
   array<AutocompleteMatch> matches;
+  mojo_base.mojom.String16? smart_compose_inline_hint;
 };
 
 enum SelectionLineState {
@@ -183,6 +198,9 @@ interface PageHandler {
 
   // Notifies browser that thumbnail has been removed.
   OnThumbnailRemoved();
+
+  // Returns information about recent tabs.
+  GetRecentTabs() => (array<TabInfo> tabs);
 };
 
 // WebUI-side handler for requests from the browser.

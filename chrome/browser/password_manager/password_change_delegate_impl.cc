@@ -36,6 +36,7 @@
 #include "chrome/browser/ui/passwords/password_change_ui_controller.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/save_password_progress_logger.h"
@@ -158,6 +159,11 @@ std::unique_ptr<content::WebContents> CreateWebContents(Profile* profile,
       autofill::AutofillClientProviderFactory::GetForProfile(profile);
   autofill_client_provider.CreateClientForWebContents(new_web_contents.get());
   ChromePasswordManagerClient::CreateForWebContents(new_web_contents.get());
+
+  // Apply client side predictions for WebContents where password change is
+  // happening. This helps with correctly identifying change password form.
+  ChromePasswordManagerClient::FromWebContents(new_web_contents.get())
+      ->ApplyClientSidePredictionOverride();
 
   new_web_contents->GetController().LoadURLWithParams(
       content::NavigationController::LoadURLParams(url));
@@ -329,6 +335,7 @@ void PasswordChangeDelegateImpl::OnLoginStateCheckResult(bool is_logged_in) {
     return;
   }
 
+  blocking_challenge_detected_ = true;
   if (!login_state_checker_->ReachedAttemptsLimit()) {
     if (current_state_ == State::kLoginFormDetectedUserCanContinue) {
       return;
@@ -344,26 +351,6 @@ void PasswordChangeDelegateImpl::OnLoginStateCheckResult(bool is_logged_in) {
   // Maximum number of retries reached. Show an error dialog.
   login_state_checker_.reset();
   UpdateState(State::kChangePasswordFormNotFound);
-}
-
-void PasswordChangeDelegateImpl::ProceedToChangePassword() {
-  login_state_checker_.reset();
-  UpdateState(State::kWaitingForChangePasswordForm);
-
-  executor_ = CreateWebContents(profile_, change_password_url_);
-  CHECK(executor_);
-  auto* client = ChromePasswordManagerClient::FromWebContents(executor_.get());
-
-  navigation_observer_ = std::make_unique<CrossOriginNavigationObserver>(
-      executor_.get(), AffiliationServiceFactory::GetForProfile(profile_),
-      base::BindOnce(
-          &PasswordChangeDelegateImpl::OnCrossOriginNavigationDetected,
-          weak_ptr_factory_.GetWeakPtr()));
-  form_finder_ = std::make_unique<ChangePasswordFormFinder>(
-      executor_.get(), client, logs_uploader_.get(),
-      base::BindOnce(&PasswordChangeDelegateImpl::OnPasswordChangeFormFound,
-                     weak_ptr_factory_.GetWeakPtr()));
-  otp_observation_.Observe(client->GetOtpManager());
 }
 
 void PasswordChangeDelegateImpl::CancelPasswordChangeFlow() {
@@ -384,7 +371,7 @@ void PasswordChangeDelegateImpl::CancelPasswordChangeFlow() {
   password_change_hats_->MaybeLaunchSurvey(
       kHatsSurveyTriggerPasswordChangeCanceled,
       /*password_change_duration=*/base::Time::Now() - flow_start_time_,
-      originator_);
+      blocking_challenge_detected_, originator_);
 }
 
 void PasswordChangeDelegateImpl::OnPasswordChangeFormFound(
@@ -518,7 +505,7 @@ void PasswordChangeDelegateImpl::OpenPasswordChangeTab() {
   password_change_hats_->MaybeLaunchSurvey(
       kHatsSurveyTriggerPasswordChangeError,
       /*password_change_duration=*/base::Time::Now() - flow_start_time_,
-      web_contents);
+      blocking_challenge_detected_, web_contents);
 }
 
 void PasswordChangeDelegateImpl::OpenPasswordDetails() {
@@ -539,16 +526,6 @@ void PasswordChangeDelegateImpl::OpenPasswordDetails() {
         base::UTF16ToUTF8(GetDisplayOrigin()),
         password_manager::ManagePasswordsReferrer::kPasswordChangeInfoBubble);
   }
-}
-
-void PasswordChangeDelegateImpl::AddObserver(
-    PasswordChangeDelegate::Observer* observer) {
-  observers_.AddObserver(observer);
-}
-
-void PasswordChangeDelegateImpl::RemoveObserver(
-    PasswordChangeDelegate::Observer* observer) {
-  observers_.RemoveObserver(observer);
 }
 
 void PasswordChangeDelegateImpl::OnPrivacyNoticeAccepted() {
@@ -573,7 +550,8 @@ void PasswordChangeDelegateImpl::OnPasswordChangeDeclined() {
   }
   password_change_hats_->MaybeLaunchSurvey(
       kHatsSurveyTriggerPasswordChangeCanceled,
-      /*password_change_duration=*/base::TimeDelta(), originator_);
+      /*password_change_duration=*/base::TimeDelta(),
+      blocking_challenge_detected_, originator_);
   // Post task as otherwise ManagePasswordsUIController won't show a bubble
   // until password change has finished.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -581,6 +559,41 @@ void PasswordChangeDelegateImpl::OnPasswordChangeDeclined() {
       base::BindOnce(&OnLeakDialogHidden,
                      ManagePasswordsUIController::FromWebContents(originator_)
                          ->GetModelDelegateProxy()));
+}
+
+void PasswordChangeDelegateImpl::OnUserSkippedLoginCheck() {
+  logs_uploader_->LoginCheckSkipped();
+  ProceedToChangePassword();
+}
+
+void PasswordChangeDelegateImpl::AddObserver(
+    PasswordChangeDelegate::Observer* observer) {
+  observers_.AddObserver(observer);
+}
+
+void PasswordChangeDelegateImpl::RemoveObserver(
+    PasswordChangeDelegate::Observer* observer) {
+  observers_.RemoveObserver(observer);
+}
+
+void PasswordChangeDelegateImpl::ProceedToChangePassword() {
+  login_state_checker_.reset();
+  UpdateState(State::kWaitingForChangePasswordForm);
+
+  executor_ = CreateWebContents(profile_, change_password_url_);
+  CHECK(executor_);
+  auto* client = ChromePasswordManagerClient::FromWebContents(executor_.get());
+
+  navigation_observer_ = std::make_unique<CrossOriginNavigationObserver>(
+      executor_.get(), AffiliationServiceFactory::GetForProfile(profile_),
+      base::BindOnce(
+          &PasswordChangeDelegateImpl::OnCrossOriginNavigationDetected,
+          weak_ptr_factory_.GetWeakPtr()));
+  form_finder_ = std::make_unique<ChangePasswordFormFinder>(
+      executor_.get(), client, logs_uploader_.get(),
+      base::BindOnce(&PasswordChangeDelegateImpl::OnPasswordChangeFormFound,
+                     weak_ptr_factory_.GetWeakPtr()));
+  otp_observation_.Observe(client->GetOtpManager());
 }
 
 void PasswordChangeDelegateImpl::UpdateState(State new_state) {
@@ -633,7 +646,8 @@ void PasswordChangeDelegateImpl::OnChangeFormSubmissionVerified(bool result) {
     UpdateState(State::kPasswordSuccessfullyChanged);
     password_change_hats_->MaybeLaunchSurvey(
         kHatsSurveyTriggerPasswordChangeSuccess,
-        password_change_duration_overall, originator_);
+        password_change_duration_overall, blocking_challenge_detected_,
+        originator_);
   }
   submission_verifier_.reset();
 }

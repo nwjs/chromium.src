@@ -205,7 +205,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
         <ph name="BEGIN_LIST" />
           <ph name="LIST_ITEM" />Ai siti web visitati
           <ph name="LIST_ITEM" />Al tuo datore di lavoro o alla tua scuola
-          <ph name="LIST_ITEM" />Al tuo provider di servizi Internet
+          <ph name="LIST_ITEM" />Al tuo provider di servizi internet
         <ph name="END_LIST" /></translation>
 <translation id="1335042910556016570">Monitora questo articolo</translation>
 <translation id="1337692097987160377">Condividi questa scheda</translation>
@@ -1999,7 +1999,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
 <translation id="4281998142035485137">{0,plural, =1{Aprire il file riservato?}other{Aprire i file riservati?}}</translation>
 <translation id="4282280603030594840">Acquisto veicoli</translation>
 <translation id="4282346679996504092">Gli avvisi per questo prodotto sono stati disattivati e il preferito è stato rimosso</translation>
-<translation id="4285498937028063278">Sblocca</translation>
+<translation id="4285498937028063278">Stacca</translation>
 <translation id="4287495839370498922">Privacy per gli annunci migliorata in Chrome</translation>
 <translation id="4288101205645068104">Elimina il veicolo</translation>
 <translation id="4290920330097335010">Non consentire mai</translation>
@@ -2057,7 +2057,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
 <translation id="4363222835916186793">Gli avvisi per questo prodotto sono stati disattivati</translation>
 <translation id="4366943895537458493">Lastra</translation>
 <translation id="4369179505195332608">Modifica patente di guida</translation>
-<translation id="437040971055499437">Si è verificato un evento di sicurezza</translation>
+<translation id="437040971055499437">Si verifica un evento di sicurezza</translation>
 <translation id="4371591986692297148">Non attivo</translation>
 <translation id="4372948949327679948">È previsto il valore <ph name="VALUE_TYPE" />.</translation>
 <translation id="437620492464254965">Porte e finestre</translation>
@@ -2471,6 +2471,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
 <translation id="5097099694988056070">Statistiche del dispositivo quali l'utilizzo di CPU/RAM</translation>
 <translation id="5097468150760963273">68,5 × 99 cm</translation>
 <translation id="5097501891273180634">A2</translation>
+<translation id="5102512728737175215">Premi Tab, poi Invio per chiedere ad AI Mode</translation>
 <translation id="510644072453496781">Cartone (fine)</translation>
 <translation id="5106648964679263509">Carta virtuale per <ph name="BNPL_ISSUER_NAME" /> compilata</translation>
 <translation id="5108567515277121477">Carta fedeltà</translation>
@@ -2677,7 +2678,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
           <ph name="END_LIST" /></translation>
 <translation id="5443468954631487277">Ordine inverso a faccia in su</translation>
 <translation id="5447235695608032700">Consenti a <ph name="SITE" /> di utilizzare le informazioni salvate su di te</translation>
-<translation id="5451331376824595378">Quando Chrome segnala eventi di sicurezza, i relativi dati pertinenti vengono inviati al tuo amministratore. Questi dati possono includere URL delle pagine visitate in Chrome o da cui hai copiato dei dati, metadati, nomi dei file, indirizzi IP, arresti anomali del browser o delle schede e il nome utente che usi per accedere alle applicazioni basate sul web, al tuo dispositivo e a Chrome.</translation>
+<translation id="5451331376824595378">Quando Chrome segnala eventi di sicurezza, i relativi dati pertinenti vengono inviati al tuo amministratore. Questi dati possono includere URL delle pagine visitate in Chrome o da cui hai copiato dei dati, metadati o nomi dei file, indirizzi IP, arresti anomali del browser o delle schede e il nome utente che usi per accedere alle applicazioni basate sul web, al tuo dispositivo e a Chrome.</translation>
 <translation id="5452270690849572955">Impossibile trovare la pagina <ph name="HOST_NAME" /></translation>
 <translation id="5452923259299906094">Paga con e-wallet e Pix</translation>
 <translation id="5455374756549232013">Timestamp della policy errato</translation>
@@ -3078,7 +3079,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
 <translation id="612178891608320683">Cucina vegana</translation>
 <translation id="6122181661879998141">parte anteriore della carta</translation>
 <translation id="6124058285696691147">Scarica l'allegato</translation>
-<translation id="6124432979022149706">Connettori di Chrome Enterprise</translation>
+<translation id="6124432979022149706">Chrome Enterprise Connectors</translation>
 <translation id="6126565365696310362">Busta Chinese #2</translation>
 <translation id="6127379762771434464">Elemento rimosso</translation>
 <translation id="6131824478727057281">posizione</translation>
@@ -3478,6 +3479,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
 <translation id="6786145470008421571">Busta 6 x 9 pollici</translation>
 <translation id="6786747875388722282">Estensioni</translation>
 <translation id="6787094689637422836">Stiamo lanciando nuove funzionalità per la privacy che ti offrono maggiore controllo sugli annunci che vedi.</translation>
+<translation id="6788615780749001893">Pulsante AI Mode, premi Invio per chiedere ad AI Mode</translation>
 <translation id="6789062271869667677">Continuo (lungo)</translation>
 <translation id="678982761784843853">ID contenuti protetti</translation>
 <translation id="6790428901817661496">Riproduci</translation>
@@ -3943,7 +3945,7 @@ Ulteriori dettagli:
 <translation id="7546409722674205727">Avvio dell'app <ph name="APP_NAME" /> in corso…</translation>
 <translation id="7548892272833184391">Correggere gli errori di connessione</translation>
 <translation id="7549584377607005141">Questa pagina web richiede dati che hai inserito in precedenza per poter essere visualizzata correttamente. Puoi inviare di nuovo i dati, ma in questo caso ripeterai l'azione precedentemente eseguita nella pagina.</translation>
-<translation id="7550637293666041147">Nome utente del dispositivo e nome utente di Chrome</translation>
+<translation id="7550637293666041147">Il nome utente del dispositivo e il nome utente di Chrome</translation>
 <translation id="7552846755917812628">Prova i seguenti suggerimenti:</translation>
 <translation id="7554242657529665960">Dal tuo amministratore: "<ph name="ADMIN_MESSAGE" />"</translation>
 <translation id="7554475479213504905">Ricarica e mostra comunque</translation>
@@ -4403,7 +4405,7 @@ Ulteriori dettagli:
 <translation id="8319269383395457801">Vendite residenziali</translation>
 <translation id="831997045666694187">Sera</translation>
 <translation id="8321448084834652864">Puoi modificare il motore di ricerca in qualsiasi momento nelle impostazioni di Chromium.</translation>
-<translation id="8321476692217554900">notifiche</translation>
+<translation id="8321476692217554900">Notifiche</translation>
 <translation id="8322230666450346681"><ph name="STARTER_PACK_AI_MODE_FOCUSED_FRIENDLY_MATCH_TEXT" />, premi Invio per chiedere a Google AI Mode</translation>
 <translation id="8322402665880479974">Letti e testiere</translation>
 <translation id="8323505966575306467">Aggiungi più protezione alle tue password</translation>

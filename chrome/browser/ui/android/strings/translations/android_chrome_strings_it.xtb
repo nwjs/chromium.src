@@ -142,7 +142,7 @@ Solo chi conosce la tua passphrase può leggere i tuoi dati criptati. La passphr
 <translation id="1671236975893690980">Download in attesa...</translation>
 <translation id="1672586136351118594">Non visualizzare più</translation>
 <translation id="1680919990519905526">Compra immagine con Google Lens <ph name="BEGIN_NEW" />Novità<ph name="END_NEW" /></translation>
-<translation id="1683774088349393383">\u0020e chiuso/i dopo <ph name="MONTHS_ARCHIVED" /> mesi</translation>
+<translation id="1683774088349393383">\u0020e chiusi dopo <ph name="MONTHS_ARCHIVED" /> mesi</translation>
 <translation id="1687482373098770139">A breve vedrai contenuti di e relativi a <ph name="SITE_NAME" /> in Stai seguendo. I siti e le ricerche che segui vengono salvati nel tuo Account Google. Puoi gestire le tue seguenti azioni nelle impostazioni in qualsiasi momento.</translation>
 <translation id="1689333818294560261">Nickname</translation>
 <translation id="1696555181932908973">Puoi provare altri metodi per continuare su <ph name="SITE_ETLD_PLUS_ONE" />.</translation>
@@ -682,7 +682,7 @@ Solo chi conosce la tua passphrase può leggere i tuoi dati criptati. La passphr
 <translation id="4277529130885813215">Usa un altro dispositivo</translation>
 <translation id="427987768447457592">Nuovo gruppo di schede</translation>
 <translation id="4282440837784183472">La tua organizzazione, <ph name="MANAGED_DOMAIN" />, gestisce l'account a cui stai accedendo e la modalità di utilizzo di Chrome. L'amministratore può configurare o limitare determinate funzionalità.</translation>
-<translation id="4285498937028063278">Sblocca</translation>
+<translation id="4285498937028063278">Stacca</translation>
 <translation id="4285846616383034558">Cookie, cache e altri dati dei siti</translation>
 <translation id="4291407919474070700"><ph name="BEGIN_LINK" />Attiva il blocco schermo nelle impostazioni di Android<ph name="END_LINK" /></translation>
 <translation id="4296252229500326964">Scheda in incognito</translation>
@@ -1278,7 +1278,7 @@ Ad esempio, alcuni siti web potrebbero rispondere alla richiesta mostrando annun
 <translation id="6864459304226931083">Scarica immagine</translation>
 <translation id="686490460830618322">Foglio di filtro delle app</translation>
 <translation id="6865313869410766144">Dati della compilazione automatica dei moduli</translation>
-<translation id="6867400383614725881">Nuova scheda in incognito</translation>
+<translation id="6867400383614725881">Nuova scheda Incognito</translation>
 <translation id="686899695320434745">Gli indirizzi non vengono criptati con la tua passphrase. In questo modo puoi utilizzarli in altri servizi Google.</translation>
 <translation id="687838958001010630">Chiunque abbia il link può modificare tutte le schede</translation>
 <translation id="6880903702195291049">Non ci sono problemi con le autorizzazioni</translation>
@@ -1568,7 +1568,7 @@ Per modificare questa impostazione, <ph name="BEGIN_LINK" />elimina i dati di Ch
 <translation id="8073388330009372546">Immagine in nuova scheda</translation>
 <translation id="8076492880354921740">Schede</translation>
 <translation id="8078096376109663956">Condividi soltanto il testo</translation>
-<translation id="8078348702936632821">Blocca questa scorciatoia</translation>
+<translation id="8078348702936632821">Fissa questa scorciatoia</translation>
 <translation id="8084285576995584326">Controlla i dati del tuo Account Google</translation>
 <translation id="8084864785646838999">Parte della tua cronologia potrebbe non essere mostrata qui. Per vedere tutta la cronologia di Chrome, apri la cronologia completa del browser. Inoltre, il tuo Account Google potrebbe avere altre forme di cronologia di navigazione all'indirizzo <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="8088176524274673045">Per condividere i contenuti con le persone qui vicino, fa' scansionare loro questo codice QR</translation>
