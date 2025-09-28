@@ -120,7 +120,7 @@ repack("pak") {
   testonly = true
   sources = [
     "$root_gen_dir/chrome/webui_gallery_resources.pak",
-    "$root_gen_dir/content/browser/devtools/devtools_resources.pak",
+    #"$root_gen_dir/content/browser/devtools/devtools_resources.pak",
     "$root_gen_dir/mojo/public/js/mojo_bindings_resources.pak",
     "$root_gen_dir/third_party/blink/public/resources/blink_resources.pak",
     "$root_gen_dir/third_party/blink/public/resources/blink_scaled_resources_100_percent.pak",
@@ -135,7 +135,7 @@ repack("pak") {
     ":resources",
     "resources/browser:resources",
     "//chrome/browser/resources/webui_gallery:resources",
-    "//content/browser/devtools:devtools_resources",
+    #"//content/browser/devtools:devtools_resources",
     "//mojo/public/js:resources",
     "//third_party/blink/public:devtools_inspector_resources",
     "//third_party/blink/public:resources",

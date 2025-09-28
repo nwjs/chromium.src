@@ -118,7 +118,7 @@ repack("resource_pack_strings") {
     "//ui/strings",
   ]
 
-  if (!is_fuchsia) {
+  if (!is_fuchsia && nwjs_sdk) {
     sources +=
         [ "$root_gen_dir/content/browser/devtools/devtools_resources.pak" ]
     deps += [ "//content/browser/devtools:devtools_resources" ]
