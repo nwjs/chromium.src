@@ -538,7 +538,7 @@ vars = {
 
   # If you change this, also update the libc++ revision in
   # //buildtools/deps_revisions.gni.
-  'libcxx_revision':       '65a5746fb4cc5fd7fdd1773b0c50bc556ff8900a',
+  'libcxx_revision':       '9ce37ed6b68eda96a67199e6564ceb958ad4b37e',
 
   # GN CIPD package version.
   'gn_version': 'git_revision:5d0a4153b0bcc86c5a23310d5b648a587be3c56d',
@@ -1216,7 +1216,7 @@ deps = {
       'packages': [
           {
               'package': 'chromium/chrome/android/orderfiles/arm64',
-              'version': 'YKfoBcXUqwJX7yEfQoRDaL-5hnmeEJIK5AAYtrPddAUC',
+              'version': 'AzB8LH46Sku2TQxpSrcm_xJrE2p55fmGyqVnlnyvDpsC',
           },
       ],
       'condition': 'checkout_android',
@@ -1617,7 +1617,7 @@ deps = {
 
   'src/clank': {
     'url': Var('chrome_git') + '/clank/internal/apps.git' + '@' +
-    '0810709d35e19aec7be9803c2bbf357f13fe83fd',
+    'ecec9109f76df234f593b7172f5ed87d8374f2d4',
     'condition': 'checkout_android and checkout_src_internal',
   },
 
@@ -3827,7 +3827,7 @@ deps = {
 
   'src/services/shape_detection/internal': {
       'url': Var('chrome_git') + '/chrome/services/shape_detection.git' + '@' +
-        '91d4d29e138fdf76153a18e5db6a35929e0a5687',
+        'c56fb8783131945365a2ec6a52f3fb8c57a8e8d3',
       'condition': 'checkout_src_internal',
   },
 
