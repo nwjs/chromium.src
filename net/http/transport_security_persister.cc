@@ -32,7 +32,7 @@
 
 namespace net {
 
-BASE_FEATURE(TransportSecurityFileWriterSchedule,
+BASE_FEATURE(kTransportSecurityFileWriterSchedule,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 namespace {
@@ -295,8 +295,8 @@ base::TimeDelta TransportSecurityPersister::GetCommitInterval() {
 
 void TransportSecurityPersister::Deserialize(const std::string& serialized,
                                              TransportSecurityState* state) {
-  std::optional<base::Value::Dict> value =
-      base::JSONReader::ReadDict(serialized);
+  std::optional<base::Value::Dict> value = base::JSONReader::ReadDict(
+      serialized, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   if (!value) {
     return;
   }

@@ -12,6 +12,7 @@
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/chrome_paths.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -22,14 +23,24 @@ namespace {
 std::string ToString(actor::mojom::JournalEntryType type) {
   switch (type) {
     case actor::mojom::JournalEntryType::kBegin:
-      return "B";
+      return "Begin";
     case actor::mojom::JournalEntryType::kEnd:
-      return "E";
+      return "End";
     case actor::mojom::JournalEntryType::kInstant:
-      return "I";
+      return "Instant";
   }
   NOTREACHED();
 }
+std::string ToString(actor::mojom::JournalTrack type) {
+  switch (type) {
+    case actor::mojom::JournalTrack::kFrontEnd:
+      return "FrontEnd";
+    case actor::mojom::JournalTrack::kActor:
+      return "Actor";
+  }
+  NOTREACHED();
+}
+
 }  // namespace
 
 ActorInternalsUIHandler::ActorInternalsUIHandler(
@@ -58,9 +69,13 @@ ActorInternalsUIHandler::~ActorInternalsUIHandler() {
 
 void ActorInternalsUIHandler::WillAddJournalEntry(
     const actor::AggregatedJournal::Entry& entry) {
+  std::stringstream ss;
+  ss << entry.data->details;
+
   remote_->JournalEntryAdded(actor_internals::mojom::JournalEntry::New(
-      entry.url, entry.data->event, ToString(entry.data->type),
-      entry.data->details, entry.data->timestamp));
+      entry.url, entry.data->event, ToString(entry.data->type), ss.str(),
+      entry.data->timestamp, entry.data->task_id.value(),
+      ToString(entry.data->track), entry.jpg_screenshot));
 }
 
 void ActorInternalsUIHandler::StartLogging() {

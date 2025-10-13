@@ -410,7 +410,7 @@ const ui::ColorProvider* TestColorProviderSource::GetColorProvider() const {
 ui::RendererColorMap TestColorProviderSource::GetRendererColorMap(
     ui::ColorProviderKey::ColorMode color_mode,
     ui::ColorProviderKey::ForcedColors forced_colors) const {
-  if (forced_colors == ui::ColorProviderKey::ForcedColors::kActive) {
+  if (forced_colors == ui::ColorProviderKey::ForcedColors::kSystem) {
     return system_colors_;
   }
   return color_mode == ui::ColorProviderKey::ColorMode::kLight ? light_colors_
@@ -467,6 +467,7 @@ TEST_F(WebContentsImplTest, UpdateTitle) {
   params->did_create_new_entry = true;
   params->method = "GET";
   params->page_state = blink::PageState::CreateFromURL(params->url);
+  params->document_sequence_number = 1;
 
   main_test_rfh()->SendNavigateWithParams(std::move(params),
                                           false /* was_within_same_document */);

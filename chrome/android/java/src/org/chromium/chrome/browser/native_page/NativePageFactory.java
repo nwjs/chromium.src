@@ -5,6 +5,11 @@
 package org.chromium.chrome.browser.native_page;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
+import static org.chromium.chrome.browser.url_constants.ExtensionsUrlOverrideRegistry.getBookmarksPageOverrideEnabled;
+import static org.chromium.chrome.browser.url_constants.ExtensionsUrlOverrideRegistry.getHistoryPageOverrideEnabled;
+import static org.chromium.chrome.browser.url_constants.ExtensionsUrlOverrideRegistry.getIncognitoBookmarksPageOverrideEnabled;
+import static org.chromium.chrome.browser.url_constants.ExtensionsUrlOverrideRegistry.getIncognitoNtpOverrideEnabled;
+import static org.chromium.chrome.browser.url_constants.ExtensionsUrlOverrideRegistry.getNtpOverrideEnabled;
 
 import android.app.Activity;
 import android.content.Context;
@@ -13,7 +18,7 @@ import android.view.View;
 
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.jank_tracker.JankTracker;
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.DestroyableObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
@@ -21,9 +26,11 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.download.home.DownloadPage;
+import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.bookmarks.BookmarkPage;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsMarginSupplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.history.HistoryManagerUtils;
 import org.chromium.chrome.browser.history.HistoryPage;
@@ -54,11 +61,13 @@ import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePage.NativePageType;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.ui.util.ColorUtils;
+import org.chromium.url.GURL;
 
 import java.util.function.Supplier;
 
@@ -76,7 +85,6 @@ public class NativePageFactory {
     private final TabModelSelector mTabModelSelector;
     private final Supplier<ShareDelegate> mShareDelegateSupplier;
     private final WindowAndroid mWindowAndroid;
-    private final JankTracker mJankTracker;
     private final Supplier<Toolbar> mToolbarSupplier;
     private final @Nullable HomeSurfaceTracker mHomeSurfaceTracker;
     private final ObservableSupplier<TabContentManager> mTabContentManagerSupplier;
@@ -89,6 +97,7 @@ public class NativePageFactory {
 
     private @Nullable NativePageBuilder mNativePageBuilder;
     private static @Nullable NativePage sTestPage;
+    private final BackPressManager mBackPressManager;
 
     public NativePageFactory(
             Activity activity,
@@ -100,7 +109,6 @@ public class NativePageFactory {
             TabModelSelector tabModelSelector,
             Supplier<ShareDelegate> shareDelegateSupplier,
             WindowAndroid windowAndroid,
-            JankTracker jankTracker,
             Supplier<Toolbar> toolbarSupplier,
             @Nullable HomeSurfaceTracker homeSurfaceTracker,
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
@@ -108,7 +116,8 @@ public class NativePageFactory {
             OneshotSupplier<ModuleRegistry> moduleRegistrySupplier,
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             ObservableSupplier<TopInsetCoordinator> topInsetCoordinatorSupplier,
-            StartupMetricsTracker startupMetricsTracker) {
+            StartupMetricsTracker startupMetricsTracker,
+            BackPressManager backPressManager) {
         mActivity = activity;
         mBottomSheetController = sheetController;
         mBrowserControlsManager = browserControlsManager;
@@ -118,7 +127,6 @@ public class NativePageFactory {
         mTabModelSelector = tabModelSelector;
         mShareDelegateSupplier = shareDelegateSupplier;
         mWindowAndroid = windowAndroid;
-        mJankTracker = jankTracker;
         mToolbarSupplier = toolbarSupplier;
         mHomeSurfaceTracker = homeSurfaceTracker;
         mTabContentManagerSupplier = tabContentManagerSupplier;
@@ -127,6 +135,7 @@ public class NativePageFactory {
         mEdgeToEdgeControllerSupplier = edgeToEdgeControllerSupplier;
         mTopInsetCoordinatorSupplier = topInsetCoordinatorSupplier;
         mStartupMetricsTracker = startupMetricsTracker;
+        mBackPressManager = backPressManager;
     }
 
     private NativePageBuilder getBuilder() {
@@ -143,7 +152,6 @@ public class NativePageFactory {
                             mTabModelSelector,
                             mShareDelegateSupplier,
                             mWindowAndroid,
-                            mJankTracker,
                             mToolbarSupplier,
                             mHomeSurfaceTracker,
                             mTabContentManagerSupplier,
@@ -151,7 +159,8 @@ public class NativePageFactory {
                             mModuleRegistrySupplier,
                             mEdgeToEdgeControllerSupplier,
                             mTopInsetCoordinatorSupplier,
-                            mStartupMetricsTracker);
+                            mStartupMetricsTracker,
+                            mBackPressManager);
         }
         return mNativePageBuilder;
     }
@@ -176,7 +185,6 @@ public class NativePageFactory {
         private final TabModelSelector mTabModelSelector;
         private final Supplier<ShareDelegate> mShareDelegateSupplier;
         private final WindowAndroid mWindowAndroid;
-        private final JankTracker mJankTracker;
         private final Supplier<Toolbar> mToolbarSupplier;
         private final @Nullable HomeSurfaceTracker mHomeSurfaceTracker;
         private final ObservableSupplier<TabContentManager> mTabContentManagerSupplier;
@@ -185,6 +193,7 @@ public class NativePageFactory {
         private final ObservableSupplier<EdgeToEdgeController> mEdgeToEdgeControllerSupplier;
         private final ObservableSupplier<TopInsetCoordinator> mTopInsetCoordinatorSupplier;
         private final StartupMetricsTracker mStartupMetricsTracker;
+        private final BackPressManager mBackPressManager;
 
         public NativePageBuilder(
                 Activity activity,
@@ -197,7 +206,6 @@ public class NativePageFactory {
                 TabModelSelector tabModelSelector,
                 Supplier<ShareDelegate> shareDelegateSupplier,
                 WindowAndroid windowAndroid,
-                JankTracker jankTracker,
                 Supplier<Toolbar> toolbarSupplier,
                 @Nullable HomeSurfaceTracker homeSurfaceTracker,
                 ObservableSupplier<TabContentManager> tabContentManagerSupplier,
@@ -205,7 +213,8 @@ public class NativePageFactory {
                 OneshotSupplier<ModuleRegistry> moduleRegistrySupplier,
                 ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
                 ObservableSupplier<TopInsetCoordinator> topInsetCoordinatorSupplier,
-                StartupMetricsTracker startupMetricsTracker) {
+                StartupMetricsTracker startupMetricsTracker,
+                BackPressManager backPressManager) {
             mActivity = activity;
             mNewTabPageCreationTracker = newTabPageCreationTracker;
             mBottomSheetController = sheetController;
@@ -216,7 +225,6 @@ public class NativePageFactory {
             mTabModelSelector = tabModelSelector;
             mShareDelegateSupplier = shareDelegateSupplier;
             mWindowAndroid = windowAndroid;
-            mJankTracker = jankTracker;
             mToolbarSupplier = toolbarSupplier;
             mHomeSurfaceTracker = homeSurfaceTracker;
             mTabContentManagerSupplier = tabContentManagerSupplier;
@@ -225,6 +233,7 @@ public class NativePageFactory {
             mEdgeToEdgeControllerSupplier = edgeToEdgeControllerSupplier;
             mTopInsetCoordinatorSupplier = topInsetCoordinatorSupplier;
             mStartupMetricsTracker = startupMetricsTracker;
+            mBackPressManager = backPressManager;
         }
 
         protected NativePage buildNewTabPage(Tab tab, String url) {
@@ -255,7 +264,6 @@ public class NativePageFactory {
                     mBottomSheetController,
                     mShareDelegateSupplier,
                     mWindowAndroid,
-                    mJankTracker,
                     mToolbarSupplier,
                     mHomeSurfaceTracker,
                     mTabContentManagerSupplier,
@@ -275,7 +283,8 @@ public class NativePageFactory {
                             mBrowserControlsManager,
                             mTabModelSelector,
                             mEdgeToEdgeControllerSupplier),
-                    mActivity.getComponentName());
+                    mActivity.getComponentName(),
+                    mBackPressManager);
         }
 
         protected NativePage buildDownloadsPage(Tab tab) {
@@ -371,14 +380,22 @@ public class NativePageFactory {
 
     @VisibleForTesting
     @Nullable NativePage createNativePageForURL(
-            String url,
+            @Nullable String url,
             @Nullable NativePage candidatePage,
             Tab tab,
             boolean isIncognito,
             @Nullable PdfInfo pdfInfo) {
+        if (url == null) return null;
+
+        GURL gurl = new GURL(url);
+        if (isChromePageUrlOverriddenByExtension(gurl, isIncognito)) {
+            RecordUserAction.record("ChromeSchemePage.OverrideTriggered");
+            return null;
+        }
+
         NativePage page;
 
-        switch (NativePage.nativePageType(url, candidatePage, isIncognito, pdfInfo != null)) {
+        switch (NativePage.nativePageType(gurl, candidatePage, isIncognito, pdfInfo != null)) {
             case NativePageType.NONE:
                 return null;
             case NativePageType.CANDIDATE:
@@ -414,6 +431,34 @@ public class NativePageFactory {
         return page;
     }
 
+    /**
+     * Returns whether the given url is for a chrome:// scheme page that is being overridden by an
+     * extension.
+     *
+     * <p>chrome-native:// scheme pages are not affected by this.
+     *
+     * @param url The url to be checked.
+     * @param isIncognito Whether the page is to be displayed in incognito mode.
+     */
+    private static boolean isChromePageUrlOverriddenByExtension(GURL url, boolean isIncognito) {
+        if (!ChromeFeatureList.sChromeNativeUrlOverriding.isEnabled()
+                || !UrlConstants.CHROME_SCHEME.equals(url.getScheme())) {
+            return false;
+        }
+
+        String host = url.getHost();
+        if (UrlConstants.NTP_HOST.equals(host)) {
+            return isIncognito ? getIncognitoNtpOverrideEnabled() : getNtpOverrideEnabled();
+        } else if (UrlConstants.BOOKMARKS_HOST.equals(host)) {
+            return isIncognito
+                    ? getIncognitoBookmarksPageOverrideEnabled()
+                    : getBookmarksPageOverrideEnabled();
+        } else if (UrlConstants.HISTORY_HOST.equals(host)) {
+            return !isIncognito && getHistoryPageOverrideEnabled();
+        }
+        return false;
+    }
+
     void setNativePageBuilderForTesting(NativePageBuilder builder) {
         mNativePageBuilder = builder;
     }
@@ -434,9 +479,9 @@ public class NativePageFactory {
      */
     public static @Nullable NativePage createNativePageForCustomTab(
             String url,
-            NativePage candidatePage,
+            @Nullable NativePage candidatePage,
             Tab tab,
-            PdfInfo pdfInfo,
+            @Nullable PdfInfo pdfInfo,
             BrowserControlsManager browserControlsManager,
             TabModelSelector tabModelSelector,
             Activity activity) {

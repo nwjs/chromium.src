@@ -163,12 +163,14 @@ source_set("profile_util_impl") {
     "//chrome/app/vector_icons",
     "//chrome/browser:browser_process",
     "//chrome/browser/autofill",
+    "//chrome/browser/history",
     "//chrome/browser/password_manager/factories",
     "//chrome/browser/prefs",
     "//chrome/browser/profiles",
     "//chrome/browser/safe_browsing",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/profiles",
+    "//chrome/browser/webdata_services",
     "//chrome/common",
     "//chrome/common:constants",
     "//components/account_id",
@@ -234,13 +236,18 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser/autocomplete:aim_eligibility_service",
     "//chrome/browser/autofill",
     "//chrome/browser/background",
+    "//chrome/browser/background_fetch",
+    "//chrome/browser/background_sync",
     "//chrome/browser/bitmap_fetcher",
+    "//chrome/browser/bluetooth",
     "//chrome/browser/breadcrumbs",
     "//chrome/browser/commerce",
     "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/contextual_tasks",
     "//chrome/browser/favicon",
     "//chrome/browser/feature_engagement",
     "//chrome/browser/file_system_access",
+    "//chrome/browser/history",
     "//chrome/browser/ip_protection",
     "//chrome/browser/media/router",
     "//chrome/browser/media/webrtc",
@@ -284,7 +291,10 @@ source_set("profiles_extra_parts_impl") {
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/toolbar/pinned_toolbar",
     "//chrome/browser/updates/announcement_notification",
+    "//chrome/browser/usb",
     "//chrome/browser/webauthn",
+    "//chrome/browser/webdata_services",
+    "//chrome/browser/webid",
     "//chrome/common:chrome_features",
     "//components/autofill/content/browser",
     "//components/breadcrumbs/core:status",
@@ -311,14 +321,16 @@ source_set("profiles_extra_parts_impl") {
     "//services/network/public/cpp",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  public_deps = [
+    "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser/search/background",
+  ]
 
   if (is_android) {
     deps += [
       "//chrome/browser/auxiliary_search",
       "//chrome/browser/commerce/merchant_viewer:merchant_viewer_data_manager",
       "//chrome/browser/fast_checkout",
-      "//chrome/browser/password_manager/android/one_time_passwords:backend",
       "//components/commerce/core:merchant_signal_db_proto",
       "//components/payments/content/browser_binding:browser_bound_keys_deleter_factory",
     ]
@@ -327,6 +339,7 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/accessibility/tree_fixing:service",
       "//chrome/browser/apps/app_service",
       "//chrome/browser/autofill",
+      "//chrome/browser/badging",
       "//chrome/browser/contextual_cueing",
       "//chrome/browser/devtools",
       "//chrome/browser/feedback",
@@ -334,11 +347,11 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/media/router/discovery/access_code:access_code_sink_service",
       "//chrome/browser/screen_ai:screen_ai_service_router_factory",
       "//chrome/browser/search",
-      "//chrome/browser/search/background",
       "//chrome/browser/search_engine_choice",
       "//chrome/browser/themes",
       "//chrome/browser/ui/global_error",
       "//chrome/browser/ui/global_media_controls",
+      "//chrome/browser/ui/lens",
       "//chrome/browser/ui/media_router",
       "//chrome/browser/ui/performance_controls",
       "//chrome/browser/ui/tabs/organization",
@@ -362,7 +375,6 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/ash/language_packs",
       "//chrome/browser/ash/lobster",
       "//chrome/browser/ash/policy/dlp",
-      "//chrome/browser/ash/policy/multi_screen_capture",
       "//chrome/browser/ash/policy/skyvault",
       "//chrome/browser/ash/scanner",
       "//chrome/browser/chromeos/cros_apps",
@@ -376,6 +388,13 @@ source_set("profiles_extra_parts_impl") {
 
   if (!is_chromeos && !is_android) {
     deps += [ ":profile_util" ]
+  }
+
+  if (is_win || is_mac || is_linux) {
+    deps += [
+      "//chrome/browser/browser_switcher",
+      "//chrome/browser/privacy_sandbox/incognito:whats_new_survey",
+    ]
   }
 
   if (enable_extensions_core) {
@@ -418,6 +437,10 @@ source_set("profiles_extra_parts_impl") {
       "//chrome/browser/profiles/batch_upload",
       "//chrome/browser/ui/signin",
     ]
+  }
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/password_manager:startup_import" ]
   }
 }
 
@@ -472,4 +495,22 @@ source_set("unit_tests") {
   # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
   # enable the diagnostic by removing this line.
   configs += [ "//build/config/compiler:no_exit_time_destructors" ]
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "profile_testing_helper.cc",
+    "profile_testing_helper.h",
+  ]
+  public_deps = [
+    "//base",
+    "//chrome/test:test_support",
+    "//content/test:test_support",
+  ]
+  deps = [ "//testing/gtest" ]
+
+  if (is_chromeos) {
+    deps += [ "//chromeos/ash/components/browser_context_helper" ]
+  }
 }

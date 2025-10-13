@@ -34,10 +34,10 @@ namespace gpu {
 
 namespace {
 
-BASE_FEATURE(DiscardDroppedEarlyRenderedFrames,
+BASE_FEATURE(kDiscardDroppedEarlyRenderedFrames,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(AlwaysRequestSampledImageFromImageReader,
+BASE_FEATURE(kAlwaysRequestSampledImageFromImageReader,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsSurfaceControl(TextureOwner::Mode mode) {

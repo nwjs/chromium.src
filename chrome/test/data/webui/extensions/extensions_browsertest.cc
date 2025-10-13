@@ -570,8 +570,6 @@ IN_PROC_BROWSER_TEST_F(
   RunTestCase("ItemListVisibility");
 }
 
-// TODO(crbug.com/439447730): Enable on desktop android.
-#if BUILDFLAG(ENABLE_EXTENSIONS)
 IN_PROC_BROWSER_TEST_F(
     CrExtensionsManagerTestWithMultipleExtensionTypesInstalled,
     SplitItems) {
@@ -620,7 +618,6 @@ IN_PROC_BROWSER_TEST_F(
   InstallPrerequisites();
   RunTestCase("ShowUnsupportedDeveloperExtensionDisabledToast");
 }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 class CrExtensionsManagerTestWithIdQueryParam
     : public ExtensionSettingsTestBase {
@@ -642,14 +639,11 @@ class CrExtensionsManagerTestWithIdQueryParam
   }
 };
 
-// TODO(crbug.com/439447730): Enable on desktop android.
-#if BUILDFLAG(ENABLE_EXTENSIONS)
 IN_PROC_BROWSER_TEST_F(CrExtensionsManagerTestWithIdQueryParam,
                        UrlNavigationToDetails) {
   InstallPrerequisites();
   RunTestCase("UrlNavigationToDetails");
 }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 // Disabled as flaky. TODO(crbug.com/40719203): Enable this test.
 IN_PROC_BROWSER_TEST_F(CrExtensionsManagerTestWithIdQueryParam,
@@ -730,22 +724,15 @@ class CrExtensionsErrorConsoleTest : public ExtensionSettingsTestBase {
   }
 };
 
-// TODO(crbug.com/439447730): Enable on desktop android.
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-IN_PROC_BROWSER_TEST_F(CrExtensionsErrorConsoleTest, TestUpDownErrors) {
+IN_PROC_BROWSER_TEST_F(CrExtensionsErrorConsoleTest, SingleErrorLayout) {
   SetDevModeEnabled(true);
-  // TODO(crbug.com/40804030): Update the associated extensions to
-  // Manifest V3 and stop ignoring deprecated manifest version warnings.
-  SetSilenceDeprecatedManifestVersionWarnings(true);
   InstallErrorsExtension();
 
   RunTest("extensions/error_console_test.js", "mocha.run()");
 
   // Return settings to default.
   SetDevModeEnabled(false);
-  SetSilenceDeprecatedManifestVersionWarnings(false);
 }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Extension Keyboard Shortcuts Tests

@@ -44,6 +44,7 @@
 #include "third_party/blink/renderer/platform/heap/cross_thread_handle.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 namespace blink {
 
@@ -193,7 +194,7 @@ void DecoderTemplate<Traits>::decode(const InputType* chunk,
     request->status = std::move(status_or_buffer).error();
     if (request->status == media::DecoderStatus::Codes::kKeyFrameRequired) {
       exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                        request->status.message().c_str());
+                                        String(request->status.message()));
       return;
     }
   }
@@ -353,6 +354,7 @@ void DecoderTemplate<Traits>::ContinueConfigureWithGpuFactories(
   if (MaybeAbortRequest(request)) {
     DCHECK_EQ(request, pending_request_);
     pending_request_.Release()->EndTracing();
+    ProcessRequests();
     return;
   }
 
@@ -893,7 +895,8 @@ void DecoderTemplate<Traits>::Request::StartTracing() {
   DCHECK(!is_tracing);
   is_tracing = true;
 #endif
-  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0(kCategory, TraceNameFromType(), this);
+  TRACE_EVENT_BEGIN(kCategory, perfetto::DynamicString(TraceNameFromType()),
+                    perfetto::Track::FromPointer(this));
 }
 
 template <typename Traits>
@@ -902,8 +905,8 @@ void DecoderTemplate<Traits>::Request::EndTracing(bool shutting_down) {
   DCHECK(is_tracing);
   is_tracing = false;
 #endif
-  TRACE_EVENT_NESTABLE_ASYNC_END1(kCategory, TraceNameFromType(), this,
-                                  "completed", !shutting_down);
+  TRACE_EVENT_END(kCategory, perfetto::Track::FromPointer(this), "completed",
+                  !shutting_down);
 }
 
 template <typename Traits>

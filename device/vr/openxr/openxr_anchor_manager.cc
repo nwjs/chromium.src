@@ -24,10 +24,11 @@ OpenXrAnchorManager::~OpenXrAnchorManager() {
 void OpenXrAnchorManager::AddCreateAnchorRequest(
     const mojom::XRNativeOriginInformation& native_origin_information,
     const device::Pose& native_origin_from_anchor,
+    const std::optional<PlaneId>& plane_id,
     CreateAnchorCallback callback) {
   create_anchor_requests_.emplace_back(native_origin_information,
                                        native_origin_from_anchor.ToTransform(),
-                                       std::move(callback));
+                                       plane_id, std::move(callback));
 }
 
 device::mojom::XRAnchorsDataPtr OpenXrAnchorManager::ProcessAnchorsForFrame(
@@ -42,33 +43,30 @@ device::mojom::XRAnchorsDataPtr OpenXrAnchorManager::ProcessAnchorsForFrame(
 void OpenXrAnchorManager::ProcessCreateAnchorRequests(
     OpenXrApiWrapper* openxr,
     const std::vector<mojom::XRInputSourceStatePtr>& input_state) {
+  XrTime display_time = openxr->GetPredictedDisplayTime();
   for (auto& request : create_anchor_requests_) {
     std::optional<XrLocation> anchor_location =
         GetXrLocationFromNativeOriginInformation(
             openxr, request.GetNativeOriginInformation(),
             request.GetNativeOriginFromAnchor(), input_state);
+
     if (!anchor_location.has_value()) {
-      request.TakeCallback().Run(device::mojom::CreateAnchorResult::FAILURE, 0);
+      request.TakeCallback().Run(std::nullopt);
       continue;
     }
 
-    XrTime display_time = openxr->GetPredictedDisplayTime();
-    AnchorId anchor_id = CreateAnchor(anchor_location->pose,
-                                      anchor_location->space, display_time);
+    AnchorId anchor_id =
+        CreateAnchor(anchor_location->pose, anchor_location->space,
+                     display_time, request.GetPlaneId());
 
-    if (anchor_id == kInvalidAnchorId) {
-      request.TakeCallback().Run(device::mojom::CreateAnchorResult::FAILURE, 0);
-    } else {
-      request.TakeCallback().Run(device::mojom::CreateAnchorResult::SUCCESS,
-                                 anchor_id.GetUnsafeValue());
-    }
+    request.TakeCallback().Run(anchor_id);
   }
   create_anchor_requests_.clear();
 }
 
 void OpenXrAnchorManager::DisposeActiveAnchorCallbacks() {
   for (auto& create_anchor : create_anchor_requests_) {
-    create_anchor.TakeCallback().Run(mojom::CreateAnchorResult::FAILURE, 0);
+    create_anchor.TakeCallback().Run(std::nullopt);
   }
   create_anchor_requests_.clear();
 }
@@ -87,16 +85,16 @@ OpenXrAnchorManager::GetXrLocationFromNativeOriginInformation(
     case mojom::XRNativeOriginInformation::Tag::kReferenceSpaceType:
       return GetXrLocationFromReferenceSpace(openxr, native_origin_information,
                                              native_origin_from_anchor);
-    // TODO: Look into plane data
-    case mojom::XRNativeOriginInformation::Tag::kPlaneId:
     case mojom::XRNativeOriginInformation::Tag::kHandJointSpaceInfo:
     case mojom::XRNativeOriginInformation::Tag::kImageIndex:
       // Unsupported for now
       return std::nullopt;
     case mojom::XRNativeOriginInformation::Tag::kAnchorId:
-      return GetXrLocationFromAnchor(
-          AnchorId(native_origin_information.get_anchor_id()),
-          native_origin_from_anchor);
+      return GetXrLocationFromAnchor(native_origin_information.get_anchor_id(),
+                                     native_origin_from_anchor);
+    case mojom::XRNativeOriginInformation::Tag::kPlaneId:
+      return GetXrLocationFromPlane(native_origin_information.get_plane_id(),
+                                    native_origin_from_anchor);
   }
 }
 

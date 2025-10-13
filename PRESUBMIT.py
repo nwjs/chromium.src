@@ -26,9 +26,6 @@ _EXCLUDED_PATHS = (
      r"client_variations.js"),
     # These are video files, not typescript.
     r"^media/test/data/.*.ts",
-    r"^native_client_sdksrc/build_tools/make_rules.py",
-    r"^native_client_sdk/src/build_tools/make_simple.py",
-    r"^native_client_sdk/src/tools/.*.mk",
     r"^net/tools/spdyshark/.*",
     r"^skia/.*",
     r"^third_party/blink/.*",
@@ -2342,7 +2339,7 @@ _GENERIC_PYDEPS_FILES = [
     'chrome/android/monochrome/scripts/monochrome_python_tests.pydeps',
     'chrome/test/chromedriver/log_replay/client_replay_unittest.pydeps',
     'chrome/test/chromedriver/test/run_py_tests.pydeps',
-    'chrome/test/media_router/performance/performance_test.pydeps',
+    'chrome/test/media_router/performance/openscreen_cast_performance_test.pydeps',
     'chromecast/resource_sizes/chromecast_resource_sizes.pydeps',
     'components/cronet/tools/check_combined_proguard_file.pydeps',
     'components/cronet/tools/generate_proguard_file.pydeps',
@@ -3396,13 +3393,10 @@ def CheckChromeOsSyncedPrefRegistration(input_api, output_api):
 
 def CheckNoAbbreviationInPngFileName(input_api, output_api):
     """Makes sure there are no abbreviations in the name of PNG files.
-    The native_client_sdk directory is excluded because it has auto-generated PNG
-    files for documentation.
     """
     errors = []
     files_to_check = [r'.*\.png$']
     files_to_skip = [
-        r'^native_client_sdk/',
         r'^services/test/',
         r'^third_party/blink/web_tests/',
     ]
@@ -3839,7 +3833,7 @@ def CheckSpamLogging(input_api, output_api):
             r"^fuchsia_web/shell/.*\.cc$",
             r"^headless/app/headless_shell\.cc$",
             r"^ipc/ipc_logging\.cc$",
-            r"^native_client_sdk/",
+            r"^ios/chrome/app/perf_tests_hook_logging\.mm$",
             r"^remoting/base/logging\.h$",
             r"^remoting/host/.*",
             r"^sandbox/linux/.*",
@@ -3892,7 +3886,6 @@ def CheckForAnonymousVariables(input_api, output_api):
     destroyed)."""
     they_who_must_be_named = [
         'base::AutoLock',
-        'base::AutoReset',
         'base::AutoUnlock',
         'SkAutoAlphaRestore',
         'SkAutoBitmapShaderInstall',
@@ -5374,10 +5367,10 @@ def CheckNoDeprecatedCss(input_api, output_api):
             r"^chrome/browser/resources/chromeos/arc_support/cr_overlay.css$",
             r"^chrome/common/extensions/docs",
             r"^chrome/docs",
-            r"^native_client_sdk",
             # The NTP team prefers reserving -webkit-line-clamp for
             # ellipsis effect which can only be used with -webkit-box.
-            r"ui/webui/resources/cr_components/most_visited/.*\.css$"))
+            r"ui/webui/resources/cr_components/most_visited/.*\.css$",
+            r"ui/webui/resources/cr_components/searchbox/searchbox_match.css$"))
     file_filter = lambda f: input_api.FilterSourceFile(
         f, files_to_check=file_inclusion_pattern, files_to_skip=files_to_skip)
     for fpath in input_api.AffectedFiles(file_filter=file_filter):
@@ -7022,7 +7015,7 @@ def CheckStrings(input_api, output_api):
             results.append(
                 output_api.PresubmitError(
                     'Do not include actual screenshots in the changelist. Run '
-                    'tools/translate/upload_screenshots.py to upload them instead:',
+                    'tools/translation/upload_screenshots.py to upload them instead:',
                     sorted(unnecessary_screenshots)))
 
         if missing_sha1:
@@ -7038,7 +7031,7 @@ def CheckStrings(input_api, output_api):
                 output_api.PresubmitError(
                     'The following files do not seem to contain valid sha1 hashes. '
                     'Make sure they contain hashes created by '
-                    'tools/translate/upload_screenshots.py:',
+                    'tools/translation/upload_screenshots.py:',
                     sorted(invalid_sha1)))
 
         if missing_sha1_modified:
@@ -7884,43 +7877,56 @@ def CheckNoBrowserStarInUnittests(input_api, output_api):
     return [output_api.PresubmitPromptWarning(WARNING_MSG, items=problems)]
 
 
-def CheckEnabledByDefaultCommitMessage(input_api, output_api):
-    """Checks that if a change enables a feature by default, the commit message
-    contains an Enabled-by-default-reason: tag. This helps reviewers understand
-    the reason the flag is being enabled and acts as an additional guard
-    against accidentally enabling a feature by default when it was not intended.
-    For example, this could happen if a flag is being enabled during local
-    development, but should be turned off when committing the change."""
+def CheckBaseFeatureMacro(input_api, output_api):
+    """Checks for correct usage of the BASE_FEATURE macro."""
+    pattern = input_api.re.compile(
+        r'\bBASE_FEATURE\s*\(\s*([^,]+)\s*,\s*([^,)]+)')
+    warnings = []
 
-    files_with_string = set()
-    for f, _, line in input_api.RightHandSideLines(
-            source_file_filter=lambda x: _IsCPlusPlusFile(
-                input_api, x.LocalPath())):
-        if 'FEATURE_ENABLED_BY_DEFAULT' in line:
-            files_with_string.add(f.LocalPath())
+    for f in input_api.AffectedFiles():
+        if not f.LocalPath().endswith(('.cc', '.mm')):
+            continue
 
-    if not files_with_string:
+        # Create a set of changed line numbers.
+        changed_line_numbers = {line_num for line_num, _ in f.ChangedContents()}
+        if not changed_line_numbers:
+            continue
+
+        lines = list(f.NewContents())
+        contents = '\n'.join(lines)
+        for match in pattern.finditer(contents):
+            # Determine the line numbers that the match spans.
+            start_line = contents.count('\n', 0, match.start()) + 1
+            end_line = contents.count('\n', 0, match.end()) + 1
+
+            # Check if any line in the match is in the set of changed lines.
+            if not changed_line_numbers.intersection(
+                    range(start_line, end_line + 1)):
+                continue
+
+            # Heuristic to ignore commented out macros.
+            if lines[start_line - 1].strip().startswith('//'):
+                continue
+
+            param1 = match.group(1).strip()
+            param2 = match.group(2).strip()
+
+            if param2.startswith('"') and param2.endswith('"'):
+                warnings.append(
+                    '    %s:%d: The 3-argument BASE_FEATURE macro with a '
+                    'string literal is discouraged. Use the 2-argument '
+                    'version instead.' % (f.LocalPath(), start_line))
+
+            if not input_api.re.match(r'^k[A-Z]', param1):
+                warnings.append(
+                    '    %s:%d: Feature identifier "%s" should start with "k" '
+                    'followed by an uppercase letter.' %
+                    (f.LocalPath(), start_line, param1))
+
+    if not warnings:
         return []
 
-    pattern = input_api.re.compile(r'Enabled-by-default-reason[:=]',
-                                   input_api.re.IGNORECASE)
-    if any(
-            pattern.search(line)
-            for line in input_api.change.DescriptionText().splitlines()):
-        return []
-
-    error_message = (
-        'The string "FEATURE_ENABLED_BY_DEFAULT" was found in a C++ file, '
-        'which suggests a feature is being enabled by default.\n'
-        'Please add a line to your commit description via `git cl description` '
-        'or in Gerrit with a reason the flag is being enabled by default.\n '
-        'This is a message on upload, but will block submission.\n'
-        'Use the format:\n'
-        'Enabled-by-default-reason: [reason]\n'
-        'Where [reason] is something like: "launching", "killswitch", etc.\n\n'
-        'Files containing "ENABLED_BY_DEFAULT":\n' +
-        '\n'.join('  ' + f for f in sorted(list(files_with_string))))
-
-    if input_api.is_committing:
-        return [output_api.PresubmitError(error_message)]
-    return [output_api.PresubmitNotifyResult(error_message)]
+    return [
+        output_api.PresubmitPromptWarning('BASE_FEATURE() macro naming:',
+                                          warnings)
+    ]

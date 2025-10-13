@@ -5,58 +5,77 @@
 #include "components/autofill/core/browser/form_parsing/autofill_scanner.h"
 
 #include "base/check.h"
-#include "base/memory/raw_ptr.h"
+#include "base/containers/span.h"
 #include "components/autofill/core/browser/autofill_field.h"
 
 namespace autofill {
 
-AutofillScanner::AutofillScanner(
-    const std::vector<raw_ptr<const FormFieldData>>& fields) {
-  cursor_ = fields.begin();
-  saved_cursor_ = fields.begin();
-  begin_ = fields.begin();
-  end_ = fields.end();
-}
+AutofillScanner::AutofillScanner(base::span<const FormFieldData> fields,
+                                 bool (*is_relevant)(const FormFieldData&))
+    : is_relevant_(is_relevant),
+      fields_(fields),
+      cursor_(SkipForward(fields_.begin())) {}
 
 AutofillScanner::~AutofillScanner() = default;
 
 void AutofillScanner::Advance() {
   CHECK(!IsEnd());
-  ++cursor_;
+  cursor_ = SkipForward(cursor_ + 1);
 }
 
-const FormFieldData* AutofillScanner::Cursor() const {
+AutofillScanner::Iterator AutofillScanner::SkipBackward(Iterator it) const {
+  while (it != fields_.begin() && !is_relevant_(*it)) {
+    --it;
+  }
+  return is_relevant_(*it) ? it : fields_.end();
+}
+
+AutofillScanner::Iterator AutofillScanner::SkipForward(Iterator it) const {
+  while (it != fields_.end() && !is_relevant_(*it)) {
+    ++it;
+  }
+  return it;
+}
+
+const FormFieldData& AutofillScanner::Cursor() const {
   CHECK(!IsEnd());
+  CHECK(is_relevant_(*cursor_));
   return *cursor_;
 }
 
 const FormFieldData* AutofillScanner::Predecessor() const {
-  return cursor_ != begin_ ? *std::prev(cursor_) : nullptr;
+  CHECK(!IsEnd());
+  CHECK(is_relevant_(*cursor_));
+  if (cursor_ == fields_.begin()) {
+    return nullptr;
+  }
+  const Iterator it = SkipBackward(std::prev(cursor_));
+  if (it == fields_.end()) {
+    return nullptr;
+  }
+  return &*it;
 }
 
 bool AutofillScanner::IsEnd() const {
-  return cursor_ == end_;
+  return cursor_ == fields_.end();
 }
 
-void AutofillScanner::Rewind() {
-  CHECK(saved_cursor_ != end_);
-  cursor_ = saved_cursor_;
-  saved_cursor_ = end_;
+AutofillScanner::Position AutofillScanner::GetPosition() const {
+  return Position(cursor_);
 }
 
-void AutofillScanner::RewindTo(size_t index) {
-  CHECK_LE(index, static_cast<size_t>(std::distance(begin_, end_)));
-  cursor_ = begin_ + index;
-  saved_cursor_ = end_;
+void AutofillScanner::Restore(Position position) {
+  cursor_ = SkipForward(position.cursor_);
 }
 
-size_t AutofillScanner::SaveCursor() {
-  saved_cursor_ = cursor_;
-  return static_cast<size_t>(cursor_ - begin_);
-}
-
-size_t AutofillScanner::CursorPosition() {
-  return static_cast<size_t>(cursor_ - begin_);
+size_t AutofillScanner::GetOffset() const {
+  size_t position = 0;
+  Iterator it = SkipForward(fields_.begin());
+  while (it != cursor_) {
+    it = SkipForward(it + 1);
+    ++position;
+  }
+  return position;
 }
 
 }  // namespace autofill

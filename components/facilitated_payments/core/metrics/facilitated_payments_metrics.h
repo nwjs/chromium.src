@@ -42,7 +42,7 @@ enum class AvailableEwalletsConfiguration {
   kSingleBoundEwallet = 0,
   // Only one eWallet is available, and it’s not bound to the device.
   kSingleUnboundEwallet = 1,
-  // Mutilple eWallets are available..
+  // Multiple eWallets are available.
   kMultipleEwallets = 2,
 };
 
@@ -111,7 +111,9 @@ enum class EwalletFlowExitedReason {
   // The device is a foldable device which we don't support yet.
   kFoldableDevice = 13,
   kMaxStrikes = 14,
-  kMaxValue = kMaxStrikes
+  // Another type of FOP selected.
+  kOtherFopSelected = 15,
+  kMaxValue = kOtherFopSelected
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/facilitated_payments/enums.xml:FacilitatedPayments.EwalletFlowExitedReason)
 
@@ -161,7 +163,9 @@ enum class PixFlowExitedReason {
   kPixCodeInIFrame = 16,
   // Pix code was copied in an inactive frame.
   kFrameNotActive = 17,
-  kMaxValue = kFrameNotActive
+  // Pix code was copied in CCT with Gboard as the default IME provider.
+  kCctWithGboardAsDefaultIme = 18,
+  kMaxValue = kCctWithGboardAsDefaultIme
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/facilitated_payments/enums.xml:FacilitatedPayments.PixFlowExitedReason)
 

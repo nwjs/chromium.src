@@ -18,6 +18,7 @@
 #include "components/facilitated_payments/core/browser/facilitated_payments_app_info_list.h"
 #include "components/facilitated_payments/core/browser/facilitated_payments_client.h"
 #include "components/facilitated_payments/core/browser/network_api/multiple_request_facilitated_payments_network_interface.h"
+#include "components/facilitated_payments/core/browser/payment_link_manager.h"
 #include "components/facilitated_payments/core/utils/facilitated_payments_ui_utils.h"
 #include "content/public/browser/web_contents_user_data.h"
 
@@ -28,7 +29,6 @@ class Origin;
 namespace autofill {
 class BankAccount;
 class Ewallet;
-class StrikeDatabase;
 }  // namespace autofill
 
 namespace content {
@@ -39,6 +39,10 @@ class RenderFrameHost;
 namespace optimization_guide {
 class OptimizationGuideDecider;
 }  // namespace optimization_guide
+
+namespace strike_database {
+class StrikeDatabase;
+}  // namespace strike_database
 
 // Chrome implementation of `FacilitatedPaymentsClient`. `WebContents` owns 1
 // instance of this class. Creates and owns
@@ -83,6 +87,7 @@ class ChromeFacilitatedPaymentsClient
   std::optional<CoreAccountInfo> GetCoreAccountInfo() final;
   bool IsInLandscapeMode() final;
   bool IsFoldable() final;
+  bool IsInChromeCustomTabMode() final;
   optimization_guide::OptimizationGuideDecider* GetOptimizationGuideDecider()
       final;
   payments::facilitated::DeviceDelegate* GetDeviceDelegate() final;
@@ -94,16 +99,17 @@ class ChromeFacilitatedPaymentsClient
       base::span<const autofill::Ewallet> ewallet_suggestions,
       std::unique_ptr<payments::facilitated::FacilitatedPaymentsAppInfoList>
           app_suggestions,
-      base::OnceCallback<void(int64_t)> on_payment_account_selected,
-      base::OnceCallback<void(std::string_view, std::string_view)>
-          on_payment_app_selected) final;
+      base::OnceCallback<void(payments::facilitated::SelectedFopData)>
+          on_fop_selected) final;
   void ShowProgressScreen() final;
   void ShowErrorScreen() final;
   void DismissPrompt() final;
   void SetUiEventListener(
       base::RepeatingCallback<void(payments::facilitated::UiEvent)>
           ui_event_listener) final;
-  autofill::StrikeDatabase* GetStrikeDatabase() final;
+  strike_database::StrikeDatabase* GetStrikeDatabase() final;
+  void InitPixAccountLinkingFlow(
+      const url::Origin& pix_payment_page_origin) final;
   void ShowPixAccountLinkingPrompt(
       base::OnceCallback<void()> on_accepted,
       base::OnceCallback<void()> on_declined) final;

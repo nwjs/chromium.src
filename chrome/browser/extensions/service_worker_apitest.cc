@@ -801,7 +801,8 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest, EarlyEventDispatch) {
   auto event = std::make_unique<Event>(
       events::FOR_TEST, api::test::OnMessage::kEventName,
       std::move(
-          base::JSONReader::Read(R"([{"data": "hello", "lastMessage": true}])")
+          base::JSONReader::Read(R"([{"data": "hello", "lastMessage": true}])",
+                                 base::JSON_PARSE_CHROMIUM_EXTENSIONS)
               .value()
               .GetList()),
       profile());
@@ -895,10 +896,10 @@ class ServiceWorkerPushMessagingTest : public ServiceWorkerTest {
         profile(), url.DeprecatedGetOriginAsURL(), CONTENT_SETTING_ALLOW);
   }
 
-  PushMessagingAppIdentifier GetAppIdentifierForServiceWorkerRegistration(
+  push_messaging::AppIdentifier GetAppIdentifierForServiceWorkerRegistration(
       int64_t service_worker_registration_id,
       const GURL& origin) {
-    PushMessagingAppIdentifier app_identifier =
+    push_messaging::AppIdentifier app_identifier =
         PushMessagingAppIdentifier::FindByServiceWorker(
             profile(), origin, service_worker_registration_id);
 
@@ -1914,7 +1915,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerPushMessagingTest, OnPush) {
   EXPECT_TRUE(content::ExecJs(web_contents->GetPrimaryMainFrame(), kScript));
   EXPECT_TRUE(ready_listener.WaitUntilSatisfied());
 
-  PushMessagingAppIdentifier app_identifier =
+  push_messaging::AppIdentifier app_identifier =
       GetAppIdentifierForServiceWorkerRegistration(0LL, extension_url);
   ASSERT_EQ(app_identifier.app_id(), gcm_driver()->last_gettoken_app_id());
   EXPECT_EQ("1234567890", gcm_driver()->last_gettoken_authorized_entity());
@@ -2328,12 +2329,12 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
   EXPECT_EQ(1, observer.GetCompletedCount(extension->url()));
 }
 
-// Tests that a worker that failed to start due to 'install' error, clears its
-// PendingTasks correctly. Also tests that subsequent tasks are properly
-// cleared.
+// Tests that a worker that failed to start due to 'install' error, runs its
+// PendingTasks with a null context and clears them correctly.
 // Regression test for https://crbug.com/1019161.
+// See also https://crbug.com/371011217.
 IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
-                       WorkerStartFailureClearsPendingTasks) {
+                       WorkerStartFailureRunsPendingTasksWithNullContext) {
   content::ServiceWorkerContext* context = GetServiceWorkerContext();
 
   const ExtensionId test_extension_id("iegclhlplifhodhkoafiokenjoapiobj");
@@ -2380,10 +2381,20 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
   ServiceWorkerTaskQueue* service_worker_task_queue =
       ServiceWorkerTaskQueue::Get(profile());
   base::HistogramTester histograms;
+
+  // Set up a task that verifies it runs with a null context upon failure.
+  base::RunLoop task_run_loop;
+  auto pending_task = base::BindLambdaForTesting(
+      [&](std::unique_ptr<LazyContextTaskQueue::ContextInfo> context_info) {
+        EXPECT_FALSE(context_info);
+        task_run_loop.Quit();
+      });
+
   // Adding a pending task to ServiceWorkerTaskQueue will try to start the
   // worker that failed during installation before. This enables us to ensure
-  // that this pending task is cleared on failure.
-  service_worker_task_queue->AddPendingTask(context_id, base::DoNothing());
+  // that this pending task is run on failure.
+  service_worker_task_queue->AddPendingTask(context_id,
+                                            std::move(pending_task));
 
   // Since the worker rejects installation, it will fail to start now. Ensure
   // that the queue sees pending tasks while the error is observed.
@@ -2393,8 +2404,8 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
   EXPECT_EQ(blink::ServiceWorkerStatusCode::kErrorNotFound,
             failed_data.status_code);
 
-  // Ensure DidStartWorkerFail finished clearing tasks.
-  base::RunLoop().RunUntilIdle();
+  // Wait for the pending task to be executed and cleared.
+  task_run_loop.Run();
 
   histograms.ExpectUniqueSample(
       "Extensions.ServiceWorkerBackground.StartWorkerStatus", /*sample=*/false,

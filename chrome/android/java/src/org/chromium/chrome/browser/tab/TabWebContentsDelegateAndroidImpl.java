@@ -52,6 +52,7 @@ import org.chromium.components.find_in_page.FindMatchRectsDetails;
 import org.chromium.components.find_in_page.FindNotificationDetails;
 import org.chromium.content_public.browser.InvalidateTypes;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.content_public.browser.navigation_controller.UserAgentOverrideOption;
 import org.chromium.content_public.common.ResourceRequestBody;
 import org.chromium.url.GURL;
 
@@ -155,11 +156,17 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     protected boolean addNewContents(
             WebContents sourceWebContents,
             WebContents webContents,
+            GURL targetUrl,
             int disposition,
             WindowFeatures windowFeatures,
             boolean userGesture) {
         return mDelegate.addNewContents(
-                sourceWebContents, webContents, disposition, windowFeatures, userGesture);
+                sourceWebContents,
+                webContents,
+                targetUrl,
+                disposition,
+                windowFeatures,
+                userGesture);
     }
 
     @CalledByNative
@@ -285,8 +292,12 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
 
     @Override
     public void fullscreenStateChangedForTab(
-            boolean prefersNavigationBar, boolean prefersStatusBar, long displayId) {
-        mDelegate.fullscreenStateChangedForTab(prefersNavigationBar, prefersStatusBar, displayId);
+            long requestingFrame,
+            boolean prefersNavigationBar,
+            boolean prefersStatusBar,
+            long displayId) {
+        mDelegate.fullscreenStateChangedForTab(
+                requestingFrame, prefersNavigationBar, prefersStatusBar, displayId);
     }
 
     @Override
@@ -378,23 +389,6 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
     @Override
     public boolean shouldCreateWebContents(GURL targetUrl) {
         return mDelegate.shouldCreateWebContents(targetUrl);
-    }
-
-    @Override
-    public void webContentsCreated(
-            WebContents sourceWebContents,
-            long openerRenderProcessId,
-            long openerRenderFrameId,
-            String frameName,
-            GURL targetUrl,
-            WebContents newWebContents) {
-        mDelegate.webContentsCreated(
-                sourceWebContents,
-                openerRenderProcessId,
-                openerRenderFrameId,
-                frameName,
-                targetUrl,
-                newWebContents);
     }
 
     @Override
@@ -633,6 +627,11 @@ final class TabWebContentsDelegateAndroidImpl extends TabWebContentsDelegateAndr
         } else {
             ZoomController.zoomOut(wc);
         }
+    }
+
+    @Override
+    public @UserAgentOverrideOption int shouldOverrideUserAgentForPrerender2(GURL url) {
+        return mTab.calculateUserAgentOverrideOption(url);
     }
 
     @Override

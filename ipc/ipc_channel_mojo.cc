@@ -24,7 +24,6 @@
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_mojo_bootstrap.h"
 #include "ipc/ipc_mojo_handle_attachment.h"
-#include "ipc/native_handle_type_converters.h"
 #include "ipc/trace_ipc_message.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
@@ -36,37 +35,6 @@
 namespace IPC {
 
 namespace {
-
-class MojoChannelFactory : public ChannelFactory {
- public:
-  MojoChannelFactory(
-      mojo::ScopedMessagePipeHandle handle,
-      Channel::Mode mode,
-      const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner,
-      const scoped_refptr<base::SingleThreadTaskRunner>& proxy_task_runner)
-      : handle_(std::move(handle)),
-        mode_(mode),
-        ipc_task_runner_(ipc_task_runner),
-        proxy_task_runner_(proxy_task_runner) {}
-
-  MojoChannelFactory(const MojoChannelFactory&) = delete;
-  MojoChannelFactory& operator=(const MojoChannelFactory&) = delete;
-
-  std::unique_ptr<Channel> BuildChannel(Listener* listener) override {
-    return ChannelMojo::Create(std::move(handle_), mode_, listener,
-                               ipc_task_runner_, proxy_task_runner_);
-  }
-
-  scoped_refptr<base::SingleThreadTaskRunner> GetIPCTaskRunner() override {
-    return ipc_task_runner_;
-  }
-
- private:
-  mojo::ScopedMessagePipeHandle handle_;
-  const Channel::Mode mode_;
-  scoped_refptr<base::SingleThreadTaskRunner> ipc_task_runner_;
-  scoped_refptr<base::SingleThreadTaskRunner> proxy_task_runner_;
-};
 
 class ThreadSafeChannelProxy : public mojo::ThreadSafeProxy {
  public:
@@ -114,37 +82,6 @@ base::ProcessId GetSelfPID() {
 }  // namespace
 
 //------------------------------------------------------------------------------
-
-// static
-std::unique_ptr<ChannelMojo> ChannelMojo::Create(
-    mojo::ScopedMessagePipeHandle handle,
-    Mode mode,
-    Listener* listener,
-    const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner,
-    const scoped_refptr<base::SingleThreadTaskRunner>& proxy_task_runner) {
-  return base::WrapUnique(new ChannelMojo(std::move(handle), mode, listener,
-                                          ipc_task_runner, proxy_task_runner));
-}
-
-// static
-std::unique_ptr<ChannelFactory> ChannelMojo::CreateServerFactory(
-    mojo::ScopedMessagePipeHandle handle,
-    const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner,
-    const scoped_refptr<base::SingleThreadTaskRunner>& proxy_task_runner) {
-  return std::make_unique<MojoChannelFactory>(
-      std::move(handle), Channel::MODE_SERVER, ipc_task_runner,
-      proxy_task_runner);
-}
-
-// static
-std::unique_ptr<ChannelFactory> ChannelMojo::CreateClientFactory(
-    mojo::ScopedMessagePipeHandle handle,
-    const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner,
-    const scoped_refptr<base::SingleThreadTaskRunner>& proxy_task_runner) {
-  return std::make_unique<MojoChannelFactory>(
-      std::move(handle), Channel::MODE_CLIENT, ipc_task_runner,
-      proxy_task_runner);
-}
 
 ChannelMojo::ChannelMojo(
     mojo::ScopedMessagePipeHandle handle,

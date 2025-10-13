@@ -9,6 +9,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/types/pass_key.h"
 #include "base/unguessable_token.h"
 #include "components/performance_manager/execution_context/execution_context_impl.h"
@@ -45,7 +46,8 @@ class FrameNodeImpl
           execution_context::FrameExecutionContext,
           resource_attribution::SharedCPUTimeResultData,
           // Keep this last to avoid merge conflicts.
-          NodeAttachedDataStorage> {
+          NodeAttachedDataStorage>,
+      public TracingObserver {
  public:
   static const char kDefaultPriorityReason[];
 
@@ -65,7 +67,8 @@ class FrameNodeImpl
                 const blink::LocalFrameToken& frame_token,
                 content::BrowsingInstanceId browsing_instance_id,
                 content::SiteInstanceGroupId site_instance_group_id,
-                bool is_current);
+                bool is_current,
+                bool is_active);
 
   FrameNodeImpl(const FrameNodeImpl&) = delete;
   FrameNodeImpl& operator=(const FrameNodeImpl&) = delete;
@@ -102,6 +105,7 @@ class FrameNodeImpl
   const GURL& GetURL() const override;
   const std::optional<url::Origin>& GetOrigin() const override;
   bool IsCurrent() const override;
+  bool IsActive() const override;
   const PriorityAndReason& GetPriorityAndReason() const override;
   bool GetNetworkAlmostIdle() const override;
   bool IsAdFrame() const override;
@@ -117,10 +121,15 @@ class FrameNodeImpl
   ViewportIntersection GetViewportIntersection() const override;
   Visibility GetVisibility() const override;
   bool IsIntersectingLargeArea() const override;
+  bool IsRendered() const override;
   bool IsImportant() const override;
   const RenderFrameHostProxy& GetRenderFrameHostProxy() const override;
   base::ByteCount GetResidentSetEstimate() const override;
   base::ByteCount GetPrivateFootprintEstimate() const override;
+  void CrossProcessSubframeRenderProcessGone() override;
+
+  // TracingObserver implementation:
+  void OnTraceSessionStart() override;
 
   // Getters for const properties.
   FrameNodeImpl* parent_frame_node() const;
@@ -128,6 +137,7 @@ class FrameNodeImpl
   PageNodeImpl* page_node() const;
   ProcessNodeImpl* process_node() const;
   int render_frame_id() const;
+  perfetto::Track tracing_track() const;
 
   // Getters for non-const properties. These are not thread safe.
   NodeSetView<FrameNodeImpl*> child_frame_nodes() const;
@@ -141,6 +151,7 @@ class FrameNodeImpl
   static void UpdateCurrentFrame(FrameNodeImpl* previous_frame_node,
                                  FrameNodeImpl* current_frame_node,
                                  GraphImpl* graph);
+  void SetIsActive(bool is_active);
   void SetHadUserActivation();
   void SetIsHoldingWebLock(bool is_holding_weblock);
   void SetIsHoldingBlockingIndexedDBLock(
@@ -150,6 +161,7 @@ class FrameNodeImpl
   void SetViewportIntersection(ViewportIntersection viewport_intersection);
   void SetInitialVisibility(Visibility visibility);
   void SetVisibility(Visibility visibility);
+  void SetIsRendered(bool is_rendered);
   void SetIsIntersectingLargeArea(bool is_intersecting_large_area);
   void SetIsImportant(bool is_important);
   void SetResidentSetEstimate(base::ByteCount rss_estimate);
@@ -288,6 +300,8 @@ class FrameNodeImpl
   // even if it is not current.
   FrameNodeImpl* GetFrameTreeRoot() const;
 
+  void TraceEdges();
+
   bool HasFrameNodeInAncestors(FrameNodeImpl* frame_node) const;
   bool HasFrameNodeInDescendants(FrameNodeImpl* frame_node) const;
   bool HasFrameNodeInTree(FrameNodeImpl* frame_node) const;
@@ -315,9 +329,6 @@ class FrameNodeImpl
   // RenderFrameHost::GetFrameToken().
   const blink::LocalFrameToken frame_token_;
 
-  // Perfetto track that can record trace events for the page.
-  const perfetto::NamedTrack tracing_track_;
-
   // The unique ID of the BrowsingInstance this frame belongs to. Frames in the
   // same BrowsingInstance are allowed to script each other at least
   // asynchronously (if cross-site), and sometimes synchronously (if same-site,
@@ -333,6 +344,12 @@ class FrameNodeImpl
   // A proxy object that lets the underlying RFH be safely dereferenced on the
   // UI thread.
   const RenderFrameHostProxy render_frame_host_proxy_;
+
+  // Perfetto track that can record trace events for the page.
+  const perfetto::NamedTrack tracing_track_;
+
+  base::ScopedObservation<TracingObserverList, TracingObserver>
+      tracing_observation_{this};
 
   NodeSet child_frame_nodes_;
 
@@ -375,6 +392,7 @@ class FrameNodeImpl
       is_holding_blocking_indexeddb_lock_{false};
 
   bool is_current_{false};
+  bool is_active_{false};
 
   // Properties associated with a Document, which are reset when a
   // different-document navigation is committed in the frame.
@@ -426,6 +444,9 @@ class FrameNodeImpl
       &FrameNodeObserver::OnFrameVisibilityChanged,
       TracedWrapper<Visibility>>
       visibility_;
+
+  // Indicates if this frame is rendered.
+  bool is_rendered_ = false;
 
   // Indicates if this frame intersects with a large area of the viewport.
   // Defaults to true when its value is unknown.

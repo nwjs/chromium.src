@@ -61,7 +61,6 @@
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/download/download_manager_utils.h"
-#include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 #include "chrome/browser/file_system_access/chrome_file_system_access_permission_context.h"
 #include "chrome/browser/file_system_access/file_system_access_permission_context_factory.h"
 #include "chrome/browser/heavy_ad_intervention/heavy_ad_service_factory.h"
@@ -237,6 +236,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 #include "chrome/browser/extensions/extension_special_storage_policy.h"
 #include "extensions/browser/extension_pref_store.h"
 #include "extensions/browser/extension_pref_value_map.h"
@@ -1056,15 +1056,6 @@ bool ProfileImpl::IsChild() const {
          supervised_user::kChildAccountSUID;
 }
 
-bool ProfileImpl::AllowsBrowserWindows() const {
-#if BUILDFLAG(IS_CHROMEOS)
-  if (ash::ProfileHelper::IsSigninProfile(this)) {
-    return false;
-  }
-#endif
-  return !IsSystemProfile();
-}
-
 ExtensionSpecialStoragePolicy* ProfileImpl::GetExtensionSpecialStoragePolicy() {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   if (!extension_special_storage_policy_.get()) {
@@ -1110,13 +1101,6 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
   CHECK(!ReadingListModelFactory::HasModel(this));
   browser_sync::MaybeMigrateSyncingUserToSignedIn(GetPath(), GetPrefs());
 
-#if BUILDFLAG(IS_ANDROID)
-  // On Android StartupData creates proto database provider for the profile
-  // before profile is created, so move ownership to storage partition.
-  GetDefaultStoragePartition()->SetProtoDatabaseProvider(
-      g_browser_process->startup_data()->TakeProtoDatabaseProvider());
-#endif
-
 #if BUILDFLAG(IS_CHROMEOS)
   // If this is a kiosk profile, reset some of its prefs which should not
   // persist between sessions.
@@ -1139,7 +1123,10 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
   }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-  FullBrowserTransitionManager::Get()->OnProfileCreated(this);
+  if (!base::FeatureList::IsEnabled(
+          features::kDelayOnProfileCreatedForFullBrowserTransition)) {
+    FullBrowserTransitionManager::Get()->OnProfileCreated(this);
+  }
 
   SimpleDependencyManager::GetInstance()->CreateServices(GetProfileKey());
 
@@ -1147,16 +1134,27 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
   // Check that the IdentityManager was not created before the browser context
   // services were created. This ensures that browser tests can override the
   // IdentityManager with a fake.
-
-  // TODO(msarda): This invariant is violated on Android. Remove this check
-  // once the IdentityManager is no longer created as part of the initialization
-  // of the storage partition on Android.
   CHECK(!IdentityManagerFactory::GetForProfileIfExists(this),
         base::NotFatalUntil::M160);
+#else
+  if (base::FeatureList::IsEnabled(
+          features::kDelayOnProfileCreatedForFullBrowserTransition)) {
+    // TODO(msarda): This invariant is violated on Android, but may be fixed by
+    // enabling the kDelayOnProfileCreatedForFullBrowserTransition feature.
+    // Remove this check once the IdentityManager is no longer created too early
+    // on Android.
+    CHECK(!IdentityManagerFactory::GetForProfileIfExists(this),
+          base::NotFatalUntil::M160);
+  }
 #endif
 
   BrowserContextDependencyManager::GetInstance()->CreateBrowserContextServices(
       this);
+
+  if (base::FeatureList::IsEnabled(
+          features::kDelayOnProfileCreatedForFullBrowserTransition)) {
+    FullBrowserTransitionManager::Get()->OnProfileCreated(this);
+  }
 
   ChromeVersionService::OnProfileLoaded(prefs_.get(), IsNewProfile());
   DoFinalInit(create_mode);
@@ -1416,6 +1414,17 @@ ProfileImpl::GetReduceAcceptLanguageControllerDelegate() {
 content::OriginTrialsControllerDelegate*
 ProfileImpl::GetOriginTrialsControllerDelegate() {
   return OriginTrialsFactory::GetForBrowserContext(this);
+}
+
+std::unique_ptr<leveldb_proto::ProtoDatabaseProvider>
+ProfileImpl::TakeDefaultProtoDatabaseProvider() {
+#if BUILDFLAG(IS_ANDROID)
+  // On Android StartupData creates proto database provider for the profile
+  // before profile is created, so move ownership to storage partition.
+  return g_browser_process->startup_data()->TakeProtoDatabaseProvider();
+#else
+  return nullptr;
+#endif
 }
 
 std::unique_ptr<download::InProgressDownloadManager>

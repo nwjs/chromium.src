@@ -653,8 +653,8 @@ BlockLayoutAlgorithm::HandleNonsuccessfulLayoutResult(
 
 const LayoutResult* BlockLayoutAlgorithm::LayoutInlineChild(
     const InlineNode& node) {
-  float paragraph_scale = 1.0f;
-  if (RuntimeEnabledFeatures::CssFitWidthTextConsistentEnabled()) {
+  ParagraphScale paragraph_scale;
+  if (RuntimeEnabledFeatures::CssFitWidthTextEnabled()) {
     const bool grow_consistent =
         Style().TextGrow().Target() == FitTextTarget::kConsistent;
     const bool shrink_consistent =
@@ -677,22 +677,22 @@ const LayoutResult* BlockLayoutAlgorithm::LayoutInlineChild(
       cloned_param.previous_result = previous_result_;
       BlockLayoutAlgorithm cloned_algorithm(cloned_param);
       const LayoutResult* result =
-          cloned_algorithm.LayoutInlineChild(node, std::nullopt);
+          cloned_algorithm.LayoutInlineChild(node, nullptr);
       paragraph_scale = MeasurePerBlockScale(
           InlineNode(To<LayoutBlockFlow>(Node().GetLayoutBox())),
           result->GetPhysicalFragment(), ChildAvailableSize().inline_size);
-      if ((paragraph_scale < 1.0f && !shrink_consistent) ||
-          (paragraph_scale > 1.0f && !grow_consistent)) {
-        paragraph_scale = 1.0f;
+      if ((paragraph_scale.scale < 1.0f && !shrink_consistent) ||
+          (paragraph_scale.scale > 1.0f && !grow_consistent)) {
+        paragraph_scale = ParagraphScale();
       }
     }
   }
-  return LayoutInlineChild(node, paragraph_scale);
+  return LayoutInlineChild(node, &paragraph_scale);
 }
 
 NOINLINE const LayoutResult* BlockLayoutAlgorithm::LayoutInlineChild(
     const InlineNode& node,
-    std::optional<float> paragraph_scale) {
+    const ParagraphScale* paragraph_scale) {
   const TextWrapStyle wrap = node.Style().GetTextWrapStyle();
   if (wrap == TextWrapStyle::kPretty) [[unlikely]] {
     UseCounter::Count(node.GetDocument(), WebFeature::kTextWrapPretty);
@@ -719,7 +719,7 @@ template <wtf_size_t capacity>
 NOINLINE const LayoutResult*
 BlockLayoutAlgorithm::LayoutWithOptimalInlineChildLayoutContext(
     const InlineNode& child,
-    std::optional<float> paragraph_scale) {
+    const ParagraphScale* paragraph_scale) {
   OptimalInlineChildLayoutContext<capacity> context(child, &container_builder_);
   context.EnableMeasuringModeIfNecessary(paragraph_scale);
   return Layout(&context);
@@ -806,10 +806,6 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
       }
 
       if (clamp_bfc_offset != kIndefiniteSize) {
-        if (!RuntimeEnabledFeatures::CSSLineClampEnabled()) {
-          clamp_bfc_offset = kIndefiniteSize;
-        }
-
         WebFeature use_counter_feature;
         if (Style().WebkitLineClamp() != 0 ||
             Style().Continue() == EContinue::kWebkitLegacy) {
@@ -1120,9 +1116,13 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
 #endif
 
   if (placeholder_child) {
+    PlaceholderLayoutResult offset_and_status = HandleTextControlPlaceholder(
+        placeholder_child, previous_inflow_position);
+    if (offset_and_status.status != LayoutResult::kSuccess) {
+      return container_builder_.Abort(offset_and_status.status);
+    }
     previous_inflow_position.logical_block_offset =
-        HandleTextControlPlaceholder(placeholder_child,
-                                     previous_inflow_position);
+        offset_and_status.logical_block_offset;
   }
 
   if (!child_iterator.NextChild(previous_inline_break_token).node) {
@@ -1953,9 +1953,10 @@ LayoutResult::EStatus BlockLayoutAlgorithm::HandleNewFormattingContext(
   }
 
   // Update line-clamp data, and abort if needed
-  if (!line_clamp_data_.UpdateAfterLayout(
-          layout_result, *container_builder_.BfcBlockOffset(),
-          *previous_inflow_position, Padding().block_end)) {
+  if (!line_clamp_data_.UpdateAfterLayout(layout_result, Node().GetDocument(),
+                                          *container_builder_.BfcBlockOffset(),
+                                          *previous_inflow_position,
+                                          Padding().block_end)) {
     container_builder_.SetLinesUntilClamp(
         line_clamp_data_.LinesUntilClamp(/*show_measured_lines*/ true));
     container_builder_.SetLineClampAfterLayoutObject(
@@ -2110,7 +2111,8 @@ const LayoutResult* BlockLayoutAlgorithm::LayoutNewFormattingContext(
       // Because the marker is laid out as a normal block child, its inline
       // size is extended to fill up the space. Compute the regular marker size
       // from the first child.
-      const auto& marker_fragment = layout_result->GetPhysicalFragment();
+      const auto& marker_fragment =
+          To<PhysicalBoxFragment>(layout_result->GetPhysicalFragment());
       LayoutUnit marker_inline_size;
       if (!marker_fragment.Children().empty()) {
         marker_inline_size =
@@ -2672,9 +2674,9 @@ LayoutResult::EStatus BlockLayoutAlgorithm::FinishInflow(
   // If the BFC block offset hasn't been resolved, the child we just laid out
   // must be empty (no lines and zero block size), so we can skip the update.
   if (auto bfc_block_offset = container_builder_.BfcBlockOffset()) {
-    if (!line_clamp_data_.UpdateAfterLayout(layout_result, *bfc_block_offset,
-                                            *previous_inflow_position,
-                                            Padding().block_end)) {
+    if (!line_clamp_data_.UpdateAfterLayout(
+            layout_result, Node().GetDocument(), *bfc_block_offset,
+            *previous_inflow_position, Padding().block_end)) {
       container_builder_.SetLinesUntilClamp(
           line_clamp_data_.LinesUntilClamp(/*show_measured_lines*/ true));
       container_builder_.SetLineClampAfterLayoutObject(
@@ -3818,7 +3820,8 @@ bool BlockLayoutAlgorithm::PositionListMarkerWithoutLineBoxes(
   return true;
 }
 
-LayoutUnit BlockLayoutAlgorithm::HandleTextControlPlaceholder(
+BlockLayoutAlgorithm::PlaceholderLayoutResult
+BlockLayoutAlgorithm::HandleTextControlPlaceholder(
     BlockNode placeholder,
     const PreviousInflowPosition& previous_inflow_position) {
   DCHECK(Node().IsTextControl()) << Node().GetLayoutBox();
@@ -3832,7 +3835,8 @@ LayoutUnit BlockLayoutAlgorithm::HandleTextControlPlaceholder(
     const PhysicalFragment& child =
         *container_builder_.Children()[kTextBlockIndex].fragment;
     if (child.IsTextControlContainer()) {
-      const auto& grand_children = child.PostLayoutChildren();
+      const auto& grand_children =
+          To<PhysicalBoxFragment>(child).PostLayoutChildren();
       const auto begin = grand_children.begin();
       if (begin != grand_children.end()) {
         LogicalFragment grand_child_fragment(
@@ -3851,16 +3855,24 @@ LayoutUnit BlockLayoutAlgorithm::HandleTextControlPlaceholder(
       is_new_fc);
 
   const LayoutResult* result = placeholder.Layout(space);
+  // crbug.com/439682405 and crbug.com/440833172: The placeholder layout may
+  // fail.
+  if (RuntimeEnabledFeatures::AbortByPlaceholderLayoutEnabled() &&
+      result->Status() != LayoutResult::kSuccess) {
+    return {previous_inflow_position.logical_block_offset, result->Status()};
+  }
   LogicalOffset offset = BorderScrollbarPadding().StartOffset();
   if (Node().IsTextArea()) {
-    return FinishTextControlPlaceholder(result, offset, apply_fixed_size,
-                                        previous_inflow_position);
+    return {FinishTextControlPlaceholder(result, offset, apply_fixed_size,
+                                         previous_inflow_position),
+            result->Status()};
   }
   // Usually another child provides the baseline. However it doesn't if
   // another child is out-of-flow.
   if (!container_builder_.FirstBaseline()) {
-    return FinishTextControlPlaceholder(result, offset, apply_fixed_size,
-                                        previous_inflow_position);
+    return {FinishTextControlPlaceholder(result, offset, apply_fixed_size,
+                                         previous_inflow_position),
+            result->Status()};
   }
   LogicalBoxFragment fragment(
       GetConstraintSpace().GetWritingDirection(),
@@ -3890,8 +3902,9 @@ LayoutUnit BlockLayoutAlgorithm::HandleTextControlPlaceholder(
       offset.block_offset = border_padding_block_start;
     }
   }
-  return FinishTextControlPlaceholder(result, offset, apply_fixed_size,
-                                      previous_inflow_position);
+  return {FinishTextControlPlaceholder(result, offset, apply_fixed_size,
+                                       previous_inflow_position),
+          result->Status()};
 }
 
 LayoutUnit BlockLayoutAlgorithm::FinishTextControlPlaceholder(
@@ -3952,6 +3965,7 @@ void BlockLineClampData::UpdateFromStyle(int lines_until_clamp,
 
 bool BlockLineClampData::UpdateAfterLayout(
     const LayoutResult* layout_result,
+    Document& document,
     LayoutUnit bfc_block_offset,
     const PreviousInflowPosition& previous_inflow_position,
     LayoutUnit block_end_padding) {
@@ -3995,8 +4009,13 @@ bool BlockLineClampData::UpdateAfterLayout(
                             (collapsed_strut.Sum() - end_margin_strut.Sum());
 
     if (bfc_offset > data.clamp_bfc_offset) {
-      data.lines_until_clamp = old_lines_until_clamp;
-      return false;
+      if (data.IsClampByLines()) {
+        UseCounter::Count(document, WebFeature::kLineClampByLinesOverflows);
+      }
+      if (RuntimeEnabledFeatures::CSSLineClampEnabled()) {
+        data.lines_until_clamp = old_lines_until_clamp;
+        return false;
+      }
     }
 
     if (old_lines_until_clamp == data.lines_until_clamp ||

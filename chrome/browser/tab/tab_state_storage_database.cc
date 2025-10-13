@@ -18,22 +18,24 @@ namespace {
 const int kCurrentVersionNumber = 1;
 const int kCompatibleVersionNumber = 1;
 
-constexpr char kTabsTableName[] = "tab_state";
+constexpr char kTabsTableName[] = "nodes";
+
+bool CreateTable(sql::Database* db, base::cstring_view table_creation_script) {
+  DCHECK(db->IsSQLValid(table_creation_script));
+  return db->Execute(table_creation_script);
+}
 
 bool CreateSchema(sql::Database* db, sql::MetaTable* meta_table) {
   DCHECK(db->HasActiveTransactions());
 
   static constexpr char kCreateTabSchemaSql[] =
-      "CREATE TABLE IF NOT EXISTS tabs("
+      "CREATE TABLE IF NOT EXISTS nodes("
       "id INTEGER PRIMARY KEY NOT NULL,"
-      "parent INTEGER NOT NULL,"
-      "position TEXT NOT NULL,"
       "type INTEGER NOT NULL,"
-      "payload TEXT NOT NULL)"
-      "WITHOUT ROWID";
+      "children BLOB,"
+      "payload BLOB)";
 
-  DCHECK(db->IsSQLValid(kCreateTabSchemaSql));
-  return db->Execute(kCreateTabSchemaSql);
+  return CreateTable(db, kCreateTabSchemaSql);
 }
 
 bool InitSchema(sql::Database* db, sql::MetaTable* meta_table) {
@@ -46,6 +48,7 @@ bool InitSchema(sql::Database* db, sql::MetaTable* meta_table) {
 
   sql::Transaction transaction(db);
   if (!transaction.Begin()) {
+    DLOG(ERROR) << "Transaction could not be started.";
     return false;
   }
 
@@ -105,15 +108,21 @@ bool TabStateStorageDatabase::Initialize() {
   return true;
 }
 
-bool TabStateStorageDatabase::SaveTabState(int id,
-                                           int parent,
-                                           std::string position,
-                                           tabs_pb::TabState tab_state) {
+bool TabStateStorageDatabase::SaveNode(int id,
+                                       int type,
+                                       std::string payload,
+                                       std::string children) {
   CHECK(db_);
+
+  sql::Transaction transaction(db_.get());
+  if (!transaction.Begin()) {
+    return false;
+  }
+
   static constexpr char kInsertTabSql[] =
-      "INSERT OR REPLACE INTO tabs"
-      "(id, parent, position, type, payload)"
-      "VALUES (?,?,?,?,?)";
+      "INSERT OR REPLACE INTO nodes"
+      "(id, type, payload, children)"
+      "VALUES (?,?,?,?)";
 
   DCHECK(db_->IsSQLValid(kInsertTabSql));
 
@@ -121,28 +130,32 @@ bool TabStateStorageDatabase::SaveTabState(int id,
       db_->GetCachedStatement(SQL_FROM_HERE, kInsertTabSql));
 
   write_statement.BindInt(0, id);
-  write_statement.BindInt(1, parent);
-  write_statement.BindString(2, position);
-  write_statement.BindInt(3, 1);
-  std::string data;
-  tab_state.SerializeToString(&data);
-  write_statement.BindString(4, data);
+  write_statement.BindInt(1, type);
+  write_statement.BindBlob(2, std::move(payload));
+  write_statement.BindBlob(3, std::move(children));
 
-  return write_statement.Run();
+  if (!write_statement.Run()) {
+    DLOG(ERROR) << "Could not write to tabs table.";
+    return false;
+  }
+  return transaction.Commit();
 }
 
-std::vector<tabs_pb::TabState> TabStateStorageDatabase::LoadAllTabStates() {
-  std::vector<tabs_pb::TabState> tab_states;
-  static constexpr char kSelectAllTabsSql[] = "SELECT payload FROM tabs";
+std::vector<NodeState> TabStateStorageDatabase::LoadAllNodes() {
+  std::vector<NodeState> entries;
+  static constexpr char kSelectAllTabsSql[] =
+      "SELECT id, type, payload, children FROM nodes";
   sql::Statement select_statement(
       db_->GetCachedStatement(SQL_FROM_HERE, kSelectAllTabsSql));
   while (select_statement.Step()) {
-    tabs_pb::TabState tab_state;
-    if (tab_state.ParseFromString(select_statement.ColumnString(0))) {
-      tab_states.emplace_back(std::move(tab_state));
-    }
+    NodeState entry;
+    entry.id = select_statement.ColumnInt(0);
+    entry.type = select_statement.ColumnInt(1);
+    select_statement.ColumnBlobAsString(2, &entry.payload);
+    select_statement.ColumnBlobAsString(3, &entry.children);
+    entries.emplace_back(std::move(entry));
   }
-  return tab_states;
+  return entries;
 }
 
 }  // namespace tabs

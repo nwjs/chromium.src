@@ -130,6 +130,7 @@
 #include "net/base/net_errors.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/http/http_request_headers.h"
+#include "net/http/http_response_headers.h"
 #include "net/http/http_util.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/content_decoding_interceptor.h"
@@ -309,9 +310,7 @@ namespace {
 
 // Feature to combine the UpdateState IPC that's sent during commit time with
 // the DidCommit* IPCs. See: http://crbug.com/424829233
-BASE_FEATURE(kReducePageStateIpcs,
-             "ReducePageStateIpcs",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kReducePageStateIpcs, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const int kExtraCharsBeforeAndAfterSelection = 100;
 const size_t kMaxURLLogChars = 1024;
@@ -4550,11 +4549,18 @@ void RenderFrameImpl::FinalizeRequestInternal(
 void RenderFrameImpl::DidLoadResourceFromMemoryCache(
     const blink::WebURLRequest& request,
     const blink::WebURLResponse& response) {
-  for (auto& observer : observers_) {
-    observer.DidLoadResourceFromMemoryCache(
+  if (load_from_memory_cache_callback_) {
+    load_from_memory_cache_callback_.Run(
         request.Url(), response.RequestId(),
         base::ByteCount(response.EncodedBodyLength()),
         response.MimeType().Utf8(), response.FromArchive());
+  } else {
+    for (auto& observer : observers_) {
+      observer.DidLoadResourceFromMemoryCache(
+          request.Url(), response.RequestId(),
+          base::ByteCount(response.EncodedBodyLength()),
+          response.MimeType().Utf8(), response.FromArchive());
+    }
   }
 }
 
@@ -4628,13 +4634,28 @@ void RenderFrameImpl::DidObserveJavaScriptFrameworks(
 
 void RenderFrameImpl::DidObserveSubresourceLoad(
     const blink::SubresourceLoadMetrics& subresource_load_metrics) {
-  for (auto& observer : observers_)
-    observer.DidObserveSubresourceLoad(subresource_load_metrics);
+  if (subresource_load_callback_) {
+    subresource_load_callback_.Run(subresource_load_metrics);
+  } else {
+    for (auto& observer : observers_) {
+      observer.DidObserveSubresourceLoad(subresource_load_metrics);
+    }
+  }
 }
 
 void RenderFrameImpl::SetNewFeatureUsageCallback(
     NewFeatureUsageCallback callback) {
   new_feature_usage_callback_ = std::move(callback);
+}
+
+void RenderFrameImpl::SetSubresourceLoadCallback(
+    SubresourceLoadCallback callback) {
+  subresource_load_callback_ = std::move(callback);
+}
+
+void RenderFrameImpl::SetLoadFromMemoryCacheCallback(
+    LoadFromMemoryCacheCallback callback) {
+  load_from_memory_cache_callback_ = std::move(callback);
 }
 
 void RenderFrameImpl::DidObserveNewFeatureUsage(
@@ -6200,7 +6221,8 @@ void RenderFrameImpl::BeginNavigationInternal(
   std::optional<base::Value::Dict> devtools_initiator;
   if (!info->devtools_initiator_info.IsNull()) {
     std::optional<base::Value> devtools_initiator_value =
-        base::JSONReader::Read(info->devtools_initiator_info.Utf8());
+        base::JSONReader::Read(info->devtools_initiator_info.Utf8(),
+                               base::JSON_PARSE_CHROMIUM_EXTENSIONS);
     if (devtools_initiator_value && devtools_initiator_value->is_dict()) {
       devtools_initiator = std::move(*devtools_initiator_value).TakeDict();
     }
@@ -6280,7 +6302,7 @@ void RenderFrameImpl::BeginNavigationInternal(
     }
   }
   base::UmaHistogramBoolean(
-      "Navigation.RendererInitiated.IsDuplicateWithoutThresholdCheck",
+      "Navigation.RendererInitiated.IsDuplicateWithoutThresholdCheck2",
       is_duplicate_navigation);
   if (is_duplicate_navigation) {
     // The navigation is similar to a previous navigation. Check if it's started
@@ -6289,16 +6311,21 @@ void RenderFrameImpl::BeginNavigationInternal(
     bool start_diff_under_threshold =
         (nav_start_diff <= features::kDuplicateNavThreshold.Get());
     base::UmaHistogramBoolean(
-        "Navigation.RendererInitiated.DuplicateNavIsUnderThreshold",
+        "Navigation.RendererInitiated.DuplicateNavIsUnderThreshold2",
         start_diff_under_threshold);
     base::UmaHistogramTimes(
-        "Navigation.RendererInitiated.DuplicateNavStartTimeDiff",
+        "Navigation.RendererInitiated.DuplicateNavStartTimeDiff2",
         nav_start_diff);
     if (start_diff_under_threshold &&
         base::FeatureList::IsEnabled(features::kIgnoreDuplicateNavs)) {
-      DVLOG(0) << "Ignoring duplicate navigation to " << common_params->url
-               << " due to the short interval since the previous one.";
-      return;
+      if (!base::FeatureList::IsEnabled(
+              features::kIgnoreDuplicateNavsOnlyWithUserGesture) ||
+          common_params->has_user_gesture) {
+        DVLOG(0) << "Ignoring duplicate navigation to " << common_params->url
+                 << " due to the short interval of " << nav_start_diff
+                 << " since the previous one.";
+        return;
+      }
     }
   }
 

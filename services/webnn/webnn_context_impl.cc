@@ -11,6 +11,7 @@
 #include "base/sequence_checker.h"
 #include "base/task/bind_post_task.h"
 #include "gpu/command_buffer/service/scheduler.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "services/webnn/error.h"
 #include "services/webnn/public/cpp/data_type_limits.h"
 #include "services/webnn/public/cpp/graph_validation_utils.h"
@@ -28,6 +29,11 @@
 #include "services/webnn/webnn_graph_builder_impl.h"
 #include "services/webnn/webnn_graph_impl.h"
 #include "services/webnn/webnn_tensor_impl.h"
+#include "third_party/tflite/buildflags.h"
+
+#if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+#include "third_party/xnnpack/src/include/xnnpack.h"  // nogncheck
+#endif  // BUILD_TFLITE_WITH_XNNPACK
 
 namespace webnn {
 
@@ -36,6 +42,8 @@ WebNNContextImpl::WebNNContextImpl(
     WebNNContextProviderImpl* context_provider,
     ContextProperties properties,
     mojom::CreateContextOptionsPtr options,
+    mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
+    mojo::ScopedDataPipeProducerHandle read_tensor_producer,
     gpu::CommandBufferId command_buffer_id,
     std::unique_ptr<ScopedSequence> sequence,
     scoped_refptr<gpu::SchedulerTaskRunner> task_runner)
@@ -47,24 +55,34 @@ WebNNContextImpl::WebNNContextImpl(
       options_(std::move(options)),
       command_buffer_id_(command_buffer_id),
       sequence_(std::move(sequence)),
-      scheduler_task_runner_(std::move(task_runner)) {
+      scheduler_task_runner_(std::move(task_runner)),
+      write_tensor_consumer_(std::move(write_tensor_consumer)),
+      read_tensor_producer_(std::move(read_tensor_producer)) {
   CHECK(context_provider_);
-  // Safe to use base::Unretained because `this` is sequence-bound to
-  // scheduler_task_runner_. Deletion occurs via Shutdown(), which drops all
-  // pending tasks - including this one - before the object is destroyed.
-  on_lost_callback_ = base::BindPostTaskToCurrentDefault(base::BindOnce(
-      [](WebNNContextImpl* self, const std::string& reason) {
-        self->GetMojoReceiver().ResetWithReason(/*custom_reason=*/0, reason);
-        self->PostTaskToOwningTaskRunner(base::BindOnce(
-            &WebNNContextImpl::OnDisconnect, base::Unretained((self))));
-      },
-      base::Unretained(this)));
+
+#if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+  // Initialize XNNPACK
+  const xnn_status status = xnn_initialize(/*allocator=*/nullptr);
+  CHECK_EQ(status, xnn_status_success);
+#endif  // BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
 }
 
 WebNNContextImpl::~WebNNContextImpl() {
+  // Close all tensor pipes explicitly so no response callbacks are pending as
+  // Mojo forbids callbacks that are pending during destruction.
+  for (auto impl : tensor_impls_) {
+    impl->ResetMojoReceiver();
+  }
+
   // Note: ShutDown() prevents new tasks from being scheduled and drops existing
   // ones from executing.
   scheduler_task_runner_->ShutDown();
+
+#if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+  // Deinitialize XNNPACK
+  const xnn_status status = xnn_deinitialize();
+  CHECK_EQ(status, xnn_status_success);
+#endif  // BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
 }
 
 void WebNNContextImpl::OnDisconnect() {
@@ -104,7 +122,7 @@ void WebNNContextImpl::CreateTensor(
     mojom::TensorInfoPtr tensor_info,
     mojo_base::BigBuffer tensor_data,
     mojom::WebNNContext::CreateTensorCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
   if (!ValidateTensor(properties_, tensor_info->descriptor).has_value()) {
     GetMojoReceiver().ReportBadMessage(kBadMessageInvalidTensor);
     return;
@@ -120,8 +138,8 @@ void WebNNContextImpl::CreateTensor(
       return;
     }
 
-    if (!properties_.data_type_limits.constant.Has(
-            validated_descriptor->data_type())) {
+    if (!properties_.data_type_limits.constant.Supports(
+            validated_descriptor.value())) {
       GetMojoReceiver().ReportBadMessage(kBadMessageInvalidTensor);
       return;
     }
@@ -186,11 +204,45 @@ gpu::SyncToken WebNNContextImpl::GenVerifiedSyncToken() {
   return verified_release;
 }
 
+bool WebNNContextImpl::HasValidWriteTensorConsumer() const {
+  return write_tensor_consumer_.is_valid();
+}
+
+bool WebNNContextImpl::HasValidReadTensorProducer() const {
+  return read_tensor_producer_.is_valid();
+}
+
+void WebNNContextImpl::ReadDataFromBigBufferOrDataPipe(
+    mojo_base::BigBuffer src_buffer,
+    base::span<uint8_t> dst_span) {
+  if (src_buffer.size() == 0) {
+    CHECK(write_tensor_consumer_);
+    size_t bytes_read = 0;
+    if (write_tensor_consumer_->ReadData(MOJO_READ_DATA_FLAG_ALL_OR_NONE,
+                                         dst_span,
+                                         bytes_read) != MOJO_RESULT_OK) {
+      OnLost("WriteTensor(): Failed to read tensor data from data pipe.");
+    }
+  } else {
+    dst_span.copy_from(src_buffer);
+  }
+}
+
+mojo_base::BigBuffer WebNNContextImpl::WriteDataToDataPipeOrBigBuffer(
+    base::span<const uint8_t> src_span) {
+  if (read_tensor_producer_ &&
+      src_span.size() > mojo_base::BigBuffer::kMaxInlineBytes &&
+      read_tensor_producer_->WriteAllData(src_span) == MOJO_RESULT_OK) {
+    return mojo_base::BigBuffer();
+  }
+  return mojo_base::BigBuffer(src_span);
+}
+
 void WebNNContextImpl::CreateTensorFromMailbox(mojom::TensorInfoPtr tensor_info,
                                                const gpu::Mailbox& mailbox,
                                                const gpu::SyncToken& fence,
                                                CreateTensorCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
 
   if (!tensor_info->usage.Has(MLTensorUsageFlags::kWebGpuInterop)) {
     GetMojoReceiver().ReportBadMessage(kBadMessageInvalidTensor);
@@ -215,8 +267,7 @@ void WebNNContextImpl::CreateTensorFromMailbox(mojom::TensorInfoPtr tensor_info,
   auto receiver = remote.InitWithNewEndpointAndPassReceiver();
 
   // Must be a scheduled task since this depends on shared image creation task.
-  scheduler_task_runner()->PostTask(
-      FROM_HERE,
+  PostTaskToOwningTaskRunner(
       base::BindOnce(
           [](base::WeakPtr<WebNNContextImpl> self,
              mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
@@ -226,11 +277,50 @@ void WebNNContextImpl::CreateTensorFromMailbox(mojom::TensorInfoPtr tensor_info,
             if (!self) {
               return;
             }
-            auto result = self->CreateTensorFromMailboxImpl(
-                std::move(receiver), std::move(tensor_info), mailbox);
+
+            gpu::SharedImageManager* shared_image_manager =
+                self->context_provider()->shared_image_manager();
+            CHECK(shared_image_manager);
+
+            constexpr char kWebNNCreateTensorErrorMessage[] =
+                "Failed to create tensor.";
+
+            // TODO(crbug.com/345352987): give WebNN its own memory source and
+            // tracker.
+            std::unique_ptr<gpu::WebNNTensorRepresentation> representation =
+                shared_image_manager->ProduceWebNNTensor(
+                    mailbox, self->context_provider()
+                                 ->shared_context_state()
+                                 ->memory_type_tracker());
+            if (!representation) {
+              std::move(callback).Run(ToError<mojom::CreateTensorResult>(
+                  mojom::Error::Code::kUnknownError,
+                  kWebNNCreateTensorErrorMessage));
+              return;
+            }
+
+            auto representation_access = representation->BeginScopedAccess();
+            if (!representation_access) {
+              std::move(callback).Run(ToError<mojom::CreateTensorResult>(
+                  mojom::Error::Code::kUnknownError,
+                  kWebNNCreateTensorErrorMessage));
+              return;
+            }
+
+            auto result = self->CreateTensorFromSharedImageImpl(
+                std::move(receiver), std::move(tensor_info),
+                std::move(representation));
             if (!result.has_value()) {
               std::move(callback).Run(mojom::CreateTensorResult::NewError(
                   std::move(result.error())));
+              return;
+            }
+
+            if (!result.value()->ImportTensorImpl(
+                    std::move(representation_access))) {
+              std::move(callback).Run(ToError<mojom::CreateTensorResult>(
+                  mojom::Error::Code::kUnknownError,
+                  kWebNNCreateTensorErrorMessage));
               return;
             }
 
@@ -243,8 +333,6 @@ void WebNNContextImpl::CreateTensorFromMailbox(mojom::TensorInfoPtr tensor_info,
           AsWeakPtr(), std::move(receiver), std::move(tensor_info), mailbox,
           std::move(callback), std::move(remote)));
 }
-
-
 
 void WebNNContextImpl::RemoveWebNNTensorImpl(
     const blink::WebNNTensorToken& handle) {
@@ -265,7 +353,15 @@ void WebNNContextImpl::RemoveWebNNGraphImpl(
 }
 
 void WebNNContextImpl::OnLost(const std::string& reason) {
-  std::move(on_lost_callback_).Run(reason);
+  // Safe to use base::Unretained because `this` is sequence-bound to
+  // scheduler_task_runner_. Deletion occurs via Shutdown(), which drops all
+  // pending tasks - including this one - before the object is destroyed.
+  PostTaskToOwningTaskRunner(base::BindOnce(
+      [](WebNNContextImpl* self, const std::string& reason) {
+        self->GetMojoReceiver().ResetWithReason(/*custom_reason=*/0, reason);
+        self->OnDisconnect();
+      },
+      base::Unretained(this), reason));
 }
 
 scoped_refptr<WebNNTensorImpl> WebNNContextImpl::GetWebNNTensorImpl(
@@ -378,6 +474,8 @@ ContextProperties WebNNContextImpl::IntersectWithBaseProperties(
       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(3)});
   backend_context_properties.data_type_limits.gru_bias.IntersectWith(
       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)});
+  backend_context_properties.data_type_limits.gru_output_sequence.IntersectWith(
+      {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(4)});
   backend_context_properties.data_type_limits.gru_cell_input.IntersectWith(
       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)});
   backend_context_properties.data_type_limits.gru_cell_bias.IntersectWith(
@@ -402,6 +500,9 @@ ContextProperties WebNNContextImpl::IntersectWithBaseProperties(
       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(3)});
   backend_context_properties.data_type_limits.lstm_bias.IntersectWith(
       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)});
+  backend_context_properties.data_type_limits.lstm_output_sequence
+      .IntersectWith(
+          {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(4)});
   backend_context_properties.data_type_limits.lstm_cell_input.IntersectWith(
       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)});
   backend_context_properties.data_type_limits.lstm_cell_bias.IntersectWith(

@@ -237,6 +237,9 @@ class CONTENT_EXPORT RenderFrameObserver {
   // Notification when the renderer uses subresources.
   // It is called when there is a subresouce load. The reported values via
   // arguments are cumulative. They are NOT a difference from the previous call.
+  //
+  // TODO(crbug.com/404425954): `DidObserveSubresourceLoad()` is going to be
+  // deprecated. Use `SetSubresourceLoadCallback()` in `RenderFrame` instead.
   virtual void DidObserveSubresourceLoad(
       const blink::SubresourceLoadMetrics& subresource_load_metrics) {}
 
@@ -284,6 +287,10 @@ class CONTENT_EXPORT RenderFrameObserver {
   // Reports that a resource was loaded from the blink memory cache.
   // |request_id| uniquely identifies this resource within this render frame.
   // |from_archive| indicates if the resource originated from a MHTML archive.
+  //
+  // TODO(crbug.com/404425954): `DidLoadResourceFromMemoryCache()` is going to
+  // be deprecated. Use `SetLoadFromMemoryCacheCallback()` in `RenderFrame`
+  // instead.
   virtual void DidLoadResourceFromMemoryCache(
       const GURL& response_url,
       int request_id,

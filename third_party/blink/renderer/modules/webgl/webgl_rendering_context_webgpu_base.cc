@@ -512,25 +512,27 @@ GLenum WebGLRenderingContextWebGPUBase::drawingBufferFormat() const {
   return GL_RGBA8;
 }
 
-V8PredefinedColorSpace
-WebGLRenderingContextWebGPUBase::drawingBufferColorSpace() const {
+V8PredefinedColorSpace WebGLRenderingContextWebGPUBase::drawingBufferColorSpace(
+    ScriptState*) const {
   NOTIMPLEMENTED();
   return V8PredefinedColorSpace(V8PredefinedColorSpace::Enum::kSRGB);
 }
 
 void WebGLRenderingContextWebGPUBase::setDrawingBufferColorSpace(
+    ScriptState*,
     const V8PredefinedColorSpace& color_space,
     ExceptionState&) {
   NOTIMPLEMENTED();
 }
 
-V8PredefinedColorSpace WebGLRenderingContextWebGPUBase::unpackColorSpace()
-    const {
+V8PredefinedColorSpace WebGLRenderingContextWebGPUBase::unpackColorSpace(
+    ScriptState*) const {
   NOTIMPLEMENTED();
   return V8PredefinedColorSpace(V8PredefinedColorSpace::Enum::kSRGB);
 }
 
 void WebGLRenderingContextWebGPUBase::setUnpackColorSpace(
+    ScriptState*,
     const V8PredefinedColorSpace& color_space,
     ExceptionState&) {
   NOTIMPLEMENTED();
@@ -2229,7 +2231,7 @@ void WebGLRenderingContextWebGPUBase::texImage2D(
   NOTIMPLEMENTED();
 }
 
-void WebGLRenderingContextWebGPUBase::texHTMLElement2D(
+void WebGLRenderingContextWebGPUBase::texElementImage2D(
     GLenum target,
     GLint level,
     GLint internalformat,
@@ -3524,7 +3526,7 @@ gfx::ColorSpace WebGLRenderingContextWebGPUBase::GetColorSpace() const {
   return gfx::ColorSpace::CreateSRGB();
 }
 
-int WebGLRenderingContextWebGPUBase::AllocatedBufferCountPerPixel() {
+int WebGLRenderingContextWebGPUBase::AllocatedBufferCountPerPixel() const {
   // Front and back buffers.
   // TODO(413078308): Add support configuring MSAA and depth-stencil.
   // Note: If/once this class creates a CanvasResourceProvider it should track

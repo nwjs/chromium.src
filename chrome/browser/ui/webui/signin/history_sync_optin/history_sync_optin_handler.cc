@@ -6,8 +6,10 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
+#include "base/metrics/user_metrics.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -15,6 +17,7 @@
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
+#include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
@@ -47,15 +50,24 @@ HistorySyncOptinHandler::HistorySyncOptinHandler(
   CHECK(identity_manager_);
 }
 
-HistorySyncOptinHandler::~HistorySyncOptinHandler() = default;
+HistorySyncOptinHandler::~HistorySyncOptinHandler() {
+  if (history_optin_completed_closure_) {
+    // Runs the callback in case the dialog is not dismissed via the buttons,
+    // but e.g. using an accelerator or close button.
+    std::move(history_optin_completed_closure_).Run();
+    base::RecordAction(base::UserMetricsAction("Signin_HistorySync_Aborted"));
+  }
+}
 
 void HistorySyncOptinHandler::Accept() {
   AddHistorySyncConsent();
   FinishAndCloseDialog();
+  base::RecordAction(base::UserMetricsAction("Signin_HistorySync_Completed"));
 }
 
 void HistorySyncOptinHandler::Reject() {
   FinishAndCloseDialog();
+  base::RecordAction(base::UserMetricsAction("Signin_HistorySync_Declined"));
 }
 
 void HistorySyncOptinHandler::RequestAccountInfo() {
@@ -83,7 +95,6 @@ void HistorySyncOptinHandler::UpdateDialogHeight(uint32_t height) {
 }
 
 void HistorySyncOptinHandler::FinishAndCloseDialog() {
-  // TODO(crbug.com/404806506): Add metrics.
   if (browser_) {
     browser_->GetFeatures().signin_view_controller()->CloseModalSignin();
   }
@@ -92,20 +103,12 @@ void HistorySyncOptinHandler::FinishAndCloseDialog() {
 }
 
 void HistorySyncOptinHandler::AddHistorySyncConsent() {
-  syncer::SyncService* sync_service =
-      SyncServiceFactory::GetForProfile(profile_);
-  CHECK(sync_service);
   CHECK(identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin));
-  // TODO(crbug.com/404806988): As we add the invocation points check if additional actions
-  // are needed to enable sync for history.
-  // The invocation below works for an already syncing user. It enables the syncing for history
+  // TODO(crbug.com/404806988): As we add the invocation points check if
+  // additional actions are needed to enable sync for history. The invocation
+  // below works for an already syncing user. It enables the syncing for history
   // if it's not already turned on.
-  sync_service->GetUserSettings()->SetSelectedType(
-      syncer::UserSelectableType::kHistory, /*is_type_on=*/true);
-  sync_service->GetUserSettings()->SetSelectedType(
-      syncer::UserSelectableType::kTabs, /*is_type_on=*/true);
-  sync_service->GetUserSettings()->SetSelectedType(
-      syncer::UserSelectableType::kSavedTabGroups, /*is_type_on=*/true);
+  signin_util::EnableHistorySync(SyncServiceFactory::GetForProfile(profile_));
 }
 
 void HistorySyncOptinHandler::OnAvatarChanged(const AccountInfo& info) {

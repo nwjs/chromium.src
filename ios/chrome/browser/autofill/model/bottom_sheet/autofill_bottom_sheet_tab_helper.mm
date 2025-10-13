@@ -41,7 +41,6 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/web/public/js_messaging/script_message.h"
 #import "ios/web/public/js_messaging/web_frame.h"
 #import "ios/web/public/js_messaging/web_frames_manager.h"
@@ -507,6 +506,7 @@ void AutofillBottomSheetTabHelper::DidFinishNavigation(
   // Clear all registered renderer ids
   registered_password_renderer_ids_.clear();
   registered_payments_renderer_ids_.clear();
+  registered_password_generation_renderer_ids_.clear();
 }
 
 void AutofillBottomSheetTabHelper::WebStateDestroyed(web::WebState* web_state) {

@@ -80,9 +80,9 @@
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/performance_manager/public/features.h"
 #include "components/permissions/features.h"
+#include "components/plus_addresses/core/browser/grit/plus_addresses_strings.h"
+#include "components/plus_addresses/core/browser/plus_address_service.h"
 #include "components/plus_addresses/core/common/features.h"
-#include "components/plus_addresses/grit/plus_addresses_strings.h"
-#include "components/plus_addresses/plus_address_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -470,6 +470,8 @@ void AddAiStrings(content::WebUIDataSource* html_source) {
       {"passwordChangeSettingEncryption",
        IDS_SETTINGS_PASSWORD_CHANGE_ENCRYPTION},
       {"passwordChangeLearnMore", IDS_SETTINGS_PASSWORD_CHANGE_SUBLABEL},
+
+      // Personalized Context strings
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
@@ -687,6 +689,8 @@ void AddClearBrowsingDataStrings(content::WebUIDataSource* html_source,
                          chrome::kMyActivityUrlInClearBrowsingData);
   html_source->AddString("deleteBrowsingDataSearchHistoryUrl",
                          chrome::kSearchHistoryUrlInClearBrowsingData);
+  html_source->AddString("geminiPersonalContextUrl",
+                         chrome::kGeminiPersonalContextUrl);
 
 #if !BUILDFLAG(IS_CHROMEOS)
   html_source->AddBoolean("isClearPrimaryAccountAllowed",
@@ -796,6 +800,9 @@ void AddGlicStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_GLIC_PERMISSIONS_DEFAULT_TAB_ACCESS_CONSIDER_1},
       {"glicDefaultTabAccessConsider1LearnMoreLabel",
        IDS_SETTINGS_GLIC_PERMISSIONS_DEFAULT_TAB_ACCESS_CONSIDER_1_LEARN_MORE_LABEL},
+      {"glicPersonalContextSettingLabel", IDS_SETTINGS_GLIC_PERSONAL_CONTEXT},
+      {"glicPersonalContextSettingSublabel",
+       IDS_SETTINGS_GLIC_PERSONAL_CONTEXT_LABEL},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
@@ -1220,6 +1227,7 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
                         content::WebContents* web_contents) {
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"autofillPageTitle", IDS_SETTINGS_AUTOFILL_AND_PASSWORDS},
+      {"yourSavedInfoPageTitle", IDS_SETTINGS_YOUR_SAVED_INFO},
       {"passwordsDescription", IDS_SETTINGS_PASSWORD_MANAGER_DESCRIPTION},
       {"genericCreditCard", IDS_AUTOFILL_CC_GENERIC},
       {"creditCards", IDS_AUTOFILL_PAYMENT_METHODS},
@@ -1441,10 +1449,14 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_HOME_ADDRESS_REMOVE_CONFIRMATION_DIALOG_TITLE},
       {"removeWorkAddressConfirmationTitle",
        IDS_SETTINGS_WORK_ADDRESS_REMOVE_CONFIRMATION_DIALOG_TITLE},
+      {"removeNameEmailAddressConfirmationTitle",
+       IDS_SETTINGS_NAME_EMAIL_ADDRESS_REMOVE_CONFIRMATION_DIALOG_TITLE},
       {"deleteHomeAddressNotice",
        IDS_SETTINGS_HOME_ADDRESS_REMOVE_CONFIRMATION_DIALOG_NOTICE},
       {"deleteWorkAddressNotice",
        IDS_SETTINGS_WORK_ADDRESS_REMOVE_CONFIRMATION_DIALOG_NOTICE},
+      {"deleteNameEmailAddressNotice",
+       IDS_SETTINGS_NAME_EMAIL_ADDRESS_REMOVE_CONFIRMATION_DIALOG_NOTICE},
       {"moreOptionsForHomeAddress",
        IDS_SETTINGS_AUTOFILL_MORE_ACTIONS_FOR_HOME_ADDRESS},
       {"moreOptionsForWorkAddress",
@@ -1567,6 +1579,8 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
                          chrome::kGoogleAccountHomeAddressURL);
   html_source->AddString("googleAccountWorkAddressUrl",
                          chrome::kGoogleAccountWorkAddressURL);
+  html_source->AddString("googleAccountNameEmailAddressEditUrl",
+                         chrome::kGoogleAccountNameEmailAddressEditURL);
 }
 
 void AddSignOutDialogStrings(content::WebUIDataSource* html_source,
@@ -2159,7 +2173,19 @@ void AddPrivacyStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_MANAGE_DEVICE_CERTIFICATES_DESCRIPTION},
 #endif
       {"safeBrowsingEnhancedLearnMoreLabel",
-       IDS_SETTINGS_SAFEBROWSING_ENHANCED_LEARN_MORE_LABEL}};
+       IDS_SETTINGS_SAFEBROWSING_ENHANCED_LEARN_MORE_LABEL},
+      {"securityTitle", IDS_SETTINGS_SECURITY_TITLE},
+      {"securityStandardBundleTitle",
+       IDS_SETTINGS_SECURITY_STANDARD_BUNDLE_TITLE},
+      {"securityEnhancedBundleTitle",
+       IDS_SETTINGS_SECURITY_ENHANCED_BUNDLE_TITLE},
+      {"securitySafeBrowsingTitle", IDS_SETTINGS_SECURITY_SAFE_BROWSING_TITLE},
+      {"securitySafeBrowsingDesc",
+       IDS_SETTINGS_SECURITY_SAFE_BROWSING_DESCRIPTION},
+      {"securitySafeBrowsingStandardTitle",
+       IDS_SETTINGS_SECURITY_SAFE_BROWSING_STANDARD_TITLE},
+      {"securitySafeBrowsingEnhancedTitle",
+       IDS_SETTINGS_SECURITY_SAFE_BROWSING_ENHANCED_TITLE}};
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
   html_source->AddString("cookiesSettingsHelpCenterURL",
@@ -2842,7 +2868,7 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
       {"siteSettingsActionMute", IDS_SETTINGS_SITE_SETTINGS_MUTE_MENU},
       {"siteSettingsActionReset", IDS_SETTINGS_SITE_SETTINGS_RESET_MENU},
       {"siteSettingsActionResetFromListA11y",
-        IDS_SETTINGS_SITE_SETTINGS_RESET_FROM_LIST_A11Y},
+       IDS_SETTINGS_SITE_SETTINGS_RESET_FROM_LIST_A11Y},
       {"siteSettingsActionSessionOnly",
        IDS_SETTINGS_SITE_SETTINGS_SESSION_ONLY_MENU},
       {"siteSettingsActionViewFromListA11y",
@@ -3176,6 +3202,10 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_SITE_SETTINGS_JAVASCRIPT_OPTIMIZER_ALLOWED_SUB_LABEL},
       {"siteSettingsJavascriptOptimizerBlocked",
        IDS_SETTINGS_SITE_SETTINGS_JAVASCRIPT_OPTIMIZER_BLOCKED},
+      {"siteSettingsJavascriptOptimizerBlockedUnfamiliarSites",
+       IDS_SETTINGS_SITE_SETTINGS_JAVASCRIPT_OPTIMIZER_BLOCKED_UNFAMILIAR_SITES},
+      {"siteSettingsJavascriptOptimizerBlockedUnfamiliarSitesSubLabel",
+       IDS_SETTINGS_SITE_SETTINGS_JAVASCRIPT_OPTIMIZER_BLOCKED_UNFAMILIAR_SITES_SUB_LABEL},
       {"siteSettingsJavascriptOptimizerBlockedSubLabel",
        IDS_SETTINGS_SITE_SETTINGS_JAVASCRIPT_OPTIMIZER_BLOCKED_SUB_LABEL},
       {"siteSettingsJavascriptOptimizerAllowedExceptions",

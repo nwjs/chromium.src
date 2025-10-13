@@ -91,7 +91,6 @@ using ::testing::_;
 using ::testing::AnyNumber;
 using ::testing::AtMost;
 using ::testing::DoAll;
-using ::testing::Invoke;
 using ::testing::Mock;
 using ::testing::SaveArg;
 using ::testing::StrictMock;
@@ -242,7 +241,8 @@ class DeviceCloudPolicyManagerAshTest
     ash::SystemSaltGetter::Initialize();
     DeviceOAuth2TokenServiceFactory::Initialize(
         test_url_loader_factory_.GetSafeWeakWrapper(),
-        TestingBrowserProcess::GetGlobal()->local_state());
+        TestingBrowserProcess::GetGlobal()->local_state(),
+        TestingBrowserProcess::GetGlobal()->os_crypt_async());
 
     url_fetcher_response_code_ = net::HTTP_OK;
     url_fetcher_response_string_ =
@@ -724,8 +724,7 @@ class DeviceCloudPolicyManagerAshEnrollmentTest
           GetCertificate(
               ash::attestation::PROFILE_ENTERPRISE_ENROLLMENT_CERTIFICATE, _, _,
               /*force_new_key=*/true, _, _, _, _))
-          .WillOnce(
-              WithArgs<7>(Invoke(CertCallbackSuccessWithValidCertificate)));
+          .WillOnce(WithArgs<7>(CertCallbackSuccessWithValidCertificate));
     }
     AddStateKeys();
   }

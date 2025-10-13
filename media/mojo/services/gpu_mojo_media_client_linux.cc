@@ -20,7 +20,11 @@ namespace media {
 
 namespace {
 
-BASE_FEATURE(AcceleratedVideoDecodeLinuxZeroCopyGL,
+BASE_FEATURE(kAcceleratedVideoDecodeLinuxZeroCopyGL,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kRenderableMM21,
+             "RenderableMM21",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 VideoDecoderType GetPreferredLinuxDecoderImplementation() {
@@ -64,6 +68,9 @@ std::vector<Fourcc> GetPreferredRenderableFourccs(
               gpu_feature_info
                   .supported_buffer_formats_for_gl_native_pixmap_import,
               gfx::BufferFormat::YUV_420_BIPLANAR)) {
+        if (base::FeatureList::IsEnabled(kRenderableMM21)) {
+          renderable_fourccs.emplace_back(Fourcc::MM21);
+        }
         renderable_fourccs.emplace_back(Fourcc::NV12);
       }
       if (base::Contains(

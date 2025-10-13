@@ -163,6 +163,11 @@ chromium_luci.configure_project(
     ref = settings.ref,
     is_main = settings.is_main,
     platforms = settings.platforms,
+    experiments = [
+        "targets.module_name_without_slash",
+        "targets.module_scheme_junit_tests",
+        "targets.module_scheme_script_tests",
+    ],
 )
 
 chromium_luci.configure_per_builder_outputs(

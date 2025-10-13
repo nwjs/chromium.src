@@ -27,6 +27,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <typeinfo>
 #include <vector>
 
 #include "base/auto_reset.h"
@@ -42,6 +43,7 @@ struct _tagpropertykey;
 using PROPERTYKEY = _tagpropertykey;
 struct tagPOINTER_DEVICE_INFO;
 using POINTER_DEVICE_INFO = tagPOINTER_DEVICE_INFO;
+typedef struct _UNICODE_STRING UNICODE_STRING;
 
 namespace base {
 
@@ -253,18 +255,6 @@ BASE_EXPORT std::wstring WStringFromGUID(const ::GUID& rguid);
 // pinned, |error| is set and the method returns false.
 BASE_EXPORT bool PinUser32(NativeLibraryLoadError* error = nullptr);
 
-// Resolves all delayload imports for `module` rather than doing so when the
-// functions are first called. Returns `bool:true` if the attempt succeeded,
-// `bool:false` if the module is not a delayloaded dep of the current module
-// (this often happens in tests or the component build), or an `HRESULT` error
-// otherwise. See docs for __HrLoadAllImportsForDll() at
-// https://learn.microsoft.com/en-us/cpp/build/reference/linker-support-for-delay-loaded-dlls
-//
-// Note that `dll_name` is case-sensitive including the dll extension and must
-// match the name listed in the current module's delayloaded imports section.
-BASE_EXPORT base::expected<bool, HRESULT> LoadAllImportsForDll(
-    base::cstring_view dll_name);
-
 // Gets a pointer to a function within user32.dll, if available. If user32.dll
 // cannot be loaded or the function cannot be found, this function returns
 // nullptr and sets |error|. Once loaded, user32.dll is pinned, and therefore
@@ -378,6 +368,18 @@ BASE_EXPORT bool SetProcessTimerThrottleState(HANDLE process,
 // Returns the serial number of the device.  Needs to be called from a COM
 // enabled thread.
 BASE_EXPORT std::optional<std::wstring> GetSerialNumber();
+
+// Converts a native UNICODE_STRING to a wstring_view.
+// Note the UNICODE_STRING must be in scope as long as the wstring_view is
+// valid.
+BASE_EXPORT std::wstring_view UnicodeStringToView(const UNICODE_STRING& ustr);
+
+// Converts a wstring_view to a native UNICODE_STRING.
+// Returns false if the string can't be stored in the UNICODE_STRING buffer.
+// Note the wstring_view must be in scope as long as the UNICODE_STRING is
+// valid.
+BASE_EXPORT bool ViewToUnicodeString(std::wstring_view str,
+                                     UNICODE_STRING& ustr);
 
 // Allows changing the domain enrolled state for the life time of the object.
 // The original state is restored upon destruction.

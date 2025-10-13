@@ -58,6 +58,7 @@ bool IsContextFormatSupported(V8GPUTextureFormat::Enum format) {
 GPUCanvasContext::Factory::~Factory() = default;
 
 CanvasRenderingContext* GPUCanvasContext::Factory::Create(
+    ExecutionContext*,
     CanvasRenderingContextHost* host,
     const CanvasContextCreationAttributesCore& attrs) {
   CanvasRenderingContext* rendering_context =
@@ -195,14 +196,18 @@ scoped_refptr<StaticBitmapImage> GPUCanvasContext::GetImage(FlushReason) {
   return SnapshotInternal(front_buffer_texture->GetTexture());
 }
 
-CanvasResourceProvider* GPUCanvasContext::GetOrCreateCanvasResourceProvider() {
+CanvasResourceProviderSharedImage*
+GPUCanvasContext::GetOrCreateCanvasResourceProvider() {
   auto* provider = resource_provider_.get();
   if (!provider && !did_fail_to_create_resource_provider_) {
     if (Host()->IsValidImageSize()) {
       if (SharedGpuContext::IsGpuCompositingEnabled()) {
+        // This code path could be used for compositing so add the necessary
+        // shared image usage flags.
         resource_provider_ = CanvasResourceProvider::CreateWebGPUImageProvider(
             Host()->Size(), GetSharedImageFormat(), GetAlphaType(),
-            GetColorSpace(), gpu::SharedImageUsageSet(), Host());
+            GetColorSpace(), swap_buffers_->GetSharedImageUsagesForDisplay(),
+            Host());
       }
       Host()->UpdateMemoryUsage();
       provider = resource_provider_.get();
@@ -219,7 +224,8 @@ CanvasResourceProvider* GPUCanvasContext::GetOrCreateCanvasResourceProvider() {
   return provider;
 }
 
-CanvasResourceProvider* GPUCanvasContext::PaintRenderingResultsToCanvas(
+CanvasResourceProviderSharedImage*
+GPUCanvasContext::PaintRenderingResultsToCanvas(
     SourceDrawingBuffer source_buffer) {
   if (!swap_buffers_) {
     return resource_provider_.get();
@@ -231,8 +237,7 @@ CanvasResourceProvider* GPUCanvasContext::PaintRenderingResultsToCanvas(
     Host()->DiscardResources();
   }
 
-  CanvasResourceProvider* resource_provider =
-      GetOrCreateCanvasResourceProvider();
+  auto* resource_provider = GetOrCreateCanvasResourceProvider();
   if (!resource_provider) {
     return nullptr;
   }
@@ -280,7 +285,7 @@ scoped_refptr<StaticBitmapImage>
 GPUCanvasContext::PaintRenderingResultsToSnapshot(
     SourceDrawingBuffer source_buffer,
     FlushReason reason) {
-  CanvasResourceProvider* provider =
+  CanvasResourceProviderSharedImage* provider =
       PaintRenderingResultsToCanvas(source_buffer);
 
   return provider ? provider->Snapshot(reason) : nullptr;
@@ -365,8 +370,7 @@ ImageBitmap* GPUCanvasContext::TransferToImageBitmap(
 
   return MakeGarbageCollected<ImageBitmap>(
       AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
-          std::move(client_si), sk_image_sync_token,
-          /*shared_image_texture_id=*/0, kPremul_SkAlphaType,
+          std::move(client_si), sk_image_sync_token, kPremul_SkAlphaType,
           GetContextProviderWeakPtr(), base::PlatformThread::CurrentRef(),
           ThreadScheduler::Current()->CleanupTaskRunner(),
           std::move(release_callback)));
@@ -765,18 +769,20 @@ GPUCanvasContext::GetFrontBufferMailboxTexture() {
 }
 
 void GPUCanvasContext::ReplaceDrawingBuffer(bool destroy_swap_buffers) {
-  if (swap_buffers_) {
-    swap_buffers_->DiscardCurrentSwapBuffer();
-    swap_texture_ = nullptr;
+  if (!swap_buffers_) {
+    return;
   }
 
-  if (copy_to_swap_texture_required_ && texture_) {
-    texture_->ClearBeforeDestroyCallback();
-    texture_->destroy();
-  }
+  swap_buffers_->DiscardCurrentSwapBuffer();
+
+  // DiscardCurrentSwapBuffer() will call OnTextureTransferred() which should
+  // have destroyed the previous textures, except when we failed to create the
+  // swap buffer in the first place in which case `texture_` and `swap_texture_`
+  // are both "error" textures.
   texture_ = nullptr;
+  swap_texture_ = nullptr;
 
-  if (swap_buffers_ && destroy_swap_buffers) {
+  if (destroy_swap_buffers) {
     // Tell any previous swapbuffers that it will no longer be used and can
     // destroy all its resources (and produce errors when used).
     swap_buffers_->Neuter();
@@ -866,7 +872,7 @@ void GPUCanvasContext::CopyToSwapTexture() {
 
 bool GPUCanvasContext::CopyTextureToResourceProvider(
     const wgpu::Texture& texture,
-    CanvasResourceProvider* resource_provider) const {
+    CanvasResourceProviderSharedImage* resource_provider) const {
 #if BUILDFLAG(USE_DAWN)
   DCHECK(resource_provider);
 

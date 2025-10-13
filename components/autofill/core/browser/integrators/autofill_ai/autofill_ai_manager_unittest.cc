@@ -14,6 +14,7 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
+#include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
@@ -24,6 +25,7 @@
 #include "components/autofill/core/browser/form_structure_test_api.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager_test_api.h"
+#include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/autofill/core/browser/strike_databases/payments/test_strike_database.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
@@ -137,6 +139,7 @@ class AutofillAiManagerTest : public testing::Test {
         std::make_unique<EntityDataManager>(
             autofill_client().GetPrefs(),
             autofill_client().GetIdentityManager(),
+            autofill_client().GetSyncService(),
             webdata_helper_.autofill_webdata_service(),
             /*history_service=*/nullptr,
             /*strike_database=*/nullptr));
@@ -809,6 +812,43 @@ TEST_F(AutofillAiManagerImportFormTest, NewEntity_ShowPromptAndAccept) {
       u"1234321");
 }
 
+// This test ensures that no save prompt is shown for an entity type
+// that has no import constraints.
+TEST_F(AutofillAiManagerImportFormTest,
+       NewEntity_DoNotShowSavePromptWhenEntityTypeHasNoImportConstraints) {
+  std::unique_ptr<FormStructure> form = CreateFormStructure(
+      {FLIGHT_RESERVATION_FLIGHT_NUMBER, FLIGHT_RESERVATION_TICKET_NUMBER,
+       FLIGHT_RESERVATION_CONFIRMATION_CODE});
+  form->field(0)->set_value(u"1234321");
+  form->field(1)->set_value(u"567890");
+  form->field(2)->set_value(u"ABC1234");
+
+  EXPECT_CALL(autofill_client(), ShowEntitySaveOrUpdateBubble).Times(0);
+  EXPECT_FALSE(manager().OnFormSubmitted(*form, /*ukm_source_id=*/{}));
+}
+
+// This test ensures that no update prompt is shown for an entity type
+// that has no import constraints.
+TEST_F(AutofillAiManagerImportFormTest,
+       NewEntity_DoNotShowUpdatePromptWhenEntityTypeHasNoImportConstraints) {
+  test::FlightReservationOptions options{
+      .flight_number = u"123456",
+      .ticket_number = u"567890",
+      .confirmation_code = u"ABC1234",
+  };
+  EntityInstance entity = test::GetFlightReservationEntityInstance(options);
+  AddOrUpdateEntityInstance(entity);
+  std::unique_ptr<FormStructure> form = CreateFormStructure(
+      {FLIGHT_RESERVATION_FLIGHT_NUMBER, FLIGHT_RESERVATION_TICKET_NUMBER,
+       FLIGHT_RESERVATION_CONFIRMATION_CODE});
+  form->field(0)->set_value(options.flight_number);
+  form->field(1)->set_value(options.ticket_number);
+  form->field(2)->set_value(u"differentCode");
+
+  EXPECT_CALL(autofill_client(), ShowEntitySaveOrUpdateBubble).Times(0);
+  EXPECT_FALSE(manager().OnFormSubmitted(*form, /*ukm_source_id=*/{}));
+}
+
 TEST_F(AutofillAiManagerImportFormTest, UpdateEntity_NewInfo) {
   using enum AttributeTypeName;
   // The submitted form will have expiration date info.
@@ -826,7 +866,8 @@ TEST_F(AutofillAiManagerImportFormTest, UpdateEntity_NewInfo) {
       existing_entity_without_expiry_dates, AttributeType(kPassportNumber)));
   form->field(1)->set_value(u"01/02/20");
   form->field(1)->set_format_string_unless_overruled(
-      u"DD/MM/YY", AutofillField::FormatStringSource::kServer);
+      AutofillFormatString(u"DD/MM/YY", FormatString_Type_DATE),
+      AutofillFormatStringSource::kServer);
 
   std::optional<EntityInstance> new_entity;
   std::optional<EntityInstance> old_entity;
@@ -873,7 +914,8 @@ TEST_F(AutofillAiManagerImportFormTest, UpdateEntity_UpdateInfo) {
   // Set a new expiry date value, different from the one currently stored.
   form->field(1)->set_value(u"01/02/20");
   form->field(1)->set_format_string_unless_overruled(
-      u"DD/MM/YY", AutofillField::FormatStringSource::kServer);
+      AutofillFormatString(u"DD/MM/YY", FormatString_Type_DATE),
+      AutofillFormatStringSource::kServer);
 
   std::optional<EntityInstance> new_entity;
   std::optional<EntityInstance> old_entity;
@@ -931,7 +973,8 @@ TEST_F(AutofillAiManagerImportFormTest,
   // Issue date.
   form->field(2)->set_value(u"01/02/16");
   form->field(2)->set_format_string_unless_overruled(
-      u"DD/MM/YY", AutofillField::FormatStringSource::kServer);
+      AutofillFormatString(u"DD/MM/YY", FormatString_Type_DATE),
+      AutofillFormatStringSource::kServer);
 
   // Since the current entity instance is read only, no prompt should be shown.
   EXPECT_CALL(autofill_client(), ShowEntitySaveOrUpdateBubble).Times(0);

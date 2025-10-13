@@ -26,6 +26,7 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.Card
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_ANIMATION_STATUS;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.TAB;
+import static org.chromium.chrome.browser.tasks.tab_management.TabProperties.IS_PINNED;
 import static org.chromium.ui.test.util.MockitoHelper.doCallback;
 
 import android.graphics.Canvas;
@@ -329,6 +330,34 @@ public class TabGridItemTouchHelperCallbackUnitTest {
 
         verify(mTabGroupModelFilter).mergeTabsToGroup(TAB1_ID, TAB2_ID);
         verify(mGridLayoutManager).removeView(mItemView1);
+        verify(mTracker).notifyEvent(eq(EventConstants.TAB_DRAG_AND_DROP_TO_GROUP));
+        assertThat(
+                mModel.get(0).model.get(CardProperties.CARD_ANIMATION_STATUS),
+                equalTo(AnimationStatus.HOVERED_CARD_ZOOM_OUT));
+    }
+
+    @Test
+    public void onReleaseTab_Merge_NotAttachedToWindow() {
+        // Simulate the selection of card#1 in TabListModel.
+        mModel.get(0)
+                .model
+                .set(CardProperties.CARD_ANIMATION_STATUS, AnimationStatus.SELECTED_CARD_ZOOM_IN);
+        mModel.get(0).model.set(CARD_ALPHA, 0.8f);
+        mItemTouchHelperCallback.setSelectedTabIndexForTesting(POSITION1);
+
+        // Simulate hovering on card#2.
+        mModel.get(1)
+                .model
+                .set(CardProperties.CARD_ANIMATION_STATUS, AnimationStatus.HOVERED_CARD_ZOOM_IN);
+        mItemTouchHelperCallback.setHoveredTabIndexForTesting(POSITION2);
+
+        when(mItemView1.isAttachedToWindow()).thenReturn(false);
+
+        mItemTouchHelperCallback.onSelectedChanged(
+                mMockViewHolder1, ItemTouchHelper.ACTION_STATE_IDLE);
+
+        verify(mTabGroupModelFilter).mergeTabsToGroup(TAB1_ID, TAB2_ID);
+        verify(mGridLayoutManager, never()).removeView(mItemView1);
         verify(mTracker).notifyEvent(eq(EventConstants.TAB_DRAG_AND_DROP_TO_GROUP));
         assertThat(
                 mModel.get(0).model.get(CardProperties.CARD_ANIMATION_STATUS),
@@ -788,11 +817,19 @@ public class TabGridItemTouchHelperCallbackUnitTest {
     }
 
     @Test
-    public void messageItemSwipeable_archivedTabsMessageNotSwipable() {
+    public void messageItemSwipeable_archivedTabsMessageNotSwipeable() {
         PropertyModel model = mock(PropertyModel.class);
         when(model.get(MESSAGE_TYPE)).thenReturn(MessageType.ARCHIVED_TABS_MESSAGE);
         when(mMockViewHolder1.getItemViewType()).thenReturn(UiType.ARCHIVED_TABS_MESSAGE);
         mMockViewHolder1.model = model;
+
+        setupItemTouchHelperCallback(false);
+        assertFalse(mItemTouchHelperCallback.hasSwipeFlag(mRecyclerView, mMockViewHolder1));
+    }
+
+    @Test
+    public void messageItemSwipeable_pinnedTabNotSwipeable() {
+        mMockViewHolder1.model.set(IS_PINNED, true);
 
         setupItemTouchHelperCallback(false);
         assertFalse(mItemTouchHelperCallback.hasSwipeFlag(mRecyclerView, mMockViewHolder1));
@@ -1326,6 +1363,56 @@ public class TabGridItemTouchHelperCallbackUnitTest {
         verify(mTabGroupModelFilter).moveRelatedTabs(TAB1_ID, 3);
     }
 
+    @Test
+    public void canDropOver_pinnedAndUnpinned() {
+        setupItemTouchHelperCallback(false);
+
+        // A pinned tab cannot be dropped on an unpinned tab.
+        mMockViewHolder1.model.set(IS_PINNED, true);
+        mMockViewHolder2.model.set(IS_PINNED, false);
+        assertFalse(
+                mItemTouchHelperCallback.canDropOver(
+                        mRecyclerView, mMockViewHolder1, mMockViewHolder2));
+
+        // An unpinned tab cannot be dropped on a pinned tab.
+        assertFalse(
+                mItemTouchHelperCallback.canDropOver(
+                        mRecyclerView, mMockViewHolder2, mMockViewHolder1));
+
+        // A pinned tab can be dropped on another pinned tab.
+        mMockViewHolder2.model.set(IS_PINNED, true);
+        assertTrue(
+                mItemTouchHelperCallback.canDropOver(
+                        mRecyclerView, mMockViewHolder1, mMockViewHolder2));
+
+        // An unpinned tab can be dropped on another unpinned tab.
+        mMockViewHolder1.model.set(IS_PINNED, false);
+        mMockViewHolder2.model.set(IS_PINNED, false);
+        assertTrue(
+                mItemTouchHelperCallback.canDropOver(
+                        mRecyclerView, mMockViewHolder1, mMockViewHolder2));
+    }
+
+    @Test
+    public void onDragTab_Hovered_pinnedTab() {
+        // Setup: tab1 is pinned, tab2 is not.
+        mMockViewHolder1.model.set(IS_PINNED, true);
+        mMockViewHolder2.model.set(IS_PINNED, false);
+
+        // Drag pinned card#1 rightwards to hover on unpinned card#2.
+        verifyDrag(mMockViewHolder1, 5, 0, POSITION2, AnimationStatus.CARD_RESTORE);
+
+        // Drag unpinned card#2 leftwards to hover on pinned card#1.
+        verifyDrag(mMockViewHolder2, -5, 0, POSITION1, AnimationStatus.CARD_RESTORE);
+
+        // Setup: tab1 and tab2 are pinned.
+        mMockViewHolder1.model.set(IS_PINNED, true);
+        mMockViewHolder2.model.set(IS_PINNED, true);
+
+        // Drag pinned card#1 rightwards to hover on pinned card#2.
+        verifyDrag(mMockViewHolder1, 5, 0, POSITION2, AnimationStatus.CARD_RESTORE);
+    }
+
     private void verifyDrag(
             RecyclerView.ViewHolder viewHolder, float dX, float dY, int targetIndex, int status) {
         // Simulate the process of dragging one card to a position.
@@ -1453,6 +1540,7 @@ public class TabGridItemTouchHelperCallbackUnitTest {
         doReturn(bottom).when(view).getBottom();
         doReturn(right - left).when(view).getWidth();
         doReturn(bottom - top).when(view).getHeight();
+        when(view.isAttachedToWindow()).thenReturn(true);
         return view;
     }
 }

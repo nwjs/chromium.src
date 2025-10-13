@@ -111,35 +111,30 @@ RendererURLLoaderThrottle::RendererURLLoaderThrottle(
     : task_runner_(base::SequencedTaskRunner::GetCurrentDefault()),
       main_thread_task_runner_(main_thread_task_runner),
       filtering_ruleset_(filtering_ruleset) {
-  if (main_thread_task_runner_) {
-    // It's only possible to retrieve a `RenderFrame` given a `LocalFrameToken`
-    // on the main render thread.
-    auto set_activation_computed_callback =
-        [](base::OnceCallback<RendererAgent*()> renderer_agent_getter,
-           RendererAgent::ActivationComputedCallback
-               activation_computed_callback) {
-          auto* renderer_agent = std::move(renderer_agent_getter).Run();
-          if (!renderer_agent) {
-            return;
-          }
+  // It's only possible to retrieve a `RenderFrame` given a `LocalFrameToken`
+  // on the main render thread.
+  CHECK(main_thread_task_runner_);
 
-          renderer_agent->AddActivationComputedCallback(
-              std::move(activation_computed_callback));
-        };
+  auto set_activation_computed_callback =
+      [](base::OnceCallback<RendererAgent*()> renderer_agent_getter,
+         RendererAgent::ActivationComputedCallback
+             activation_computed_callback) {
+        auto* renderer_agent = std::move(renderer_agent_getter).Run();
+        if (!renderer_agent) {
+          return;
+        }
 
-    auto activated_computed_callback = base::BindPostTaskToCurrentDefault(
-        base::BindOnce(&RendererURLLoaderThrottle::OnActivationComputed,
-                       weak_factory_.GetWeakPtr()));
-    main_thread_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(set_activation_computed_callback,
-                                  std::move(renderer_agent_getter),
-                                  std::move(activated_computed_callback)));
-  } else {
-    activation_computed_ = true;
-    activation_state_ = ActivationState();
-    on_subresource_evaluated_callback_ = base::DoNothing();
-    load_policy_ = LoadPolicy::ALLOW;
-  }
+        renderer_agent->AddActivationComputedCallback(
+            std::move(activation_computed_callback));
+      };
+
+  auto activated_computed_callback = base::BindPostTaskToCurrentDefault(
+      base::BindOnce(&RendererURLLoaderThrottle::OnActivationComputed,
+                     weak_factory_.GetWeakPtr()));
+  main_thread_task_runner_->PostTask(
+      FROM_HERE, base::BindOnce(set_activation_computed_callback,
+                                std::move(renderer_agent_getter),
+                                std::move(activated_computed_callback)));
 }
 
 RendererURLLoaderThrottle::~RendererURLLoaderThrottle() = default;
@@ -157,17 +152,25 @@ RendererURLLoaderThrottle::CreateForTesting(
 }
 
 // static
-bool RendererURLLoaderThrottle::WillIgnoreRequest(
+std::optional<RendererThrottleCreationResult>
+RendererURLLoaderThrottle::WillIgnoreRequest(
     const GURL& url,
     network::mojom::RequestDestination request_destination) {
+  if (!url.SchemeIsHTTPOrHTTPS()) {
+    return RendererThrottleCreationResult::kSkipNonHttp;
+  }
   bool should_exclude_localhost =
       !base::CommandLine::ForCurrentProcess()->HasSwitch(
           variations::switches::kEnableBenchmarking) &&
       net::IsLocalhost(url);
-  return !url.SchemeIsHTTPOrHTTPS() || should_exclude_localhost ||
-         (request_destination !=
-              network::mojom::RequestDestination::kWebBundle &&
-          request_destination != network::mojom::RequestDestination::kScript);
+  if (should_exclude_localhost) {
+    return RendererThrottleCreationResult::kSkipLocalHost;
+  }
+  if (request_destination != network::mojom::RequestDestination::kWebBundle &&
+      request_destination != network::mojom::RequestDestination::kScript) {
+    return RendererThrottleCreationResult::kSkipSubresourceType;
+  }
+  return std::nullopt;
 }
 
 bool RendererURLLoaderThrottle::ShouldAllowRequest() {
@@ -186,7 +189,8 @@ void RendererURLLoaderThrottle::ProcessRequestStep(const GURL& latest_url,
 
   if (WillIgnoreRequest(current_url_,
                         request_destination_.value_or(
-                            network::mojom::RequestDestination::kEmpty))) {
+                            network::mojom::RequestDestination::kEmpty))
+          .has_value()) {
     // Short-circuit on URLs we do not want to filter or if there is no
     // filtering ruleset to use.
     return;

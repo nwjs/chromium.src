@@ -73,12 +73,6 @@ BASE_FEATURE(kWebAuthnICloudKeychainForInactiveWithoutDrive,
              "WebAuthenticationICloudKeychainForInactiveWithoutDrive",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Default enabled in M135. Remove in or after M138.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_FEATURE(kWebAuthnRetryU2FErrors,
-             "WebAuthenticationRetryU2FErrors",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Development flag. Must not be enabled by default once
 // kWebAuthnEnclaveAuthenticator is enabled.
 BASE_FEATURE(kWebAuthnUseInsecureSoftwareUnexportableKeys,
@@ -86,7 +80,7 @@ BASE_FEATURE(kWebAuthnUseInsecureSoftwareUnexportableKeys,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Development flag. Must not be enabled by default.
-BASE_FEATURE(WebAuthnEnclaveAuthenticatorDelay,
+BASE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Not yet enabled by default.
@@ -109,17 +103,14 @@ BASE_FEATURE(kWebAuthnHelloSignal,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Disabled by default.
-BASE_FEATURE(DigitalCredentialsHybridLinking,
+BASE_FEATURE(kDigitalCredentialsHybridLinking,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Default enabled in M136. Remove in or after M139.
+// Default enabled on Desktop in M136 and Android in M142. Remove in or after
+// M145.
 BASE_FEATURE(kWebAuthnPasskeyUpgrade,
              "WebAuthenticationPasskeyUpgrade",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
              base::FEATURE_ENABLED_BY_DEFAULT
-#endif
 );
 
 // Disabled by default.
@@ -139,7 +130,7 @@ BASE_FEATURE(kWebAuthnSignalApiHidePasskeys,
 
 // Enabled by default as part of the WebAuthenticationImmediateGet feature. Do
 // not remove before WebAuthenticationImmediateGet is removed.
-BASE_FEATURE(WebAuthnImmediateRequestRateLimit,
+BASE_FEATURE(kWebAuthnImmediateRequestRateLimit,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(int,
@@ -176,23 +167,15 @@ BASE_FEATURE(kWebAuthnImmediateGetAutoselect,
              "WebAuthenticationImmediateGetAutoselect",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_MAC)
-// Default enabled in M139. Remove in or after M142.
-BASE_FEATURE(kWebAuthnLargeBlobForICloudKeychain,
-             "WebAuthenticationLargeBlobICloudKeychain",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_MAC)
-
 // Default enabled in M140. Remove in or after M143.
 BASE_FEATURE(kWebAuthnLargeBlobForGPM,
              "WebAuthenticationLargeBlobGPM",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Deprecation flag. Intended to be disabled once the enclave no longer requires
-// a PIN generation number.
+// Deprecation flag. Disabled by default in M142. Remove in or after M145.
 BASE_FEATURE(kWebAuthnSendPinGeneration,
              "WebAuthenticationSendPinGeneration",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enabled by default in M141. Remove in or after M144.
 BASE_FEATURE(kWebAuthnWrapCohortData,
@@ -200,7 +183,20 @@ BASE_FEATURE(kWebAuthnWrapCohortData,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Not yet enabled by default.
-BASE_FEATURE(AuthenticatorPasswordsOnlyImmediateRequests,
+BASE_FEATURE(kAuthenticatorPasswordsOnlyImmediateRequests,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Not yet enabled by default.
+BASE_FEATURE(kWebAuthnNewRefreshFlow,
+             "WebAuthenticationNewRefreshFlow",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enabled by default in M142. Remove in or after M145.
+BASE_FEATURE(kWebAuthenticationFixWindowsHelloRdp,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enabled by default in M142. Remove in or after M145.
+BASE_FEATURE(kWebAuthenticationHashClientDataJsonForEnclave,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace device

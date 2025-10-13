@@ -99,6 +99,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * The main entrypoint component for Read Aloud feature. It's responsible for checking its
@@ -126,9 +127,6 @@ public class ReadAloudController
     private LayoutStateProvider.@Nullable LayoutStateObserver mLayoutStateObserver;
 
     private final ObserverList<Runnable> mReadabilityUpdateObserverList = new ObserverList<>();
-    // Delay added to readability check that should run it after largest contentful paint for >85%
-    // of users http://uma/p/chrome/timeline_v2?sid=c975abf9022aac7b36bf28285f068dd6
-    private static final int READABILITY_DELAY = 3000;
     private static final int MAX_URL_ENTRIES = 300;
     private static final LruCache<Integer, ReadabilityInfo> sReadabilityInfoMap =
             new LruCache<>(MAX_URL_ENTRIES);
@@ -611,7 +609,9 @@ public class ReadAloudController
         mActivityLifecycleDispatcher.register(this);
         mUserEducationHelper =
                 new UserEducationHelper(
-                        activity, mProfileSupplier, new Handler(Looper.getMainLooper()));
+                        activity,
+                        (Supplier<@Nullable Profile>) mProfileSupplier,
+                        new Handler(Looper.getMainLooper()));
         mActivePlaybackTabSupplier = new ObservableSupplierImpl<>();
         if (ReadAloudFeatures.isTapToSeekEnabled()) {
             new TapToSeekSelectionManager(this, mActivePlaybackTabSupplier);
@@ -734,7 +734,7 @@ public class ReadAloudController
                                 PostTask.postDelayedTask(
                                         TaskTraits.UI_DEFAULT,
                                         () -> maybeCheckReadability(tab),
-                                        READABILITY_DELAY);
+                                        ReadAloudFeatures.getReadabilityDelayMsAfterPageLoad());
                             }
                         }
 

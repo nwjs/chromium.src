@@ -10,6 +10,7 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.url.GURL;
 
 import java.nio.ByteBuffer;
 
@@ -44,12 +45,25 @@ public class ComposeBoxQueryControllerBridge {
         ComposeBoxQueryControllerBridgeJni.get().notifySessionAbandoned(mNativeInstance);
     }
 
-    /** Add the given file to the current session. */
-    void addFile(String fileName, String fileType, byte[] fileData) {
+    /**
+     * Add the given file to the current session.
+     *
+     * @return unique token representig the file, used to manipulate added files.
+     */
+    String addFile(String fileName, String fileType, byte[] fileData) {
         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(fileData.length);
         byteBuffer.put(fileData);
-        ComposeBoxQueryControllerBridgeJni.get()
+        return ComposeBoxQueryControllerBridgeJni.get()
                 .addFile(mNativeInstance, fileName, fileType, byteBuffer);
+    }
+
+    GURL getAimUrl(String queryText) {
+        return ComposeBoxQueryControllerBridgeJni.get().getAimUrl(mNativeInstance, queryText);
+    }
+
+    /** Remove the given file from the current session. */
+    void removeAttachment(String token) {
+        ComposeBoxQueryControllerBridgeJni.get().removeAttachment(mNativeInstance, token);
     }
 
     @NativeMethods
@@ -66,10 +80,17 @@ public class ComposeBoxQueryControllerBridge {
         void notifySessionAbandoned(long nativeInstance);
 
         @NativeClassQualifiedName("ComposeboxQueryControllerBridge")
-        void addFile(
+        String addFile(
                 long nativeInstance,
                 @JniType("std::string") String fileName,
                 @JniType("std::string") String fileType,
                 ByteBuffer fileData);
+
+        @NativeClassQualifiedName("ComposeboxQueryControllerBridge")
+        @JniType("GURL")
+        GURL getAimUrl(long nativeInstance, @JniType("std::string") String queryText);
+
+        @NativeClassQualifiedName("ComposeboxQueryControllerBridge")
+        void removeAttachment(long nativeInstance, @JniType("std::string") String token);
     }
 }

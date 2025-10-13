@@ -278,12 +278,14 @@ public class ContextMenuDialogUnitTest {
                 mRootView,
                 mMenuContentView,
                 isPopup,
+                /* isFlyout= */ false,
                 shouldRemoveScrim,
                 0,
                 0,
                 mSpyDragDispatchingDestinationView,
                 new Rect(0, 0, 0, 0),
-                /* shouldPadForWindowInsets= */ true);
+                /* shouldPadForWindowInsets= */ true,
+                /* onDismissCallback */ null);
     }
 
     private void requestLayoutForRootView() {

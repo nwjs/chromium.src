@@ -164,6 +164,8 @@ void PasswordFormToJSON(const PasswordForm& form, base::Value::Dict& target) {
              AlternativeElementVectorToString(form.all_alternative_passwords));
   target.Set("blocked_by_user", form.blocked_by_user);
   target.Set("date_last_used", form.date_last_used.InSecondsFSinceUnixEpoch());
+  target.Set("date_last_filled",
+             form.date_last_filled.InSecondsFSinceUnixEpoch());
   target.Set("date_password_modified",
              form.date_password_modified.InSecondsFSinceUnixEpoch());
   target.Set("date_created", form.date_created.InSecondsFSinceUnixEpoch());
@@ -234,6 +236,7 @@ void PasswordFormToJSON(const PasswordForm& form, base::Value::Dict& target) {
   target.Set("date_received", base::TimeToValue(form.date_received));
   target.Set("sharing_notification_displayed",
              form.sharing_notification_displayed);
+  target.Set("actor_login_approved", form.actor_login_approved);
 }
 
 // Returns the note with a specified |unique_display_name|.

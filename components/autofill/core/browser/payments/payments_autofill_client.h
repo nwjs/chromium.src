@@ -32,8 +32,12 @@ class AutofillOfferData;
 class AutofillOfferManager;
 enum class AutofillProgressDialogType;
 class AutofillSaveCardBottomSheetBridge;
+class BnplIssuer;
 struct CardUnmaskChallengeOption;
 class CardUnmaskDelegate;
+class AutofillProgressDialogController;
+class CardUnmaskOtpInputDialogController;
+class CardUnmaskPromptController;
 struct CardUnmaskPromptOptions;
 class CreditCard;
 class CreditCardCvcAuthenticator;
@@ -350,6 +354,9 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // HasCreditCardScanFeature() returns true.
   virtual void ScanCreditCard(CreditCardScanCallback callback);
 
+  // Returns true if credit card local save is supported by the client.
+  virtual bool LocalCardSaveIsSupported() = 0;
+
   // Runs `callback` once the user makes a decision with respect to the
   // offer-to-save prompt. This includes both the save local card prompt and the
   // save CVC for a local card prompt. On desktop, shows the offer-to-save
@@ -499,6 +506,16 @@ class PaymentsAutofillClient : public RiskDataLoader {
       base::WeakPtr<CardUnmaskDelegate> delegate);
   virtual void OnUnmaskVerificationResult(PaymentsRpcResult result);
 
+#if BUILDFLAG(IS_IOS)
+  virtual std::unique_ptr<AutofillProgressDialogController>
+  ExtractProgressDialogModel() = 0;
+
+  virtual std::unique_ptr<CardUnmaskOtpInputDialogController>
+  ExtractOtpInputDialogModel() = 0;
+
+  virtual CardUnmaskPromptController* GetCardUnmaskPromptModel() = 0;
+#endif
+
   // Returns a pointer to a VirtualCardEnrollmentManager that is owned by
   // PaymentsAutofillClient. VirtualCardEnrollmentManager is used for virtual
   // card enroll and unenroll related flows. This function will return a nullptr
@@ -592,6 +609,27 @@ class PaymentsAutofillClient : public RiskDataLoader {
   virtual bool ShowTouchToFillLoyaltyCard(
       base::WeakPtr<TouchToFillDelegate> delegate,
       std::vector<LoyaltyCard> loyalty_cards_to_suggest);
+
+  // Updates the BNPL payment method option on the Touch To Fill surface, if
+  // possible, returning `true` on success. Should be called only on Android if
+  // the feature is supported by the platform.
+  virtual bool UpdateTouchToFillBnplPaymentMethod(
+      std::optional<uint64_t> extracted_amount,
+      bool is_amount_supported_by_any_issuer);
+
+  // Shows the BNPL progress screen, if possible, returning `true` on success.
+  // Should be called only on Android if the feature is supported by the
+  // platform. If `delegate` is present, it will be notified of events.
+  virtual bool ShowTouchToFillProgress(
+      base::WeakPtr<TouchToFillDelegate> delegate);
+
+  // Shows the Touch To Fill surface with BNPL issuer information, if possible,
+  // returning `true` on success. `delegate` will be notified of events. This
+  // function is not implemented on iOS and iOS WebView, and should not be used
+  // on those platforms.
+  virtual bool ShowTouchToFillBnplIssuers(
+      base::WeakPtr<TouchToFillDelegate> delegate,
+      base::span<const BnplIssuer> bnpl_issuers_to_suggest);
 
   // Hides the Touch To Fill surface for filling payment information if one is
   // currently shown. Should be called only if the feature is supported by the

@@ -35,6 +35,8 @@
 #include "chrome/browser/extensions/theme_installed_infobar_delegate.h"
 #include "chrome/browser/new_tab_page/chrome_colors/chrome_colors_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/search/background/ntp_custom_background_service.h"
+#include "chrome/browser/search/background/ntp_custom_background_service_factory.h"
 #include "chrome/browser/themes/browser_theme_pack.h"
 #include "chrome/browser/themes/custom_theme_supplier.h"
 #include "chrome/browser/themes/theme_properties.h"
@@ -279,6 +281,12 @@ void ThemeService::Init() {
   theme_syncable_service_ =
       std::make_unique<ThemeSyncableService>(profile_, this);
 
+  ntp_custom_background_service_ =
+      NtpCustomBackgroundServiceFactory::GetForProfile(profile_);
+  if (ntp_custom_background_service_) {
+    ntp_custom_background_service_->SetThemeDelegate(this);
+  }
+
   // TODO(gayane): Temporary entry point for Chrome Colors. Remove once UI is
   // there.
   const base::CommandLine* command_line =
@@ -324,6 +332,10 @@ void ThemeService::Shutdown() {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   theme_observer_.reset();
 #endif
+  if (ntp_custom_background_service_) {
+    ntp_custom_background_service_->RemoveThemeDelegate();
+    ntp_custom_background_service_ = nullptr;
+  }
   theme_syncable_service_.reset();
 }
 
@@ -429,6 +441,15 @@ bool ThemeService::UsingDefaultTheme() const {
 
 bool ThemeService::UsingSystemTheme() const {
   return UsingDefaultTheme();
+}
+
+void ThemeService::OnBackgroundColorExtracted(SkColor color) {
+  SetUserColorAndBrowserColorVariant(
+      color, ui::mojom::BrowserColorVariant::kTonalSpot);
+}
+
+void ThemeService::OnNtpCustomBackgroundServiceShuttingDown() {
+  ntp_custom_background_service_ = nullptr;
 }
 
 bool ThemeService::UsingExtensionTheme() const {
@@ -569,6 +590,10 @@ void ThemeService::SetBrowserColorScheme(
     ThemeService::BrowserColorScheme color_scheme) {
   {
     base::AutoReset<bool> resetter(&should_suppress_theme_updates_, true);
+    if (UsingSystemTheme() &&
+        color_scheme != ThemeService::BrowserColorScheme::kSystem) {
+      SwapThemeSupplier(nullptr);
+    }
     profile_->GetPrefs()->SetInteger(prefs::kBrowserColorScheme,
                                      static_cast<int>(color_scheme));
   }
@@ -584,7 +609,8 @@ bool ThemeService::BrowserUsesDarkColors() const {
   const BrowserColorScheme color_scheme = GetBrowserColorScheme();
   return color_scheme == BrowserColorScheme::kDark ||
          (color_scheme == BrowserColorScheme::kSystem &&
-          ui::NativeTheme::GetInstanceForNativeUi()->ShouldUseDarkColors());
+          ui::NativeTheme::GetInstanceForNativeUi()->preferred_color_scheme() ==
+              ui::NativeTheme::PreferredColorScheme::kDark);
 }
 
 void ThemeService::SetUserColor(std::optional<SkColor> user_color) {
@@ -732,10 +758,7 @@ void ThemeService::ClearThemeData(bool clear_ntp_background) {
   SwapThemeSupplier(nullptr);
   ClearThemePrefs();
   if (clear_ntp_background) {
-    // Redraw and notify sync that theme has changed.
-    for (auto& observer : observers_) {
-      observer.OnCustomNtpBackgroundObsolete();
-    }
+    NtpCustomBackgroundService::ResetNtpTheme(profile_);
   }
 
   // Disable extension after modifying the prefs so that unloading the extension
@@ -981,10 +1004,7 @@ void ThemeService::ClearThemePrefs() {
 void ThemeService::SetThemePrefsForExtension(
     const extensions::Extension* extension) {
   ClearThemePrefs();
-  // Redraw and notify sync that theme has changed.
-  for (auto& observer : observers_) {
-    observer.OnCustomNtpBackgroundObsolete();
-  }
+  NtpCustomBackgroundService::ResetNtpTheme(profile_);
   // Extensions are incompatible with device themes so turn them off.
   // TODO(crbug.com/40280173): Remove this if we can otherwise separate
   // extension and device themes from attempting to apply at the same time.

@@ -209,9 +209,14 @@ class ClientTagBasedDataTypeProcessor : public DataTypeProcessor,
       UpdateResponseDataList updates,
       std::optional<sync_pb::GarbageCollectionDirective> gc_directive);
 
+  // Tracks a newly received entity during a full update. Returns the tracked
+  // entity if the update is valid, or null otherwise.
+  ProcessorEntity* TrackEntityUponFullUpdate(const UpdateResponseData& update);
+
   // Caches EntityData from the `data_batch` in the entity and checks
-  // that every entity in `storage_keys_to_load` was successfully loaded (or is
-  // not tracked by the processor any more). Reports failed checks to UMA.
+  // that every entity in `storage_keys_to_load` was successfully loaded (or
+  // is not tracked by the processor any more). Reports failed checks to
+  // UMA.
   void ConsumeDataBatch(absl::flat_hash_set<std::string> storage_keys_to_load,
                         std::unique_ptr<DataBatch> data_batch);
 
@@ -255,10 +260,9 @@ class ClientTagBasedDataTypeProcessor : public DataTypeProcessor,
   // if it is invalid.
   void ClearPersistedMetadataIfInconsistentWithActivationRequest();
 
-  // Verifies that the passed-in metadata (DataTypeState plus entity metadata)
-  // is valid, and clears it (incl. the persisted data) if not. Returns whether
-  // the metadata was cleared.
-  bool ClearPersistedMetadataIfInvalid(const MetadataBatch& metadata);
+  // Returns whether the passed-in metadata should be cleared due to (a) being
+  // invalid, or (b) `pending_clear_metadata_`.
+  bool ShouldClearPersistedMetadata(const MetadataBatch& metadata) const;
 
   // Reports error and records a metric about `site` where the error occurred.
   void ReportErrorImpl(const ModelError& error, ErrorSite site);

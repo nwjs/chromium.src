@@ -6,10 +6,20 @@
 
 namespace actor_login {
 
-// static
-Credential::Id Credential::GenerateCredentialId() {
+namespace {
+Credential::Id GenerateCredentialId() {
   static Credential::Id::Generator generator;
   return generator.GenerateNextId();
 }
+}  // namespace
 
+Credential::Credential() : id(GenerateCredentialId()) {}
+
+Credential::Credential(const Credential& other) = default;
+Credential::Credential(Credential&& other) = default;
+
+Credential& Credential::operator=(const Credential& credential) = default;
+Credential& Credential::operator=(Credential&& credential) = default;
+
+Credential::~Credential() = default;
 }  // namespace actor_login

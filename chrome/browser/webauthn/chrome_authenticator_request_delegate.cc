@@ -96,7 +96,7 @@
 #include "third_party/icu/source/common/unicode/locid.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_ui_types.h"
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/webauthn/chrome_authenticator_request_delegate_mac.h"
@@ -137,12 +137,9 @@ bool IsCredentialFromPlatformAuthenticator(
 // Returns true iff |user_id| starts with the prefix reserved for passkeys used
 // to authenticate to Google services.
 bool UserIdHasGooglePasskeyAuthPrefix(const std::vector<uint8_t>& user_id) {
-  constexpr std::string_view kPrefix = "GOOGLE_ACCOUNT:";
-  if (user_id.size() < kPrefix.size()) {
-    return false;
-  }
-  return UNSAFE_TODO(memcmp(user_id.data(), kPrefix.data(), kPrefix.size())) ==
-         0;
+  static constexpr std::string_view kPrefix = "GOOGLE_ACCOUNT:";
+  return user_id.size() >= kPrefix.size() &&
+         base::span(user_id).first(kPrefix.size()) == base::span(kPrefix);
 }
 
 // Filters |passkeys| to only contain credentials that are used to authenticate
@@ -705,6 +702,16 @@ void ChromeAuthenticatorRequestDelegate::ProvideChallengeUrl(
   dialog_controller_->ProvideChallengeUrl(url, std::move(callback));
 }
 
+void ChromeAuthenticatorRequestDelegate::StartObserving(
+    device::FidoRequestHandlerBase* request_handler) {
+  request_handler_observation_.Observe(request_handler);
+}
+
+void ChromeAuthenticatorRequestDelegate::StopObserving(
+    device::FidoRequestHandlerBase* request_handler) {
+  request_handler_observation_.Reset();
+}
+
 void ChromeAuthenticatorRequestDelegate::OnTransportAvailabilityEnumerated(
     TransportAvailabilityInfo data) {
   if (g_observer) {
@@ -1238,8 +1245,6 @@ void ChromeAuthenticatorRequestDelegate::ConfigureICloudKeychain(
   dialog_controller_->set_allow_icloud_keychain(
       request_source == RequestSource::kWebAuthentication);
   dialog_controller_->set_has_icloud_drive_enabled(is_icloud_drive_enabled);
-  dialog_controller_->set_is_active_profile_authenticator_user(
-      is_active_profile_authenticator_user);
   dialog_controller_->set_should_create_in_icloud_keychain(
       ShouldCreateInICloudKeychain(
           request_source, is_active_profile_authenticator_user,

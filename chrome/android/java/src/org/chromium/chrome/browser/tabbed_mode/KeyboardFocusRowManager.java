@@ -10,6 +10,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarCoordinator;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.top.tab_strip.StripVisibilityState;
@@ -144,15 +145,17 @@ import java.util.function.Supplier;
         // The next item in the focus cycle order is TAB_STRIP, if it is present.
         var stripLayoutHelperManager = mStripLayoutHelperManagerSupplier.get();
         if (stripLayoutHelperManager != null
-                && stripLayoutHelperManager.getStripVisibilityState()
+                && stripLayoutHelperManager.getStripVisibilityStateSupplier().get()
                         == StripVisibilityState.VISIBLE) {
             keyboardFocusRows.add(KeyboardFocusRow.TAB_STRIP);
         }
 
         // The next item in the focus cycle order is BOOKMARKS_BAR, if it is present.
-        var bookmarkBarCoordinator = mBookmarkBarCoordinatorSupplier.get();
-        if (bookmarkBarCoordinator != null && bookmarkBarCoordinator.isVisible()) {
-            keyboardFocusRows.add(KeyboardFocusRow.BOOKMARKS_BAR);
+        if (ChromeFeatureList.sAndroidBookmarkBar.isEnabled()) {
+            var bookmarkBarCoordinator = mBookmarkBarCoordinatorSupplier.get();
+            if (bookmarkBarCoordinator != null && bookmarkBarCoordinator.isVisible()) {
+                keyboardFocusRows.add(KeyboardFocusRow.BOOKMARKS_BAR);
+            }
         }
 
         int currentFocusIndex = keyboardFocusRows.indexOf(oldKeyboardFocusRow);

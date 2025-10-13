@@ -9,10 +9,11 @@
 #include <string>
 #include <vector>
 
-#include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/time/time.h"
+#include "cc/base/features.h"
 #include "cc/metrics/event_metrics.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -62,26 +63,18 @@ constexpr const char* kMissedVsyncAtStartOfFlingV4Histogram =
     ScrollJankDroppedFrameTracker::kMissedVsyncAtStartOfFlingV4Histogram;
 constexpr const char* kMissedVsyncDuringFlingV4Histogram =
     ScrollJankDroppedFrameTracker::kMissedVsyncDuringFlingV4Histogram;
-constexpr const char* kMissedVsyncsWindowHistogram =
-    ScrollJankDroppedFrameTracker::kMissedVsyncsWindowHistogram;
 constexpr const char* kDelayedFramesPerScrollHistogram =
     ScrollJankDroppedFrameTracker::kDelayedFramesPerScrollHistogram;
 constexpr const char* kDelayedFramesPerScrollV4Histogram =
     ScrollJankDroppedFrameTracker::kDelayedFramesPerScrollV4Histogram;
-constexpr const char* kMissedVsyncsPerScrollHistogram =
-    ScrollJankDroppedFrameTracker::kMissedVsyncsPerScrollHistogram;
 constexpr const char* kMissedVsyncsSumInWindowHistogram =
     ScrollJankDroppedFrameTracker::kMissedVsyncsSumInWindowHistogram;
 constexpr const char* kMissedVsyncsSumInWindowV4Histogram =
     ScrollJankDroppedFrameTracker::kMissedVsyncsSumInWindowV4Histogram;
 constexpr const char* kMissedVsyncsMaxInWindowV4Histogram =
     ScrollJankDroppedFrameTracker::kMissedVsyncsMaxInWindowV4Histogram;
-constexpr const char* kMissedVsyncsSumInVsyncWindowHistogram =
-    ScrollJankDroppedFrameTracker::kMissedVsyncsSumInVsyncWindowHistogram;
 constexpr const char* kMissedVsyncsMaxInWindowHistogram =
     ScrollJankDroppedFrameTracker::kMissedVsyncsMaxInWindowHistogram;
-constexpr const char* kMissedVsyncsMaxInVsyncWindowHistogram =
-    ScrollJankDroppedFrameTracker::kMissedVsyncsMaxInVsyncWindowHistogram;
 constexpr const char* kMissedVsyncsSumPerScrollHistogram =
     ScrollJankDroppedFrameTracker::kMissedVsyncsSumPerScrollHistogram;
 constexpr const char* kMissedVsyncsMaxPerScrollHistogram =
@@ -172,9 +165,6 @@ TEST_F(ScrollJankDroppedFrameTrackerTest, EmitsHistograms) {
                                        0);
   histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxInWindowV4Histogram, 0,
                                        0);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsWindowHistogram, 0, 0);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumInVsyncWindowHistogram,
-                                       0, 0);
 
   // For first window we emit histogram at 65th reported frame.
   last_frame = ProduceAndReportMockFrames(last_frame, 1);
@@ -186,9 +176,6 @@ TEST_F(ScrollJankDroppedFrameTrackerTest, EmitsHistograms) {
                                        1);
   histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxInWindowV4Histogram, 0,
                                        1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsWindowHistogram, 0, 1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumInVsyncWindowHistogram,
-                                       0, 1);
 
   // For subsequent windows we emit histogram every 64 frames.
   ProduceAndReportMockFrames(last_frame, kHistogramEmitFrequency);
@@ -200,9 +187,6 @@ TEST_F(ScrollJankDroppedFrameTrackerTest, EmitsHistograms) {
                                        2);
   histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxInWindowV4Histogram, 0,
                                        2);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsWindowHistogram, 0, 2);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumInVsyncWindowHistogram,
-                                       0, 2);
 }
 
 /*
@@ -238,9 +222,6 @@ TEST_F(ScrollJankDroppedFrameTrackerTest, FrameProducedEveryVsync) {
                                        1);
   histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxInWindowV4Histogram, 0,
                                        1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsWindowHistogram, 0, 1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumInVsyncWindowHistogram,
-                                       0, 1);
 }
 
 /*
@@ -277,9 +258,6 @@ TEST_F(ScrollJankDroppedFrameTrackerTest, NoFrameProducedForMissingInput) {
   histogram_tester->ExpectUniqueSample(kMissedVsyncsSumInWindowHistogram, 0, 1);
   histogram_tester->ExpectUniqueSample(kMissedVsyncsSumInWindowV4Histogram, 0,
                                        1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsWindowHistogram, 0, 1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumInVsyncWindowHistogram,
-                                       0, 1);
 }
 
 /*
@@ -416,52 +394,6 @@ TEST_F(ScrollJankDroppedFrameTrackerTest,
                                       1);
 }
 
-TEST_F(ScrollJankDroppedFrameTrackerTest, MissedVsyncsPerVsyncWindow) {
-  const std::vector<base::TimeTicks> inputs = {
-      MillisSinceEpoch(103), MillisSinceEpoch(111), MillisSinceEpoch(119),
-      MillisSinceEpoch(127), MillisSinceEpoch(135), MillisSinceEpoch(143)};
-  const std::vector<base::TimeTicks> vsyncs = {
-      MillisSinceEpoch(148), MillisSinceEpoch(196), MillisSinceEpoch(228)};
-
-  FrameTimestamps f1 = {inputs[0], inputs[1], vsyncs[0]};
-  FrameTimestamps f2 = {inputs[2], inputs[3], vsyncs[1]};
-  FrameTimestamps f3 = {inputs[4], inputs[5], vsyncs[2]};
-
-  ReportLatestPresentationDataToTracker(f1);
-  ReportLatestPresentationDataToTracker(f2);
-  ReportLatestPresentationDataToTracker(f3);
-
-  // To trigger per window histogram emission, subtracting 5
-  // here because the window is calculated per vsync and 3 vsyncs
-  // were missed
-  int frames_to_emit_histogram = kFirstWindowSize - 5;
-  FrameTimestamps last_frame_ts =
-      ProduceAndReportMockFrames(f3, frames_to_emit_histogram);
-
-  // F2 and F3 have 2 and 1 missed vsyncs respectively.
-  const int expected_missed_vsyncs = 3;
-  const int expected_delayed_frames_percentage =
-      (100 * expected_missed_vsyncs) / kHistogramEmitFrequency;
-  // Frame F2 missed 2 vsyncs, F3 missed 1 vsync.
-  const int expected_sum = 3;
-  const int expected_max = 2;
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsWindowHistogram,
-                                       expected_delayed_frames_percentage, 1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumInVsyncWindowHistogram,
-                                       expected_sum, 1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxInVsyncWindowHistogram,
-                                       expected_max, 1);
-
-  // The counters were reset for next set of `kHistogramEmitFrequency` frames.
-  ProduceAndReportMockFrames(last_frame_ts, kHistogramEmitFrequency);
-
-  histogram_tester->ExpectBucketCount(kMissedVsyncsWindowHistogram, 0, 1);
-  histogram_tester->ExpectBucketCount(kMissedVsyncsSumInVsyncWindowHistogram, 0,
-                                      1);
-  histogram_tester->ExpectBucketCount(kMissedVsyncsMaxInVsyncWindowHistogram, 0,
-                                      1);
-}
-
 // Regression test for https://crbug.com/404637348.
 TEST_F(ScrollJankDroppedFrameTrackerTest, ScrollWithZeroVsyncs) {
   const std::vector<base::TimeTicks> inputs = {
@@ -485,6 +417,296 @@ TEST_F(ScrollJankDroppedFrameTrackerTest, ScrollWithZeroVsyncs) {
 
   histogram_tester->ExpectUniqueSample(kDelayedFramesPerScrollV4Histogram, 0,
                                        2);
+}
+
+/*
+Tests that the v1 scroll jank metric's histograms for a scroll are emitted at
+the beginning of the next scroll when the
+`EmitPerScrollJankV1MetricAtEndOfScroll` feature is disabled.
+vsync                   v0              v1        v2
+                        |    |    |     |    |    |
+input   I0  I1  I2  I3  I4  I5
+        |   |   |   |   |   |
+F1:     |---------------| {I0, I1}
+F2:             |-----------------------| {I2, I3}
+F3:                     |-------------------------| {I4, I5}
+*/
+TEST_F(ScrollJankDroppedFrameTrackerTest,
+       ShouldEmitV1MetricsAtStartOfNextScrollWhenFeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kEmitPerScrollJankV1MetricAtEndOfScroll);
+
+  const std::vector<base::TimeTicks> inputs = {
+      MillisSinceEpoch(103), MillisSinceEpoch(111), MillisSinceEpoch(119),
+      MillisSinceEpoch(127), MillisSinceEpoch(135), MillisSinceEpoch(143)};
+  const std::vector<base::TimeTicks> vsyncs = {
+      MillisSinceEpoch(148), MillisSinceEpoch(196), MillisSinceEpoch(228)};
+
+  FrameTimestamps f1 = {inputs[0], inputs[1], vsyncs[0]};
+  FrameTimestamps f2 = {inputs[2], inputs[3], vsyncs[1]};
+  FrameTimestamps f3 = {inputs[4], inputs[5], vsyncs[2]};
+
+  ReportLatestPresentationDataToTracker(f1);
+  ReportLatestPresentationDataToTracker(f2);
+  ReportLatestPresentationDataToTracker(f3);
+  const int total_frames = 10;
+  ProduceAndReportMockFrames(f3, total_frames - 3);
+
+  // The tracker SHOULDN'T emit any v1 metrics at the end of the scroll.
+  scroll_jank_dropped_frame_tracker_->OnScrollEnded();
+
+  histogram_tester->ExpectTotalCount(kMissedVsyncsSumPerScrollHistogram, 0);
+  histogram_tester->ExpectTotalCount(kMissedVsyncsMaxPerScrollHistogram, 0);
+  histogram_tester->ExpectTotalCount(kDelayedFramesPerScrollHistogram, 0);
+
+  // The tracker should emit all v1 metrics at the beginning of the next scroll.
+  ResetHistogramTester();
+  scroll_jank_dropped_frame_tracker_->OnScrollStarted();
+
+  // F2 and F3 are janky frames.
+  const int expected_missed_frames = 2;
+  const int expected_delayed_frames_percentage =
+      (100 * expected_missed_frames) / total_frames;
+  // Frame F2 missed 2 vsyncs, F3 missed 1 vsync.
+  const int expected_max = 2;
+  const int expected_sum = 3;
+
+  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumPerScrollHistogram,
+                                       expected_sum, 1);
+  histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxPerScrollHistogram,
+                                       expected_max, 1);
+  histogram_tester->ExpectUniqueSample(kDelayedFramesPerScrollHistogram,
+                                       expected_delayed_frames_percentage, 1);
+
+  // The tracker SHOULDN'T emit any more v1 metrics when it's destroyed.
+  ResetHistogramTester();
+  delete scroll_jank_dropped_frame_tracker_.release();
+
+  histogram_tester->ExpectTotalCount(kMissedVsyncsSumPerScrollHistogram, 0);
+  histogram_tester->ExpectTotalCount(kMissedVsyncsMaxPerScrollHistogram, 0);
+  histogram_tester->ExpectTotalCount(kDelayedFramesPerScrollHistogram, 0);
+}
+
+/*
+Tests for the v1 and v4 scroll jank metric's per-scroll histograms. To avoid
+duplication, all per-scroll tests use the same scenario depicted below.
+vsync                   v0              v1        v2
+                        |    |    |     |    |    |
+input   I0  I1  I2  I3  I4  I5
+        |   |   |   |   |    |
+F1:     |---------------| {I0, I1}
+F2:             |-----------------------| {I2, I3}
+F3:                     |-------------------------| {I4, I5}
+*/
+class ScrollJankDroppedFrameTrackerPerScrollTest
+    : public ScrollJankDroppedFrameTrackerTest {
+ public:
+  ScrollJankDroppedFrameTrackerPerScrollTest() = default;
+
+  void ProduceAndReportScrollFrames() {
+    const std::vector<base::TimeTicks> inputs = {
+        MillisSinceEpoch(103), MillisSinceEpoch(111), MillisSinceEpoch(119),
+        MillisSinceEpoch(127), MillisSinceEpoch(135), MillisSinceEpoch(143)};
+    const std::vector<base::TimeTicks> vsyncs = {
+        MillisSinceEpoch(148), MillisSinceEpoch(196), MillisSinceEpoch(228)};
+
+    FrameTimestamps f1 = {inputs[0], inputs[1], vsyncs[0]};
+    FrameTimestamps f2 = {inputs[2], inputs[3], vsyncs[1]};
+    FrameTimestamps f3 = {inputs[4], inputs[5], vsyncs[2]};
+
+    ReportLatestPresentationDataToTracker(f1);
+    ReportLatestPresentationDataToTracker(f2);
+    ReportLatestPresentationDataToTracker(f3);
+
+    ProduceAndReportMockFrames(f3, total_frames - 3);
+  }
+
+  static const int total_frames = 10;
+
+  // F2 and F3 are janky frames.
+  static const int expected_missed_frames = 2;
+  static const int expected_delayed_frames_percentage =
+      (100 * expected_missed_frames) / 10;
+
+  // Frame F2 missed 2 vsyncs, F3 missed 1 vsync.
+  static const int expected_missed_vsyncs_sum = 3;
+  static const int expected_missed_vsyncs_max = 2;
+};
+
+/*
+Tests that the v1 scroll jank metric's histograms for a scroll are emitted at
+the end of the scroll when the `EmitPerScrollJankV1MetricAtEndOfScroll` feature
+is enabled.
+*/
+TEST_F(ScrollJankDroppedFrameTrackerPerScrollTest,
+       ShouldEmitV1MetricsAtEndOfScrollWhenFeatureEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kEmitPerScrollJankV1MetricAtEndOfScroll);
+
+  ProduceAndReportScrollFrames();
+
+  // The tracker should emit all v1 metrics at the end of the scroll.
+  scroll_jank_dropped_frame_tracker_->OnScrollEnded();
+
+  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumPerScrollHistogram,
+                                       expected_missed_vsyncs_sum, 1);
+  histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxPerScrollHistogram,
+                                       expected_missed_vsyncs_max, 1);
+  histogram_tester->ExpectUniqueSample(kDelayedFramesPerScrollHistogram,
+                                       expected_delayed_frames_percentage, 1);
+
+  // The tracker SHOULDN'T emit any more v1 metrics at the beginning of the next
+  // scroll or when it's destroyed.
+  ResetHistogramTester();
+  scroll_jank_dropped_frame_tracker_->OnScrollStarted();
+  delete scroll_jank_dropped_frame_tracker_.release();
+
+  histogram_tester->ExpectTotalCount(kMissedVsyncsSumPerScrollHistogram, 0);
+  histogram_tester->ExpectTotalCount(kMissedVsyncsMaxPerScrollHistogram, 0);
+  histogram_tester->ExpectTotalCount(kDelayedFramesPerScrollHistogram, 0);
+}
+
+/*
+Tests that the v4 scroll jank metric's histograms for a scroll are emitted at
+the beginning of the next scroll when the
+`EmitPerScrollJankV4MetricAtEndOfScroll` feature is disabled.
+*/
+TEST_F(ScrollJankDroppedFrameTrackerPerScrollTest,
+       ShouldEmitV4MetricsAtStartOfNextScrollWhenFeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kEmitPerScrollJankV4MetricAtEndOfScroll);
+
+  ProduceAndReportScrollFrames();
+
+  // The tracker SHOULDN'T emit any v4 metrics at the end of the scroll.
+  scroll_jank_dropped_frame_tracker_->OnScrollEnded();
+
+  histogram_tester->ExpectTotalCount(kDelayedFramesPerScrollV4Histogram, 0);
+
+  // The tracker should emit all v4 metrics at the beginning of the next scroll.
+  ResetHistogramTester();
+  scroll_jank_dropped_frame_tracker_->OnScrollStarted();
+
+  histogram_tester->ExpectUniqueSample(kDelayedFramesPerScrollV4Histogram,
+                                       expected_delayed_frames_percentage, 1);
+
+  // The tracker SHOULDN'T emit any more v4 metrics when it's destroyed.
+  ResetHistogramTester();
+  delete scroll_jank_dropped_frame_tracker_.release();
+
+  histogram_tester->ExpectTotalCount(kDelayedFramesPerScrollV4Histogram, 0);
+}
+
+/*
+Tests that the v4 scroll jank metric's histograms for a scroll are emitted at
+the end of the scroll when the `EmitPerScrollJankV4MetricAtEndOfScroll` feature
+is enabled.
+*/
+TEST_F(ScrollJankDroppedFrameTrackerPerScrollTest,
+       ShouldEmitV4MetricsAtEndOfScrollWhenFeatureEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kEmitPerScrollJankV4MetricAtEndOfScroll);
+
+  ProduceAndReportScrollFrames();
+
+  // The tracker should emit all v4 metrics at the end of the scroll.
+  scroll_jank_dropped_frame_tracker_->OnScrollEnded();
+
+  histogram_tester->ExpectUniqueSample(kDelayedFramesPerScrollV4Histogram,
+                                       expected_delayed_frames_percentage, 1);
+
+  // The tracker SHOULDN'T emit any more v4 metrics at the beginning of the next
+  // scroll or when it's destroyed.
+  ResetHistogramTester();
+  scroll_jank_dropped_frame_tracker_->OnScrollStarted();
+  delete scroll_jank_dropped_frame_tracker_.release();
+
+  histogram_tester->ExpectTotalCount(kDelayedFramesPerScrollV4Histogram, 0);
+}
+
+/*
+Tests that the v1 and v4 scroll jank metric's histograms for a scroll are
+emitted when the tracker is destroyed.
+*/
+TEST_F(ScrollJankDroppedFrameTrackerPerScrollTest,
+       ShouldEmitMetricsWhenDestroyed) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kEmitPerScrollJankV4MetricAtEndOfScroll);
+
+  ProduceAndReportScrollFrames();
+
+  // The tracker should emit all metrics (both v1 and v4) when it's destroyed.
+  delete scroll_jank_dropped_frame_tracker_.release();
+
+  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumPerScrollHistogram,
+                                       expected_missed_vsyncs_sum, 1);
+  histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxPerScrollHistogram,
+                                       expected_missed_vsyncs_max, 1);
+  histogram_tester->ExpectUniqueSample(kDelayedFramesPerScrollHistogram,
+                                       expected_delayed_frames_percentage, 1);
+  histogram_tester->ExpectUniqueSample(kDelayedFramesPerScrollV4Histogram,
+                                       expected_delayed_frames_percentage, 1);
+}
+
+/*
+Tests that the scroll jank v4 metric evaluates each scroll separately (i.e.
+doesn't evaluate a scroll against a previous scroll).
+
+    Scroll 1 <--|--> Scroll 2
+VSync V0  :   V1|     V2      V3      V4 ...     V64     V65     V66     V67
+      :   :   : |     :       :       :  ...      :       :       :       :
+Input :   I1  : | I2  :   I3  :   I4  :  ... I64  :  I65  :       :       :
+          :   : | :   :   :   :   :   :  ...  :   :   :   :       :       :
+F1:       |8ms| | :   :   :   :   :   :  ...  :   :   :   :       :       :
+F2:             | |-------40ms--------|  ...  :   :   :   :       :       :
+F3:             |         |-------40ms---...  :   :   :   :       :       :
+F4:             |                 |-40ms-...  :   :   :   :       :       :
+...             |                        ...  :   :   :   :       :       :
+F62:            |                        ...-40ms-|   :   :       :       :
+F63:            |                        ...-40ms---------|       :       :
+F64:            |                        ...  |-------40ms--------|       :
+F65:            |                        ...          |-------40ms--------|
+
+The v4 metric should NOT evaluate I2/F2 against I1/F1 (because they happened in
+different scrolls), so the metric should NOT mark F2 as janky.
+*/
+TEST_F(ScrollJankDroppedFrameTrackerTest,
+       V4MetricEvaluatesEachScrollSeparately) {
+  // Scroll 1: First input took only 8 ms (half a VSync) to deliver.
+  FrameTimestamps f1 = {.first_input_ts = MillisSinceEpoch(108),
+                        .presentation_ts = MillisSinceEpoch(116),
+                        .abs_total_raw_delta_pixels = 4.0f};
+  ReportLatestPresentationDataToTracker(f1);
+
+  scroll_jank_dropped_frame_tracker_->OnScrollStarted();
+  ResetHistogramTester();
+
+  // Scroll 2: Inputs 2-65 took 40 ms (2.5 VSyncs) to deliver.
+  FrameTimestamps f2 = {.first_input_ts = MillisSinceEpoch(124),
+                        .presentation_ts = MillisSinceEpoch(164)};
+  ReportLatestPresentationDataToTracker(f2);
+  FrameTimestamps f65 =
+      ProduceAndReportMockFrames(f2, kFirstWindowSize - 2 /* f1, f2 */);
+  ReportLatestPresentationDataToTracker(f65);
+
+  histogram_tester->ExpectUniqueSample(kDelayedFramesWindowV4Histogram, 0, 1);
+  histogram_tester->ExpectUniqueSample(
+      kMissedVsyncDueToDeceleratingInputFrameDeliveryV4Histogram, 0, 1);
+  histogram_tester->ExpectUniqueSample(kMissedVsyncDuringFastScrollV4Histogram,
+                                       0, 1);
+  histogram_tester->ExpectUniqueSample(kMissedVsyncAtStartOfFlingV4Histogram, 0,
+                                       1);
+  histogram_tester->ExpectUniqueSample(kMissedVsyncDuringFlingV4Histogram, 0,
+                                       1);
+  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumInWindowV4Histogram, 0,
+                                       1);
+  histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxInWindowV4Histogram, 0,
+                                       1);
 }
 
 /*
@@ -1353,157 +1575,5 @@ INSTANTIATE_TEST_SUITE_P(
     [](const testing::TestParamInfo<
         ScrollJankDroppedFrameTrackerV4RunningConsistentyTests::ParamType>&
            info) { return info.param.test_name; });
-
-struct ScrollTestCase {
-  std::string test_name;
-  int num_frames;
-  std::string suffix;
-};
-
-class PerScrollTests : public ScrollJankDroppedFrameTrackerTest,
-                       public testing::WithParamInterface<ScrollTestCase> {};
-
-/*
-Test that bucketed histograms for scrolls are emitted.
-vsync                   v0              v1        v2
-                        |    |    |     |    |    |
-input   I0  I1  I2  I3  I4  I5
-        |   |   |   |   |   |
-F1:     |---------------| {I0, I1}
-F2:             |-----------------------| {I2, I3}
-F3:                     |-------------------------| {I4, I5}
-*/
-TEST_P(PerScrollTests, MetricsEmittedPerScroll) {
-  const ScrollTestCase& params = GetParam();
-
-  const std::vector<base::TimeTicks> inputs = {
-      MillisSinceEpoch(103), MillisSinceEpoch(111), MillisSinceEpoch(119),
-      MillisSinceEpoch(127), MillisSinceEpoch(135), MillisSinceEpoch(143)};
-  const std::vector<base::TimeTicks> vsyncs = {
-      MillisSinceEpoch(148), MillisSinceEpoch(196), MillisSinceEpoch(228)};
-
-  FrameTimestamps f1 = {inputs[0], inputs[1], vsyncs[0]};
-  FrameTimestamps f2 = {inputs[2], inputs[3], vsyncs[1]};
-  FrameTimestamps f3 = {inputs[4], inputs[5], vsyncs[2]};
-
-  ReportLatestPresentationDataToTracker(f1);
-  ReportLatestPresentationDataToTracker(f2);
-  ReportLatestPresentationDataToTracker(f3);
-  CHECK_GE(params.num_frames, 3);
-  FrameTimestamps last_ts =
-      ProduceAndReportMockFrames(f3, params.num_frames - 3);
-
-  scroll_jank_dropped_frame_tracker_->OnScrollStarted();
-
-  // F2 and F3 are janky frames.
-  const int expected_missed_frames = 2;
-  const int total_frames = params.num_frames;
-  const int expected_delayed_frames_percentage =
-      (100 * expected_missed_frames) / total_frames;
-  // Frame F2 missed 2 vsyncs, F3 missed 1 vsync.
-  const int expected_max = 2;
-  const int expected_sum = 3;
-
-  // Emits non-bucketed histograms.
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumPerScrollHistogram,
-                                       expected_sum, 1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxPerScrollHistogram,
-                                       expected_max, 1);
-  histogram_tester->ExpectUniqueSample(kDelayedFramesPerScrollHistogram,
-                                       expected_delayed_frames_percentage, 1);
-  histogram_tester->ExpectUniqueSample(kDelayedFramesPerScrollV4Histogram,
-                                       expected_delayed_frames_percentage, 1);
-
-  // Emits bucketed histograms.
-  histogram_tester->ExpectUniqueSample(
-      base::StrCat({kMissedVsyncsSumPerScrollHistogram, params.suffix}),
-      expected_sum, 1);
-  histogram_tester->ExpectUniqueSample(
-      base::StrCat({kMissedVsyncsMaxPerScrollHistogram, params.suffix}),
-      expected_max, 1);
-  histogram_tester->ExpectUniqueSample(
-      base::StrCat({kDelayedFramesPerScrollHistogram, params.suffix}),
-      expected_delayed_frames_percentage, 1);
-
-  // Produce arbitrary no. of frames.
-  ProduceAndReportMockFrames(last_ts, 10);
-  // The metrics from last scroll should be emitted when destructor is called.
-  delete scroll_jank_dropped_frame_tracker_.release();
-
-  // The counters should have been reset and there wouldn't be any janky frames.
-  histogram_tester->ExpectBucketCount(kMissedVsyncsSumPerScrollHistogram, 0, 1);
-  histogram_tester->ExpectBucketCount(kMissedVsyncsMaxPerScrollHistogram, 0, 1);
-  histogram_tester->ExpectBucketCount(kDelayedFramesPerScrollHistogram, 0, 1);
-  histogram_tester->ExpectBucketCount(kDelayedFramesPerScrollV4Histogram, 0, 1);
-}
-
-TEST_P(PerScrollTests, VsyncMetricsEmittedPerScroll) {
-  const ScrollTestCase& params = GetParam();
-
-  const std::vector<base::TimeTicks> inputs = {
-      MillisSinceEpoch(103), MillisSinceEpoch(111), MillisSinceEpoch(119),
-      MillisSinceEpoch(127), MillisSinceEpoch(135), MillisSinceEpoch(143)};
-  const std::vector<base::TimeTicks> vsyncs = {
-      MillisSinceEpoch(148), MillisSinceEpoch(196), MillisSinceEpoch(228)};
-
-  FrameTimestamps f1 = {inputs[0], inputs[1], vsyncs[0]};
-  FrameTimestamps f2 = {inputs[2], inputs[3], vsyncs[1]};
-  FrameTimestamps f3 = {inputs[4], inputs[5], vsyncs[2]};
-
-  ReportLatestPresentationDataToTracker(f1);
-  ReportLatestPresentationDataToTracker(f2);
-  ReportLatestPresentationDataToTracker(f3);
-  CHECK_GE(params.num_frames, 3);
-  FrameTimestamps last_ts =
-      // - 6 as 3 presented frames + 3 missed vsyncs need to be subtracted
-      ProduceAndReportMockFrames(f3, params.num_frames - 6);
-
-  scroll_jank_dropped_frame_tracker_->OnScrollStarted();
-
-  // Frame F2 missed 2 vsyncs, F3 missed 1 vsync.
-  const int expected_max = 2;
-  const int expected_sum = 3;
-
-  // F2 and F3 are janky frames.
-  const int expected_missed_vsyncs = 3;
-  const int total_vsyncs = params.num_frames;
-  const int expected_missed_vsyncs_percentage =
-      (100 * expected_missed_vsyncs) / total_vsyncs;
-
-  // Emits non-bucketed histograms.
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsSumPerScrollHistogram,
-                                       expected_sum, 1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsMaxPerScrollHistogram,
-                                       expected_max, 1);
-  histogram_tester->ExpectUniqueSample(kMissedVsyncsPerScrollHistogram,
-                                       expected_missed_vsyncs_percentage, 1);
-
-  // Emits bucketed histograms.
-  histogram_tester->ExpectUniqueSample(
-      base::StrCat({kMissedVsyncsPerScrollHistogram, params.suffix}),
-      expected_missed_vsyncs_percentage, 1);
-
-  // Produce arbitrary no. of frames.
-  ProduceAndReportMockFrames(last_ts, 10);
-  // The metrics from last scroll should be emitted when destructor is called.
-  delete scroll_jank_dropped_frame_tracker_.release();
-
-  // The counters should have been reset and there wouldn't be any janky frames.
-  histogram_tester->ExpectBucketCount(kMissedVsyncsSumPerScrollHistogram, 0, 1);
-  histogram_tester->ExpectBucketCount(kMissedVsyncsMaxPerScrollHistogram, 0, 1);
-  histogram_tester->ExpectBucketCount(kMissedVsyncsPerScrollHistogram, 0, 1);
-}
-
-INSTANTIATE_TEST_SUITE_P(
-    PerScrollTests,
-    PerScrollTests,
-    testing::ValuesIn<ScrollTestCase>({
-        {"EmitsSmallScrollHistogram", 10, ".Small"},
-        {"EmitsMediumScrollHistogram", 50, ".Medium"},
-        {"EmitsLargeScrollHistogram", 65, ".Large"},
-    }),
-    [](const testing::TestParamInfo<PerScrollTests::ParamType>& info) {
-      return info.param.test_name;
-    });
 
 }  // namespace cc

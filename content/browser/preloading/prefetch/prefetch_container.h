@@ -11,18 +11,15 @@
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
-#include "content/browser/preloading/prefetch/prefetch_params.h"
 #include "content/browser/preloading/prefetch/prefetch_status.h"
 #include "content/browser/preloading/prefetch/prefetch_streaming_url_loader_common_types.h"
 #include "content/browser/preloading/preload_pipeline_info_impl.h"
 #include "content/browser/preloading/preload_serving_metrics.h"
 #include "content/common/content_export.h"
-#include "content/public/browser/prefetch_request_status_listener.h"
 #include "content/public/browser/preloading.h"
 #include "net/http/http_no_vary_search_data.h"
 #include "net/http/http_request_headers.h"
 #include "services/network/public/mojom/devtools_observer.mojom-forward.h"
-#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/loader/referrer.mojom.h"
 #include "url/gurl.h"
 
@@ -40,23 +37,17 @@ class Origin;
 
 namespace content {
 
-class BrowserContext;
-class PrefetchDocumentManager;
 class PrefetchKey;
 class PrefetchNetworkContext;
 class PrefetchRequest;
 class PrefetchResponseReader;
+class PrefetchService;
 class PrefetchServingHandle;
 class PrefetchServingPageMetricsContainer;
 class PrefetchSingleRedirectHop;
 class PrefetchStreamingURLLoader;
-class PreloadingAttempt;
 class ProxyLookupClientImpl;
-class RenderFrameHostImpl;
-class SpeculationRulesTags;
-class WebContents;
 enum class PrefetchPotentialCandidateServingResult;
-enum class PrefetchPriority;
 enum class PrefetchProbeResult;
 enum class PrefetchServableState;
 
@@ -109,58 +100,17 @@ struct PrefetchResponseSizes {
 // `PrefetchService::MakePrefetchRequest()`.
 class CONTENT_EXPORT PrefetchContainer {
  public:
-  // Ctor used for renderer-initiated prefetch.
-  PrefetchContainer(
-      RenderFrameHostImpl& referring_render_frame_host,
-      const blink::DocumentToken& referring_document_token,
-      const GURL& url,
-      const PrefetchType& prefetch_type,
-      const blink::mojom::Referrer& referrer,
-      std::optional<SpeculationRulesTags> speculation_rules_tags,
-      std::optional<net::HttpNoVarySearchData> no_vary_search_hint,
-      std::optional<PrefetchPriority> priority,
-      base::WeakPtr<PrefetchDocumentManager> prefetch_document_manager,
-      scoped_refptr<PreloadPipelineInfo> preload_pipeline_info,
-      base::WeakPtr<PreloadingAttempt> attempt = nullptr);
+  // In non-test, `PrefetchContainer` should be only created and owned by
+  // `PrefetchService`.
+  static std::unique_ptr<PrefetchContainer> Create(
+      base::PassKey<PrefetchService>,
+      std::unique_ptr<const PrefetchRequest> request);
+  static std::unique_ptr<PrefetchContainer> CreateForTesting(
+      std::unique_ptr<const PrefetchRequest> request);
 
-  // Ctor used for browser-initiated prefetch.
-  // We can pass the referring origin of prefetches via `referring_origin` if
-  // necessary.
-  PrefetchContainer(
-      WebContents& referring_web_contents,
-      const GURL& url,
-      const PrefetchType& prefetch_type,
-      const std::string& embedder_histogram_suffix,
-      const blink::mojom::Referrer& referrer,
-      const std::optional<url::Origin>& referring_origin,
-      std::optional<net::HttpNoVarySearchData> no_vary_search_hint,
-      std::optional<PrefetchPriority> priority,
-      scoped_refptr<PreloadPipelineInfo> preload_pipeline_info,
-      base::WeakPtr<PreloadingAttempt> attempt = nullptr,
-      std::optional<PreloadingHoldbackStatus> holdback_status_override =
-          std::nullopt,
-      std::optional<base::TimeDelta> ttl = std::nullopt);
-
-  // Ctor used for browser-initiated prefetch that doesn't depend on web
-  // contents. We can pass the referring origin of prefetches via
-  // `referrer_origin` if necessary.
-  PrefetchContainer(
-      BrowserContext* browser_context,
-      const GURL& url,
-      const PrefetchType& prefetch_type,
-      const std::string& embedder_histogram_suffix,
-      const blink::mojom::Referrer& referrer,
-      bool javascript_enabled,
-      const std::optional<url::Origin>& referring_origin,
-      std::optional<net::HttpNoVarySearchData> no_vary_search_hint,
-      std::optional<PrefetchPriority> priority,
-      base::WeakPtr<PreloadingAttempt> attempt = nullptr,
-      const net::HttpRequestHeaders& additional_headers = {},
-      std::unique_ptr<PrefetchRequestStatusListener> request_status_listener =
-          nullptr,
-      base::TimeDelta ttl = PrefetchContainerDefaultTtlInPrefetchService(),
-      bool should_append_variations_header = true,
-      bool should_disable_block_until_head_timeout = false);
+  // Use `Create*()` above.
+  PrefetchContainer(base::PassKey<PrefetchContainer>,
+                    std::unique_ptr<const PrefetchRequest> request);
 
   ~PrefetchContainer();
 
@@ -198,10 +148,6 @@ class CONTENT_EXPORT PrefetchContainer {
 
   const PrefetchKey& key() const;
 
-  bool HasSameReferringURLForMetrics(const PrefetchContainer& other) const;
-  bool HasSameReferringRenderFrameHostIdForMetrics(
-      const PrefetchContainer& other) const;
-
   // The initial URL that was requested to be prefetched.
   const GURL& GetURL() const;
 
@@ -228,7 +174,7 @@ class CONTENT_EXPORT PrefetchContainer {
   const network::ResourceRequest* GetResourceRequest() const {
     return resource_request_.get();
   }
-  void MakeResourceRequest(const net::HttpRequestHeaders& additional_headers);
+  void MakeResourceRequest();
 
   // Updates |referrer_| after a redirect.
   void UpdateReferrer(
@@ -565,12 +511,12 @@ class CONTENT_EXPORT PrefetchContainer {
   bool IsLikelyAheadOfPrerender() const {
     return is_likely_ahead_of_prerender_;
   }
-  // TODO(crbug.com/372186548): Revisit for right naming.
+
+  // Merge a new `prefetch_request` into this `PrefetchContainer`.
   //
-  // Migrate newly added `PrefetchContainer` into this as keys are conflicted.
-  //
-  // See also `PrefetchService::AddPrefetchContainerWithoutStartingPrefetch()`.
-  void MigrateNewlyAdded(std::unique_ptr<PrefetchContainer> added);
+  // See also `PrefetchService::AddPrefetchContainerInternal()`.
+  void MergeNewPrefetchRequest(
+      std::unique_ptr<const PrefetchRequest> prefetch_request);
 
   // Handles loader related events. Currently used for DevTools and metrics.
   void NotifyPrefetchRequestWillBeSent(
@@ -612,8 +558,6 @@ class CONTENT_EXPORT PrefetchContainer {
       const network::mojom::URLResponseHead* head);
 
  private:
-  explicit PrefetchContainer(std::unique_ptr<PrefetchRequest> request);
-
   // Update |prefetch_status_| and report prefetch status to
   // DevTools without updating TriggeringOutcome.
   void SetPrefetchStatusWithoutUpdatingTriggeringOutcome(
@@ -627,10 +571,19 @@ class CONTENT_EXPORT PrefetchContainer {
   void SetTriggeringOutcomeAndFailureReasonFromStatus(
       PrefetchStatus new_prefetch_status);
 
-  // Add client hints headers to a request bound for |origin|.
+  // Returns if WebContents-level UA overrides should be applied for a prefetch
+  // request for `request_url`. Note that not only the User-Agent header but
+  // also Client-Hints headers are affected by the UA overrides.
+  // The returned value is for an initial guess and shouldn't be used without a
+  // plan for the header validation (crbug.com/444065296).
+  bool ShouldApplyUserAgentOverride(const GURL& request_url) const;
+  // Adds the User-Agent header by UA override if applicable.
+  void MaybeApplyOverrideForUserAgentHeader(
+      network::ResourceRequest& resource_request);
+  // Adds client hints headers to a request bound for |origin|.
   void AddClientHintsHeaders(const url::Origin& origin,
                              net::HttpRequestHeaders* request_headers);
-  // Add X-Client-Data request header to a request.
+  // Adds X-Client-Data request header to a request.
   void AddXClientDataHeader(network::ResourceRequest& request);
 
   // Returns the `PrefetchSingleRedirectHop` to be prefetched next.

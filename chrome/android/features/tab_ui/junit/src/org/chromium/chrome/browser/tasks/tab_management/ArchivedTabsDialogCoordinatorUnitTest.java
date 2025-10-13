@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -186,6 +185,7 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
         recyclerView.setId(R.id.tab_list_recycler_view);
         ((ViewGroup) mCoordinator.getViewForTesting().findViewById(R.id.tab_list_editor_container))
                 .addView(recyclerView);
+        when(mTabGroupSyncService.getAllGroupIds()).thenReturn(new String[] {});
     }
 
     private void setUpMocks() {
@@ -316,14 +316,6 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
     }
 
     @Test
-    @DisableFeatures({ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN})
-    public void testEdgeToEdgePadAdjuster_FeatureDisabled() {
-        mEdgeToEdgeSupplier.set(mEdgeToEdgeController);
-        var padAdjuster = mCoordinator.getEdgeToEdgePadAdjusterForTesting();
-        assertNull("Pad adjuster should be created when feature enabled.", padAdjuster);
-    }
-
-    @Test
     public void testGridCardOnClickProvider_restoreTabGroup() {
         SavedTabGroup savedTabGroupBefore = new SavedTabGroup();
         savedTabGroupBefore.syncId = TAB_GROUP_ID_STRING;
@@ -333,6 +325,7 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
         savedTabGroupAfter.localId = new LocalTabGroupId(TAB_GROUP_ID);
 
         when(mPaneManager.getPaneForId(PaneId.TAB_SWITCHER)).thenReturn(mTabSwitcherPaneBase);
+        when(mPaneManager.getDefaultPane()).thenReturn(mTabSwitcherPaneBase);
         when(mTabGroupSyncService.getGroup(TAB_GROUP_ID_STRING))
                 .thenReturn(savedTabGroupBefore)
                 .thenReturn(savedTabGroupBefore)
@@ -370,16 +363,6 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
         FrameLayout buttonContainer = mCoordinator.getCloseAllTabsButtonContainer();
         assertEquals(
                 SemanticColorUtils.getColorSurface(mActivity),
-                ((ColorDrawable) buttonContainer.getBackground()).getColor());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE)
-    public void testCloseAllTabsButtonBackgroundColorUpdate() {
-        mCoordinator.show(mOnTabSelectingListener);
-        FrameLayout buttonContainer = mCoordinator.getCloseAllTabsButtonContainer();
-        assertEquals(
-                SemanticColorUtils.getColorSurfaceContainerHigh(mActivity),
                 ((ColorDrawable) buttonContainer.getBackground()).getColor());
     }
 }

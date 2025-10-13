@@ -1567,7 +1567,8 @@ std::unique_ptr<DawnBufferRepresentation> D3DImageBacking::ProduceDawnBuffer(
     SharedImageManager* manager,
     MemoryTypeTracker* tracker,
     const wgpu::Device& device,
-    wgpu::BackendType backend_type) {
+    wgpu::BackendType backend_type,
+    scoped_refptr<SharedContextState> context_state) {
   DCHECK(usage().Has(SHARED_IMAGE_USAGE_WEBGPU_SHARED_BUFFER));
   DCHECK(d3d12_resource_.Get() != nullptr);
 
@@ -1715,14 +1716,7 @@ std::unique_ptr<WebNNTensorRepresentation> D3DImageBacking::ProduceWebNNTensor(
     MemoryTypeTracker* tracker) {
   CHECK(usage() & SHARED_IMAGE_USAGE_WEBNN_SHARED_TENSOR);
   DCHECK(d3d12_resource_.Get() != nullptr);
-
-  Microsoft::WRL::ComPtr<ID3D12Device> d3d12_device;
-  HRESULT hr = d3d12_resource_->GetDevice(IID_PPV_ARGS(&d3d12_device));
-  CHECK_EQ(hr, S_OK) << ", GetDevice failed: "
-                     << logging::SystemErrorCodeToString(hr);
-
-  return std::make_unique<WebNND3DTensorRepresentation>(
-      manager, this, tracker, std::move(d3d12_device));
+  return std::make_unique<WebNND3DTensorRepresentation>(manager, this, tracker);
 }
 
 void D3DImageBacking::BeginAccessCommon(bool write_access) {

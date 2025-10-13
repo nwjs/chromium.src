@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 package org.chromium.chrome.browser.toolbar.top;
 
-import android.animation.Animator;
 import android.animation.ObjectAnimator;
 
 import androidx.annotation.IntDef;
@@ -14,7 +13,6 @@ import org.chromium.ui.interpolators.Interpolators;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.Collection;
 
 @NullMarked
 public class ToolbarUtils {
@@ -32,45 +30,14 @@ public class ToolbarUtils {
         return ChromeFeatureList.sToolbarTabletResizeRefactor.isEnabled();
     }
 
-    /**
-     * This interface should be implemented by toolbar components to consume available width from
-     * the toolbar to display themselves.
-     */
-    public interface ToolbarWidthConsumer {
-        /**
-         * Takes in the remaining width available in the toolbar for displaying {@link ToolbarChild}
-         * components. This ToolbarChild will display itself using the available width, if
-         * appropriate, returning the width it has consumed for itself. Returning 0 indicates that
-         * this ToolbarChild is not showing, or cannot be shown.
-         *
-         * @param availableWidth The available width in the toolbar for the button to display
-         *     itself.
-         * @return The width used to display this ToolbarChild.
-         */
-        int updateVisibility(int availableWidth);
-
-        /**
-         * Takes in the remaining width available in the toolbar for displaying {@link ToolbarChild}
-         * components. This ToolbarChild will display itself using the available width, if
-         * appropriate, returning the width it has consumed for itself. Returning 0 indicates that
-         * this ToolbarChild is not showing, or cannot be shown.
-         *
-         * <p>This ToolbarChild will build a new animation for its visibility change, if applicable,
-         * and add it to the supplied list of animators.
-         *
-         * @param availableWidth The available width in the toolbar for the button to display
-         *     itself.
-         * @param animators The collection of {@link Animator}s used to animate a change in the
-         *     toolbar.
-         * @return The width used to display this ToolbarChild.
-         */
-        int updateVisibilityWithAnimation(int availableWidth, Collection<Animator> animators);
-    }
-
     public static final @ToolbarComponentId int[] RANKED_TOOLBAR_COMPONENTS =
             new int[] {
-                ToolbarComponentId.BACK,
+                ToolbarComponentId.MENU,
                 ToolbarComponentId.TAB_SWITCHER,
+                ToolbarComponentId.LOCATION_BAR_MINIMUM,
+                ToolbarComponentId.PADDING,
+                ToolbarComponentId.BACK,
+                ToolbarComponentId.INCOGNITO_INDICATOR,
                 ToolbarComponentId.ADAPTIVE_BUTTON,
                 ToolbarComponentId.RELOAD,
                 ToolbarComponentId.FORWARD,
@@ -82,8 +49,12 @@ public class ToolbarUtils {
         ToolbarComponentId.BACK,
         ToolbarComponentId.FORWARD,
         ToolbarComponentId.RELOAD,
+        ToolbarComponentId.LOCATION_BAR_MINIMUM,
         ToolbarComponentId.ADAPTIVE_BUTTON,
+        ToolbarComponentId.INCOGNITO_INDICATOR,
         ToolbarComponentId.TAB_SWITCHER,
+        ToolbarComponentId.MENU,
+        ToolbarComponentId.PADDING,
         ToolbarComponentId.COUNT
     })
     @Retention(RetentionPolicy.SOURCE)
@@ -92,9 +63,13 @@ public class ToolbarUtils {
         int BACK = 1;
         int FORWARD = 2;
         int RELOAD = 3;
-        int ADAPTIVE_BUTTON = 4;
-        int TAB_SWITCHER = 5;
-        int COUNT = 6;
+        int LOCATION_BAR_MINIMUM = 4;
+        int ADAPTIVE_BUTTON = 5;
+        int INCOGNITO_INDICATOR = 6;
+        int TAB_SWITCHER = 7;
+        int MENU = 8;
+        int PADDING = 9;
+        int COUNT = 10;
     }
 
     /**

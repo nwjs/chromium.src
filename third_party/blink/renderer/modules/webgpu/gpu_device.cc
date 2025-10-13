@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/modules/webgpu/gpu_validation_error.h"
 #include "third_party/blink/renderer/modules/webgpu/string_utils.h"
 #include "third_party/blink/renderer/platform/heap/thread_state.h"
+#include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 
 namespace blink {
 
@@ -118,12 +119,10 @@ std::optional<V8GPUFeatureName::Enum> RequiredFeatureForTextureFormat(
     case V8GPUTextureFormat::Enum::kR16Unorm:
     case V8GPUTextureFormat::Enum::kRg16Unorm:
     case V8GPUTextureFormat::Enum::kRgba16Unorm:
-      return V8GPUFeatureName::Enum::kChromiumExperimentalUnorm16TextureFormats;
-
     case V8GPUTextureFormat::Enum::kR16Snorm:
     case V8GPUTextureFormat::Enum::kRg16Snorm:
     case V8GPUTextureFormat::Enum::kRgba16Snorm:
-      return V8GPUFeatureName::Enum::kChromiumExperimentalSnorm16TextureFormats;
+      return V8GPUFeatureName::Enum::kTextureFormatsTier1;
 
     default:
       return std::nullopt;
@@ -247,11 +246,12 @@ void GPUDevice::AddSingletonWarning(GPUSingletonWarning type) {
     String message;
     switch (type) {
       case GPUSingletonWarning::kNonPreferredFormat:
-        message =
-            "WebGPU canvas configured with a different format than is "
-            "preferred by this device (\"" +
-            FromDawnEnum(GPU::GetPreferredCanvasFormat()).AsString() +
-            "\"). This requires an extra copy, which may impact performance.";
+        message = StrCat(
+            {"WebGPU canvas configured with a different format than is "
+             "preferred by this device (\"",
+             FromDawnEnum(GPU::GetPreferredCanvasFormat()).AsStringView(),
+             "\"). This requires an extra copy, which may impact "
+             "performance."});
         break;
       case GPUSingletonWarning::kDepthKey:
         message =

@@ -11,6 +11,7 @@
 #include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -104,7 +105,9 @@
 
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
 #endif
 
 namespace {
@@ -175,7 +178,6 @@ BrowserActions::BrowserActions(BrowserWindowInterface* bwi)
 
 BrowserActions::~BrowserActions() {
   browser_action_prefs_listener_.reset();
-
   // Extract the unique ptr and destruct it after the raw_ptr to avoid a
   // dangling pointer scenario.
   std::unique_ptr<actions::ActionItem> owned_root_action_item =
@@ -367,6 +369,16 @@ void BrowserActions::InitializeBrowserActions() {
           .SetImage(ui::ImageModel::FromVectorIcon(kZoomInIcon))
           .Build());
 
+  // The action does nothing, but is used to configure the page action, which
+  // acts as an anchor for the find bar.
+  root_action_item_->AddChild(
+      actions::ActionItem::Builder(base::DoNothing())
+          .SetActionId(kActionFind)
+          .SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_FIND))
+          .SetImage(ui::ImageModel::FromVectorIcon(
+              omnibox::kFindInPageChromeRefreshIcon))
+          .Build());
+
   root_action_item_->AddChild(
       actions::ActionItem::Builder(
           base::BindRepeating(
@@ -433,7 +445,7 @@ void BrowserActions::InitializeBrowserActions() {
 
                 autofill::MandatoryReauthBubbleControllerImpl::FromWebContents(
                     tab_interface->GetContents())
-                    ->ShowBubble();
+                    ->QueueOrShowBubble(/*force_show=*/true);
               },
               bwi))
           .SetActionId(kActionAutofillMandatoryReauth)
@@ -988,13 +1000,38 @@ void BrowserActions::InitializeBrowserActions() {
   }
 
 #if BUILDFLAG(ENABLE_GLIC)
-  if (glic::GlicEnabling::IsEnabledForProfile(profile)) {
+  auto* glic_service = glic::GlicKeyedService::Get(bwi->GetProfile());
+  if (glic_service) {
+    actions::ActionItem::InvokeActionCallback toggle_glic_callback =
+        base::BindRepeating(
+            [](base::WeakPtr<BrowserWindowInterface> bwi,
+               actions::ActionItem* item,
+               actions::ActionInvocationContext context) {
+              if (!bwi) {
+                return;
+              }
+              if (auto* glic_service =
+                      glic::GlicKeyedService::Get(bwi->GetProfile())) {
+                // TODO: create a new invocation source if we end up
+                // keeping toolbar icon
+                glic_service->ToggleUI(
+                    bwi.get(), /*prevent_close=*/false,
+                    glic::mojom::InvocationSource::kTopChromeButton);
+              }
+            },
+            bwi->GetWeakPtr());
+
     root_action_item_->AddChild(
-        SidePanelAction(SidePanelEntryId::kGlic, IDS_SETTINGS_GLIC_PAGE_TITLE,
-                        IDS_SETTINGS_GLIC_PAGE_TITLE,
-                        glic::GlicVectorIconManager::GetVectorIcon(
-                            IDR_GLIC_BUTTON_VECTOR_ICON),
-                        kActionSidePanelShowGlic, bwi, /*is_pinnable=*/true)
+        actions::ActionItem::Builder(toggle_glic_callback)
+            .SetActionId(kActionSidePanelShowGlic)
+            .SetText(l10n_util::GetStringUTF16(IDS_SETTINGS_GLIC_PAGE_TITLE))
+            .SetTooltipText(
+                l10n_util::GetStringUTF16(IDS_SETTINGS_GLIC_PAGE_TITLE))
+            .SetImage(ui::ImageModel::FromVectorIcon(
+                glic::GlicVectorIconManager::GetVectorIcon(
+                    IDR_GLIC_BUTTON_VECTOR_ICON),
+                ui::kColorIcon))
+            .SetProperty(actions::kActionItemPinnableKey, true)
             .Build());
   }
 #endif  // BUILDFLAG(ENABLE_GLIC)

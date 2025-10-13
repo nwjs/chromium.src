@@ -359,8 +359,26 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, PeoplePageSyncControls) {
   RunTest("settings/people_page_sync_controls_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(SettingsTest, PrivacyPageIndex) {
-  RunTest("settings/privacy_page_index_test.js", "mocha.run()");
+// TODO(crbug.com/445644484): Tests take too long to run in Linux dbg bots.
+#if (BUILDFLAG(IS_LINUX) && !defined(NDEBUG))
+#define MAYBE_PrivacyPageIndex DISABLED_PrivacyPageIndex
+#else
+#define MAYBE_PrivacyPageIndex PrivacyPageIndex
+#endif  // BUILDFLAG(IS_LINUX)
+IN_PROC_BROWSER_TEST_F(SettingsTest, MAYBE_PrivacyPageIndex) {
+  RunTest("settings/privacy_page_index_test.js",
+          "runMochaSuite('PrivacyPageIndex Main')");
+}
+
+// TODO(crbug.com/444408606): Tests take too long to run in Linux dbg bots.
+#if (BUILDFLAG(IS_LINUX) && !defined(NDEBUG))
+#define MAYBE_PrivacyPageIndexSiteSettings DISABLED_PrivacyPageIndexSiteSettings
+#else
+#define MAYBE_PrivacyPageIndexSiteSettings PrivacyPageIndexSiteSettings
+#endif  // BUILDFLAG(IS_LINUX)
+IN_PROC_BROWSER_TEST_F(SettingsTest, MAYBE_PrivacyPageIndexSiteSettings) {
+  RunTest("settings/privacy_page_index_test.js",
+          "runMochaSuite('PrivacyPageIndex SiteSettings')");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, Prefs) {
@@ -380,6 +398,14 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, GlicPage) {
 IN_PROC_BROWSER_TEST_F(SettingsTest, DISABLED_GlicSubpage) {
   RunTest("settings/glic_subpage_test.js",
           "runMochaSuite('GlicSubpage Default')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, YourSavedInfoPage) {
+  RunTest("settings/your_saved_info_page_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, YourSavedInfoPageIndex) {
+  RunTest("settings/your_saved_info_page_index_test.js", "mocha.run()");
 }
 
 class SettingsGlicSubpageLearnMoreTest : public SettingsBrowserTest {
@@ -1307,21 +1333,9 @@ IN_PROC_BROWSER_TEST_F(SettingsPrivacyPageTest,
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsPrivacyPageTest,
-                       EnableWebBluetoothNewPermissionsBackend) {
-  RunTest("settings/privacy_page_test.js",
-          "runMochaSuite('EnableWebBluetoothNewPermissionsBackend')");
-}
-
-IN_PROC_BROWSER_TEST_F(SettingsPrivacyPageTest,
                        DeleteBrowsingDataRevampDisabled) {
   RunTest("settings/privacy_page_test.js",
           "runMochaSuite('DeleteBrowsingDataRevampDisabled')");
-}
-
-IN_PROC_BROWSER_TEST_F(SettingsPrivacyPageTest,
-                       BundledSecuritySettingsDisabled) {
-  RunTest("settings/privacy_page_test.js",
-          "runMochaSuite('BundledSecuritySettingsDisabled')");
 }
 
 class SettingsNotificationsPageTest : public SettingsBrowserTest {
@@ -1356,6 +1370,48 @@ class SettingsGeolocationPageTest : public SettingsBrowserTest {
 IN_PROC_BROWSER_TEST_F(SettingsGeolocationPageTest, GeolocationPage) {
   RunTest("settings/geolocation_page_test.js",
           "runMochaSuite('GeolocationPage')");
+}
+
+class JavascriptOptimizerPage_BlockOnUnfamiliarSitesFeatureEnabledTest
+    : public SettingsBrowserTest {
+ public:
+  JavascriptOptimizerPage_BlockOnUnfamiliarSitesFeatureEnabledTest() = default;
+  ~JavascriptOptimizerPage_BlockOnUnfamiliarSitesFeatureEnabledTest() override =
+      default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_{
+      content_settings::features::kBlockV8OptimizerOnUnfamiliarSitesSetting};
+};
+
+IN_PROC_BROWSER_TEST_F(
+    JavascriptOptimizerPage_BlockOnUnfamiliarSitesFeatureEnabledTest,
+    JavascriptOptimizerPage) {
+  RunTest("settings/v8_page_test.js",
+          "runMochaTest('V8Page', "
+          "'CheckRadioButtons_BlockOnUnfamiliarSitesFeatureEnabled')");
+}
+
+class JavascriptOptimizerPage_BlockOnUnfamiliarSitesFeatureDisabledTest
+    : public SettingsBrowserTest {
+ public:
+  JavascriptOptimizerPage_BlockOnUnfamiliarSitesFeatureDisabledTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        content_settings::features::kBlockV8OptimizerOnUnfamiliarSitesSetting);
+  }
+  ~JavascriptOptimizerPage_BlockOnUnfamiliarSitesFeatureDisabledTest()
+      override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(
+    JavascriptOptimizerPage_BlockOnUnfamiliarSitesFeatureDisabledTest,
+    JavascriptOptimizerPage) {
+  RunTest("settings/v8_page_test.js",
+          "runMochaTest('V8Page', "
+          "'CheckRadioButtons_BlockOnUnfamiliarSitesFeatureDisabled')");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsGeolocationPageTest,

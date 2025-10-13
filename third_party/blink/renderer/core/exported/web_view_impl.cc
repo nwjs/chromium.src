@@ -49,7 +49,7 @@
 #include "media/base/media_switches.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/fingerprinting_protection/canvas_noise_token.h"
+#include "third_party/blink/public/common/fingerprinting_protection/noise_token.h"
 #include "third_party/blink/public/common/history/session_history_constants.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/input/web_menu_source_type.h"
@@ -63,6 +63,7 @@
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom-blink.h"
 #include "third_party/blink/public/mojom/page/prerender_page_param.mojom.h"
+#include "third_party/blink/public/mojom/page/widget.mojom-blink.h"
 #include "third_party/blink/public/mojom/partitioned_popins/partitioned_popin_params.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom-blink.h"
 #include "third_party/blink/public/platform/interface_registry.h"
@@ -505,7 +506,7 @@ WebView* WebView::Create(
     blink::mojom::PartitionedPopinParamsPtr partitioned_popin_params,
     int32_t history_index,
     int32_t history_length,
-    const std::optional<uint64_t>& canvas_noise_token) {
+    const std::optional<NoiseToken>& canvas_noise_token) {
   return WebViewImpl::Create(
       client,
       is_hidden ? mojom::blink::PageVisibilityState::kHidden
@@ -536,7 +537,7 @@ WebViewImpl* WebViewImpl::Create(
     blink::mojom::PartitionedPopinParamsPtr partitioned_popin_params,
     int32_t history_index,
     int32_t history_length,
-    const std::optional<uint64_t>& canvas_noise_token) {
+    const std::optional<NoiseToken>& canvas_noise_token) {
   return new WebViewImpl(
       client, visibility, std::move(prerender_param), fenced_frame_mode,
       compositing_enabled, widgets_never_composited, opener,
@@ -612,7 +613,7 @@ WebViewImpl::WebViewImpl(
     blink::mojom::PartitionedPopinParamsPtr partitioned_popin_params,
     int32_t history_index,
     int32_t history_length,
-    const std::optional<uint64_t>& canvas_noise_token)
+    const std::optional<NoiseToken>& canvas_noise_token)
     : widgets_never_composited_(widgets_never_composited),
       web_view_client_(client),
       chrome_client_(MakeGarbageCollected<ChromeClientImpl>(this)),
@@ -722,9 +723,11 @@ bool WebViewImpl::StartPageScaleAnimation(const gfx::Point& target_position,
 
       LocalFrameView* view = MainFrameImpl()->GetFrameView();
       if (view && view->GetScrollableArea()) {
+        // TODO(crbug.com/414556050): Pass the correct `ScrollSourceType`.
         view->GetScrollableArea()->SetScrollOffset(
             ScrollOffset(gfx::Vector2dF(clamped_point.OffsetFromOrigin())),
-            mojom::blink::ScrollType::kProgrammatic);
+            mojom::blink::ScrollType::kProgrammatic,
+            cc::ScrollSourceType::kNone);
       }
 
       return false;
@@ -1938,6 +1941,10 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
     RuntimeEnabledFeatures::SetReduceHardwareConcurrencyEnabled(true);
     RuntimeEnabledFeatures::SetReduceScreenSizeEnabled(true);
   }
+
+  if (prefs.ai_prompt_api_enabled) {
+    RuntimeEnabledFeatures::SetAIPromptAPIEnabled(true);
+  }
 }
 
 void WebViewImpl::ThemeChanged() {
@@ -3115,7 +3122,7 @@ void WebViewImpl::Show(const LocalFrameToken& opener_frame_token,
   DCHECK(web_widget_);
   web_widget_->SetPendingWindowRect(adjusted_rect);
   const WebWindowFeatures& web_window_features = page_->GetWindowFeatures();
-  WTF::String mnft;
+  String mnft;
   if (!manifest || manifest->IsNull())
     mnft = "";
   else
@@ -3253,8 +3260,10 @@ void WebViewImpl::ResetScrollAndScaleState() {
     ScrollableArea* scrollable_area = frame_view->LayoutViewport();
 
     if (!scrollable_area->GetScrollOffset().IsZero()) {
+      // TODO(crbug.com/414556050): Pass the correct `ScrollSourceType`.
       scrollable_area->SetScrollOffset(ScrollOffset(),
-                                       mojom::blink::ScrollType::kProgrammatic);
+                                       mojom::blink::ScrollType::kProgrammatic,
+                                       cc::ScrollSourceType::kNone);
     }
   }
 
@@ -3321,13 +3330,15 @@ gfx::Transform WebViewImpl::GetDeviceEmulationTransform() const {
 }
 
 void WebViewImpl::EnableDeviceEmulation(const DeviceEmulationParams& params) {
-  web_widget_->EnableDeviceEmulation(params);
+  web_widget_->EnableDeviceEmulation(
+      params, mojom::blink::DeviceEmulationCacheBehavior::kClearCache);
 }
 
 void WebViewImpl::ActivateDevToolsTransform(
-    const DeviceEmulationParams& params) {
+    const DeviceEmulationParams& params,
+    const mojom::blink::DeviceEmulationCacheBehavior& cache_behavior) {
   gfx::Transform device_emulation_transform =
-      dev_tools_emulator_->EnableDeviceEmulation(params);
+      dev_tools_emulator_->EnableDeviceEmulation(params, cache_behavior);
   SetDeviceEmulationTransform(device_emulation_transform);
 }
 
@@ -3485,11 +3496,11 @@ void WebViewImpl::UpdateUseOverlayScrollbar(bool use_overlay_scrollbar) {
 #endif
 
 void WebViewImpl::UpdateCanvasNoiseToken(
-    std::optional<uint64_t> canvas_noise_token) {
+    std::optional<NoiseToken> canvas_noise_token) {
   GetPage()->SetCanvasNoiseToken(canvas_noise_token);
 }
 
-std::optional<uint64_t> WebViewImpl::CanvasNoiseTokenForTesting() {
+std::optional<NoiseToken> WebViewImpl::CanvasNoiseTokenForTesting() {
   return GetPage()->CanvasNoiseToken();
 }
 
@@ -3524,11 +3535,10 @@ void WebViewImpl::ActivatePrerenderedPage(
     }
   }
 
-  // A null `activation_start` is sent to the WebViewImpl that does not host the
-  // main frame, in which case we expect that it does not have any documents
-  // since cross-origin documents are not loaded during prerendering.
+  // Valid `activation_start` should be sent to only prerendered frames hosted
+  // by this WebViewImpl.
   DCHECK((!main_frame_document && child_frame_documents.size() == 0) ||
-         !prerender_page_activation_params->activation_start.is_null());
+         prerender_page_activation_params->activation_start.has_value());
   // We also only send view_transition_state to the main frame.
   DCHECK(main_frame_document ||
          !prerender_page_activation_params->view_transition_state);

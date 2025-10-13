@@ -33,7 +33,6 @@ namespace {
 using base::test::EqualsProto;
 using syncer::CollaborationId;
 using testing::_;
-using testing::Invoke;
 using testing::Return;
 using testing::ReturnRef;
 
@@ -120,9 +119,9 @@ class PersonalCollaborationDataSyncBridgeTest : public testing::Test {
 
     base::RunLoop run_loop;
     base::RepeatingClosure quit_closure = run_loop.QuitClosure();
-    EXPECT_CALL(processor_, ModelReadyToSync).WillOnce(Invoke([&]() {
+    EXPECT_CALL(processor_, ModelReadyToSync).WillOnce([&]() {
       quit_closure.Run();
-    }));
+    });
 
     bridge_ = std::make_unique<PersonalCollaborationDataSyncBridge>(
         processor_.CreateForwardingProcessor(),
@@ -599,54 +598,6 @@ TEST_F(PersonalCollaborationDataSyncBridgeTest, ShouldRemoveSpecifics) {
   EXPECT_EQ(GetNumTabDetailsInStore(), 0u);
 }
 
-TEST_F(PersonalCollaborationDataSyncBridgeTest,
-       ShouldQueueActionsBeforeInitialization) {
-  const CollaborationId kCollaborationId(kTestCollaborationId);
-  const std::string kTestStorageKey2 = "storage_key_2";
-
-  // Create the bridge but don't initialize it.
-  ON_CALL(processor_, IsTrackingMetadata()).WillByDefault(Return(true));
-  bridge_ = std::make_unique<PersonalCollaborationDataSyncBridge>(
-      processor_.CreateForwardingProcessor(),
-      syncer::DataTypeStoreTestUtil::FactoryForForwardingStore(store_.get()));
-
-  ASSERT_FALSE(bridge().IsInitialized());
-
-  // Perform some actions.
-  sync_pb::SharedTabGroupAccountDataSpecifics specifics1 =
-      CreateTabGroupAccountSpecifics(kCollaborationId, kTestTabGuid,
-                                     kTestGroupGuid, base::Time::Now());
-  bridge().CreateOrUpdateSpecifics(kTestStorageKey, specifics1);
-
-  sync_pb::SharedTabGroupAccountDataSpecifics specifics2 =
-      CreateTabGroupAccountSpecifics(kCollaborationId, "tab_guid_2",
-                                     "group_guid_2", base::Time::Now());
-  bridge().CreateOrUpdateSpecifics(kTestStorageKey2, specifics2);
-
-  bridge().RemoveSpecifics(kTestStorageKey2);
-
-  // Verify that nothing has been written to the store yet.
-  EXPECT_EQ(GetNumTabDetailsInStore(), 0u);
-
-  // Now, initialize the bridge.
-  base::RunLoop run_loop;
-  base::RepeatingClosure quit_closure = run_loop.QuitClosure();
-  EXPECT_CALL(processor_, ModelReadyToSync).WillOnce(Invoke([&]() {
-    quit_closure.Run();
-  }));
-  bridge().MergeFullSyncData(bridge().CreateMetadataChangeList(),
-                             syncer::EntityChangeList());
-  run_loop.Run();
-
-  ASSERT_TRUE(bridge().IsInitialized());
-
-  // Verify that the queued actions have been processed.
-  EXPECT_TRUE(bridge().GetSpecificsForStorageKey(kTestStorageKey).has_value());
-  EXPECT_FALSE(
-      bridge().GetSpecificsForStorageKey(kTestStorageKey2).has_value());
-  EXPECT_EQ(GetNumTabDetailsInStore(), 1u);
-}
-
 TEST_F(PersonalCollaborationDataSyncBridgeTest, ShouldHandleNoData) {
   InitializeBridge();
 
@@ -660,19 +611,18 @@ TEST_F(PersonalCollaborationDataSyncBridgeTest,
        ShouldReportErrorOnLoadFailure) {
   auto mock_store = std::make_unique<syncer::MockDataTypeStore>();
   EXPECT_CALL(*mock_store, ReadAllDataAndMetadata)
-      .WillOnce(Invoke([](syncer::DataTypeStore::ReadAllDataAndMetadataCallback
-                              callback) {
+      .WillOnce([](syncer::DataTypeStore::ReadAllDataAndMetadataCallback
+                       callback) {
         std::move(callback).Run(
             syncer::ModelError(
                 FROM_HERE,
                 syncer::ModelError::Type::kDataTypeStoreBackendDbReadFailed),
             /*entries=*/nullptr, /*metadata_batch=*/nullptr);
-      }));
+      });
 
   base::RunLoop run_loop;
   EXPECT_CALL(mock_processor(), ReportError(_))
-      .WillOnce(
-          Invoke([&](const syncer::ModelError& error) { run_loop.Quit(); }));
+      .WillOnce([&](const syncer::ModelError& error) { run_loop.Quit(); });
   CreateBridgeWithMockStore(std::move(mock_store));
   run_loop.Run();
   EXPECT_FALSE(bridge().IsInitialized());
@@ -684,41 +634,41 @@ TEST_F(PersonalCollaborationDataSyncBridgeTest,
 
   // Mock ReadAllDataAndMetadata to succeed.
   EXPECT_CALL(*mock_store, ReadAllDataAndMetadata)
-      .WillOnce(Invoke(
+      .WillOnce(
           [](syncer::DataTypeStore::ReadAllDataAndMetadataCallback callback) {
             std::move(callback).Run(
                 /*error=*/std::nullopt,
                 std::make_unique<syncer::DataTypeStore::RecordList>(),
                 std::make_unique<syncer::MetadataBatch>());
-          }));
+          });
 
   // Mock CreateWriteBatch to return a valid batch.
-  ON_CALL(*mock_store, CreateWriteBatch).WillByDefault(Invoke([]() {
+  ON_CALL(*mock_store, CreateWriteBatch).WillByDefault([]() {
     return std::make_unique<FakeWriteBatch>();
-  }));
+  });
 
   // Mock CommitWriteBatch to fail.
   EXPECT_CALL(*mock_store, CommitWriteBatch)
       .WillOnce(
-          Invoke([](std::unique_ptr<syncer::DataTypeStore::WriteBatch> batch,
-                    syncer::DataTypeStore::CallbackWithResult callback) {
+          [](std::unique_ptr<syncer::DataTypeStore::WriteBatch> batch,
+             syncer::DataTypeStore::CallbackWithResult callback) {
             std::move(callback).Run(syncer::ModelError(
                 FROM_HERE,
                 syncer::ModelError::Type::kDataTypeStoreBackendDbWriteFailed));
-          }));
+          });
 
   base::RunLoop run_loop;
-  EXPECT_CALL(mock_processor(), ModelReadyToSync).WillOnce(Invoke([&]() {
+  EXPECT_CALL(mock_processor(), ModelReadyToSync).WillOnce([&]() {
     run_loop.Quit();
-  }));
+  });
   CreateBridgeWithMockStore(std::move(mock_store));
   run_loop.Run();
   ASSERT_TRUE(bridge().IsInitialized());
 
   base::RunLoop commit_run_loop;
   EXPECT_CALL(mock_processor(), ReportError(_))
-      .WillOnce(Invoke(
-          [&](const syncer::ModelError& error) { commit_run_loop.Quit(); }));
+      .WillOnce(
+          [&](const syncer::ModelError& error) { commit_run_loop.Quit(); });
   syncer::EntityChangeList change_list;
   change_list.push_back(CreateAddEntityChange(CreateTabGroupAccountSpecifics(
       CollaborationId(kTestCollaborationId), kTestTabGuid, kTestGroupGuid,

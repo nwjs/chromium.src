@@ -111,9 +111,9 @@ class ProfilePickerHandler : public content::WebUIMessageHandler,
   void HandleGetProfileThemeInfo(const base::Value::List& args);
   void HandleGetAvailableIcons(const base::Value::List& args);
   void HandleContinueWithoutAccount(const base::Value::List& args);
+  void HandleGetProfileState(const base::Value::List& args);
 
   // Profile switch screen:
-  void HandleGetSwitchProfile(const base::Value::List& args);
   void HandleConfirmProfileSwitch(const base::Value::List& args);
   void HandleCancelProfileSwitch(const base::Value::List& args);
 
@@ -184,8 +184,6 @@ class ProfilePickerHandler : public content::WebUIMessageHandler,
   // Creation time of the handler, to measure performance on startup. Only set
   // when the picker is shown on startup.
   base::TimeTicks creation_time_on_startup_;
-
-  bool main_view_initialized_ = false;
 
   // Keep alive used when displaying the profile statistics in the profile
   // deletion dialog. Released when the dialog or the Picker is closed, which

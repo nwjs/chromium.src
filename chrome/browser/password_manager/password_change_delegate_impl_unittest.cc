@@ -9,17 +9,17 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/password_change/change_password_form_finder.h"
-#include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/passwords/password_change_ui_controller.h"
 #include "chrome/browser/ui/passwords/passwords_leak_dialog_delegate_mock.h"
 #include "chrome/browser/ui/passwords/passwords_model_delegate_mock.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "components/autofill/content/browser/test_autofill_client_injector.h"
+#include "components/autofill/content/browser/test_content_autofill_client.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/form_data_test_api.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_prefs.h"
-#include "components/password_manager/core/browser/one_time_passwords/otp_form_manager.h"
 #include "components/password_manager/core/browser/stub_password_manager_client.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -166,6 +166,8 @@ class PasswordChangeDelegateImplTest : public ChromeRenderViewHostTestHarness {
   std::unique_ptr<PasswordChangeDelegateImpl> delegate_;
 
   autofill::test::AutofillUnitTestEnvironment autofill_environment_;
+  autofill::TestAutofillClientInjector<autofill::TestContentAutofillClient>
+      autofill_client_injector_;
 };
 
 TEST_F(PasswordChangeDelegateImplTest, WaitingForAgreement) {
@@ -301,15 +303,12 @@ TEST_F(PasswordChangeDelegateImplTest, OtpDetectionProcessed) {
   ukm::TestAutoSetUkmRecorder test_ukm_recorder;
   autofill::FormData form = autofill::test::CreateTestUnclassifiedFormData();
   FakePasswordManagerClient fake_client;
-  password_manager::OtpFormManager form_manager(
-      form, {form.fields()[0].global_id()}, &fake_client);
 
   delegate()->StartPasswordChangeFlow();
   EXPECT_EQ(delegate()->GetCurrentState(),
             PasswordChangeDelegate::State::kWaitingForChangePasswordForm);
 
-  static_cast<PasswordChangeDelegateImpl*>(delegate())
-      ->OnOtpFieldDetected(&form_manager);
+  static_cast<PasswordChangeDelegateImpl*>(delegate())->OnOtpFieldDetected();
   EXPECT_EQ(delegate()->GetCurrentState(),
             PasswordChangeDelegate::State::kOtpDetected);
 
@@ -326,26 +325,6 @@ TEST_F(PasswordChangeDelegateImplTest, OtpDetectionProcessed) {
       UkmEntry::kCoarseFinalPasswordChangeStatusName,
       static_cast<int>(PasswordChangeDelegate::CoarseFinalPasswordChangeState::
                            kOtpDetected));
-}
-
-TEST_F(PasswordChangeDelegateImplTest,
-       OtpDetectionProcessedFieldNotFocusableSkip) {
-  SetOptimizationFeatureEnabled(true);
-  CreateDelegate();
-  autofill::FormData form = autofill::test::CreateTestUnclassifiedFormData();
-  test_api(form).field(0).set_is_focusable(false);
-  FakePasswordManagerClient fake_client;
-  password_manager::OtpFormManager form_manager(
-      form, {form.fields()[0].global_id()}, &fake_client);
-
-  delegate()->StartPasswordChangeFlow();
-  EXPECT_EQ(delegate()->GetCurrentState(),
-            PasswordChangeDelegate::State::kWaitingForChangePasswordForm);
-
-  static_cast<PasswordChangeDelegateImpl*>(delegate())
-      ->OnOtpFieldDetected(&form_manager);
-  EXPECT_EQ(delegate()->GetCurrentState(),
-            PasswordChangeDelegate::State::kWaitingForChangePasswordForm);
 }
 
 TEST_F(PasswordChangeDelegateImplTest, PasswordChangeFlowCanceled) {

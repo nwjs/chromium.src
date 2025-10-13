@@ -28,8 +28,6 @@ source_set("extensions") {
   # TODO(https://crbug.com/356905053): When files support being built on
   # desktop android, move them here, outside the if (enable_extensions) block.
   sources = [
-    "active_install_data.cc",
-    "active_install_data.h",
     "activity_log/activity_action_constants.cc",
     "activity_log/activity_action_constants.h",
     "activity_log/activity_actions.cc",
@@ -287,6 +285,8 @@ source_set("extensions") {
     "extension_assets_manager.h",
     "extension_commands_global_registry.cc",
     "extension_commands_global_registry.h",
+    "extension_context_menu_model.cc",
+    "extension_context_menu_model.h",
     "extension_disabled_ui.h",
     "extension_error_controller.cc",
     "extension_error_controller.h",
@@ -377,14 +377,10 @@ source_set("extensions") {
     "forced_extensions/install_stage_tracker_factory.h",
     "install_approval.cc",
     "install_approval.h",
-    "install_observer.cc",
-    "install_observer.h",
     "install_prompt_permissions.cc",
     "install_prompt_permissions.h",
     "install_signer.cc",
     "install_signer.h",
-    "install_tracker.cc",
-    "install_tracker.h",
     "install_tracker_factory.cc",
     "install_tracker_factory.h",
     "install_verifier.cc",
@@ -438,8 +434,6 @@ source_set("extensions") {
     "profile_util.h",
     "safe_browsing_verdict_handler.cc",
     "safe_browsing_verdict_handler.h",
-    "scoped_active_install.cc",
-    "scoped_active_install.h",
     "settings_api_helpers.cc",
     "settings_api_helpers.h",
     "shared_module_service.cc",
@@ -528,6 +522,7 @@ source_set("extensions") {
     "//chrome/browser/extensions/api:api_registration",
     "//chrome/browser/favicon",
     "//chrome/browser/google",
+    "//chrome/browser/history",
     "//chrome/browser/infobars",
     "//chrome/browser/lifetime:termination_notification",
     "//chrome/browser/password_manager/factories",
@@ -544,6 +539,7 @@ source_set("extensions") {
     "//chrome/browser/signin",
     "//chrome/browser/tab_group_sync:factories",
     "//chrome/browser/ui:browser_navigator_params_headers",
+    "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/autofill",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/extensions",
@@ -589,6 +585,7 @@ source_set("extensions") {
     "//components/update_client",
     "//components/update_client:common_impl",
     "//components/user_prefs",
+    "//components/vector_icons",
     "//content/public/browser",
     "//extensions/browser",
     "//extensions/browser/api/storage:settings_namespace",
@@ -619,6 +616,9 @@ source_set("extensions") {
   ]
   defines = []
 
+  if (is_mac || is_win || is_linux || is_chromeos) {
+    deps += [ "//components/webapps/isolated_web_apps:scheme" ]
+  }
   if (is_android) {
     sources += [
       "api/chrome_extensions_api_client_android.cc",
@@ -794,8 +794,6 @@ source_set("extensions") {
       "device_permissions_dialog_controller.h",
       "extension_browser_window_helper.cc",
       "extension_browser_window_helper.h",
-      "extension_context_menu_model.cc",
-      "extension_context_menu_model.h",
       "extension_disabled_ui_desktop.cc",
       "extension_error_ui_desktop.cc",
       "extension_error_ui_desktop.h",
@@ -930,7 +928,6 @@ source_set("extensions") {
       "//chrome/browser/sessions",
       "//chrome/browser/sync",
       "//chrome/browser/themes",
-      "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/apps",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/extensions",
@@ -1051,7 +1048,6 @@ source_set("extensions") {
       "//components/unified_consent",
       "//components/url_formatter",
       "//components/url_matcher",
-      "//components/vector_icons",
       "//components/web_modal",
       "//components/zoom",
       "//content/public/common",
@@ -1576,10 +1572,8 @@ source_set("extensions") {
   }
 }
 
-if (enable_extensions_core) {
-  proto_library("cws_item_service_proto") {
-    sources = [ "cws_item_service.proto" ]
-  }
+proto_library("cws_item_service_proto") {
+  sources = [ "cws_item_service.proto" ]
 }
 
 static_library("test_support") {
@@ -1718,6 +1712,7 @@ source_set("chrome_extensions_browser_client") {
     "//chrome/browser/profiles/keep_alive",
     "//chrome/browser/task_manager",
     "//chrome/browser/ui",
+    "//chrome/browser/usb",
     "//components/content_settings/core/browser",
     "//components/embedder_support:user_agent",
     "//components/privacy_sandbox:privacy_sandbox_prefs",
@@ -1779,5 +1774,11 @@ source_set("chrome_extensions_browser_client") {
       "//chrome/browser/safe_browsing",
       "//components/safe_browsing/core/common:features",
     ]
+  }
+}
+
+if (is_android) {
+  java_cpp_enum("extension_context_menu_model_enums") {
+    sources = [ "extension_context_menu_model.h" ]
   }
 }

@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
@@ -18,6 +19,9 @@
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/omnibox/omnibox_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_header_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_result_view.h"
@@ -26,8 +30,6 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/omnibox/rounded_omnibox_results_frame.h"
 #include "chrome/browser/ui/views/theme_copying_widget.h"
-#include "components/omnibox/browser/omnibox_controller.h"
-#include "components/omnibox/browser/omnibox_edit_model.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -40,39 +42,70 @@
 #include "ui/views/cascading_property.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/widget/widget.h"
-// TODO(crbug.com/365733574): used for debugging the misplaced bubble issue on
-// mac fullscreen.
-#if BUILDFLAG(IS_MAC)
-#include "chrome/browser/platform_util.h"
-#endif  // BUILDFLAG(IS_MAC)
 
 namespace {
 
-#if BUILDFLAG(IS_MAC)
-// Returns true if the browser is in fullscreen. This depends on the fact in mac
-// fullscreen the topchrome UI is hosted in an overlay widget.
-// TODO(crbug.com/365733574): used for debugging the misplaced bubble issue on
-// mac fullscreen.
-bool IsInFullscreen(views::Widget* topchrome_host_widget) {
-  CHECK(topchrome_host_widget);
-  return topchrome_host_widget->GetName() == "mac-fullscreen-overlay";
+#if BUILDFLAG(IS_WIN)
+// Removes forced software compositing for `AutocompletePopupWidget` below.
+// TODO(thestig): Remove this kill switch after a safe rollout, in M145.
+BASE_FEATURE(kOmniboxRemovePopupWidgetSoftwareCompositing,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
+// Returns the bounds for the popup widget's content frame (before shadow
+// insets) when in debug mode. The bounds are calculated such that:
+//  1. The widget takes up half the width of the content area.
+//  2. The widget is positioned on the far right of the content area.
+//  3. The top of the results aligns with the top of the content area.
+// Returns std::nullopt if the bounds could not be determined.
+std::optional<gfx::Rect> GetDebugWidgetBounds(
+    LocationBarView* location_bar_view,
+    int popup_results_height) {
+  Browser* browser = location_bar_view->browser();
+  if (!browser) {
+    return std::nullopt;
+  }
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
+  if (!browser_view || !browser_view->contents_web_view()) {
+    return std::nullopt;
+  }
+
+  gfx::Rect contents_bounds =
+      browser_view->contents_web_view()->GetBoundsInScreen();
+  int frame_width = contents_bounds.width() / 2;
+  int frame_height = popup_results_height;
+
+  gfx::Rect frame_bounds;
+  frame_bounds.set_width(frame_width);
+  frame_bounds.set_height(frame_height);
+
+  // Calculate the frame's X position so the widget's right edge aligns with the
+  // content area's right edge.
+  const gfx::Insets shadow_insets =
+      RoundedOmniboxResultsFrame::GetShadowInsets();
+  frame_bounds.set_x(contents_bounds.right() - shadow_insets.right() -
+                     frame_width);
+
+  // Calculate the frame's Y position so the top of the results area
+  // (frame_y + non_result_height) aligns with the content area's top.
+  frame_bounds.set_y(contents_bounds.y() -
+                     RoundedOmniboxResultsFrame::GetNonResultSectionHeight());
+
+  return frame_bounds;
 }
-#endif  // BUILDFLAG(IS_MAC)
 
 }  // namespace
-
-class OmniboxPopupViewViews::AutocompletePopupWidget final
-    : public ThemeCopyingWidget {
+class OmniboxPopupViewViews::PopupWidget final : public ThemeCopyingWidget {
  public:
   // TODO(tapted): Remove |role_model| when the omnibox is completely decoupled
   // from NativeTheme.
-  explicit AutocompletePopupWidget(views::Widget* role_model)
+  explicit PopupWidget(views::Widget* role_model)
       : ThemeCopyingWidget(role_model) {}
 
-  AutocompletePopupWidget(const AutocompletePopupWidget&) = delete;
-  AutocompletePopupWidget& operator=(const AutocompletePopupWidget&) = delete;
+  PopupWidget(const PopupWidget&) = delete;
+  PopupWidget& operator=(const PopupWidget&) = delete;
 
-  ~AutocompletePopupWidget() override = default;
+  ~PopupWidget() override = default;
 
   void InitOmniboxPopup(const views::Widget* parent_widget) {
     views::Widget::InitParams params(
@@ -82,7 +115,8 @@ class OmniboxPopupViewViews::AutocompletePopupWidget final
     // On Windows use the software compositor to ensure that we don't block
     // the UI thread during command buffer creation. We can revert this change
     // once http://crbug.com/125248 is fixed.
-    params.force_software_compositing = true;
+    params.force_software_compositing = !base::FeatureList::IsEnabled(
+        kOmniboxRemovePopupWidgetSoftwareCompositing);
 #endif
     params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
     params.parent = parent_widget->GetNativeView();
@@ -101,14 +135,6 @@ class OmniboxPopupViewViews::AutocompletePopupWidget final
   void SetTargetBounds(const gfx::Rect& bounds) {
     base::AutoReset<bool> reset(&is_setting_popup_bounds_, true);
     SetBounds(bounds);
-#if BUILDFLAG(IS_MAC)
-    // TODO(crbug.com/365733574): debug for the misplaced bubble issue on mac
-    // fullscreen.
-    if (IsInFullscreen(parent())) {
-      base::UmaHistogramSparse("Mac.Fullscreen.OmniboxPopupTargetScreenY",
-                               bounds.y());
-    }
-#endif  // BUILDFLAG(IS_MAC)
   }
 
   void ShowAnimated() {
@@ -131,12 +157,12 @@ class OmniboxPopupViewViews::AutocompletePopupWidget final
 
     // Destroy the popup when done. The observer deletes itself on completion.
     scoped_settings->AddObserver(new ui::ClosureAnimationObserver(
-                                                                  base::BindOnce(&AutocompletePopupWidget::Close, AsWeakPtr(), false)));
+        base::BindOnce(&PopupWidget::Close, AsWeakPtr(), false)));
   }
 
   void OnWidgetDestroying(views::Widget* widget) override {
     // ThemeCopyingWidget observation is set on the role_model widget, which in
-    // the case of `AutocompletePopupWidget` is the hosting parent widget.
+    // the case of `PopupWidget` is the hosting parent widget.
     CHECK_NE(widget, this);
     ThemeCopyingWidget::OnWidgetDestroying(widget);
 
@@ -176,7 +202,7 @@ class OmniboxPopupViewViews::AutocompletePopupWidget final
 
   bool is_setting_popup_bounds() const { return is_setting_popup_bounds_; }
 
-  base::WeakPtr<AutocompletePopupWidget> AsWeakPtr() {
+  base::WeakPtr<PopupWidget> AsWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
 
@@ -201,7 +227,7 @@ class OmniboxPopupViewViews::AutocompletePopupWidget final
   // True if the popup's bounds are currently being set.
   bool is_setting_popup_bounds_ = false;
 
-  base::WeakPtrFactory<AutocompletePopupWidget> weak_ptr_factory_{this};
+  base::WeakPtrFactory<PopupWidget> weak_ptr_factory_{this};
 };
 
 OmniboxPopupViewViews::OmniboxPopupViewViews(OmniboxViewViews* omnibox_view,
@@ -230,10 +256,10 @@ OmniboxPopupViewViews::OmniboxPopupViewViews(OmniboxViewViews* omnibox_view,
 }
 
 OmniboxPopupViewViews::~OmniboxPopupViewViews() {
-  // We don't need to close or delete |popup_| here. The OS either has already
+  // We don't need to close or delete `widget_` here. The OS either has already
   // closed the window, in which case it's been deleted, or it will soon.
-  if (popup_) {
-    popup_->RemoveObserver(this);
+  if (widget_) {
+    widget_->RemoveObserver(this);
   }
   CHECK(!IsInObserverList());
   model()->set_popup_view(nullptr);
@@ -243,12 +269,10 @@ OmniboxPopupViewViews::~OmniboxPopupViewViews() {
 gfx::Image OmniboxPopupViewViews::GetMatchIcon(
     const AutocompleteMatch& match,
     SkColor vector_icon_color) const {
-  bool dark_mode = false;
   auto* color_provider = GetColorProvider();
-  if (color_provider) {
-    dark_mode = color_utils::IsDark(
-        color_provider->GetColor(kColorOmniboxResultsBackground));
-  }
+  bool dark_mode =
+      color_provider && color_utils::IsDark(color_provider->GetColor(
+                            kColorOmniboxResultsBackground));
   return model()->GetMatchIcon(match, vector_icon_color, dark_mode);
 }
 
@@ -270,13 +294,13 @@ OmniboxPopupSelection OmniboxPopupViewViews::GetSelection() const {
 }
 
 void OmniboxPopupViewViews::UpdatePopupBounds() {
-  if (popup_) {
-    popup_->SetTargetBounds(GetTargetBounds());
+  if (widget_) {
+    widget_->SetTargetBounds(GetTargetBounds());
   }
 }
 
 bool OmniboxPopupViewViews::IsOpen() const {
-  return popup_ != nullptr;
+  return widget_ != nullptr;
 }
 
 void OmniboxPopupViewViews::InvalidateLine(size_t line) {
@@ -311,15 +335,15 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
       omnibox_view_->IsImeShowingPopup()) {
     // No matches or the IME is showing a popup window which may overlap
     // the omnibox popup window.  Close any existing popup.
-    if (popup_) {
+    if (widget_) {
       // Check whether omnibox should be not closed according to the UI
       // DevTools settings.
-      if (!popup_->ShouldHandleNativeWidgetActivationChanged(false)) {
+      if (!widget_->ShouldHandleNativeWidgetActivationChanged(false)) {
         return;
       }
-      popup_->CloseAnimated();  // This will eventually delete the popup.
-      popup_->RemoveObserver(this);
-      popup_.reset();
+      widget_->CloseAnimated();  // This will eventually delete the popup.
+      widget_->RemoveObserver(this);
+      widget_.reset();
       if (contextual_group_view_) {
         contextual_group_view_->OnPopupHide();
       }
@@ -335,25 +359,26 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
   // Ensure that we have an existing popup widget prior to creating the result
   // views to ensure the proper initialization of the views hierarchy.
   bool popup_created = false;
-  if (!popup_) {
+  if (!widget_) {
     views::Widget* popup_parent = location_bar_view_->GetWidget();
 
     // If the popup is currently closed, we need to create it.
     popup_create_start_time_ = base::TimeTicks::Now();
-    popup_ = (new AutocompletePopupWidget(popup_parent))->AsWeakPtr();
-    popup_->InitOmniboxPopup(popup_parent);
+    // Self-deleting. See comment for `widget_` in the header.
+    widget_ = (new PopupWidget(popup_parent))->AsWeakPtr();
+    widget_->InitOmniboxPopup(popup_parent);
     // Third-party software such as DigitalPersona identity verification can
     // hook the underlying window creation methods and use SendMessage to
     // synchronously change focus/activation, resulting in the popup being
     // destroyed by the time control returns here.  Bail out in this case to
     // avoid a nullptr dereference.
-    if (!popup_) {
+    if (!widget_) {
       return;
     }
 
-    popup_->SetVisibilityAnimationTransition(views::Widget::ANIMATE_NONE);
-    popup_->SetPopupContentsView(this);
-    popup_->AddObserver(this);
+    widget_->SetVisibilityAnimationTransition(views::Widget::ANIMATE_NONE);
+    widget_->SetPopupContentsView(this);
+    widget_->AddObserver(this);
 
     popup_created = true;
   }
@@ -361,7 +386,7 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
   // Update the match cached by each row, in the process of doing so make sure
   // we have enough row views.
   const size_t result_size = autocomplete_controller->result().size();
-  std::u16string previous_row_header = u"";
+  std::u16string previous_row_header;
 
   // Contextual search suggestions will be grouped into a single subview for a
   // joint animation if the feature is enabled.
@@ -372,8 +397,7 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
   // hierarchy.
   row_views_.clear();
 
-  const int contextual_group_view_count =
-      contextual_group_view_ != nullptr ? 1 : 0;
+  const int contextual_group_view_count = contextual_group_view_ ? 1 : 0;
   for (size_t i = 0; i < result_size; ++i) {
     // Create child views lazily.  Since especially the first result view may
     // be expensive to create due to loading font data, this saves time and
@@ -409,10 +433,10 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
   }
 
   UpdateContextualSuggestionsGroup(grouped_matches_start_index);
-  popup_->SetTargetBounds(GetTargetBounds());
+  widget_->SetTargetBounds(GetTargetBounds());
 
   if (popup_created) {
-    popup_->ShowAnimated();
+    widget_->ShowAnimated();
 
     // Popup is now expanded and first item will be selected.
     UpdateAccessibleStates();
@@ -463,12 +487,12 @@ void OmniboxPopupViewViews::GetPopupAccessibleNodeData(
 
 std::u16string_view OmniboxPopupViewViews::GetAccessibleButtonTextForResult(
     size_t line) const {
-  if (const OmniboxResultView* result_view = result_view_at(line)) {
-    return static_cast<const views::LabelButton*>(
-               result_view->GetActiveAuxiliaryButtonForAccessibility())
-        ->GetText();
+  const OmniboxResultView* result_view = result_view_at(line);
+  if (!result_view) {
+    return std::u16string_view();
   }
-  return std::u16string_view();
+  const auto* button = result_view->GetActiveAuxiliaryButtonForAccessibility();
+  return static_cast<const views::LabelButton*>(button)->GetText();
 }
 
 bool OmniboxPopupViewViews::OnMouseDragged(const ui::MouseEvent& event) {
@@ -523,7 +547,7 @@ void OmniboxPopupViewViews::OnWidgetBoundsChanged(views::Widget* widget,
                                                   const gfx::Rect& new_bounds) {
   // Because we don't directly control the lifetime of the widget, gracefully
   // handle "stale" notifications by ignoring them. https://crbug.com/1108762
-  if (!popup_ || popup_.get() != widget) {
+  if (!widget_ || widget_.get() != widget) {
     return;
   }
 
@@ -531,7 +555,7 @@ void OmniboxPopupViewViews::OnWidgetBoundsChanged(views::Widget* widget,
   // the new location bar location.
 
   // Ignore cases when we are internally updating the popup bounds.
-  if (popup_->is_setting_popup_bounds()) {
+  if (widget_->is_setting_popup_bounds()) {
     return;
   }
 
@@ -540,7 +564,7 @@ void OmniboxPopupViewViews::OnWidgetBoundsChanged(views::Widget* widget,
 
 void OmniboxPopupViewViews::OnWidgetVisibilityChanged(views::Widget* widget,
                                                       bool visible) {
-  if (!popup_ || widget != popup_.get()) {
+  if (!widget_ || widget != widget_.get()) {
     return;
   }
 
@@ -548,7 +572,7 @@ void OmniboxPopupViewViews::OnWidgetVisibilityChanged(views::Widget* widget,
     // Use the popup's compositor. The next presentation time will correspond to
     // the first visual presentation of the bubble's content after the Widget
     // has been created.
-    popup_->GetCompositor()->RequestSuccessfulPresentationTimeForNextFrame(
+    widget_->GetCompositor()->RequestSuccessfulPresentationTimeForNextFrame(
         base::BindOnce(
             [](base::TimeTicks popup_create_start_time,
                const viz::FrameTimingDetails& frame_timing_details) {
@@ -564,21 +588,20 @@ void OmniboxPopupViewViews::OnWidgetVisibilityChanged(views::Widget* widget,
 }
 
 void OmniboxPopupViewViews::OnWidgetDestroying(views::Widget* widget) {
-  CHECK_EQ(widget, popup_.get());
-  if (popup_) {
-    popup_->RemoveObserver(this);
-    popup_ = nullptr;
+  CHECK_EQ(widget, widget_.get());
+  if (widget_) {
+    widget_->RemoveObserver(this);
+    widget_ = nullptr;
   }
   UpdateAccessibleStates();
 }
 
 gfx::Rect OmniboxPopupViewViews::GetTargetBounds() const {
-  int popup_height = 0;
-  const auto* autocomplete_controller = controller()->autocomplete_controller();
-  DCHECK_GE(children().size(), autocomplete_controller->result().size());
-  popup_height = std::accumulate(
-      children().cbegin(),
-      children().cbegin() + autocomplete_controller->result().size(), 0,
+  const size_t result_size =
+      controller()->autocomplete_controller()->result().size();
+  auto children_span = base::span(children()).first(result_size);
+  int popup_height = std::accumulate(
+      children_span.begin(), children_span.end(), 0,
       [](int height, const views::View* v) {
         return v->GetVisible() ? height + v->GetPreferredSize().height()
                                : height;
@@ -597,11 +620,10 @@ gfx::Rect OmniboxPopupViewViews::GetTargetBounds() const {
     // toolbelt or not. The toolbelt doesn't have an icon or image on the left
     // like a regular suggestion nor a big background highlight like an IPH
     // suggestion so it doesn't require as much space.
-    const size_t last_result_index =
-        autocomplete_controller->result().size() - 1;
-    int kExtraBottomPadding =
+    const size_t last_result_index = result_size - 1;
+    int extra_bottom_padding =
         GetMatchAtIndex(last_result_index).IsToolbelt() ? 2 : 8;
-    popup_height += kExtraBottomPadding;
+    popup_height += extra_bottom_padding;
   }
 
   // Add enough space on the top and bottom so it looks like there is the same
@@ -611,27 +633,16 @@ gfx::Rect OmniboxPopupViewViews::GetTargetBounds() const {
 
   // The rounded popup is always offset the same amount from the omnibox.
   gfx::Rect content_rect = location_bar_view_->GetBoundsInScreen();
-
-#if BUILDFLAG(IS_MAC)
-  // TODO(crbug.com/365733574): debug for the misplaced bubble issue on mac
-  // fullscreen.
-  views::Widget* topchrome_host_widget = location_bar_view_->GetWidget();
-  if (IsInFullscreen(topchrome_host_widget)) {
-    base::UmaHistogramSparse(
-        "Mac.Fullscreen.OverlayWidgetScreenY",
-        topchrome_host_widget->GetWindowBoundsInScreen().y());
-    base::UmaHistogramSparse("Mac.Fullscreen.OverlayNSWindowScreenY",
-                             platform_util::GetWindowScreenBounds(
-                                 topchrome_host_widget->GetNativeWindow())
-                                 .y());
-    base::UmaHistogramSparse("Mac.Fullscreen.LocationBarViewScreenY",
-                             content_rect.y());
-  }
-#endif  // BUILDFLAG(IS_MAC)
-
   content_rect.Inset(
       -RoundedOmniboxResultsFrame::GetLocationBarAlignmentInsets());
   content_rect.set_height(popup_height);
+
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug) &&
+      omnibox::kWebUIOmniboxPopupDebugSxSParam.Get()) {
+    if (auto bounds = GetDebugWidgetBounds(location_bar_view_, popup_height)) {
+      content_rect = *bounds;
+    }
+  }
 
   // Finally, expand the widget to accommodate the custom-drawn shadows.
   content_rect.Inset(-RoundedOmniboxResultsFrame::GetShadowInsets());
@@ -639,11 +650,7 @@ gfx::Rect OmniboxPopupViewViews::GetTargetBounds() const {
 }
 
 OmniboxHeaderView* OmniboxPopupViewViews::header_view_at(size_t i) {
-  if (i >= row_views_.size()) {
-    return nullptr;
-  }
-
-  return row_views_[i]->header_view();
+  return i < row_views_.size() ? row_views_[i]->header_view() : nullptr;
 }
 
 OmniboxResultView* OmniboxPopupViewViews::result_view_at(size_t i) {
@@ -651,11 +658,7 @@ OmniboxResultView* OmniboxPopupViewViews::result_view_at(size_t i) {
 }
 
 const OmniboxResultView* OmniboxPopupViewViews::result_view_at(size_t i) const {
-  if (i >= row_views_.size()) {
-    return nullptr;
-  }
-
-  return row_views_[i]->result_view();
+  return i < row_views_.size() ? row_views_[i]->result_view() : nullptr;
 }
 
 bool OmniboxPopupViewViews::HasMatchAt(size_t index) const {
@@ -676,9 +679,7 @@ size_t OmniboxPopupViewViews::GetIndexForPoint(const gfx::Point& point) const {
   // Iterate through all the row views that correspond to current matches.
   // `row_views_` contains all the `OmniboxRowView` instances, regardless of
   // whether they are direct children or hosted in `contextual_group_view_`.
-  DCHECK_LE(nb_match, row_views_.size());
-  for (size_t i = 0; i < nb_match; ++i) {
-    OmniboxRowView* row_view = row_views_[i];
+  for (OmniboxRowView* row_view : base::span(row_views_).first(nb_match)) {
     // Only consider visible rows.
     if (row_view->GetVisible()) {
       gfx::Point point_in_child_coords(point);
@@ -786,7 +787,7 @@ void OmniboxPopupViewViews::UpdateContextualSuggestionsGroup(
   }
 
   size_t current_row_index = 0;
-  std::u16string previous_row_header = u"";
+  std::u16string previous_row_header;
   for (size_t match_index = match_start_index; match_index < result_size;
        match_index++) {
     // A row view should have been created for each match.
@@ -809,10 +810,10 @@ void OmniboxPopupViewViews::UpdateContextualSuggestionsGroup(
     current_row_index++;
   }
 
-  // Hide surplus row views.
-  for (auto i = contextual_group_view_->children().begin() + current_row_index;
-       i != contextual_group_view_->children().end(); ++i) {
-    (*i)->SetVisible(false);
+  auto surplus_row_views =
+      base::span(contextual_group_view_->children()).subspan(current_row_index);
+  for (auto& row_view : surplus_row_views) {
+    row_view->SetVisible(false);
   }
 
   contextual_group_view_->SetVisible(true);

@@ -23,7 +23,6 @@
 #include "ash/ambient/ui/photo_view.h"
 #include "ash/ambient/util/ambient_util.h"
 #include "ash/ambient/util/time_of_day_utils.h"
-#include "ash/assistant/assistant_interaction_controller_impl.h"
 #include "ash/constants/ambient_time_of_day_constants.h"
 #include "ash/constants/ambient_video.h"
 #include "ash/constants/ash_paths.h"
@@ -32,7 +31,6 @@
 #include "ash/public/cpp/ambient/ambient_prefs.h"
 #include "ash/public/cpp/ambient/ambient_ui_model.h"
 #include "ash/public/cpp/ambient/fake_ambient_backend_controller_impl.h"
-#include "ash/public/cpp/assistant/controller/assistant_interaction_controller.h"
 #include "ash/public/cpp/personalization_app/time_of_day_test_utils.h"
 #include "ash/public/cpp/test/in_process_data_decoder.h"
 #include "ash/root_window_controller.h"
@@ -79,7 +77,6 @@ namespace ash {
 namespace {
 
 using ash::personalization_app::mojom::AmbientTheme;
-using assistant::AssistantInteractionMetadata;
 
 constexpr char kUser1[] = "user1@gmail.com";
 constexpr char kUser2[] = "user2@gmail.com";
@@ -1486,28 +1483,6 @@ TEST_F(AmbientControllerTest, BindsObserversWhenAmbientOn) {
 
   EXPECT_FALSE(ctrl->user_activity_observer_.IsObserving());
   EXPECT_FALSE(ctrl->power_status_observer_.IsObserving());
-}
-
-TEST_P(AmbientControllerTestForAnyUiSettings,
-       ShowDismissAmbientScreenUponAssistantQuery) {
-  if (ash::assistant::features::IsNewEntryPointEnabled()) {
-    GTEST_SKIP() << "Assistant is not available if new entry point is enabled. "
-                    "crbug.com/388361414";
-  }
-
-  // Without user interaction, should show ambient mode.
-  SetAmbientShownAndWaitForWidgets();
-  EXPECT_TRUE(ambient_controller()->ShouldShowAmbientUi());
-
-  // Trigger Assistant interaction.
-  static_cast<AssistantInteractionControllerImpl*>(
-      AssistantInteractionController::Get())
-      ->OnInteractionStarted(AssistantInteractionMetadata());
-  base::RunLoop().RunUntilIdle();
-
-  // Ambient screen should dismiss.
-  EXPECT_TRUE(GetContainerViews().empty());
-  EXPECT_FALSE(ambient_controller()->ShouldShowAmbientUi());
 }
 
 // For all test cases that depend on ash ambient resources (lottie files, image

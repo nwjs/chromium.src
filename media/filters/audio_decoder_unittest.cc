@@ -244,11 +244,11 @@ class AudioDecoderTest
     if ((decoder_type_ == AudioDecoderType::kMediaCodec ||
          decoder_type_ == AudioDecoderType::kMediaFoundation) &&
         params_.codec == AudioCodec::kAAC && config.extra_data().empty()) {
-      int sample_rate;
+      size_t sample_rate;
       ChannelLayout channel_layout;
       std::vector<uint8_t> extra_data;
       ASSERT_GT(ADTSStreamParser().ParseFrameHeader(
-                    packet->data, packet->size, nullptr, &sample_rate,
+                    AVPacketData(*packet), nullptr, &sample_rate,
                     &channel_layout, nullptr, nullptr, &extra_data),
                 0);
       config.Initialize(AudioCodec::kAAC, kSampleFormatS16, channel_layout,
@@ -313,9 +313,12 @@ class AudioDecoderTest
   void Reset() {
     ASSERT_FALSE(pending_reset_);
     pending_reset_ = true;
-    decoder_->Reset(base::BindOnce(&AudioDecoderTest::ResetFinished,
-                                   base::Unretained(this)));
-    base::RunLoop().RunUntilIdle();
+
+    base::RunLoop run_loop;
+    decoder_->Reset(
+        base::BindOnce(&AudioDecoderTest::ResetFinished, base::Unretained(this))
+            .Then(run_loop.QuitClosure()));
+    run_loop.Run();
     ASSERT_FALSE(pending_reset_);
   }
 

@@ -18,6 +18,8 @@
 #import "ios/chrome/browser/download/model/download_directory_util.h"
 #import "ios/chrome/browser/download/model/download_record.h"
 #import "ios/chrome/browser/download/model/download_record_service_factory.h"
+#import "ios/chrome/browser/download/ui/download_list/download_list_action_delegate.h"
+#import "ios/chrome/browser/download/ui/download_list/download_list_item.h"
 #import "ios/chrome/browser/download/ui/download_list/download_list_table_view_controller.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -32,7 +34,8 @@
 #import "ios/web/public/navigation/referrer.h"
 #import "url/gurl.h"
 
-@interface DownloadListCoordinator () <DownloadRecordCommands> {
+@interface DownloadListCoordinator () <DownloadListActionDelegate,
+                                       DownloadRecordCommands> {
   // Mediator for handling download list logic.
   DownloadListMediator* _mediator;
 
@@ -66,17 +69,19 @@
   ProfileIOS* profile = self.browser->GetProfile();
   DownloadRecordService* downloadRecordService =
       DownloadRecordServiceFactory::GetForProfile(profile);
+  BOOL isIncognito = profile->IsOffTheRecord();
   _mediator = [[DownloadListMediator alloc]
-      initWithDownloadRecordService:downloadRecordService];
+      initWithDownloadRecordService:downloadRecordService
+                        isIncognito:isIncognito];
 
   [_mediator connect];
-
-  [self setupAndPresentDownloadListUI];
 
   // Register coordinator as DownloadRecordCommands handler.
   [self.browser->GetCommandDispatcher()
       startDispatchingToTarget:self
                    forProtocol:@protocol(DownloadRecordCommands)];
+
+  [self setupAndPresentDownloadListUI];
 }
 
 - (void)stop {
@@ -129,13 +134,16 @@
       break;
   }
   _downloadListViewController.mutator = _mediator;
+  _downloadListViewController.actionDelegate = self;
   [_mediator setConsumer:_downloadListViewController];
 
-  id<DownloadListCommands> handler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), DownloadListCommands);
-  _downloadListViewController.downloadListHandler = handler;
-  // TODO:(crbug.com/441137558): Replace the controller with real controller.
-  // _downloadListViewController.downloadRecordHandler = self;
+  CommandDispatcher* commandDispatcher = self.browser->GetCommandDispatcher();
+  id<DownloadListCommands> downloadListHandler =
+      HandlerForProtocol(commandDispatcher, DownloadListCommands);
+  id<DownloadRecordCommands> downloadRecordHandler =
+      HandlerForProtocol(commandDispatcher, DownloadRecordCommands);
+  _downloadListViewController.downloadListHandler = downloadListHandler;
+  _downloadListViewController.downloadRecordHandler = downloadRecordHandler;
 
   _navigationController = [[UINavigationController alloc]
       initWithRootViewController:_downloadListViewController];
@@ -150,7 +158,7 @@
 #pragma mark - DownloadRecordCommands
 
 - (void)openFileWithDownloadRecord:(const DownloadRecord&)record {
-  base::FilePath filePath = [self filePathForDownloadRecord:record];
+  base::FilePath filePath = ConvertToAbsoluteDownloadPath(record.file_path);
 
   __weak __typeof(self) weakSelf = self;
   base::ThreadPool::PostTaskAndReplyWithResult(
@@ -166,7 +174,7 @@
 
 - (void)shareDownloadedFile:(const DownloadRecord&)record
                  sourceView:(UIView*)sourceView {
-  base::FilePath filePath = [self filePathForDownloadRecord:record];
+  base::FilePath filePath = ConvertToAbsoluteDownloadPath(record.file_path);
   NSURL* fileURL =
       [NSURL fileURLWithPath:base::SysUTF8ToNSString(filePath.value())];
   if (!fileURL) {
@@ -208,15 +216,6 @@
   }
 }
 
-// Gets the file path for a download record.
-- (base::FilePath)filePathForDownloadRecord:(const DownloadRecord&)record {
-  // Construct file path from downloads directory and filename
-  base::FilePath downloadsDirectory;
-  GetDownloadsDirectory(&downloadsDirectory);
-
-  return downloadsDirectory.Append(record.file_name);
-}
-
 // Opens a PDF file in a new tab.
 - (void)openPDFInNewTab:(const base::FilePath&)filePath {
   GURL filePathURL =
@@ -250,6 +249,21 @@
   NSURL* fileURL =
       [NSURL fileURLWithPath:base::SysUTF8ToNSString(filePath.value())];
   [_filePreviewCoordinator presentFilePreviewWithURL:fileURL];
+}
+
+#pragma mark - DownloadListActionDelegate
+
+- (void)openDownloadInFiles:(DownloadListItem*)item {
+  base::FilePath filePath = item.filePath;
+
+  NSString* pathString = base::SysUTF8ToNSString(filePath.value());
+  NSString* filesURLString =
+      [NSString stringWithFormat:@"shareddocuments://%@", pathString];
+  NSURL* filesURL = [NSURL URLWithString:filesURLString];
+
+  [[UIApplication sharedApplication] openURL:filesURL
+                                     options:@{}
+                           completionHandler:nil];
 }
 
 @end

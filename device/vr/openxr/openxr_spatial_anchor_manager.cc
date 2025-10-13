@@ -13,9 +13,11 @@
 #include "base/containers/contains.h"
 #include "base/functional/callback_helpers.h"
 #include "base/types/expected.h"
+#include "device/vr/openxr/openxr_api_wrapper.h"
 #include "device/vr/openxr/openxr_extension_helper.h"
 #include "device/vr/openxr/openxr_platform.h"
 #include "device/vr/openxr/openxr_spatial_framework_manager.h"
+#include "device/vr/openxr/openxr_spatial_plane_manager.h"
 #include "device/vr/openxr/openxr_spatial_utils.h"
 #include "device/vr/openxr/openxr_util.h"
 #include "device/vr/openxr/scoped_openxr_object.h"
@@ -38,9 +40,11 @@ bool OpenXrSpatialAnchorManager::IsSupported(
 OpenXrSpatialAnchorManager::OpenXrSpatialAnchorManager(
     const OpenXrExtensionHelper& extension_helper,
     const OpenXrSpatialFrameworkManager& spatial_framework_manager,
+    OpenXrSpatialPlaneManager* plane_manager,
     XrSpace mojo_space)
     : extension_helper_(extension_helper),
       spatial_framework_manager_(spatial_framework_manager),
+      plane_manager_(plane_manager),
       mojo_space_(mojo_space) {}
 
 OpenXrSpatialAnchorManager::~OpenXrSpatialAnchorManager() {
@@ -62,7 +66,8 @@ void OpenXrSpatialAnchorManager::PopulateCapabilityConfiguration(
 AnchorId OpenXrSpatialAnchorManager::CreateAnchor(
     XrPosef pose,
     XrSpace space,
-    XrTime predicted_display_time) {
+    XrTime predicted_display_time,
+    std::optional<PlaneId> plane_id) {
   XrSpatialAnchorCreateInfoEXT create_info{
       XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_EXT};
   create_info.baseSpace = space;
@@ -110,6 +115,29 @@ OpenXrSpatialAnchorManager::GetXrLocationFromAnchor(
   gfx::Transform mojo_from_new_anchor =
       mojo_from_anchor_id * anchor_id_from_new_anchor;
 
+  return XrLocation{GfxTransformToXrPose(mojo_from_new_anchor), mojo_space_};
+}
+
+std::optional<OpenXrAnchorManager::XrLocation>
+OpenXrSpatialAnchorManager::GetXrLocationFromPlane(
+    PlaneId plane_id,
+    const gfx::Transform& plane_id_from_new_anchor) const {
+  // It should actually be impossible to *not* have a Plane Manager, since the
+  // PlaneId had to come from somewhere, but it could have been spoofed.
+  if (!plane_manager_) {
+    return std::nullopt;
+  }
+
+  // We don't have an xr_space_ for the plane, so we'll just locate the pose
+  // in mojo_space_ and send that up as the base of the XrLocation.
+  std::optional<device::Pose> mojo_from_plane =
+      plane_manager_->TryGetMojoFromPlane(plane_id);
+  if (!mojo_from_plane) {
+    return std::nullopt;
+  }
+
+  gfx::Transform mojo_from_new_anchor =
+      mojo_from_plane->ToTransform() * plane_id_from_new_anchor;
   return XrLocation{GfxTransformToXrPose(mojo_from_new_anchor), mojo_space_};
 }
 
@@ -177,7 +205,7 @@ mojom::XRAnchorsDataPtr OpenXrSpatialAnchorManager::GetCurrentAnchorsData(
 
   // No matter what, we will send all current anchors up to the page, and then
   // we will remove any deleted ones for the next frame.
-  std::vector<uint64_t> all_anchors_ids;
+  std::vector<AnchorId> all_anchors_ids;
   std::vector<mojom::XRAnchorDataPtr> updated_anchors;
   all_anchors_ids.reserve(anchors_.size());
   updated_anchors.reserve(anchors_.size());
@@ -192,7 +220,7 @@ mojom::XRAnchorsDataPtr OpenXrSpatialAnchorManager::GetCurrentAnchorsData(
     }
 
     AnchorId anchor_id = it->second;
-    all_anchors_ids.push_back(anchor_id.GetUnsafeValue());
+    all_anchors_ids.push_back(anchor_id);
 
     switch (tracking_states[i]) {
       case XR_SPATIAL_ENTITY_TRACKING_STATE_TRACKING_EXT: {
@@ -200,8 +228,7 @@ mojom::XRAnchorsDataPtr OpenXrSpatialAnchorManager::GetCurrentAnchorsData(
         // and then send that pose as the updated location.
         auto pose = XrPoseToDevicePose(locations[i]);
         cached_anchor_poses_.emplace(anchor_id, pose);
-        updated_anchors.push_back(
-            mojom::XRAnchorData::New(anchor_id.GetUnsafeValue(), pose));
+        updated_anchors.push_back(mojom::XRAnchorData::New(anchor_id, pose));
         break;
       }
       case XR_SPATIAL_ENTITY_TRACKING_STATE_PAUSED_EXT: {
@@ -209,7 +236,7 @@ mojom::XRAnchorsDataPtr OpenXrSpatialAnchorManager::GetCurrentAnchorsData(
         // but we don't know a pose for it at present.
         cached_anchor_poses_.emplace(anchor_id, std::nullopt);
         updated_anchors.push_back(
-            mojom::XRAnchorData::New(anchor_id.GetUnsafeValue(), std::nullopt));
+            mojom::XRAnchorData::New(anchor_id, std::nullopt));
         break;
       }
       case XR_SPATIAL_ENTITY_TRACKING_STATE_STOPPED_EXT: {
@@ -218,7 +245,7 @@ mojom::XRAnchorsDataPtr OpenXrSpatialAnchorManager::GetCurrentAnchorsData(
         // and remove it from the list after we're done processing.
         permanently_stopped_anchors.insert(anchor_id);
         updated_anchors.push_back(
-            mojom::XRAnchorData::New(anchor_id.GetUnsafeValue(), std::nullopt));
+            mojom::XRAnchorData::New(anchor_id, std::nullopt));
         break;
       }
       case XR_SPATIAL_ENTITY_TRACKING_STATE_MAX_ENUM_EXT:

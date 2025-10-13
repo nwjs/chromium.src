@@ -26,6 +26,7 @@ import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDele
 import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDelegate.StripUpdateDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter.MergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 
@@ -71,7 +72,7 @@ public class MultiTabReorderStrategy extends ReorderStrategyBase {
             TabModel model,
             TabGroupModelFilter tabGroupModelFilter,
             View containerView,
-            ObservableSupplierImpl<Token> groupIdToHideSupplier,
+            ObservableSupplierImpl<@Nullable Token> groupIdToHideSupplier,
             Supplier<Float> tabWidthSupplier,
             Supplier<Long> lastReorderScrollTimeSupplier,
             Supplier<Boolean> inReorderModeSupplier) {
@@ -130,7 +131,7 @@ public class MultiTabReorderStrategy extends ReorderStrategyBase {
                     selectedTabs,
                     primaryTab,
                     /* indexInGroup= */ primaryTabIndexInGroup,
-                    /* notify= */ false);
+                    /* notify= */ MergeNotificationType.DONT_NOTIFY);
         } else {
             ungroupInteractingBlock();
             int primaryTabModelIndex = mModel.indexOf(primaryTab);
@@ -272,7 +273,8 @@ public class MultiTabReorderStrategy extends ReorderStrategyBase {
                 return false;
             }
             moveAdjacentTabPastBlock(adjTab, towardEnd);
-            animateViewSliding(StripLayoutUtils.findTabById(stripTabs, adjTab.getId()));
+            var adjStripLayoutTab = StripLayoutUtils.findTabById(stripTabs, adjTab.getId());
+            animateViewSliding(assumeNonNull(adjStripLayoutTab));
             return true;
         }
 
@@ -280,6 +282,7 @@ public class MultiTabReorderStrategy extends ReorderStrategyBase {
         if (isInGroup) {
             StripLayoutGroupTitle interactingGroupTitle =
                     StripLayoutUtils.findGroupTitle(groupTitles, primaryTab.getTabGroupId());
+            assumeNonNull(interactingGroupTitle);
             float threshold = getDragOutThreshold(interactingGroupTitle, towardEnd);
             if (Math.abs(offset) <= threshold) return false;
             List<StripLayoutTab> interactingTabs = new ArrayList<>(mInteractingTabs);
@@ -414,7 +417,7 @@ public class MultiTabReorderStrategy extends ReorderStrategyBase {
                 getSortedSelectedTabs(stripTabs),
                 adjTab,
                 /* indexInGroup= */ towardEnd ? 0 : null,
-                /* notify= */ false);
+                /* notify= */ MergeNotificationType.DONT_NOTIFY);
         animateGroupIndicatorForTabReorder(adjTitle, /* isMovingOutOfGroup= */ false, towardEnd);
     }
 

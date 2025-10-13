@@ -19,6 +19,7 @@
 #include "base/test/test_future.h"
 #include "chrome/browser/ash/shimless_rma/diagnostics_app_profile_helper.h"
 #include "chrome/browser/ash/shimless_rma/diagnostics_app_profile_helper_constants.h"
+#include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/extensions/extension_garbage_collector_factory.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
@@ -26,13 +27,14 @@
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_install_source.h"
+#include "chrome/browser/web_applications/isolated_web_apps/install/isolated_web_app_install_source.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
+#include "components/custom_handlers/simple_protocol_handler_registry_factory.h"
 #include "components/variations/scoped_variations_ids_provider.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/isolated_web_apps/types/iwa_version.h"
@@ -228,6 +230,10 @@ class ChromeShimlessRmaDelegatePrepareDiagnosticsAppProfileTest
     auto unpacked_install_dir = profile->GetPath().AppendASCII(
         extensions::kUnpackedInstallDirectoryName);
 
+    ProtocolHandlerRegistryFactory::GetInstance()->SetTestingFactory(
+        profile, custom_handlers::SimpleProtocolHandlerRegistryFactory::
+                     GetDefaultFactory());
+
     extensions::TestExtensionSystem* system =
         static_cast<extensions::TestExtensionSystem*>(
             extensions::ExtensionSystem::Get(profile));
@@ -269,7 +275,7 @@ class ChromeShimlessRmaDelegatePrepareDiagnosticsAppProfileTest
   base::test::ScopedFeatureList feature_list_;
   TestingProfileManager testing_profile_manager_{
       TestingBrowserProcess::GetGlobal()};
-  variations::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
+  variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
       variations::VariationsIdsProvider::Mode::kUseSignedInState};
   std::unique_ptr<FakeDiagnosticsAppProfileHelperDelegate>
       fake_diagnostics_app_profile_helper_delegate_;

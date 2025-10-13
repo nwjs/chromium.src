@@ -16,6 +16,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
@@ -25,6 +26,7 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/autofill/core/browser/webdata/autofill_table_utils.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/os_crypt/async/common/encryptor.h"
@@ -95,10 +97,13 @@ void HandleTestSwitchesIfNeeded(sql::Database* db, EntityTable& table) {
                                std::u16string value) -> AttributeInstance {
       auto type = AttributeType(type_name);
       auto instance = AttributeInstance(AttributeType(type));
-      instance.SetInfo(instance.type().field_type(), value, /*app_locale=*/"",
-                       /*format_string=*/
-                       IsDateFieldType(type.field_type()) ? u"YYYY-MM-DD" : u"",
-                       VerificationStatus::kNoStatus);
+      instance.SetInfo(
+          instance.type().field_type(), value, /*app_locale=*/"",
+          /*format_string=*/
+          IsDateFieldType(type.field_type())
+              ? AutofillFormatString(u"YYYY-MM-DD", FormatString_Type_DATE)
+              : base::optional_ref<const AutofillFormatString>(),
+          VerificationStatus::kNoStatus);
       return instance;
     };
 
@@ -452,7 +457,8 @@ EntityTable::LoadAttributes() const {
   return attribute_records;
 }
 
-std::vector<EntityInstance> EntityTable::GetEntityInstances() const {
+std::vector<EntityInstance> EntityTable::GetEntityInstances(
+    std::optional<EntityInstance::RecordType> record_type) const {
   HandleTestSwitchesIfNeeded(db(), const_cast<EntityTable&>(*this));
 
   // Collects all attributes, keyed by the owning entity's GUID and the
@@ -461,6 +467,12 @@ std::vector<EntityInstance> EntityTable::GetEntityInstances() const {
            std::map<std::string, std::vector<EntityTable::AttributeRecord>>>
       attribute_records = LoadAttributes();
 
+  const std::string where =
+      record_type.has_value()
+          ? base::StrCat(
+                {"WHERE ", entities::kRecordType, "= ",
+                 base::NumberToString(base::to_underlying(*record_type))})
+          : "";
   // Collects all entities and populates them with the attributes from the
   // previous query.
   std::vector<EntityInstance> entities;
@@ -469,7 +481,9 @@ std::vector<EntityInstance> EntityTable::GetEntityInstances() const {
       db(), s, entities::kTableName,
       {entities::kGuid, entities::kEntityType, entities::kNickname,
        entities::kDateModified, entities::kUseCount, entities::kUseDate,
-       entities::kRecordType, entities::kAttributesReadOnly});
+       entities::kRecordType, entities::kAttributesReadOnly},
+      where);
+
   while (s.Step()) {
     EntityInstance::EntityId guid(s.ColumnString(0));
     std::string type_name = s.ColumnString(1);
@@ -477,7 +491,7 @@ std::vector<EntityInstance> EntityTable::GetEntityInstances() const {
     base::Time date_modified = base::Time::FromTimeT(s.ColumnInt64(3));
     size_t use_count = s.ColumnInt64(4);
     base::Time use_date = s.ColumnTime(5);
-    std::underlying_type_t<EntityInstance::RecordType> record_type =
+    std::underlying_type_t<EntityInstance::RecordType> underlying_record_type =
         s.ColumnInt(6);
     EntityInstance::AreAttributesReadOnly are_attributes_read_only =
         EntityInstance::AreAttributesReadOnly(s.ColumnBool(7));
@@ -485,8 +499,8 @@ std::vector<EntityInstance> EntityTable::GetEntityInstances() const {
     if (auto attributes = attribute_records.extract(guid)) {
       if (std::optional<EntityInstance> e = ValidateInstance(
               type_name, std::move(guid), std::move(nickname), date_modified,
-              use_count, use_date, record_type, std::move(attributes.mapped()),
-              are_attributes_read_only)) {
+              use_count, use_date, underlying_record_type,
+              std::move(attributes.mapped()), are_attributes_read_only)) {
         entities.push_back(*std::move(e));
       }
     }

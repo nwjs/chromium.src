@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -75,7 +76,7 @@ constexpr net::NetworkTrafficAnnotationTag kPrivateMetricsKeyNetworkTag =
         })");
 
 inline constexpr char kDataUploadConfigGstaticUrl[] =
-    "https://www.gstatic.com/chrome/private-metrics/data-upload-config.pbtxt";
+    "https://www.gstatic.com/chrome/private-metrics/data-upload-config";
 }  // namespace
 
 std::unique_ptr<network::SimpleURLLoader> CreateSimpleURLLoader(

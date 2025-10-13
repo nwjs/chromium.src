@@ -72,7 +72,7 @@ SiteInstanceId::Generator g_site_instance_id_generator;
 // These calls should either be replaced with GetOrCreateProcess() if process
 // creation was intentional, or the caller should be changed to avoid
 // unnecessarily creating a process.
-BASE_FEATURE(TraceSiteInstanceGetProcessCreation,
+BASE_FEATURE(kTraceSiteInstanceGetProcessCreation,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether to crash if GetProcess is called on a SiteInstance without a process.
@@ -462,6 +462,7 @@ RenderProcessHost* SiteInstanceImpl::GetOrCreateProcess(
   // new process will be assigned the next time GetProcess() gets called.
   if (!has_group()) {
     // Check if the ProcessReusePolicy should be updated.
+
     if (ShouldUseProcessPerSite() && nw::PinningRenderer()) {
       process_reuse_policy_ = ProcessReusePolicy::kProcessPerSite;
     } else if (process_reuse_policy_ == ProcessReusePolicy::kProcessPerSite) {
@@ -1482,7 +1483,10 @@ bool SiteInstanceImpl::CanBePlacedInDefaultSiteInstanceOrGroup(
 GURL SiteInstanceImpl::GetEffectiveURL(BrowserContext* browser_context,
                                        const GURL& url) {
   DCHECK(browser_context);
-  return GetContentClient()->browser()->GetEffectiveURL(browser_context, url);
+  return GetContentClient()
+      ->browser()
+      ->GetEffectiveURL(browser_context, url)
+      .value_or(url);
 }
 
 // static

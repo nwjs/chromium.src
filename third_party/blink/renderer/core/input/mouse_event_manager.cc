@@ -706,7 +706,7 @@ void MouseEventManager::UpdateSelectionForMouseDrag() {
                                    last_known_mouse_position_in_root_frame_);
 }
 
-bool MouseEventManager::HandleDragDropIfPossible(
+DragHandlingResult MouseEventManager::HandleDragDropIfPossible(
     const GestureEventWithHitTestResults& targeted_event,
     PointerId pointer_id) {
   const WebGestureEvent& gesture_event = targeted_event.Event();
@@ -783,10 +783,10 @@ WebInputEventResult MouseEventManager::HandleMouseDraggedEvent(
 
   if (should_handle_drag &&
       HandleDrag(event, is_pen ? DragAndDropToolType::kStylusViaButton
-                               : DragAndDropToolType::kMouse)) {
-    // `HandleDrag()` returns true for both kHandledApplication and
-    // kHandledSystem.  We are returning kHandledApplication here to make the
-    // UseCounter in the caller work.
+                               : DragAndDropToolType::kMouse) !=
+          DragHandlingResult::kNotHandled) {
+    // We are returning kHandledApplication here to make the UseCounter
+    // in the caller work.
     return WebInputEventResult::kHandledApplication;
   }
 
@@ -846,17 +846,17 @@ WebInputEventResult MouseEventManager::HandleMouseDraggedEvent(
   return selection_controller_drag_result;
 }
 
-// TODO(mustaq@chromium.org): The return value here is questionable.  Why even a
-// failing `TryStartDrag()` below returns a `true` here?
-bool MouseEventManager::HandleDrag(const MouseEventWithHitTestResults& event,
-                                   DragAndDropToolType initiator) {
+DragHandlingResult MouseEventManager::HandleDrag(
+    const MouseEventWithHitTestResults& event,
+    DragAndDropToolType initiator) {
   DCHECK(event.Event().GetType() == WebInputEvent::Type::kMouseMove);
   // Callers must protect the reference to LocalFrameView, since this function
   // may dispatch DOM events, causing page/LocalFrameView to go away.
   DCHECK(frame_);
   DCHECK(frame_->View());
-  if (!frame_->GetPage())
-    return false;
+  if (!frame_->GetPage()) {
+    return DragHandlingResult::kNotHandled;
+  }
 
   if (mouse_down_may_start_drag_) {
     HitTestRequest request(HitTestRequest::kReadOnly);
@@ -885,20 +885,23 @@ bool MouseEventManager::HandleDrag(const MouseEventWithHitTestResults& event,
       initiator == DragAndDropToolType::kMouse ||
       initiator == DragAndDropToolType::kStylusViaButton;
   if (!mouse_down_may_start_drag_) {
-    return initiated_by_button_press &&
-           !frame_->GetEventHandler()
-                .GetSelectionController()
-                .MouseDownMayStartSelect() &&
-           !mouse_down_may_start_autoscroll_;
+    const bool mouse_down_suppressed = initiated_by_button_press &&
+                                       !frame_->GetEventHandler()
+                                            .GetSelectionController()
+                                            .MouseDownMayStartSelect() &&
+                                       !mouse_down_may_start_autoscroll_;
+    return mouse_down_suppressed ? DragHandlingResult::kHandledDragNotStarted
+                                 : DragHandlingResult::kNotHandled;
   }
 
   if (initiated_by_button_press && !DragThresholdExceeded(gfx::ToFlooredPoint(
                                        event.Event().PositionInRootFrame()))) {
     ResetDragSource();
-    return true;
+    return DragHandlingResult::kHandledDragNotStarted;
   }
 
-  if (!TryStartDrag(event)) {
+  const bool drag_started = TryStartDrag(event);
+  if (!drag_started) {
     // Something failed to start the drag, clean up.
     ClearDragDataTransfer();
     ResetDragSource();
@@ -920,9 +923,8 @@ bool MouseEventManager::HandleDrag(const MouseEventWithHitTestResults& event,
   }
 
   mouse_down_may_start_drag_ = false;
-  // Whether or not the drag actually started, no more default handling (like
-  // selection).
-  return true;
+  return drag_started ? DragHandlingResult::kHandledDragStarted
+                      : DragHandlingResult::kHandledDragNotStarted;
 }
 
 DataTransfer* MouseEventManager::CreateDraggingDataTransfer() const {
@@ -1039,6 +1041,15 @@ WebInputEventResult MouseEventManager::DispatchDragEvent(
   initializer->setRelatedTarget(related_target);
   initializer->setView(frame_->GetDocument()->domWindow());
   initializer->setComposed(true);
+  if (RuntimeEnabledFeatures::PreserveDropEffectEnabled()) {
+    if (event_type == event_type_names::kDragenter ||
+        event_type == event_type_names::kDragover) {
+      data_transfer->SetDestinationOperationFromEffectAllowed();
+    } else if (event_type == event_type_names::kDragleave) {
+      data_transfer->SetDestinationOperation(
+          ui::mojom::blink::DragOperation::kNone);
+    }
+  }
   initializer->setGetDataTransfer(data_transfer);
   initializer->setSourceCapabilities(
       frame_->GetDocument()->domWindow()

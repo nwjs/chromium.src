@@ -28,6 +28,7 @@
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/gfx/geometry/rect.h"
+#include "url/gurl.h"
 
 namespace content {
 
@@ -420,7 +421,7 @@ int WebContentsDelegate::AllowedPrerenderingCount(WebContents& web_contents) {
 }
 
 NavigationController::UserAgentOverrideOption
-WebContentsDelegate::ShouldOverrideUserAgentForPrerender2() {
+WebContentsDelegate::ShouldOverrideUserAgentForPrerender2(const GURL& url) {
   return NavigationController::UA_OVERRIDE_INHERIT;
 }
 
@@ -478,6 +479,11 @@ WebContentsDelegate::GetBackForwardTransitionFallbackUXConfig() {
 std::vector<blink::mojom::RelatedApplicationPtr>
 WebContentsDelegate::GetSavedRelatedApplications(WebContents* web_contents) {
   return {};
+}
+
+WebContents* WebContentsDelegate::GetResponsibleWebContents(
+    WebContents* web_contents) {
+  return nullptr;
 }
 
 }  // namespace content

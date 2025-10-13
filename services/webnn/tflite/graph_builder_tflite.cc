@@ -46,9 +46,7 @@ namespace {
 
 // This feature flag allows us to compare performance between fused vs unfused
 // quantized graphs.
-BASE_FEATURE(kApplyQDQFusion,
-             "ApplyQDQFusion",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kApplyQDQFusion, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // The version number of the Schema. Ideally all changes will be backward
 // compatible. If that ever changes, we must ensure that version is the first
@@ -497,11 +495,12 @@ ContextProperties GraphBuilderTflite::GetContextProperties() {
       InputOperandLayout::kNhwc, Resample2DAxes::kChannelsLast,
       BatchNormalizationAxis::kAny,
       /*tensor_byte_length_limit=*/kTensorByteLengthLimit,
-      {/*input=*/kAllDataTypesExceptUint4,
-       /*constant=*/kAllDataTypesExceptUint4,
+      {/*input=*/{kAllDataTypesExceptUint4, SupportedRanks::UpTo(8)},
+       /*constant=*/{kAllDataTypesExceptUint4, SupportedRanks::UpTo(8)},
        /*arg_min_max_input=*/
        {kFloat16To32AndInt8To32AndUint8, SupportedRanks::NonScalarUpTo(8)},
-       /*arg_min_max_output=*/DataTypeConstraint::kInt32To64,
+       /*arg_min_max_output=*/
+       {DataTypeConstraint::kInt32To64, SupportedRanks::UpTo(8)},
        // BatchNormalization is emulated by sub, mul, add and div ops that only
        // support max rank up to 5.
        /*batch_normalization_input=*/
@@ -647,6 +646,8 @@ ContextProperties GraphBuilderTflite::GetContextProperties() {
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(3)},
        /*gru_bias=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
+       /*gru_output_sequence=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(4)},
        /*gru_cell_input=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
        /*gru_cell_bias=*/
@@ -674,6 +675,8 @@ ContextProperties GraphBuilderTflite::GetContextProperties() {
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(3)},
        /*lstm_bias=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
+       /*lstm_output_sequence=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(4)},
        /*lstm_cell_input=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
        /*lstm_cell_bias=*/
@@ -3462,8 +3465,8 @@ auto GraphBuilderTflite::SerializeArgMinMax(const mojom::ArgMinMax& arg_min_max)
     -> base::expected<OperatorOffset, std::string> {
   CHECK(context_properties_.data_type_limits.arg_min_max_input.Supports(
       GetOperand(arg_min_max.input_operand_id).descriptor));
-  CHECK(context_properties_.data_type_limits.arg_min_max_output.Has(
-      GetOperand(arg_min_max.output_operand_id).descriptor.data_type()));
+  CHECK(context_properties_.data_type_limits.arg_min_max_output.Supports(
+      GetOperand(arg_min_max.output_operand_id).descriptor));
 
   // The WebNN axis option is uint32 data type, but TFLite axis needs int32
   // type, so the axis need to be validated here to not overflow.
@@ -7365,7 +7368,7 @@ auto GraphBuilderTflite::SerializeReshape(const mojom::Reshape& reshape)
     output_tensor_shape = std::move(quantized_output->dimensions);
   } else {
     TensorInfo output_tensor_info = SerializeOutputTensorInfo(
-        reshape.output_operand_id, /*quantize_params=*/0,
+        reshape.output_operand_id, input_tensor_info.quantize_params,
         /*operation_supports_float16=*/true, input_tensor_info.data_type);
     output_tensor_index = output_tensor_info.index;
     output_tensor_shape = std::move(output_tensor_info.dimensions);
@@ -7979,7 +7982,9 @@ auto GraphBuilderTflite::SerializeTranspose(const mojom::Transpose& transpose)
   TensorIndex output_tensor_index =
       fuse_dequantize
           ? quantized_output->index
-          : SerializeOutputTensorInfo(transpose.output_operand_id).index;
+          : SerializeOutputTensorInfo(transpose.output_operand_id,
+                                      input_tensor_info.quantize_params)
+                .index;
 
   return SerializeTransposeOperation(
       input_tensor_info.index, output_tensor_index,

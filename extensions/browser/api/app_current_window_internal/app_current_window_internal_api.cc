@@ -269,9 +269,9 @@ AppCurrentWindowInternalSetBoundsFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AppCurrentWindowInternalSetResizableFunction::Run() {
-  std::optional<SetResizable::Params> params(SetResizable::Params::Create(args()));
+  std::optional<SetResizable::Params> params = SetResizable::Params::Create(args());
   CHECK(params.has_value());
-  window()->GetBaseWindow()->SetResizable(params->flag);
+  window()->GetBaseWindow()->SetResizable(params->resizable);
   window()->OnNativeWindowChanged();
   return RespondNow(NoArguments());
 }

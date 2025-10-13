@@ -100,6 +100,29 @@ CompositorView::CompositorView(JNIEnv* env,
   root_layer_->SetBackgroundColor(SkColors::kWhite);
 }
 
+// Constructor for testing.
+CompositorView::CompositorView(JNIEnv* env,
+                               const base::android::JavaRef<jobject>& obj,
+                               ui::WindowAndroid* window_android,
+                               TabContentManager* tab_content_manager,
+                               std::unique_ptr<content::Compositor> compositor)
+    : tab_content_manager_(tab_content_manager),
+      root_layer_(cc::slim::SolidColorLayer::Create()),
+      scene_layer_(nullptr),
+      current_surface_format_(0),
+      content_width_(0),
+      content_height_(0),
+      overlay_video_mode_(false),
+      overlay_immersive_ar_mode_(false),
+      overlay_xr_full_screen_mode_(false) {
+  content::BrowserChildProcessObserver::Add(this);
+  obj_.Reset(env, obj);
+  compositor_ = std::move(compositor);
+
+  root_layer_->SetIsDrawable(true);
+  root_layer_->SetBackgroundColor(SkColors::kWhite);
+}
+
 CompositorView::~CompositorView() {
   content::BrowserChildProcessObserver::Remove(this);
   tab_content_manager_->OnUIResourcesWereEvicted();
@@ -368,9 +391,7 @@ void CompositorView::BrowserChildProcessKilled(
 
   // On Android R surface control layers leak if GPU process crashes, so we need
   // to re-create surface to get rid of them.
-  if (base::android::android_info::sdk_int() ==
-          base::android::android_info::SDK_VERSION_R &&
-      data.process_type == content::PROCESS_TYPE_GPU) {
+  if (data.process_type == content::PROCESS_TYPE_GPU) {
     JNIEnv* env = base::android::AttachCurrentThread();
     compositor_->SetSurface(nullptr, false, nullptr);
     Java_CompositorView_recreateSurface(env, obj_);

@@ -402,11 +402,12 @@ namespace chrome {
 namespace {
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-const extensions::Extension* GetExtensionForBrowser(Browser* browser) {
-  return extensions::ExtensionRegistry::Get(browser->profile())
-      ->GetExtensionById(
-          web_app::GetAppIdFromApplicationName(browser->app_name()),
-          extensions::ExtensionRegistry::EVERYTHING);
+const extensions::Extension* GetExtensionForBrowser(
+    BrowserWindowInterface* browser) {
+  return extensions::ExtensionRegistry::Get(browser->GetProfile())
+      ->GetExtensionById(web_app::GetAppIdFromApplicationName(
+                             browser->GetBrowserForMigrationOnly()->app_name()),
+                         extensions::ExtensionRegistry::EVERYTHING);
 }
 #endif
 
@@ -461,11 +462,11 @@ WebContents* GetTabAndRevertIfNecessary(Browser* browser,
   return GetTabAndRevertIfNecessaryHelper(browser, disposition, activate_tab);
 }
 
-void RecordReloadWithCookieBlocking(const Browser* browser,
+void RecordReloadWithCookieBlocking(BrowserWindowInterface* browser,
                                     WebContents* web_contents) {
   // Figure out if 3P cookies are blocked for this page.
   scoped_refptr<const content_settings::CookieSettings> cookie_settings =
-      CookieSettingsFactory::GetForProfile(browser->profile());
+      CookieSettingsFactory::GetForProfile(browser->GetProfile());
 
   // For this metric, we define "cookies blocked in settings" based on the
   // global opt-in to third-party cookie blocking as well as no overriding
@@ -491,17 +492,16 @@ void RecordReloadWithCookieBlocking(const Browser* browser,
       .Record(ukm::UkmRecorder::Get());
 }
 
-void ReloadInternal(Browser* browser,
+void ReloadInternal(BrowserWindowInterface* browser,
                     WindowOpenDisposition disposition,
                     bool bypass_cache) {
-  const WebContents* const active_contents =
-      browser->tab_strip_model()->GetActiveWebContents();
+  TabStripModel* const tab_strip_model = browser->GetTabStripModel();
+  WebContents* const active_contents = tab_strip_model->GetActiveWebContents();
 
   std::vector<WebContents*> tabs_to_reload;
 
   if (base::FeatureList::IsEnabled(features::kReloadSelectionModel)) {
-    tabs_to_reload.push_back(
-        browser->tab_strip_model()->GetActiveWebContents());
+    tabs_to_reload.push_back(active_contents);
   } else {
     // Reloading a tab may change the selection (see crbug.com/339061099), so
     // take
@@ -509,9 +509,9 @@ void ReloadInternal(Browser* browser,
     // WebContents* so we can follow the tabs as they shift within the same
     // tabstrip (e.g. if `disposition` is NEW_BACKGROUND_TAB).
     for (const int selected_index :
-         browser->tab_strip_model()->selection_model().selected_indices()) {
+         tab_strip_model->selection_model().selected_indices()) {
       tabs_to_reload.push_back(
-          browser->tab_strip_model()->GetWebContentsAt(selected_index));
+          tab_strip_model->GetWebContentsAt(selected_index));
     }
   }
 
@@ -522,13 +522,12 @@ void ReloadInternal(Browser* browser,
     // Skip this tab if it is no longer part of this tabstrip. N.B. we do this
     // instead of using WeakPtr<WebContents> because we do not want to reload
     // tabs that move to another browser.
-    if (browser->tab_strip_model()->GetIndexOfWebContents(tab) ==
-        TabStripModel::kNoTab) {
+    if (tab_strip_model->GetIndexOfWebContents(tab) == TabStripModel::kNoTab) {
       continue;
     }
 
-    WebContents* const new_tab =
-        GetTabAndRevertIfNecessaryHelper(browser, disposition, tab);
+    WebContents* const new_tab = GetTabAndRevertIfNecessaryHelper(
+        browser->GetBrowserForMigrationOnly(), disposition, tab);
 
     // If the `tab` is the activated page, give the focus to it, as this is
     // caused by a user action
@@ -851,7 +850,8 @@ void NavigateToIndexWithDisposition(Browser* browser,
   controller->GoToIndex(index);
 }
 
-void Reload(Browser* browser, WindowOpenDisposition disposition) {
+void Reload(BrowserWindowInterface* browser,
+            WindowOpenDisposition disposition) {
   base::RecordAction(UserMetricsAction("Reload"));
   ReloadInternal(browser, disposition, false);
 }
@@ -983,12 +983,13 @@ void Stop(Browser* browser) {
   browser->tab_strip_model()->GetActiveWebContents()->Stop();
 }
 
-void NewWindow(Browser* browser) {
-  Profile* const profile = browser->profile();
+void NewWindow(BrowserWindowInterface* browser) {
+  Profile* const profile = browser->GetProfile();
 #if BUILDFLAG(IS_MAC)
   // Web apps should open a window to their launch page.
-  if (browser->app_controller()) {
-    const webapps::AppId app_id = browser->app_controller()->app_id();
+  if (web_app::AppBrowserController* const app_browser_controller =
+          browser->GetFeatures().app_browser_controller()) {
+    const webapps::AppId app_id = app_browser_controller->app_id();
 
     auto launch_container = apps::LaunchContainer::kLaunchContainerWindow;
 
@@ -1027,9 +1028,9 @@ void NewIncognitoWindow(Profile* profile) {
   NewEmptyWindow(profile->GetPrimaryOTRProfile(/*create_if_needed=*/true));
 }
 
-void CloseWindow(Browser* browser) {
+void CloseWindow(BrowserWindowInterface* browser) {
   base::RecordAction(UserMetricsAction("CloseWindow"));
-  browser->window()->Close();
+  browser->GetWindow()->Close();
 }
 
 content::WebContents& NewTab(Browser* browser) {
@@ -1289,28 +1290,7 @@ void MoveTabsToNewWindow(Browser* browser,
         Browser::Create(Browser::CreateParams(browser->profile(), true));
   }
 
-  int indices_size = tab_indices.size();
-  int active_index = browser->tab_strip_model()->active_index();
-  for (int i = 0; i < indices_size; i++) {
-    // Adjust tab index to account for tabs already moved.
-    int adjusted_index = tab_indices[i] - i;
-    bool pinned = browser->tab_strip_model()->IsTabPinned(adjusted_index);
-    std::unique_ptr<tabs::TabModel> tab_model =
-        browser->tab_strip_model()->DetachTabAtForInsertion(adjusted_index);
-
-    int add_types = pinned ? AddTabTypes::ADD_PINNED : 0;
-    // The last tab made active takes precedence, so activate the last active
-    // tab, with a fallback for the first tab (i == 0) if the active tab isn’t
-    // in the set of tabs being moved.
-    if (i == 0 || tab_indices[i] == active_index) {
-      add_types = add_types | AddTabTypes::ADD_ACTIVE;
-    }
-
-    new_browser->tab_strip_model()->AddTab(
-        std::move(tab_model), -1, ui::PAGE_TRANSITION_TYPED, add_types);
-  }
-
-  new_browser->window()->Show();
+  MoveTabsToExistingWindow(browser, new_browser, tab_indices);
 }
 
 bool CanCloseTabsToRight(const Browser* browser) {
@@ -1378,16 +1358,24 @@ void MoveTabsToExistingWindow(Browser* source,
   }
 
   int indices_size = tab_indices.size();
+  int active_index = source->tab_strip_model()->active_index();
   for (int i = 0; i < indices_size; i++) {
     // Adjust tab index to account for tabs already moved.
     int adjusted_index = tab_indices[i] - i;
     bool pinned = source->tab_strip_model()->IsTabPinned(adjusted_index);
     std::unique_ptr<tabs::TabModel> tab_model =
         source->tab_strip_model()->DetachTabAtForInsertion(adjusted_index);
-    int add_types =
-        AddTabTypes::ADD_ACTIVE | (pinned ? AddTabTypes::ADD_PINNED : 0);
-    target->tab_strip_model()->AddTab(std::move(tab_model), -1,
-                                      ui::PAGE_TRANSITION_TYPED, add_types);
+
+    int add_types = pinned ? AddTabTypes::ADD_PINNED : 0;
+    // The last tab made active takes precedence, so activate the last active
+    // tab, with a fallback for the first tab (i == 0) if the active tab isn’t
+    // in the set of tabs being moved.
+    if (i == 0 || tab_indices[i] == active_index) {
+      add_types = add_types | AddTabTypes::ADD_ACTIVE;
+    }
+
+    target->tab_strip_model()->AddTab(
+        std::move(tab_model), -1, ui::PAGE_TRANSITION_TYPED, add_types);
   }
   target->window()->Show();
 }
@@ -1425,8 +1413,9 @@ void GroupTab(Browser* browser) {
       TabStripModel::ContextMenuCommand::CommandToggleGrouped);
 }
 
-void NewSplitTab(Browser* browser, split_tabs::SplitTabCreatedSource source) {
-  TabStripModel* const tab_strip_model = browser->tab_strip_model();
+void NewSplitTab(BrowserWindowInterface* browser,
+                 split_tabs::SplitTabCreatedSource source) {
+  TabStripModel* const tab_strip_model = browser->GetTabStripModel();
   const int active_index = tab_strip_model->active_index();
   tab_strip_model->delegate()->AddTabAt(
       GURL(chrome::kChromeUISplitViewNewTabPageURL), active_index + 1, true,
@@ -1534,6 +1523,29 @@ void FocusPreviousTabGroup(Browser* browser) {
       return;
     }
   }
+}
+
+bool GroupAllUngroupedTabs(Browser* browser) {
+  TabStripModel* tab_strip_model = browser->tab_strip_model();
+  if (!tab_strip_model->SupportsTabGroups()) {
+    return false;
+  }
+
+  int i = 0;
+  std::vector<int> indices;
+  for (const tabs::TabInterface* t : *tab_strip_model) {
+    if (!t->GetGroup() && !t->IsPinned()) {
+      indices.push_back(i);
+    }
+    ++i;
+  }
+  if (indices.size() == 0) {
+    return false;
+  }
+
+  tab_groups::TabGroupId group = tab_strip_model->AddToNewGroup(indices);
+  tab_strip_model->OpenTabGroupEditor(group);
+  return true;
 }
 
 void MuteSite(Browser* browser) {
@@ -1915,7 +1927,10 @@ void ManagePasswordsForPage(BrowserWindowInterface* bwi) {
       FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
   WebContents* const web_contents =
       bwi->GetTabStripModel()->GetActiveWebContents();
-  ManagePasswordsUIController::FromWebContents(web_contents)->ShowBubble();
+  ManagePasswordsUIController* controller =
+      ManagePasswordsUIController::FromWebContents(web_contents);
+  controller->QueueOrShowBubble(
+      /*user_action=*/!controller->IsAutomaticallyOpeningBubble());
 }
 
 bool CanSendTabToSelf(BrowserWindowInterface* bwi) {
@@ -2122,7 +2137,7 @@ void ToggleVerticalTabs(Browser* browser) {
     return;
   }
 
-  bool initial_tab_orientation = controller->IsVerticalTabsEnabled();
+  bool initial_tab_orientation = controller->ShouldDisplayVerticalTabs();
 
   controller->SetVerticalTabsEnabled(!initial_tab_orientation);
 }
@@ -2355,7 +2370,8 @@ void SetAndroidOsForTabletSite(content::WebContents* current_tab) {
   }
 }
 
-void ToggleFullscreenMode(Browser* browser, bool user_initiated) {
+void ToggleFullscreenMode(BrowserWindowInterface* browser,
+                          bool user_initiated) {
   DCHECK(browser);
   browser->GetFeatures()
       .exclusive_access_manager()
@@ -2501,8 +2517,10 @@ std::optional<int> GetKeyboardFocusedTabIndex(const Browser* browser) {
 }
 #endif
 
-void ShowIncognitoClearBrowsingDataDialog(Browser* browser) {
-  browser->window()->ShowIncognitoClearBrowsingDataDialog();
+void ShowIncognitoClearBrowsingDataDialog(BrowserWindowInterface* bwi) {
+  bwi->GetBrowserForMigrationOnly()
+      ->window()
+      ->ShowIncognitoClearBrowsingDataDialog();
 }
 
 void ShowIncognitoHistoryDisclaimerDialog(Browser* browser) {

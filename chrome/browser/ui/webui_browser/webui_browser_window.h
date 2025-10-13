@@ -16,6 +16,11 @@
 #include "ui/color/color_provider_key.h"
 #include "ui/color/color_provider_source.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/widget/widget_observer.h"
+
+namespace ui {
+class TrackedElement;
+}  // namespace ui
 
 namespace views {
 class NativeWidget;
@@ -24,6 +29,8 @@ class Widget;
 }  // namespace views
 
 class Browser;
+class WebUIBrowserExtensionsContainer;
+class WebUIBrowserModalDialogHost;
 class WebUIBrowserSidePanelUI;
 class WebUIBrowserUI;
 class WebUIBrowserWebContentsDelegate;
@@ -35,9 +42,10 @@ class WebUIBrowserWindow : public BrowserWindow,
                            public ExclusiveAccessContext,
                            public ui::ColorProviderSource,
                            public ui::AcceleratorProvider,
-                           public ui::AcceleratorTarget {
+                           public ui::AcceleratorTarget,
+                           public views::WidgetObserver {
  public:
-  explicit WebUIBrowserWindow(std::unique_ptr<Browser> browser);
+  explicit WebUIBrowserWindow(Browser* browser);
   ~WebUIBrowserWindow() override;
 
   // Returns the containing browser window for a WebContents that hosts
@@ -70,6 +78,7 @@ class WebUIBrowserWindow : public BrowserWindow,
       BookmarkBar::AnimateChangeType change_type) override;
   void TemporarilyShowBookmarkBar(base::TimeDelta duration) override;
   void UpdateDevTools(content::WebContents* inspected_web_contents) override;
+  bool CanDockDevTools() const override;
   void UpdateLoadingAnimations(bool is_visible) override;
   void SetStarredState(bool is_starred) override;
   bool IsTabModalPopupDeprecated() const override;
@@ -140,7 +149,7 @@ class WebUIBrowserWindow : public BrowserWindow,
       bool show_signin_button) override;
 #if BUILDFLAG(IS_CHROMEOS)
   views::Button* GetSharingHubIconButton() override;
-  void ToggleMultitaskMenu() const override;
+  void ToggleMultitaskMenu() override;
 #else
   sharing_hub::SharingHubBubbleView* ShowSharingHubBubble(
       share::ShareAttempt attempt) override;
@@ -261,15 +270,25 @@ class WebUIBrowserWindow : public BrowserWindow,
   bool GetAcceleratorForCommandId(int command_id,
                                   ui::Accelerator* accelerator) const override;
 
-  void ShowSidePanel(SidePanelEntryKey side_panel_entry_key);
+  // views::WidgetObserver:
+  void OnWidgetBoundsChanged(views::Widget* widget,
+                             const gfx::Rect& new_bounds) override;
 
+  void ShowSidePanel(SidePanelEntryKey side_panel_entry_key);
+  void CloseSidePanel();
+
+  WebUIBrowserUI* GetWebUIBrowserUI() const;
   WebUIBrowserSidePanelUI* GetWebUIBrowserSidePanelUI();
 
   Browser* browser() { return browser_.get(); }
   views::Widget* widget() { return widget_.get(); }
 
+  gfx::Rect GetContentsBoundsInScreen() const;
+  ui::TrackedElement* GetExtensionsMenuButtonAnchor() const;
+
  protected:
-  void DestroyBrowser() override;
+  // BrowserWindow:
+  void DeleteBrowserWindow() final;
 
  private:
   class WidgetDelegate;
@@ -293,10 +312,13 @@ class WebUIBrowserWindow : public BrowserWindow,
   // Load accelerators into |accelerator_table_| and |accelerator_manager_|.
   void LoadAccelerators();
 
-  void OnWindowCloseRequested(views::Widget::ClosedReason close_reason);
-  WebUIBrowserUI* GetWebUIBrowserUI() const;
+  // Returns the appropriate ThemeInitializerSupplier based on the window type.
+  ui::ColorProviderKey::ThemeInitializerSupplier* GetThemeInitializerSupplier()
+      const;
 
-  std::unique_ptr<Browser> browser_;
+  void OnWindowCloseRequested(views::Widget::ClosedReason close_reason);
+
+  const raw_ptr<Browser> browser_;
   std::unique_ptr<WebUIBrowserWebContentsDelegate> web_contents_delegate_;
   std::unique_ptr<WidgetDelegate> widget_delegate_;
   std::unique_ptr<views::Widget> widget_;
@@ -307,6 +329,9 @@ class WebUIBrowserWindow : public BrowserWindow,
   // //chrome/app/chrome_command_ids.h.
   std::map<ui::Accelerator, int> accelerator_table_;
   ui::AcceleratorManager accelerator_manager_;
+
+  std::unique_ptr<WebUIBrowserModalDialogHost> modal_dialog_host_;
+  std::unique_ptr<WebUIBrowserExtensionsContainer> extensions_container_;
 };
 
 #endif  // CHROME_BROWSER_UI_WEBUI_BROWSER_WEBUI_BROWSER_WINDOW_H_

@@ -8,6 +8,7 @@
 #include "base/rand_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/actor/actor_logging.h"
+#include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "content/public/browser/render_frame_host_receiver_set.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -91,15 +92,17 @@ AggregatedJournal::PendingAsyncEntry::PendingAsyncEntry(
 
 AggregatedJournal::PendingAsyncEntry::~PendingAsyncEntry() {
   if (!terminated_) {
-    EndEntry("");
+    EndEntry({});
   }
 }
 
-void AggregatedJournal::PendingAsyncEntry::EndEntry(std::string_view details) {
+void AggregatedJournal::PendingAsyncEntry::EndEntry(
+    std::vector<mojom::JournalDetailsPtr> details) {
   CHECK(!terminated_);
   terminated_ = true;
   ACTOR_LOG() << "End " << event_name_ << ": " << details;
-  journal_->AddEndEvent(pass_key_, task_id_, track_, event_name_, details);
+  journal_->AddEndEvent(pass_key_, task_id_, track_, event_name_,
+                        std::move(details));
 }
 
 AggregatedJournal& AggregatedJournal::PendingAsyncEntry::GetJournal() {
@@ -115,18 +118,19 @@ base::SafeRef<AggregatedJournal> AggregatedJournal::GetSafeRef() {
 }
 
 std::unique_ptr<AggregatedJournal::PendingAsyncEntry>
-AggregatedJournal::CreatePendingAsyncEntry(const GURL& url,
-                                           TaskId task_id,
-                                           mojom::JournalTrack track,
-                                           std::string_view event_name,
-                                           std::string_view details) {
+AggregatedJournal::CreatePendingAsyncEntry(
+    const GURL& url,
+    TaskId task_id,
+    mojom::JournalTrack track,
+    std::string_view event_name,
+    std::vector<mojom::JournalDetailsPtr> details) {
   ACTOR_LOG() << "Begin " << event_name << ": " << details;
 
   AddEntry(std::make_unique<Entry>(
       url.possibly_invalid_spec(),
-      mojom::JournalEntry::New(
-          mojom::JournalEntryType::kBegin, task_id.GetUnsafeValue(), track,
-          base::Time::Now(), std::string(event_name), std::string(details))));
+      mojom::JournalEntry::New(mojom::JournalEntryType::kBegin, task_id, track,
+                               base::Time::Now(), std::string(event_name),
+                               std::move(details))));
   return base::WrapUnique(new PendingAsyncEntry(
       base::PassKey<AggregatedJournal>(), weak_ptr_factory_.GetSafeRef(),
       task_id, track, event_name));
@@ -136,13 +140,13 @@ void AggregatedJournal::Log(const GURL& url,
                             TaskId task_id,
                             mojom::JournalTrack track,
                             std::string_view event_name,
-                            std::string_view details) {
+                            std::vector<mojom::JournalDetailsPtr> details) {
   ACTOR_LOG() << event_name << ": " << details;
   AddEntry(std::make_unique<Entry>(
       url.possibly_invalid_spec(),
-      mojom::JournalEntry::New(
-          mojom::JournalEntryType::kInstant, task_id.GetUnsafeValue(), track,
-          base::Time::Now(), std::string(event_name), std::string(details))));
+      mojom::JournalEntry::New(mojom::JournalEntryType::kInstant, task_id,
+                               track, base::Time::Now(),
+                               std::string(event_name), std::move(details))));
 }
 
 void AggregatedJournal::EnsureJournalBound(content::RenderFrameHost& rfh) {
@@ -175,15 +179,16 @@ void AggregatedJournal::AppendJournalEntries(
   }
 }
 
-void AggregatedJournal::AddEndEvent(base::PassKey<AggregatedJournal> pass_key,
-                                    TaskId task_id,
-                                    mojom::JournalTrack track,
-                                    const std::string& event_name,
-                                    std::string_view details) {
+void AggregatedJournal::AddEndEvent(
+    base::PassKey<AggregatedJournal> pass_key,
+    TaskId task_id,
+    mojom::JournalTrack track,
+    const std::string& event_name,
+    std::vector<mojom::JournalDetailsPtr> details) {
   AddEntry(std::make_unique<Entry>(
-      std::string(), mojom::JournalEntry::New(
-                         mojom::JournalEntryType::kEnd, task_id.value(), track,
-                         base::Time::Now(), event_name, std::string(details))));
+      std::string(), mojom::JournalEntry::New(mojom::JournalEntryType::kEnd,
+                                              task_id, track, base::Time::Now(),
+                                              event_name, std::move(details))));
 }
 
 void AggregatedJournal::LogScreenshot(const GURL& url,
@@ -193,10 +198,10 @@ void AggregatedJournal::LogScreenshot(const GURL& url,
   CHECK_EQ(mime_type, "image/jpeg");
   auto entry = std::make_unique<Entry>(
       url.possibly_invalid_spec(),
-      mojom::JournalEntry::New(mojom::JournalEntryType::kInstant,
-                               task_id.value(), mojom::JournalTrack::kActor,
-                               base::Time::Now(), "Screenshot",
-                               /*details=*/std::string()));
+      mojom::JournalEntry::New(
+          mojom::JournalEntryType::kInstant, task_id,
+          mojom::JournalTrack::kActor, base::Time::Now(), "Screenshot",
+          /*details=*/std::vector<mojom::JournalDetailsPtr>()));
   entry->jpg_screenshot.emplace(data.begin(), data.end());
   AddEntry(std::move(entry));
 }
@@ -207,10 +212,10 @@ void AggregatedJournal::LogAnnotatedPageContent(
     base::span<const uint8_t> data) {
   auto entry = std::make_unique<Entry>(
       url.possibly_invalid_spec(),
-      mojom::JournalEntry::New(mojom::JournalEntryType::kInstant,
-                               task_id.value(), mojom::JournalTrack::kActor,
-                               base::Time::Now(), "PageContext",
-                               /*details=*/std::string()));
+      mojom::JournalEntry::New(
+          mojom::JournalEntryType::kInstant, task_id,
+          mojom::JournalTrack::kActor, base::Time::Now(), "PageContext",
+          /*details=*/std::vector<mojom::JournalDetailsPtr>()));
   entry->annotated_page_content.emplace(data.begin(), data.end());
   AddEntry(std::move(entry));
 }

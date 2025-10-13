@@ -376,6 +376,12 @@ bool ManifestParser::Parse() {
       UseCounter::Count(execution_context_, WebFeature::kWebAppTabbed);
     }
   }
+
+  if (base::FeatureList::IsEnabled(blink::features::kWebAppBorderless)) {
+    manifest_->borderless_url_patterns =
+        ParseUrlPatterns(root_object.get(), "borderless_url_patterns");
+  }
+
   manifest_->orientation = ParseOrientation(root_object.get());
   manifest_->icons = ParseIcons(root_object.get());
   if (!manifest_->icons.empty()) {
@@ -1784,11 +1790,7 @@ ManifestParser::ParseProtocolHandler(const JSONObject* object) {
 Vector<mojom::blink::ManifestScopeExtensionPtr>
 ManifestParser::ParseScopeExtensions(const JSONObject* from) {
   Vector<mojom::blink::ManifestScopeExtensionPtr> scope_extensions;
-  const bool feature_enabled =
-      base::FeatureList::IsEnabled(
-          blink::features::kWebAppEnableScopeExtensions) ||
-      RuntimeEnabledFeatures::WebAppScopeExtensionsEnabled(execution_context_);
-  if (!feature_enabled || !from->Get("scope_extensions")) {
+  if (!from->Get("scope_extensions")) {
     return scope_extensions;
   }
 
@@ -1839,10 +1841,6 @@ ManifestParser::ParseScopeExtensions(const JSONObject* from) {
 
 std::optional<mojom::blink::ManifestScopeExtensionPtr>
 ManifestParser::ParseScopeExtension(const JSONObject* object) {
-  DCHECK(
-      base::FeatureList::IsEnabled(
-          blink::features::kWebAppEnableScopeExtensions) ||
-      RuntimeEnabledFeatures::WebAppScopeExtensionsEnabled(execution_context_));
   if (!object->Get(kScopeExtensionsTypeKey) ||
       !object->Get(kScopeExtensionsOriginKey)) {
     AddErrorInfo(kScopeExtensionsMissingKeysErrorMessage);
@@ -1871,11 +1869,6 @@ ManifestParser::ParseScopeExtension(const JSONObject* object) {
 
 std::optional<mojom::blink::ManifestScopeExtensionPtr>
 ManifestParser::ParseScopeExtensionOrigin(const String& origin_string) {
-  DCHECK(
-      base::FeatureList::IsEnabled(
-          blink::features::kWebAppEnableScopeExtensions) ||
-      RuntimeEnabledFeatures::WebAppScopeExtensionsEnabled(execution_context_));
-
   // TODO(crbug.com/1250011): pre-process for input without scheme.
   // (eg. example.com instead of https://example.com) because we can always
   // assume the use of https for scope extensions. Remove this TODO if we decide

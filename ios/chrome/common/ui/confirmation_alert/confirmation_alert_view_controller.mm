@@ -21,9 +21,7 @@ namespace {
 
 const CGFloat kDefaultActionsBottomMargin = 10;
 const CGFloat kActionButtonImageInsets = 10;
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
 const CGFloat kButtonStackViewSpacing = 12;
-#endif
 // Gradient height.
 const CGFloat kGradientHeight = 40.;
 const CGFloat kScrollViewBottomInsets = 20;
@@ -388,7 +386,8 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
   }
 
   // Match the mask's size to the scroll view's size.
-  self.gradientMask.frame = self.scrollView.bounds;
+  self.gradientMask.frame = CGRectMake(0, 0, self.scrollView.bounds.size.width,
+                                       self.scrollView.bounds.size.height);
 
   // Determine the starting point of the gradient so that it has the desired
   // number of pixels of height at the bottom of the scroll view.
@@ -828,11 +827,9 @@ UIImage* DefaultCheckmarkCircleFillSymbol(CGFloat point_size) {
   actionStackView.axis = UILayoutConstraintAxisVertical;
   actionStackView.translatesAutoresizingMaskIntoConstraints = NO;
 
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
   if (@available(iOS 26, *)) {
     actionStackView.spacing = kButtonStackViewSpacing;
   }
-#endif
 
   if (self.primaryActionString) {
     _primaryButton = [self createPrimaryActionButton];

@@ -10,16 +10,21 @@ import static org.chromium.ui.accessibility.KeyboardFocusUtil.setFocus;
 import static org.chromium.ui.accessibility.KeyboardFocusUtil.setFocusOnFirstFocusableDescendant;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.res.ColorStateList;
 import android.util.Pair;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -27,7 +32,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.cc.input.OffsetTag;
 import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpener;
 import org.chromium.chrome.browser.bookmarks.BookmarkOpener;
 import org.chromium.chrome.browser.bookmarks.R;
@@ -44,11 +48,15 @@ import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.layouts.CompositorModelChangeProcessor;
 import org.chromium.chrome.browser.layouts.LayoutManager;
+import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
+import org.chromium.chrome.browser.lifecycle.TopResumedActivityChangedObserver;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.CurrentTabObserver;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
+import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.widget.ViewResourceFrameLayout;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -66,12 +74,16 @@ public class BookmarkBarCoordinator
                 BookmarkBarVisibilityObserver,
                 View.OnLayoutChangeListener,
                 BrowserControlsStateProvider.Observer,
-                FullscreenManager.Observer {
+                FullscreenManager.Observer,
+                TopResumedActivityChangedObserver {
 
+    private final Context mContext;
+    private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     private final SimpleRecyclerViewAdapter mItemsAdapter;
     private final BookmarkBarItemsLayoutManager mBookmarkBarItemsLayoutManager;
     private final BookmarkBarMediator mMediator;
     private final BookmarkBar mView;
+    private final FrameLayout mContentContainer;
     private final TopControlsStacker mTopControlsStacker;
     private final Callback<@Nullable Void> mHeightChangeCallback;
     private final Runnable mRequestUpdate;
@@ -84,19 +96,21 @@ public class BookmarkBarCoordinator
     private final CompositorModelChangeProcessor mChangeProcessor;
     private final FullscreenManager mFullscreenManager;
     private boolean mIsResourceRegistered;
-    private @Nullable OffsetTag mOffsetTag;
     private final CurrentTabObserver mCurrentTabObserver;
     private final TopUiThemeColorProvider mTopUiThemeColorProvider;
-
+    /** The PropertyModel for the main BookmarkBar view. */
+    private final PropertyModel mModel;
     // Tracks whether or not the bookmark bar should be shown at all. We keep this state in addition
     // to setting visibility directly on |mView| because we need to differentiate the Android
     // widgets from the bookmark bar in general.
     private boolean mShouldBookmarkBarBeShown;
+    private boolean mIsInFullscreenMode;
 
     /**
      * Constructs the bookmark bar coordinator.
      *
      * @param activity The activity which is hosting the bookmark bar.
+     * @param activityLifecycleDispatcher The activity lifecycle observer for window focus changes.
      * @param layoutManager LayoutManager to add SceneLayer to and bind model to.
      * @param requestUpdate Runnable to request an update for the layout manager and cc layers.
      * @param fullscreenManager FullScreenManager that can be observed for hiding scene layers.
@@ -114,6 +128,7 @@ public class BookmarkBarCoordinator
      */
     public BookmarkBarCoordinator(
             Activity activity,
+            ActivityLifecycleDispatcher activityLifecycleDispatcher,
             LayoutManager layoutManager,
             Runnable requestUpdate,
             FullscreenManager fullscreenManager,
@@ -128,13 +143,29 @@ public class BookmarkBarCoordinator
             TopControlsStacker topControlsStacker,
             ObservableSupplier<@Nullable Tab> currentTabSupplier,
             TopUiThemeColorProvider topUiThemeColorProvider) {
+        mContext = activity;
         mRequestUpdate = requestUpdate;
         mResourceManager = resourceManager;
         mFullscreenManager = fullscreenManager;
         mFullscreenManager.addObserver(this);
+        mActivityLifecycleDispatcher = activityLifecycleDispatcher;
+        mActivityLifecycleDispatcher.register(this);
 
+        // The Bookmark Bar may first be turned on in fullscreen mode, in which case we want its
+        // initial state to be hidden, which is tracked by this member variable.
+        if (currentTabSupplier.get() != null && currentTabSupplier.get().getWebContents() != null) {
+            mIsInFullscreenMode =
+                    currentTabSupplier.get().getWebContents().isFullscreenForCurrentTab();
+        }
+
+        // Inflate the Bookmark Bar. The bar is a ViewStub which contains a container to hold all
+        // the content of the Bookmark Bar, and a hairline footer.
         mView = (BookmarkBar) viewStub.inflate();
-        mViewResourceFrameLayout = mView.findViewById(R.id.bookmark_bar_view_resource_frame_layout);
+        mContentContainer = mView.findViewById(R.id.bookmark_bar_content_container);
+
+        // The content container contains the tightly-wrapper ViewResourceFrameLayout for snapshots.
+        mViewResourceFrameLayout =
+                mContentContainer.findViewById(R.id.bookmark_bar_view_resource_frame_layout);
         mViewResourceAdapter = mViewResourceFrameLayout.getResourceAdapter();
         registerResource();
 
@@ -142,7 +173,7 @@ public class BookmarkBarCoordinator
         mBookmarkBarSceneLayer.setVisibility(true);
 
         mHeightChangeCallback = heightChangeCallback;
-        mView.addOnLayoutChangeListener(this);
+        mContentContainer.addOnLayoutChangeListener(this);
         mShouldBookmarkBarBeShown = true;
 
         mBrowserControlsStateProvider = browserControlsStateProvider;
@@ -203,6 +234,7 @@ public class BookmarkBarCoordinator
 
         // Bind view/model for bookmark bar and instantiate mediator.
         final var model = new PropertyModel.Builder(BookmarkBarProperties.ALL_KEYS).build();
+        mModel = model;
         mMediator =
                 new BookmarkBarMediator(
                         activity,
@@ -210,7 +242,7 @@ public class BookmarkBarCoordinator
                         controlsHeightSupplier,
                         itemsModel,
                         mBookmarkBarItemsLayoutManager,
-                        model,
+                        mModel,
                         profileSupplier,
                         currentTab,
                         bookmarkOpener,
@@ -226,8 +258,11 @@ public class BookmarkBarCoordinator
                                 BookmarkBarSceneLayerProperties.RESOURCE_ID,
                                 mViewResourceFrameLayout.getId())
                         .with(BookmarkBarSceneLayerProperties.VISIBILITY, true)
+                        .with(
+                                BookmarkBarSceneLayerProperties.HAIRLINE_HEIGHT,
+                                mContext.getResources()
+                                        .getDimensionPixelSize(R.dimen.toolbar_hairline_height))
                         .build();
-        updateOffsetTag();
 
         // Create a CurrentTabObserver to update the background color as it changes.
         Callback<@Nullable Tab> visibleTabObserver =
@@ -262,6 +297,10 @@ public class BookmarkBarCoordinator
 
         mTopControlsStacker = topControlsStacker;
         mTopControlsStacker.addControl(this);
+
+        if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()) {
+            updateOffsetTag();
+        }
     }
 
     /** Destroys the bookmark bar coordinator. */
@@ -271,9 +310,10 @@ public class BookmarkBarCoordinator
         mMediator.destroy();
         mChangeProcessor.destroy();
         mCurrentTabObserver.destroy();
-        mView.removeOnLayoutChangeListener(this);
+        mContentContainer.removeOnLayoutChangeListener(this);
         mBrowserControlsStateProvider.removeObserver(this);
         mFullscreenManager.removeObserver(this);
+        mActivityLifecycleDispatcher.unregister(this);
         if (mIsResourceRegistered) unregisterResource();
         mBookmarkBarSceneLayer.setVisibility(false);
     }
@@ -330,8 +370,19 @@ public class BookmarkBarCoordinator
      */
     public void setVisibility(boolean isVisible) {
         mShouldBookmarkBarBeShown = isVisible;
-        mMediator.setVisibility(isVisible);
-        mBookmarkBarSceneLayer.setVisibility(isVisible);
+
+        // We only set the visibility to true when the bookmark bar should be visible to the user,
+        // and when the top controls have not been scrolled offscreen, otherwise the user will see
+        // the bookmark bar if they enabled it while scrolled offscreen or in fullscreen mode.
+        mMediator.setVisibility(
+                mShouldBookmarkBarBeShown
+                        && !mIsInFullscreenMode
+                        && mBrowserControlsStateProvider.getTopControlOffset() == 0);
+        mBookmarkBarSceneLayer.setVisibility(
+                mShouldBookmarkBarBeShown
+                        && !mIsInFullscreenMode
+                        && mBrowserControlsStateProvider.getTopControlOffset() == 0);
+
         if (!isVisible) {
             unregisterResource();
         } else {
@@ -372,11 +423,13 @@ public class BookmarkBarCoordinator
 
     @Override
     public int getTopControlVisibility() {
-        // This could always return TopControlVisibility.VISIBLE assuming that on all visibility
-        // changes {@link TabbedRootUiCoordinator#destroyBookmarkBarIfNecessary} is called,
-        // but for correctness we will check view visibility just in case.
+        // We always want the bookmark bar to contribute to total height if it exists, otherwise
+        // we can end up in a state where we have not taken it into account (e.g. the bookmark bar
+        // is toggled on while top controls are scrolled off screen, so the view is still not
+        // visible, but we need an updated top controls height for when the top controls are
+        // scrolled back on screen).
         // TODO(crbug.com/417238089): Possibly add way to notify stacker of visibility changes.
-        return mView != null && mView.getVisibility() == VISIBLE
+        return mShouldBookmarkBarBeShown
                 ? TopControlVisibility.VISIBLE
                 : TopControlVisibility.HIDDEN;
     }
@@ -398,6 +451,7 @@ public class BookmarkBarCoordinator
     @Override
     public void onMaxWidthChanged(int maxWidth) {
         mBookmarkBarItemsLayoutManager.setItemMaxWidth(maxWidth);
+        mMediator.dismissPopupMenu();
     }
 
     // View.OnLayoutChangeListener implementation:
@@ -451,11 +505,15 @@ public class BookmarkBarCoordinator
             boolean isVisibilityForced) {
         // When the top controls offset has changed to a non-zero value, it means that the top
         // controls are scrolling offscreen (or still coming back onscreen). When in this state,
-        // we want to hide the Android widgets (which are controlled by the Mediator). We do not
-        // also set the sceneLayer visibility here because we want that to be what is shown.
+        // we want to hide the Android widgets (which are controlled by the Mediator). We can always
+        // make the SceneLayer visible, except when in full screen, which will account for cases
+        // when the bookmark bar is enabled while top controls are offscreen. A change in either the
+        // top or bottom controls heights may require resizing the anchored pop-up view if it is
+        // visible, so we provide those updated values as well.
         mMediator.setVisibility(
                 mShouldBookmarkBarBeShown
                         && mBrowserControlsStateProvider.getTopControlOffset() == 0);
+        mBookmarkBarSceneLayer.setVisibility(mShouldBookmarkBarBeShown && !mIsInFullscreenMode);
         mMediator.onBrowserControlsChanged(
                 mBrowserControlsStateProvider.getTopControlsHeight(),
                 mBrowserControlsStateProvider.getBottomControlsHeight());
@@ -474,13 +532,12 @@ public class BookmarkBarCoordinator
     }
 
     @Override
-    public void onControlsConstraintsChanged(
+    public void onOffsetTagsInfoChanged(
             BrowserControlsOffsetTagsInfo oldOffsetTagsInfo,
             BrowserControlsOffsetTagsInfo offsetTagsInfo,
             int constraints,
             boolean shouldUpdateOffsets) {
         if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()) {
-            mOffsetTag = offsetTagsInfo.getTopControlsOffsetTag();
             updateOffsetTag();
         }
     }
@@ -498,6 +555,7 @@ public class BookmarkBarCoordinator
     @Override
     public void onEnterFullscreen(Tab tab, FullscreenOptions options) {
         // When fullscreen mode is entered, we need to hide the scene layer.
+        mIsInFullscreenMode = true;
         mBookmarkBarSceneLayer.setVisibility(false);
     }
 
@@ -506,7 +564,18 @@ public class BookmarkBarCoordinator
         // When fullscreen mode is exited, we need to make the scene layer visible again, if needed.
         // It is possible that the bookmarks bar was turned off while in fullscreen mode, so we
         // don't force this to true, but use the current state instead.
+        mIsInFullscreenMode = false;
         mBookmarkBarSceneLayer.setVisibility(mShouldBookmarkBarBeShown);
+    }
+
+    // TopResumedActivityChangedObserver implementation:
+
+    @Override
+    public void onTopResumedActivityChanged(boolean isTopResumedActivity) {
+        // Whenever the top resumed activity is lost, we want to dismiss the anchored pop up.
+        if (!isTopResumedActivity) {
+            mMediator.dismissPopupMenu();
+        }
     }
 
     // Private methods:
@@ -528,23 +597,54 @@ public class BookmarkBarCoordinator
     private void updateOffsetTag() {
         // The Bookmarks Bar will only be present when the control container is at the top.
         if (mBrowserControlsStateProvider.getControlsPosition() == ControlsPosition.TOP) {
-            mBookmarkBarSceneLayerModel.set(BookmarkBarSceneLayerProperties.OFFSET_TAG, mOffsetTag);
+            mBookmarkBarSceneLayerModel.set(
+                    BookmarkBarSceneLayerProperties.OFFSET_TAG,
+                    mTopControlsStacker.getTopControlsOffsetTag());
         } else {
             mBookmarkBarSceneLayerModel.set(BookmarkBarSceneLayerProperties.OFFSET_TAG, null);
         }
     }
 
-    private void updateBackgroundColor(Tab tab) {
+    @VisibleForTesting
+    void updateBackgroundColor(Tab tab) {
         // We set both the Android widget background and the scene layer background. The scene
         // layer background will update the container layer holding the snapshot (which overlaps the
         // padding of the Android widgets). The snapshot includes the background of the Android
         // widgets, but if not set, the background will be transparent. With a transparent
         // background, the layer will show whatever is remaining in the buffer from the previous
-        // snapshot, so we also set the Android widget background.
+        // snapshot, so we also set the Android widget background. Using the background color, we
+        // can use the ThemeUtils to get the hairline background color as well.
         @ColorInt int color = mTopUiThemeColorProvider.getSceneLayerBackground(tab);
         mView.setBackgroundColor(color);
         mViewResourceFrameLayout.setBackgroundColor(color);
         mBookmarkBarSceneLayerModel.set(BookmarkBarSceneLayerProperties.BACKGROUND_COLOR, color);
+
+        boolean isIncognito = tab.isIncognito();
+
+        @ColorInt
+        int hairlineColor =
+                isIncognito
+                        ? ContextCompat.getColor(mContext, R.color.divider_line_bg_color_light)
+                        : ThemeUtils.getToolbarHairlineColor(mContext, color, false);
+
+        mBookmarkBarSceneLayerModel.set(
+                BookmarkBarSceneLayerProperties.HAIRLINE_BACKGROUND_COLOR, hairlineColor);
+
+        // Match the hairline color with the divider color.
+        mModel.set(BookmarkBarProperties.DIVIDER_COLOR, hairlineColor);
+        mModel.set(BookmarkBarProperties.HAIRLINE_COLOR, hairlineColor);
+
+        @BrandedColorScheme
+        int brandedColorScheme = ThemeUtils.getBrandedColorScheme(mContext, color, isIncognito);
+
+        // Notify the Mediator to update all its models (text and folder icons).
+        mMediator.onThemeChanged(isIncognito, brandedColorScheme);
+
+        // Update the overflow button.
+        final ColorStateList iconTint =
+                ThemeUtils.getThemedToolbarIconTintForActivityState(
+                        mContext, brandedColorScheme, /* isActivityFocused= */ true);
+        mModel.set(BookmarkBarProperties.OVERFLOW_BUTTON_TINT_LIST, iconTint);
         handleBookmarkBarChange();
     }
 
@@ -560,7 +660,7 @@ public class BookmarkBarCoordinator
     private static class BookmarkButtonItemAnimator extends DefaultItemAnimator {
         private final Runnable mPostAnimationRunnable;
 
-        public BookmarkButtonItemAnimator(Runnable mPostAnimationRunnable) {
+        BookmarkButtonItemAnimator(Runnable mPostAnimationRunnable) {
             this.mPostAnimationRunnable = mPostAnimationRunnable;
         }
 
@@ -569,5 +669,10 @@ public class BookmarkBarCoordinator
             super.onAnimationFinished(viewHolder);
             mPostAnimationRunnable.run();
         }
+    }
+
+    @VisibleForTesting
+    PropertyModel getModelForTesting() {
+        return mModel;
     }
 }

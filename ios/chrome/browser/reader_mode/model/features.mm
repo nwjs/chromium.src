@@ -33,21 +33,21 @@ const char kReaderModeDefaultBrowserNumDaysCriteriaStringName[] =
 
 }  // namespace
 
-BASE_FEATURE(EnableReaderMode, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableReaderMode, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableReaderModeOmniboxEntryPoint,
+BASE_FEATURE(kEnableReaderModeOmniboxEntryPoint,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableReaderModeTranslation, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableReaderModeTranslation, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableReadabilityHeuristic, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableReadabilityHeuristic, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableReaderModePageEligibilityForToolsMenu,
+BASE_FEATURE(kEnableReaderModePageEligibilityForToolsMenu,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableReaderModeDebugInfo, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableReaderModeDebugInfo, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableReaderModeDefaultBrowserPromo,
+BASE_FEATURE(kEnableReaderModeDefaultBrowserPromo,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kReaderModeHeuristicPageLoadDelayDurationStringName[] =

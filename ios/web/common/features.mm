@@ -10,39 +10,39 @@
 namespace web {
 namespace features {
 
-BASE_FEATURE(CrashOnUnexpectedURLChange, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kCrashOnUnexpectedURLChange, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBlockUniversalLinksInOffTheRecordMode,
              "BlockUniversalLinksInOffTheRecord",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(KeepsRenderProcessAlive, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kKeepsRenderProcessAlive, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(ClearOldNavigationRecordsWorkaround,
+BASE_FEATURE(kClearOldNavigationRecordsWorkaround,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnablePersistentDownloads, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnablePersistentDownloads, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(SetRequestAttribution, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSetRequestAttribution, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(IOSSharedHighlightingColorChange,
+BASE_FEATURE(kIOSSharedHighlightingColorChange,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableMeasurements,
              "EnableMeasurementsExperience",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(ScrollViewProxyScrollEnabledWorkaround,
+BASE_FEATURE(kScrollViewProxyScrollEnabledWorkaround,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(PreventNavigationWithoutUserInteraction,
+BASE_FEATURE(kPreventNavigationWithoutUserInteraction,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAllowCrossWindowExternalAppNavigation,
              "kAllowCrossWindowExternalAppNavigation",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableWebInspector, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableWebInspector, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSmoothScrollingDefault,
              "FullscreenSmoothScrollingDefault",
@@ -53,7 +53,7 @@ BASE_FEATURE(kSmoothScrollingDefault,
 #endif
 );
 
-BASE_FEATURE(FullscreenScrollThreshold, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFullscreenScrollThreshold, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kFullscreenScrollThresholdAmount[] =
     "fullscreen_scroll_threshold_amount";
@@ -64,9 +64,10 @@ bool IsFullscreenScrollThresholdEnabled() {
 }
 
 // This feature will always be disabled and will only be enabled by tests.
-BASE_FEATURE(ForceSynthesizedRestoreSession, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kForceSynthesizedRestoreSession,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(DetectDestroyedNavigationContexts,
+BASE_FEATURE(kDetectDestroyedNavigationContexts,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsWebInspectorSupportEnabled() {
@@ -76,21 +77,21 @@ bool IsWebInspectorSupportEnabled() {
   return false;
 }
 
-BASE_FEATURE(DisableRaccoon, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDisableRaccoon, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(UserAgentBugFixVersion, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kUserAgentBugFixVersion, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(LogJavaScriptErrors, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLogJavaScriptErrors, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(WebKitHandlesMarketplaceKitLinks,
+BASE_FEATURE(kWebKitHandlesMarketplaceKitLinks,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(RestoreWKWebViewEditMenuHandler,
+BASE_FEATURE(kRestoreWKWebViewEditMenuHandler,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(LogCrWebJavaScriptErrors, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLogCrWebJavaScriptErrors, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(AssertOnJavaScriptErrors, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAssertOnJavaScriptErrors, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features
 }  // namespace web

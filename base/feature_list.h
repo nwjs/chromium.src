@@ -71,11 +71,11 @@ enum FeatureState {
 //
 // This macro can be used in two ways:
 //
-// 1. With two arguments, to define a feature whose C++ identifier is derived
-//    from its name. This form is preferred, as it avoids repeating the feature
+// 1. With two arguments, to define a feature whose name is derived from the C++
+//    identifier. This form is preferred, as it avoids repeating the feature
 //    name and helps prevent typos.
 //
-//      BASE_FEATURE(MyFeature, base::FEATURE_DISABLED_BY_DEFAULT);
+//      BASE_FEATURE(kMyFeature, base::FEATURE_DISABLED_BY_DEFAULT);
 //
 //    This is equivalent to:
 //
@@ -96,27 +96,15 @@ enum FeatureState {
   constinit const base::Feature feature(                           \
       name, default_state, base::internal::FeatureMacroHandshake::kSecret)
 
-#define BASE_FEATURE_INTERNAL_2_ARGS(name, default_state) \
-  BASE_FEATURE_INTERNAL_3_ARGS(k##name, #name, default_state)
-
-// DO NOT USE. This is a temporary macro to test code search.
-//
-// TODO(crbug.com/436274260): Rename BASE_FEATURE_2 back to BASE_FEATURE
-// conditionally as part of the migration.
-//
-// Same as BASE_FEATURE_INTERNAL_2_ARGS, but allows
-//    BASE_FEATURE_2(kMyFeature, base::FEATURE_ENABLED_BY_DEFAULT);
-// instead of
-//    BASE_FEATURE(MyFeature, base::FEATURE_ENABLED_BY_DEFAULT);
-// to solve the code search issue.
-#define BASE_FEATURE_2(feature, default_state)                              \
+// TODO(crbug.com/436274260): Use constexpr lambda to avoid the namespace hack
+// after C++23 is supported. See https://godbolt.org/z/W3sdhresP for the syntax.
+#define BASE_FEATURE_INTERNAL_2_ARGS(feature, default_state)                \
+  namespace base_feature_internal_##feature {                               \
+    static_assert(#feature[0] == 'k');                                      \
+    static constexpr base::internal::StringStorage feature##Name(#feature); \
+  }                                                                         \
   constinit const base::Feature feature(                                    \
-      ([] {                                                                 \
-        constexpr std::string_view feature_sv = #feature;                   \
-        static_assert(base::internal::IsValidFeatureIdentifier(feature_sv), \
-                      "Feature identifier must start with 'k'.");           \
-        return base::internal::GetFeatureNameFromIdentifier(feature_sv);    \
-      }()),                                                                 \
+      base_feature_internal_##feature::feature##Name.storage.data(),        \
       default_state, base::internal::FeatureMacroHandshake::kSecret)
 
 #define GET_BASE_FEATURE_MACRO(_1, _2, _3, NAME, ...) NAME
@@ -199,18 +187,25 @@ namespace internal {
 // go through the helper `BASE_FEATURE()` macro above.
 enum class FeatureMacroHandshake { kSecret };
 
-// Returns whether `feature` is a valid feature identifier, e.g. must
-// start with 'k' and cannot be too short. This is important for
-// deriving feature name string from the identifier.
-constexpr bool IsValidFeatureIdentifier(std::string_view feature) {
-  return feature.length() > 2 && feature[0] == 'k';
-}
+// Storage class for feature name. This is needed so we store the feature name
+// "MyFeature" instead of the feature identifier name "kMyFeature" in .rodata.
+template <size_t N>
+struct StringStorage {
+  explicit constexpr StringStorage(base::span<const char, N + 1> feature) {
+    static_assert(N > 2, "Feature name cannot be too short.");
+    for (size_t i = 0; i < N; ++i) {
+      storage[i] = feature[i + 1];
+    }
+  }
 
-// Returns the feature name from the given C++ identifier, e.g.
-//   "kMyFeature" -> "MyFeature".
-constexpr const char* GetFeatureNameFromIdentifier(std::string_view feature) {
-  return feature.substr(1).data();
-}
+  std::array<char, N> storage;
+};
+
+// Deduce how much storage is needed for a given string literal. `feature`
+// includes space for a NUL terminator; `StringStorage` also needs storage
+// for the NUL terminator but drops the first character.
+template <size_t N>
+StringStorage(const char (&feature)[N]) -> StringStorage<N - 1>;
 
 }  // namespace internal
 

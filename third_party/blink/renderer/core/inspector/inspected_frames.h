@@ -27,7 +27,6 @@ class CORE_EXPORT InspectedFrames final
     Iterator operator++(int);
     Iterator& operator++();
     bool operator==(const Iterator& other) const;
-    bool operator!=(const Iterator& other) const;
     LocalFrame* operator*() { return current_; }
     LocalFrame* operator->() { return current_; }
 

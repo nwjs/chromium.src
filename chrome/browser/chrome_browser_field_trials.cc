@@ -21,6 +21,7 @@
 #include "chrome/browser/metrics/chrome_metrics_service_client.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
+#include "components/feed/feed_feature_list.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics/persistent_histograms.h"
 #include "components/variations/feature_overrides.h"
@@ -120,17 +121,15 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
     feature_overrides.DisableFeature(features::kEyeDropper);
   }
 #elif BUILDFLAG(IS_ANDROID)  // BUILDFLAG(IS_LINUX)
+  // Update child process binding state before unbinding.
+  // TODO(crbug.com/427087091): Remove when webview rollout is complete.
+  feature_overrides.EnableFeature(base::features::kUpdateStateBeforeUnbinding);
 #if BUILDFLAG(IS_DESKTOP_ANDROID)
   // Nota bene: Anything here is expected to be short-lived, unless deemed too
   // risky to launch to non-desktop platforms. New features being added here
   // should be the exception, and not the norm. Instead, you should place the
   // override in the generic IS_ANDROID block below, guarded by an appropriate
   // runtime check.
-
-  // Enables the Bookmark Bar and related toggle in settings.
-  // TODO(crbug.com/411262183): Remove after Bookmarks Bar rollout is complete.
-  feature_overrides.EnableFeature(chrome::android::kAndroidAppearanceSettings);
-  feature_overrides.EnableFeature(chrome::android::kAndroidBookmarkBar);
 
   // If enabled, then use desktop page webprefs for Android devices that have
   // large displays, specifically tablets and desktops.
@@ -182,6 +181,8 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // implemented.
   feature_overrides.EnableFeature(
       chrome::android::kLockTopControlsOnLargeTablets);
+  feature_overrides.EnableFeature(
+      chrome::android::kLockTopControlsOnLargeTabletsV2);
   // Bypass the WebAudio output buffer, to reduce audio latency.
   // TODO(crbug.com/436988695): Remove when the long term solution is
   // implemented.
@@ -191,8 +192,7 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   feature_overrides.EnableFeature(
       features::kAlwaysUseAudioManagerOutputFramesPerBuffer);
   // TODO(crbug.com/440210010): Remove when the feature experiment is done.
-  feature_overrides.EnableFeature(
-      features::kAudioStereoInputStreamParameters);
+  feature_overrides.EnableFeature(features::kAudioStereoInputStreamParameters);
   // Enables picture-in-picture in the right-click context menu.
   // TODO(crbug.com/403851785): Remove when the feature is verified to be stable
   // on desktop Android.
@@ -209,6 +209,19 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // factors.
   feature_overrides.EnableFeature(
       autofill::features::kAutofillAndroidDesktopKeyboardAccessoryRevamp);
+  // TODO(crbug.com/444486763): Remove when rollout is complete to all form
+  // factors.
+  feature_overrides.EnableFeature(chrome::android::kAndroidTabHighlighting);
+  // TODO(b/441672693): Remove when the feature is stable on other form factors.
+  feature_overrides.EnableFeature(features::kAndroidAudioDeviceListener);
+  // Enable by default for desktop platforms, pending a tablet rollout using the
+  // same flag.
+  // TODO(crbug.com/445475304): Remove when tablet rollout is complete.
+  feature_overrides.EnableFeature(feed::kAndroidOpenIncognitoAsWindow);
+  feature_overrides.EnableFeature(chrome::android::kTabStripIncognitoMigration);
+  // TODO(crbug.com/427242080): Remove when tablet rollout is complete.
+  feature_overrides.EnableFeature(
+      chrome::android::kAndroidPinnedTabsTabletTabStrip);
 #endif  // BUILDFLAG(IS_DESKTOP_ANDROID)
   // Desktop-first features which are past incubation should either end up here,
   // or to a finch trial that enables it for all form factors.

@@ -4,8 +4,6 @@
 
 #import "ios/chrome/browser/settings/ui_bundled/settings_navigation_controller.h"
 
-#import <MaterialComponents/MaterialSnackbar.h>
-
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
 #import "base/ios/ios_util.h"
@@ -60,7 +58,6 @@
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/quick_delete_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
-#import "ios/chrome/browser/shared/ui/symbols/chrome_icon.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/sync/model/enterprise_utils.h"
@@ -644,7 +641,8 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
                                       (id<SettingsNavigationControllerDelegate>)
                                           delegate {
   CHECK(browser);
-  CHECK(!browser->GetProfile()->IsOffTheRecord());
+  CHECK_EQ(browser->type(), Browser::Type::kRegular);
+  CHECK_EQ(browser->type(), Browser::Type::kRegular, base::NotFatalUntil::M146);
   self = [super initWithRootViewController:rootViewController];
   if (self) {
     _browser = browser;
@@ -1396,7 +1394,13 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
     (ManageAccountsCoordinator*)coordinator {
   CHECK_EQ(coordinator, self.manageAccountsCoordinator,
            base::NotFatalUntil::M144);
+  // If this navigation controller was opened directly with the account manager,
+  // the navigation controller should be closed.
+  BOOL stopNavigationController = [self viewControllers].count == 1;
   [self stopManageAccountsCoordinator];
+  if (stopNavigationController) {
+    [self.settingsNavigationDelegate closeSettings];
+  }
 }
 
 #pragma mark - BWGSettingsCoordinatorDelegate

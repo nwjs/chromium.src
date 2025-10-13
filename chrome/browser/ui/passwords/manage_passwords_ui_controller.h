@@ -133,9 +133,6 @@ class ManagePasswordsUIController
   void OnPasskeyNotAccepted(std::string passkey_rp_id) override;
   void OnPasskeyUpgrade(std::string passkey_rp_id) override;
 
-  virtual void NotifyUnsyncedCredentialsWillBeDeleted(
-      std::vector<password_manager::PasswordForm> unsynced_credentials);
-
   // PasswordStoreInterface::Observer:
   void OnLoginsChanged(
       password_manager::PasswordStoreInterface* store,
@@ -157,6 +154,12 @@ class ManagePasswordsUIController
     return bubble_status_ == BubbleStatus::SHOULD_POP_UP;
   }
 
+  // Calls the bubble manager to show the bubble if bubble manager is enabled.
+  // Otherwise just shows the bubble.
+  // `user_action` indicates whether the bubble is opened via user action or
+  // automatically.
+  void QueueOrShowBubble(bool user_action);
+
   // virtual to be overridden in tests.
   virtual base::WeakPtr<PasswordsModelDelegate> GetModelDelegateProxy();
 
@@ -169,8 +172,6 @@ class ManagePasswordsUIController
       override;
   password_manager::ui::State GetState() const override;
   const password_manager::PasswordForm& GetPendingPassword() const override;
-  const std::vector<password_manager::PasswordForm>& GetUnsyncedCredentials()
-      const override;
   password_manager::metrics_util::CredentialSourceType GetCredentialSource()
       const override;
   const std::vector<std::unique_ptr<password_manager::PasswordForm>>&
@@ -194,10 +195,6 @@ class ManagePasswordsUIController
   void OnPasswordsRevealed() override;
   void SavePassword(const std::u16string& username,
                     const std::u16string& password) override;
-  void SaveUnsyncedCredentialsInProfileStore(
-      const std::vector<password_manager::PasswordForm>& selected_credentials)
-      override;
-  void DiscardUnsyncedCredentials() override;
   void MovePasswordToAccountStore() override;
   void MovePendingPasswordToAccountStoreUsingHelper(
       const password_manager::PasswordForm& form,
@@ -419,6 +416,10 @@ class ManagePasswordsUIController
 
   // Whether the mouse is currently hovering over the bubble.
   bool is_mouse_hovered_ = false;
+
+  // Bool to indicate that the bubble is shown by the user gesture. This value
+  // is cached when the bubble is requested to be shown.
+  bool user_action_ = false;
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   bool was_biometric_authentication_for_filling_promo_shown_ = false;

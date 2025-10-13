@@ -24,6 +24,12 @@ namespace tabs_api {
 class NodeId;
 class Position;
 
+namespace observation {
+
+class TabStripApiBatchedObserver;
+
+}  // namespace observation
+
 class TabStripService {
  public:
   virtual ~TabStripService() = default;
@@ -43,7 +49,7 @@ class TabStripService {
   virtual mojom::TabStripService::SetSelectedTabsResult SetSelectedTabs(
       const std::vector<tabs_api::NodeId>& selection,
       const tabs_api::NodeId& tab_to_activate) = 0;
-  virtual mojom::TabStripService::MoveTabResult MoveTab(
+  virtual mojom::TabStripService::MoveNodeResult MoveNode(
       const tabs_api::NodeId& id,
       const tabs_api::Position& position) = 0;
 
@@ -56,10 +62,10 @@ class TabStripService {
   UpdateTabGroupVisual(const tabs_api::NodeId& id,
                        const tab_groups::TabGroupVisualData& visual_data) = 0;
 
-  // TODO(crbug.com/439691937): we should have some sort of observation
-  // handling which supports filtering and lifecycle.
-  virtual void AddObserver(TabStripModelObserver* observer) = 0;
-  virtual void RemoveObserver(TabStripModelObserver* observer) = 0;
+  virtual void AddObserver(
+      observation::TabStripApiBatchedObserver* observer) = 0;
+  virtual void RemoveObserver(
+      observation::TabStripApiBatchedObserver* observer) = 0;
 };
 
 }  // namespace tabs_api

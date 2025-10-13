@@ -15,6 +15,7 @@
 #include "third_party/jni_zero/jni_zero.h"
 
 class Profile;
+class GURL;
 
 class ComposeboxQueryControllerBridge
     : public ComposeboxQueryController::FileUploadStatusObserver {
@@ -24,10 +25,13 @@ class ComposeboxQueryControllerBridge
   void Destroy(JNIEnv* env);
   void NotifySessionStarted(JNIEnv* env);
   void NotifySessionAbandoned(JNIEnv* env);
-  void AddFile(JNIEnv* env,
-               std::string& file_name,
-               std::string& file_type,
-               const jni_zero::JavaParamRef<jobject>& file_data);
+  base::android::ScopedJavaLocalRef<jobject> AddFile(
+      JNIEnv* env,
+      std::string& file_name,
+      std::string& file_type,
+      const jni_zero::JavaParamRef<jobject>& file_data);
+  GURL GetAimUrl(JNIEnv* env, std::string& query_text);
+  void RemoveAttachment(JNIEnv* env, const std::string& token);
 
   // ComposeboxQueryController::FileUploadStatusObserver:
   void OnFileUploadStatusChanged(

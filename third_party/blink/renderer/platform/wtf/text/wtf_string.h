@@ -593,16 +593,6 @@ inline bool operator==(const char* a, const String& b) {
   return b == a;
 }
 
-inline bool operator!=(const String& a, const String& b) {
-  return !(a == b);
-}
-inline bool operator!=(const String& a, const char* b) {
-  return !(a == b);
-}
-inline bool operator!=(const char* a, const String& b) {
-  return !(a == b);
-}
-
 inline bool EqualIgnoringNullity(const String& a, const String& b) {
   return EqualIgnoringNullity(a.Impl(), b.Impl());
 }
@@ -717,19 +707,6 @@ template <>
 struct HashTraits<String>;
 
 }  // namespace blink
-
-namespace WTF {
-
-// TODO(crbug.com/422768753): Remove these`using` directives.
-using blink::CodeUnitCompare;
-using blink::CodeUnitCompareIgnoringASCIICase;
-using blink::CodeUnitCompareLessThan;
-using blink::EqualIgnoringNullity;
-using blink::g_empty_string;
-using blink::g_xmlns_with_colon;
-using blink::NewlineThenWhitespaceStringsTable;
-using blink::String;
-}  // namespace WTF
 
 WTF_ALLOW_MOVE_AND_INIT_WITH_MEM_FUNCTIONS(String)
 

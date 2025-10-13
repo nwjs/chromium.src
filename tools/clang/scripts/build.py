@@ -784,11 +784,6 @@ def main():
 
   global CLANG_REVISION, PACKAGE_VERSION, LLVM_BUILD_DIR, STAMP_FILE, FORCE_HEAD_REVISION_FILE
 
-  # TODO(crbug.com/432036065): Remove in next Clang roll.
-  if args.llvm_force_head_revision:
-    global RELEASE_VERSION
-    RELEASE_VERSION = '22'
-
   if (args.pgo or args.thinlto) and not args.bootstrap:
     print('--pgo/--thinlto requires --bootstrap')
     return 1
@@ -1030,6 +1025,8 @@ def main():
         '^.*Sanitizer-.*sunrpc.*cpp$',
         # sysroot/host glibc version mismatch, crbug.com/1506551
         '^.*Sanitizer.*mallinfo2.cpp$',
+        # This BOLT test hangs in lit's internal shell, crbug.com/442483657
+        '^BOLT.*runtime/instrumentation-indirect-2.c$',
     ]
   elif sys.platform == 'darwin':
     lit_excludes += [
@@ -1218,12 +1215,6 @@ def main():
   if args.llvm_force_head_revision:
     cflags += ['-DLLVM_FORCE_HEAD_REVISION']
     cxxflags += ['-DLLVM_FORCE_HEAD_REVISION']
-
-  # TODO(https://crbug.com/437910658): remove once we roll past clang change
-  if IsGitAncestorToHead(LLVM_DIR,
-                         '91cdd35008e9ab32dffb7e401cdd7313b3461892'):
-    cflags += ['-DCLANG_ELABORATED_TYPE_CHANGES']
-    cxxflags += ['-DCLANG_ELABORATED_TYPE_CHANGES']
 
   # Build PDBs for archival on Windows.  Don't use RelWithDebInfo since it
   # has different optimization defaults than Release.

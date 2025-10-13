@@ -24,6 +24,7 @@
 #include "chrome/browser/net/qwac_web_contents_observer.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
+#include "chrome/browser/preloading/bookmarkbar_preload/bookmarkbar_preload_pipeline_manager.h"
 #include "chrome/browser/privacy_sandbox/incognito/privacy_sandbox_incognito_tab_observer.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_tab_observer.h"
 #include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
@@ -41,6 +42,7 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/commerce/commerce_ui_tab_helper.h"
+#include "chrome/browser/ui/cookie_controls/roll_back_mode_b_infobar_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
@@ -77,6 +79,10 @@
 #include "chrome/browser/ui/views/zoom/zoom_view_controller.h"
 #include "chrome/browser/ui/web_applications/pwa_install_page_action.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/wallet/chrome_walletable_pass_client.h"
+#endif
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_features.h"
@@ -84,14 +90,16 @@
 #include "components/browsing_topics/browsing_topics_service.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/fingerprinting_protection_filter/common/fingerprinting_protection_filter_features.h"
+#include "components/fingerprinting_protection_filter/interventions/browser/interventions_web_contents_helper.h"
+#include "components/fingerprinting_protection_filter/interventions/common/interventions_features.h"
 #include "components/image_fetcher/core/image_fetcher_service.h"
 #include "components/ip_protection/common/ip_protection_status.h"
 #include "components/lens/tab_contextualization_controller.h"
 #include "components/passage_embeddings/passage_embeddings_features.h"
 #include "components/permissions/permission_indicators_tab_data.h"
+#include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/security_interstitials/core/features.h"
 #include "components/tabs/public/tab_interface.h"
-#include "components/wallet/content/browser/content_walletable_pass_ingestion_controller.h"
 #include "components/wallet/core/common/wallet_features.h"
 #include "net/base/features.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
@@ -99,6 +107,10 @@
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/browser_ui/glic_tab_indicator_helper.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/service/glic_instance_helper.h"
+#include "chrome/browser/ui/views/side_panel/glic/glic_side_panel_coordinator.h"
+
 #endif
 namespace tabs {
 
@@ -238,6 +250,11 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
                   ->GetImageFetcher(
                       image_fetcher::ImageFetcherConfig::kNetworkOnly),
               side_panel_registry_.get());
+
+      if (base::FeatureList::IsEnabled(privacy_sandbox::kRollBackModeB)) {
+        roll_back_mode_b_infobar_controller_ =
+            std::make_unique<RollBackModeBInfoBarController>(tab.GetContents());
+      }
     }
 
     contextual_cueing::ContextualCueingHelper::MaybeCreateForWebContents(
@@ -260,7 +277,9 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
 
     if (tab_groups::SavedTabGroupUtils::SupportsSharedTabGroups()) {
       collaboration_messaging_tab_data_ =
-          std::make_unique<tab_groups::CollaborationMessagingTabData>(profile);
+          GetUserDataFactory()
+              .CreateInstance<tab_groups::CollaborationMessagingTabData>(tab,
+                                                                         &tab);
     }
 
     if (IsPageActionMigrated(PageActionIconType::kCollaborationMessaging) &&
@@ -273,11 +292,19 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
     }
 
 #if BUILDFLAG(ENABLE_GLIC)
-    if (glic::GlicEnabling::IsProfileEligible(
-            tab.GetBrowserWindowInterface()->GetProfile())) {
+    if (glic::GlicEnabling::IsProfileEligible(profile)) {
+      glic_instance_helper_ =
+          GetUserDataFactory().CreateInstance<glic::GlicInstanceHelper>(tab,
+                                                                        &tab);
       glic_tab_indicator_helper_ =
           GetUserDataFactory().CreateInstance<glic::GlicTabIndicatorHelper>(
               tab, &tab);
+    }
+    if (base::FeatureList::IsEnabled(features::kGlicMultiInstance) &&
+        glic::GlicKeyedService::Get(profile)) {
+      glic_side_panel_coordinator_ =
+          GetUserDataFactory().CreateInstance<glic::GlicSidePanelCoordinator>(
+              tab, &tab, side_panel_registry_.get());
     }
 #endif  // BUILDFLAG(ENABLE_GLIC)
     // TODO(crbug.com/433973411): Move this logic to a helper function.
@@ -306,7 +333,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
 
   if (base::FeatureList::IsEnabled(
           autofill::features::kAutofillShowBubblesBasedOnPriorities)) {
-    autofill_bubble_manager_ = autofill::BubbleManager::Create();
+    autofill_bubble_manager_ = autofill::BubbleManager::Create(&tab);
   }
 
   customize_chrome_side_panel_controller_ =
@@ -336,6 +363,13 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
         profile->IsIncognitoProfile());
   }
 
+  if (fingerprinting_protection_interventions::features::
+          ShouldBlockCanvasReadbackForIncognitoState(
+              profile->IsIncognitoProfile())) {
+    fingerprinting_protection_interventions::InterventionsWebContentsHelper::
+        CreateForWebContents(tab.GetContents(), profile->IsIncognitoProfile());
+  }
+
   // Only create the IpProtectionStatus if the User Bypass feature is enabled.
   if (net::features::kIpPrivacyEnableUserBypass.Get()) {
     ip_protection::IpProtectionStatus::CreateForWebContents(tab.GetContents());
@@ -357,7 +391,8 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
       FromGWSNavigationAndKeepAliveRequestObserver::MaybeCreateForWebContents(
           tab.GetContents());
 
-  resource_usage_helper_ = std::make_unique<TabResourceUsageTabHelper>(tab);
+  resource_usage_helper_ =
+      GetUserDataFactory().CreateInstance<TabResourceUsageTabHelper>(tab, tab);
 
   memory_saver_chip_helper_ = std::make_unique<MemorySaverChipTabHelper>(tab);
 
@@ -374,11 +409,8 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
       std::make_unique<InactiveWindowMouseEventController>();
 
   if (base::FeatureList::IsEnabled(wallet::kWalletablePassDetection)) {
-    if (auto* opt_guide =
-            OptimizationGuideKeyedServiceFactory::GetForProfile(profile)) {
-      wallet::ContentWalletablePassIngestionController::CreateForWebContents(
-          tab.GetContents(), opt_guide);
-    }
+    walletable_pass_client_ =
+        std::make_unique<wallet::ChromeWalletablePassClient>(&tab);
   }
 #endif
 
@@ -393,18 +425,15 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
         std::make_unique<AskBeforeHttpDialogController>(&tab);
   }
 
+  bookmarkbar_preload_pipeline_manager_ =
+      std::make_unique<BookmarkBarPreloadPipelineManager>(tab.GetContents());
+
   tab_alert_controller_ =
       GetUserDataFactory().CreateInstance<TabAlertController>(tab, tab);
 
   tab_contextualization_controller_ =
       GetUserDataFactory().CreateInstance<lens::TabContextualizationController>(
           tab, &tab);
-}
-
-TabResourceUsageTabHelper* TabFeatures::SetResourceUsageHelperForTesting(
-    std::unique_ptr<TabResourceUsageTabHelper> resource_usage_helper) {
-  resource_usage_helper_ = std::move(resource_usage_helper);
-  return resource_usage_helper_.get();
 }
 
 TabUIHelper* TabFeatures::SetTabUIHelperForTesting(
@@ -474,6 +503,18 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
     permission_indicators_tab_data_ =
         std::make_unique<permissions::PermissionIndicatorsTabData>(
             new_contents);
+  }
+
+  if (roll_back_mode_b_infobar_controller_) {
+    roll_back_mode_b_infobar_controller_.reset();
+    roll_back_mode_b_infobar_controller_ =
+        std::make_unique<RollBackModeBInfoBarController>(new_contents);
+  }
+
+  if (bookmarkbar_preload_pipeline_manager_) {
+    bookmarkbar_preload_pipeline_manager_.reset();
+    bookmarkbar_preload_pipeline_manager_ =
+        std::make_unique<BookmarkBarPreloadPipelineManager>(new_contents);
   }
 }
 

@@ -582,8 +582,6 @@ ci.thin_tester(
             "chromium_mac_rel_isolated_scripts",
         ],
         mixins = [
-            # Only run selected test suites on CQ. https://crbug.com/40192006.
-            "ci_only",
             "mac_15_vm_optional",
         ],
         per_test_modifications = {
@@ -615,23 +613,25 @@ ci.thin_tester(
                 mixins = "mac_15_arm64",
                 remove_mixins = "mac_15_vm_optional",
             ),
-            "interactive_ui_tests": targets.per_test_modification(
-                mixins = [
-                    targets.mixin(
-                        ci_only = False,
-                        swarming = targets.swarming(
-                            shards = 7,
-                        ),
-                    ),
-                    "mac_15_arm64",
-                ],
-                # TODO(crbug.com/436628295): test fails on VM
-                remove_mixins = "mac_15_vm_optional",
-            ),
             # TODO(crbug.com/436628295): test fails on VM
             "headless_shell_wpt_tests": targets.per_test_modification(
                 mixins = "mac_15_arm64",
                 remove_mixins = "mac_15_vm_optional",
+            ),
+            "interactive_ui_tests": targets.per_test_modification(
+                mixins = [
+                    targets.mixin(
+                        swarming = targets.swarming(
+                            shards = 7,
+                        ),
+                    ),
+                ],
+            ),
+            "sync_integration_tests": targets.mixin(
+                ci_only = True,
+            ),
+            "telemetry_perf_unittests": targets.mixin(
+                ci_only = True,
             ),
         },
     ),
@@ -1138,6 +1138,8 @@ ios_builder(
             "ios/chrome/test:all_fuzzer_tests",
         ],
     ),
+    builderless = True,
+    cpu = cpu.ARM64,
     tree_closing = False,
     console_view_entry = [
         consoles.console_view_entry(
@@ -1245,6 +1247,7 @@ ios_builder(
             "ios_simulator",
             "arm64",
             "xctest",
+            "ios_enable_dangling_raw_ptr_checks",
         ],
     ),
     targets = targets.bundle(
@@ -1318,6 +1321,7 @@ ios_builder(
             "ios_simulator",
             "arm64",
             "xctest",
+            "ios_enable_dangling_raw_ptr_checks",
         ],
     ),
     targets = targets.bundle(
@@ -1383,6 +1387,7 @@ ios_builder(
             "ios_simulator",
             "arm64",
             "xctest",
+            "ios_enable_dangling_raw_ptr_checks",
         ],
     ),
     targets = targets.bundle(

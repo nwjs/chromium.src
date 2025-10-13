@@ -49,7 +49,7 @@ void MandatoryReauthBubbleControllerImpl::SetupAndShowBubble(
     base::OnceClosure accept_mandatory_reauth_callback,
     base::OnceClosure cancel_mandatory_reauth_callback,
     base::RepeatingClosure close_mandatory_reauth_callback) {
-  if (bubble_view()) {
+  if (bubble_view() || !MaySetUpBubble()) {
     return;
   }
 
@@ -59,7 +59,8 @@ void MandatoryReauthBubbleControllerImpl::SetupAndShowBubble(
   autofill_metrics::LogMandatoryReauthOptInBubbleOffer(
       autofill_metrics::MandatoryReauthOptInBubbleOffer::kShown,
       /*is_reshow=*/false);
-  ShowBubble();
+
+  QueueOrShowBubble();
 }
 
 void MandatoryReauthBubbleControllerImpl::SetupBubble(
@@ -99,7 +100,7 @@ void MandatoryReauthBubbleControllerImpl::ReshowBubble() {
         autofill_metrics::MandatoryReauthOptInConfirmationBubbleMetric::kShown);
   }
 
-  ShowBubble();
+  QueueOrShowBubble(/*force_show=*/true);
 }
 
 std::u16string MandatoryReauthBubbleControllerImpl::GetWindowTitle() const {
@@ -141,7 +142,7 @@ std::u16string MandatoryReauthBubbleControllerImpl::GetExplanationText() const {
 
 void MandatoryReauthBubbleControllerImpl::OnBubbleClosed(
     PaymentsUiClosedReason closed_reason) {
-  set_bubble_view(nullptr);
+  ResetBubbleViewAndInformBubbleManager();
 
 // After resetting the raw pointer to the view in the base class, the Android
 // view has to be deleted.
@@ -220,7 +221,7 @@ MandatoryReauthBubbleControllerImpl::GetMandatoryReauthBubbleType() const {
   return current_bubble_type_;
 }
 
-PageActionIconType
+std::optional<PageActionIconType>
 MandatoryReauthBubbleControllerImpl::GetPageActionIconType() {
   return PageActionIconType::kMandatoryReauth;
 }
@@ -236,12 +237,12 @@ void MandatoryReauthBubbleControllerImpl::DoShowBubble() {
     java_controller_bridge_.Reset();
     return;
   }
-  set_bubble_view(view_android_.get());
+  SetBubbleView(*view_android_.get());
 #else
   Browser* browser = chrome::FindBrowserWithTab(web_contents());
   AutofillBubbleHandler* autofill_bubble_handler =
       browser->window()->GetAutofillBubbleHandler();
-  set_bubble_view(autofill_bubble_handler->ShowMandatoryReauthBubble(
+  SetBubbleView(*autofill_bubble_handler->ShowMandatoryReauthBubble(
       web_contents(), this, /*is_user_gesture=*/false, current_bubble_type_));
 #endif  // BUILDFLAG(IS_ANDROID)
 }
@@ -282,10 +283,16 @@ void MandatoryReauthBubbleControllerImpl::UpdatePageActionIcon() {
     return;
   }
 
+  tabs::TabFeatures* const tab_features = tab_interface->GetTabFeatures();
+  if (!tab_features) {
+    // This controller outlives the tab features.
+    return;
+  }
+
   // NOTE: Consider creating a separate page action view controller file when
   // the logic to show the page action become complex.
   page_actions::PageActionController* page_action_controller =
-      tab_interface->GetTabFeatures()->page_action_controller();
+      tab_features->page_action_controller();
   if (!page_action_controller) {
     return;
   }

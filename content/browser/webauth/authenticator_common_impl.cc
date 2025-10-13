@@ -42,6 +42,7 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
+#include "components/webauthn/core/browser/common_utils.h"
 #include "components/webauthn/json/value_conversions.h"
 #include "content/browser/renderer_host/back_forward_cache_disable.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
@@ -49,7 +50,6 @@
 #include "content/browser/webauth/authenticator_impl.h"
 #include "content/browser/webauth/authenticator_request_outcome_enums.h"
 #include "content/browser/webauth/client_data_json.h"
-#include "content/browser/webauth/common_utils.h"
 #include "content/browser/webauth/virtual_authenticator.h"
 #include "content/browser/webauth/virtual_authenticator_manager_impl.h"
 #include "content/browser/webauth/virtual_fido_discovery_factory.h"
@@ -960,9 +960,10 @@ void AuthenticatorCommonImpl::StartMakeCredentialRequest(
           &device::FidoRequestHandlerBase::RequestBluetoothPermission,
           req_state_->request_handler
               ->GetWeakPtr()) /* request_ble_permission_callback */);
-  // `set_observer` can destroy `this`. It is not safe to refer to local state
-  // after this call.
-  req_state_->request_handler->set_observer(req_state_->request_delegate.get());
+  // `StartObserving` can destroy `this`. It is not safe to refer to local
+  // state after this call.
+  req_state_->request_delegate->StartObserving(
+      req_state_->request_handler.get());
 }
 
 void AuthenticatorCommonImpl::StartGetAssertionRequest(
@@ -1053,9 +1054,10 @@ void AuthenticatorCommonImpl::StartGetAssertionRequest(
           request_handler->GetWeakPtr()) /* request_ble_permission_callback */);
 
   req_state_->request_handler = std::move(request_handler);
-  // `set_observer` can destroy `this`. It is not safe to refer to local state
-  // after this call.
-  req_state_->request_handler->set_observer(req_state_->request_delegate.get());
+  // `StartObserving` can destroy `this`. It is not safe to refer to local
+  // state after this call.
+  req_state_->request_delegate->StartObserving(
+      req_state_->request_handler.get());
 }
 
 bool AuthenticatorCommonImpl::IsFocused() const {
@@ -1337,8 +1339,9 @@ void AuthenticatorCommonImpl::ContinueMakeCredentialAfterRpIdCheck(
   req_state_->request_delegate->SetUIPresentation(ui_presentation);
 
   // Assemble clientDataJSON.
-  ClientDataJsonParams client_data_json_params(
-      ClientDataRequestType::kWebAuthnCreate, req_state_->caller_origin,
+  webauthn::ClientDataJsonParams client_data_json_params(
+      webauthn::ClientDataRequestType::kWebAuthnCreate,
+      req_state_->caller_origin,
       GetRenderFrameHost()->GetOutermostMainFrame()->GetLastCommittedOrigin(),
       options->challenge, is_cross_origin_iframe);
   if (options->remote_desktop_client_override) {
@@ -1510,6 +1513,18 @@ void AuthenticatorCommonImpl::GetCredential(
         blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
     return;
   }
+
+  if (public_key_options->extensions->remote_desktop_client_override &&
+      options->mediation == Mediation::IMMEDIATE) {
+    mojo::ReportBadMessage(
+        "Immediate mediation cannot be used with a remote desktop override "
+        "request");
+    req_state_->request_outcome = GetAssertionOutcome::kOtherFailure;
+    CompleteGetAssertionRequest(
+        blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
+    return;
+  }
+
   req_state_->mediation_ = options->mediation;
 
   if (public_key_options->challenge_url.has_value() &&
@@ -1699,14 +1714,12 @@ void AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck(
   req_state_->request_delegate->SetUIPresentation(ui_presentation);
 
   // Assemble clientDataJSON.
-  ClientDataJsonParams client_data_json_params(
-      ClientDataRequestType::kWebAuthnGet, caller_origin,
+  webauthn::ClientDataJsonParams client_data_json_params(
+      webauthn::ClientDataRequestType::kWebAuthnGet, caller_origin,
       GetRenderFrameHost()->GetOutermostMainFrame()->GetLastCommittedOrigin(),
       public_key_options->challenge, is_cross_origin_iframe);
   if (payment_options) {
-    client_data_json_params.type = ClientDataRequestType::kPaymentGet;
-    client_data_json_params.payment_options = std::move(payment_options);
-    client_data_json_params.payment_rp = req_state_->relying_party_id;
+    client_data_json_params.type = webauthn::ClientDataRequestType::kPaymentGet;
   } else if (public_key_options->extensions->remote_desktop_client_override) {
     client_data_json_params.origin =
         public_key_options->extensions->remote_desktop_client_override->origin;
@@ -1716,14 +1729,17 @@ void AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck(
   }
 
   if (public_key_options->challenge.has_value()) {
-    req_state_->client_data_json =
-        BuildClientDataJson(std::move(client_data_json_params));
+    req_state_->client_data_json = BuildClientDataJsonWithPayment(
+        std::move(client_data_json_params), std::move(payment_options),
+        req_state_->relying_party_id);
   } else {
+    std::string payment_rp = req_state_->relying_party_id;
     req_state_->request_delegate->ProvideChallengeUrl(
         *public_key_options->challenge_url,
         base::BindOnce(&AuthenticatorCommonImpl::UpdateChallengeFromUrl,
                        weak_factory_.GetWeakPtr(),
-                       std::move(client_data_json_params)));
+                       std::move(client_data_json_params),
+                       std::move(payment_options), std::move(payment_rp)));
   }
 
   if (options->mediation == Mediation::CONDITIONAL ||
@@ -1870,7 +1886,7 @@ void AuthenticatorCommonImpl::GetClientCapabilities(
   // collect the results of the check with the `BarrierCallback`), update this
   // constant to match the number of `barrier_callback.Run()` calls. Otherwise,
   // the `GetClientCapabilities()` call will crash or timeout.
-  const size_t kNumberOfComputedCapabilities = immediate_get_enabled ? 6 : 5;
+  const size_t kNumberOfComputedCapabilities = immediate_get_enabled ? 9 : 8;
   auto barrier_callback =
       base::BarrierCallback<blink::mojom::WebAuthnClientCapabilityPtr>(
           kNumberOfComputedCapabilities, std::move(completion_callback));
@@ -1899,6 +1915,13 @@ void AuthenticatorCommonImpl::GetClientCapabilities(
     barrier_callback.Run(
         MakeCapability(client_capabilities::kImmediateGet, true));
   }
+
+  barrier_callback.Run(
+      MakeCapability(client_capabilities::kSignalAllAcceptedCredentials, true));
+  barrier_callback.Run(
+      MakeCapability(client_capabilities::kSignalCurrentUserDetails, true));
+  barrier_callback.Run(
+      MakeCapability(client_capabilities::kSignalUnknownCredential, true));
 }
 
 void AuthenticatorCommonImpl::IsHybridTransportSupported(
@@ -2342,16 +2365,20 @@ void AuthenticatorCommonImpl::OnRegisterResponse(
       RequestSource(), device::FidoRequestType::kMakeCredential,
       authenticator->GetType());
 
-  std::optional<device::FidoTransportProtocol> transport =
+  base::flat_set<device::FidoTransportProtocol> transports;
+  std::optional<device::FidoTransportProtocol> authenticator_transport =
       authenticator->AuthenticatorTransport();
-  bool is_transport_used_internal = false;
-  bool is_transport_used_cable = false;
-  if (transport) {
-    is_transport_used_internal =
-        *transport == device::FidoTransportProtocol::kInternal;
-    is_transport_used_cable =
-        *transport == device::FidoTransportProtocol::kHybrid;
+  if (authenticator_transport) {
+    transports.emplace(*authenticator_transport);
+  } else if (response_data->transports) {
+    // On platforms where we delegate handling different transports to the OS,
+    // use the list of transports reported by the credential instead.
+    transports = *response_data->transports;
   }
+  bool is_transport_used_internal =
+      base::Contains(transports, device::FidoTransportProtocol::kInternal);
+  bool is_transport_used_cable =
+      base::Contains(transports, device::FidoTransportProtocol::kHybrid);
 
   const auto attestation =
       std::get<device::CtapMakeCredentialRequest>(req_state_->ctap_request)
@@ -2733,7 +2760,7 @@ AuthenticatorCommonImpl::CreateMakeCredentialResponse(
   common_info->client_data_json.assign(req_state_->client_data_json.begin(),
                                        req_state_->client_data_json.end());
   common_info->raw_id = response_data.attestation_object.GetCredentialId();
-  common_info->id = Base64UrlEncodeOmitPadding(common_info->raw_id);
+  common_info->id = webauthn::Base64UrlEncodeOmitPadding(common_info->raw_id);
 
   response->authenticator_attachment =
       response_data.transport_used
@@ -2934,7 +2961,7 @@ AuthenticatorCommonImpl::CreateGetAssertionResponse(
   common_info->client_data_json.assign(req_state_->client_data_json.begin(),
                                        req_state_->client_data_json.end());
   common_info->raw_id = response_data.credential->id;
-  common_info->id = Base64UrlEncodeOmitPadding(common_info->raw_id);
+  common_info->id = webauthn::Base64UrlEncodeOmitPadding(common_info->raw_id);
   response->info = std::move(common_info);
   response->info->authenticator_data =
       response_data.authenticator_data.SerializeToByteArray();
@@ -3209,7 +3236,9 @@ void AuthenticatorCommonImpl::OnGetAssertionProxyResponse(
 }
 
 void AuthenticatorCommonImpl::UpdateChallengeFromUrl(
-    ClientDataJsonParams params,
+    webauthn::ClientDataJsonParams params,
+    blink::mojom::PaymentOptionsPtr payment_options,
+    std::string payment_rp,
     std::optional<base::span<const uint8_t>> challenge) {
   // ChallengeUrl is only valid for GetAssertion requests.
   CHECK(std::holds_alternative<device::CtapGetAssertionRequest>(
@@ -3228,7 +3257,8 @@ void AuthenticatorCommonImpl::UpdateChallengeFromUrl(
   }
 
   params.challenge = base::ToVector(*challenge);
-  req_state_->client_data_json = BuildClientDataJson(std::move(params));
+  req_state_->client_data_json = BuildClientDataJsonWithPayment(
+      std::move(params), std::move(payment_options), payment_rp);
   std::get<device::CtapGetAssertionRequest>(req_state_->ctap_request)
       .SetClientDataJson(req_state_->client_data_json);
   reinterpret_cast<device::GetAssertionRequestHandler*>(

@@ -117,7 +117,8 @@ CSSValue* ConsumeSingleAnimationTrigger(CSSParserTokenStream& stream,
     return value;
   }
   return css_parsing_utils::ConsumeSpaceSeparatedList(
-      css_parsing_utils::ConsumeDashedIdent, stream, context);
+      css_parsing_utils::ConsumeSingleAnimationTriggerAttachment, stream,
+      context);
 }
 
 }  // namespace
@@ -657,23 +658,46 @@ const CSSValue* AnimationTrigger::CSSValueFromComputedStyleInternal(
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
   if (const CSSAnimationData* data = style.Animations()) {
-    CSSValueList* names_list = CSSValueList::CreateCommaSeparated();
+    CSSValueList* attachments_valuelist_for_all_animations =
+        CSSValueList::CreateCommaSeparated();
 
-    for (const std::optional<Vector<AtomicString>>& trigger_names_list :
-         data->TriggerNamesList()) {
-      CSSValueList* names = CSSValueList::CreateSpaceSeparated();
-      if (trigger_names_list.has_value()) {
-        for (const AtomicString& name : *trigger_names_list) {
-          names->Append(*MakeGarbageCollected<CSSCustomIdentValue>(name));
+    for (const Member<const StyleTriggerAttachmentVector>&
+             single_animation_attachments : data->TriggerAttachmentsList()) {
+      CSSValueList* attachment_valuelist_for_single_animation =
+          CSSValueList::CreateSpaceSeparated();
+
+      if (single_animation_attachments) {
+        for (const Member<const StyleTriggerAttachment>& attachment :
+             *single_animation_attachments) {
+          // Get the name.
+          Member<const CSSCustomIdentValue> trigger_name =
+              MakeGarbageCollected<CSSCustomIdentValue>(
+                  *attachment->TriggerName());
+
+          // Get the action-behavior settings.
+          HeapVector<std::pair<Member<const CSSCustomIdentValue>,
+                               Member<const CSSCustomIdentValue>>>
+              action_behavior_pairs;
+          for (const auto& pair : attachment->ActionBehaviorPairs()) {
+            action_behavior_pairs.push_back(std::make_pair(
+                MakeGarbageCollected<const CSSCustomIdentValue>(pair.first),
+                MakeGarbageCollected<const CSSCustomIdentValue>(pair.second)));
+          }
+
+          attachment_valuelist_for_single_animation->Append(
+              *MakeGarbageCollected<cssvalue::CSSTriggerAttachmentValue>(
+                  trigger_name.Get(), action_behavior_pairs));
         }
       } else {
-        names->Append(*CSSIdentifierValue::Create(CSSValueID::kNone));
+        attachment_valuelist_for_single_animation->Append(
+            *CSSIdentifierValue::Create(CSSValueID::kNone));
       }
 
-      names_list->Append(*names);
+      attachments_valuelist_for_all_animations->Append(
+          *attachment_valuelist_for_single_animation);
     }
 
-    return names_list;
+    return attachments_valuelist_for_all_animations;
   }
 
   return InitialValue();
@@ -836,7 +860,7 @@ const CSSValue* TimelineTriggerExitRangeEnd::InitialValue() const {
   return CSSIdentifierValue::Create(CSSValueID::kAuto);
 }
 
-const CSSValue* TimelineTriggerTimeline::ParseSingleValue(
+const CSSValue* TimelineTriggerSource::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     const CSSParserLocalContext& local_context) const {
@@ -844,7 +868,7 @@ const CSSValue* TimelineTriggerTimeline::ParseSingleValue(
       css_parsing_utils::ConsumeAnimationTimeline, stream, context);
 }
 
-const CSSValue* TimelineTriggerTimeline::CSSValueFromComputedStyleInternal(
+const CSSValue* TimelineTriggerSource::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
     bool allow_visited_style,
@@ -853,7 +877,7 @@ const CSSValue* TimelineTriggerTimeline::CSSValueFromComputedStyleInternal(
       style.Animations(), style);
 }
 
-const CSSValue* TimelineTriggerTimeline::InitialValue() const {
+const CSSValue* TimelineTriggerSource::InitialValue() const {
   return CSSIdentifierValue::Create(CSSValueID::kAuto);
 }
 
@@ -1170,8 +1194,8 @@ const CSSValue* BackgroundPositionX::ParseSingleValue(
     const CSSParserContext& context,
     const CSSParserLocalContext&) const {
   return css_parsing_utils::ConsumeCommaSeparatedList(
-      css_parsing_utils::ConsumePositionLonghand<CSSValueID::kLeft,
-                                                 CSSValueID::kRight>,
+      css_parsing_utils::ConsumeBackgroundPositionLonghand<CSSValueID::kLeft,
+                                                           CSSValueID::kRight>,
       stream, context);
 }
 
@@ -1190,8 +1214,8 @@ const CSSValue* BackgroundPositionY::ParseSingleValue(
     const CSSParserContext& context,
     const CSSParserLocalContext&) const {
   return css_parsing_utils::ConsumeCommaSeparatedList(
-      css_parsing_utils::ConsumePositionLonghand<CSSValueID::kTop,
-                                                 CSSValueID::kBottom>,
+      css_parsing_utils::ConsumeBackgroundPositionLonghand<CSSValueID::kTop,
+                                                           CSSValueID::kBottom>,
       stream, context);
 }
 
@@ -2766,7 +2790,7 @@ const CSSValue* ColumnRuleWidth::ParseSingleValue(
 
 const CSSValue* ColumnRuleWidth::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
-    const LayoutObject*,
+    const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
   GapDataList<int> widths;
@@ -2778,6 +2802,27 @@ const CSSValue* ColumnRuleWidth::CSSValueFromComputedStyleInternal(
     widths = style.ColumnRuleWidthInternal();
   } else {
     widths = style.ColumnRuleWidth();
+  }
+
+  bool is_legacy_column_rule =
+      style.ColumnRuleWidthInternal().HasSingleValue() &&
+      style.ColumnRuleStyle().HasSingleValue();
+
+  // Record use counter for the `column-rule-width` property if its resolved
+  // value is non-zero and the corresponding style is "none" or "hidden". This
+  // is to evaluate web compat risk in changing the behavior of
+  // `column-rule-width` to be independent of the `column-rule-style`.
+  //
+  // https://github.com/w3c/csswg-drafts/issues/11494#issuecomment-2675800489
+  if (is_legacy_column_rule && value_phase == CSSValuePhase::kResolvedValue &&
+      layout_object) {
+    int width_value = style.ColumnRuleWidthInternal().GetLegacyValue();
+    EBorderStyle style_value = style.ColumnRuleStyle().GetLegacyValue();
+    if (width_value != 0 && (style_value == EBorderStyle::kNone ||
+                             style_value == EBorderStyle::kHidden)) {
+      layout_object->GetDocument().CountUse(
+          WebFeature::kResolvedColumnRuleWidthWithNoneOrHiddenStyle);
+    }
   }
 
   return ComputedStyleUtils::ValueForGapDecorationWidthDataList(widths, style,
@@ -4844,6 +4889,23 @@ const CSSValue* FontVariationSettings::CSSValueFromComputedStyleInternal(
   return ComputedStyleUtils::ValueForFontVariationSettings(style);
 }
 
+const CSSValue* FontLanguageOverride::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  DCHECK(RuntimeEnabledFeatures::FontLanguageOverrideEnabled());
+  return css_parsing_utils::ConsumeFontLanguageOverride(stream, context);
+}
+
+const CSSValue* FontLanguageOverride::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool,
+    CSSValuePhase) const {
+  DCHECK(RuntimeEnabledFeatures::FontLanguageOverrideEnabled());
+  return ComputedStyleUtils::ValueForFontLanguageOverride(style);
+}
+
 const CSSValue* FontWeight::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
@@ -5220,7 +5282,7 @@ const CSSValue* GridTemplateColumns::ParseSingleValue(
 
 bool GridTemplateColumns::IsLayoutDependent(const ComputedStyle* style,
                                             LayoutObject* layout_object) const {
-  return layout_object && layout_object->IsLayoutGrid();
+  return layout_object && layout_object->IsLayoutGridOrMasonry();
 }
 
 const CSSValue* GridTemplateColumns::CSSValueFromComputedStyleInternal(
@@ -5246,7 +5308,7 @@ const CSSValue* GridTemplateRows::ParseSingleValue(
 
 bool GridTemplateRows::IsLayoutDependent(const ComputedStyle* style,
                                          LayoutObject* layout_object) const {
-  return layout_object && layout_object->IsLayoutGrid();
+  return layout_object && layout_object->IsLayoutGridOrMasonry();
 }
 
 const CSSValue* GridTemplateRows::CSSValueFromComputedStyleInternal(
@@ -5289,37 +5351,55 @@ const CSSValue* Height::CSSValueFromComputedStyleInternal(
                                                              style);
 }
 
-const CSSValue* InterestShowDelay::ParseSingleValue(
+// interest-delay-start: normal | <time>
+const CSSValue* InterestDelayStart::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     const CSSParserLocalContext& local_context) const {
+  if (CSSValue* value =
+          css_parsing_utils::ConsumeIdent<CSSValueID::kNormal>(stream)) {
+    return value;
+  }
   return css_parsing_utils::ConsumeTime(
       stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
 }
 
-const CSSValue* InterestShowDelay::CSSValueFromComputedStyleInternal(
+const CSSValue* InterestDelayStart::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return CSSNumericLiteralValue::Create(style.InterestShowDelay(),
+  const StyleInterestDelay& value = style.InterestDelayStart();
+  if (value.IsNormal()) {
+    return CSSIdentifierValue::Create(CSSValueID::kNormal);
+  }
+  return CSSNumericLiteralValue::Create(value.DelaySeconds(),
                                         CSSPrimitiveValue::UnitType::kSeconds);
 }
 
-const CSSValue* InterestHideDelay::ParseSingleValue(
+// interest-delay-end: normal | <time>
+const CSSValue* InterestDelayEnd::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     const CSSParserLocalContext& local_context) const {
+  if (CSSValue* value =
+          css_parsing_utils::ConsumeIdent<CSSValueID::kNormal>(stream)) {
+    return value;
+  }
   return css_parsing_utils::ConsumeTime(
       stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
 }
 
-const CSSValue* InterestHideDelay::CSSValueFromComputedStyleInternal(
+const CSSValue* InterestDelayEnd::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return CSSNumericLiteralValue::Create(style.InterestHideDelay(),
+  const StyleInterestDelay& value = style.InterestDelayEnd();
+  if (value.IsNormal()) {
+    return CSSIdentifierValue::Create(CSSValueID::kNormal);
+  }
+  return CSSNumericLiteralValue::Create(value.DelaySeconds(),
                                         CSSPrimitiveValue::UnitType::kSeconds);
 }
 
@@ -7403,7 +7483,7 @@ const CSSValue* OutlineWidth::ParseSingleValue(
 
 const CSSValue* OutlineWidth::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
-    const LayoutObject*,
+    const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
   int width = 0;
@@ -7415,6 +7495,22 @@ const CSSValue* OutlineWidth::CSSValueFromComputedStyleInternal(
     width = style.OutlineWidthInternal();
   } else {
     width = style.OutlineWidth();
+  }
+
+  // Record use counter for the `outline-width` property if its resolved value
+  // is non-zero and the corresponding style is "none" or "hidden". This is to
+  // evaluate web compat risk in changing the behavior of `outline-width` to be
+  // independent of the `outline-style`.
+  //
+  // https://github.com/w3c/csswg-drafts/issues/11494#issuecomment-2675800489
+  if (value_phase == CSSValuePhase::kResolvedValue && layout_object) {
+    EBorderStyle outline_style = style.OutlineStyle();
+    if (style.OutlineWidthInternal() != 0 &&
+        (outline_style == EBorderStyle::kNone ||
+         outline_style == EBorderStyle::kHidden)) {
+      layout_object->GetDocument().CountUse(
+          WebFeature::kResolvedOutlineWidthWithNoneOrHiddenStyle);
+    }
   }
 
   return ZoomAdjustedPixelValue(width, style);
@@ -7604,6 +7700,57 @@ void OverflowY::ApplyValue(StyleResolverState& state,
   if (converted_value == EOverflow::kVisible) {
     builder.SetHasExplicitOverflowYVisible();
   }
+}
+
+// overscroll-area: none | <dashed-ident>#
+const CSSValue* OverscrollArea::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  if (CSSValue* value =
+          css_parsing_utils::ConsumeIdent<CSSValueID::kNone>(stream)) {
+    return value;
+  }
+  return css_parsing_utils::ConsumeCommaSeparatedList(
+      css_parsing_utils::ConsumeDashedIdent, stream, context);
+}
+
+const CSSValue* OverscrollArea::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  if (!style.OverscrollArea()) {
+    return CSSIdentifierValue::Create(CSSValueID::kNone);
+  }
+  CSSValueList* list = CSSValueList::CreateCommaSeparated();
+  for (const Member<const ScopedCSSName>& name :
+       style.OverscrollArea()->GetNames()) {
+    list->Append(*MakeGarbageCollected<CSSCustomIdentValue>(*name));
+  }
+  return list;
+}
+
+// overscroll-position: none | <dashed-ident>
+const CSSValue* OverscrollPosition::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  if (CSSValue* value =
+          css_parsing_utils::ConsumeIdent<CSSValueID::kNone>(stream)) {
+    return value;
+  }
+  return css_parsing_utils::ConsumeDashedIdent(stream, context);
+}
+const CSSValue* OverscrollPosition::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  if (!style.OverscrollPosition()) {
+    return CSSIdentifierValue::Create(CSSValueID::kNone);
+  }
+  return MakeGarbageCollected<CSSCustomIdentValue>(*style.OverscrollPosition());
 }
 
 const CSSValue* OverscrollBehaviorX::CSSValueFromComputedStyleInternal(
@@ -11202,8 +11349,8 @@ const CSSValue* WebkitMaskPositionX::ParseSingleValue(
     const CSSParserContext& context,
     const CSSParserLocalContext&) const {
   return css_parsing_utils::ConsumeCommaSeparatedList(
-      css_parsing_utils::ConsumePositionLonghand<CSSValueID::kLeft,
-                                                 CSSValueID::kRight>,
+      css_parsing_utils::ConsumeBackgroundPositionLonghand<CSSValueID::kLeft,
+                                                           CSSValueID::kRight>,
       Stream, context);
 }
 
@@ -11227,8 +11374,8 @@ const CSSValue* WebkitMaskPositionY::ParseSingleValue(
     const CSSParserContext& context,
     const CSSParserLocalContext&) const {
   return css_parsing_utils::ConsumeCommaSeparatedList(
-      css_parsing_utils::ConsumePositionLonghand<CSSValueID::kTop,
-                                                 CSSValueID::kBottom>,
+      css_parsing_utils::ConsumeBackgroundPositionLonghand<CSSValueID::kTop,
+                                                           CSSValueID::kBottom>,
       stream, context);
 }
 
@@ -11340,6 +11487,14 @@ const CSSValue* RubyAlign::CSSValueFromComputedStyleInternal(
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
   return CSSIdentifierValue::Create(style.RubyAlign());
+}
+
+const CSSValue* RubyOverhang::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.RubyOverhang());
 }
 
 const CSSValue* WebkitRubyPosition::CSSValueFromComputedStyleInternal(

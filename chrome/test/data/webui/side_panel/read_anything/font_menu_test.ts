@@ -10,7 +10,7 @@ import type {ReadAnythingToolbarElement} from 'chrome-untrusted://read-anything-
 import {assertEquals, assertFalse, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
-import {getItemsInMenu, stubAnimationFrame} from './common.js';
+import {assertCheckMarksForDropdown, getItemsInMenu, stubAnimationFrame} from './common.js';
 import {FakeReadingMode} from './fake_reading_mode.js';
 
 suite('FontMenu', () => {
@@ -33,6 +33,8 @@ suite('FontMenu', () => {
     toolbar = document.createElement('read-anything-toolbar');
     document.body.appendChild(toolbar);
     await microtasksFinished();
+    toolbar.pageLanguage = 'en-us';
+    await microtasksFinished();
     menuButton = toolbar.shadowRoot.querySelector<CrIconButtonElement>('#font');
     fontSelect =
         toolbar.shadowRoot.querySelector<HTMLSelectElement>('#font-select');
@@ -54,7 +56,7 @@ suite('FontMenu', () => {
 
     async function updateFonts(supportedFonts: string[]): Promise<void> {
       chrome.readingMode.supportedFonts = supportedFonts;
-      toolbar.updateFonts();
+      toolbar.pageLanguage = 'hi' + supportedFonts.length;
       await microtasksFinished();
       fontMenuOptions = getItemsInMenu(toolbar.$.fontMenu);
     }
@@ -66,6 +68,10 @@ suite('FontMenu', () => {
       await microtasksFinished();
 
       assertTrue(toolbar.$.fontMenu.get().open);
+    });
+
+    test('has checkmarks', () => {
+      assertCheckMarksForDropdown(toolbar.$.fontMenu);
     });
 
     test('shows only supported fonts', async () => {
@@ -173,7 +179,7 @@ suite('FontMenu', () => {
 
     async function updateFonts(supportedFonts: string[]): Promise<void> {
       chrome.readingMode.supportedFonts = supportedFonts;
-      toolbar.updateFonts();
+      toolbar.pageLanguage = 'it-it' + supportedFonts.length;
       return microtasksFinished();
     }
 

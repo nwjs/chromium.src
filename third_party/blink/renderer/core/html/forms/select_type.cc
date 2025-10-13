@@ -81,14 +81,11 @@ class PopupUpdater;
 namespace {
 
 HTMLOptionElement* EventTargetOption(const Event& event) {
-  auto* element = DynamicTo<Element>(event.RawTarget()->ToNode());
-  if (!element) {
-    return nullptr;
-  }
-  if (auto* option = DynamicTo<HTMLOptionElement>(element)) {
+  Node* target = event.RawTarget()->ToNode();
+  if (auto* option = DynamicTo<HTMLOptionElement>(target)) {
     return option;
   }
-  if (auto* option = DynamicTo<HTMLOptionElement>(element->OwnerShadowHost())) {
+  if (auto* option = DynamicTo<HTMLOptionElement>(target->OwnerShadowHost())) {
     return option;
   }
   return nullptr;
@@ -249,7 +246,6 @@ class MenuListSelectType final : public SelectType {
   explicit MenuListSelectType(HTMLSelectElement& select);
   void Trace(Visitor* visitor) const override;
 
-  void WillBeDestroyed() override;
   bool DefaultEventHandler(const Event& event) override;
   void DidSelectOption(HTMLOptionElement* element,
                        HTMLSelectElement::SelectOptionFlags flags,
@@ -324,16 +320,8 @@ class MenuListSelectType final : public SelectType {
 MenuListSelectType::MenuListSelectType(HTMLSelectElement& select)
     : SelectType(select) {
   // MenuList selects always have two implicitly anchored elements: the
-  // ::picker and the autofill popover. We only need to tell the select element
-  // that there is one of them, and we can just decrement by one if the select
-  // switches from MenuList to ListBox, which happens in
-  // MenuListSelectType::WillBeDestroyed.
-  select_->IncrementImplicitlyAnchoredElementCount();
-}
-
-void MenuListSelectType::WillBeDestroyed() {
-  SelectType::WillBeDestroyed();
-  select_->DecrementImplicitlyAnchoredElementCount();
+  // ::picker and the autofill popover.
+  select_->SetMayBeImplicitAnchor();
 }
 
 void MenuListSelectType::Trace(Visitor* visitor) const {
@@ -436,19 +424,6 @@ bool MenuListSelectType::DefaultEventHandler(const Event& event) {
 
     if (ShouldOpenPopupForKeyPressEvent(*key_event))
       return HandlePopupOpenKeyboardEvent();
-
-    // TODO(crbug.com/1511354): Reconsider making appearance:base-select affect
-    // keyboard behavior after a resolution here:
-    // https://github.com/openui/open-ui/issues/1087
-    if (IsAppearanceBase() && key_code == '\r') {
-      // TODO(crbug.com/1511354): Consider making form->SubmitImplicitly work
-      // here instead of PrepareForSubmission and combine with the subsequent
-      // code.
-      if (HTMLFormElement* form = select_->Form()) {
-        form->PrepareForSubmission(&event, select_);
-        return true;
-      }
-    }
 
     if (!LayoutTheme::GetTheme().PopsMenuByReturnKey() && key_code == '\r') {
       if (HTMLFormElement* form = select_->Form())
@@ -1212,6 +1187,7 @@ class ListBoxSelectType final : public SelectType {
   void HandleMouseRelease() override;
   void ListBoxOnChange() override;
   void ClearLastOnChangeSelection() override;
+  void SetListBoxActiveSelection(HTMLOptionElement*) override;
   void CreateShadowSubtree(ShadowRoot&) override;
   void ManuallyAssignSlots() override;
   HTMLButtonElement* SlottedButton() const override;
@@ -1858,6 +1834,11 @@ void ListBoxSelectType::ClearLastOnChangeSelection() {
   last_on_change_selection_.clear();
 }
 
+void ListBoxSelectType::SetListBoxActiveSelection(HTMLOptionElement* option) {
+  SetActiveSelectionAnchor(option);
+  SetActiveSelectionEnd(option);
+}
+
 void ListBoxSelectType::CreateShadowSubtree(ShadowRoot& root) {
   Document& doc = select_->GetDocument();
   option_slot_ = MakeGarbageCollected<HTMLSlotElement>(doc);
@@ -1977,6 +1958,8 @@ void SelectType::HandleMouseRelease() {}
 void SelectType::ListBoxOnChange() {}
 
 void SelectType::ClearLastOnChangeSelection() {}
+
+void SelectType::SetListBoxActiveSelection(HTMLOptionElement*) {}
 
 Element& SelectType::InnerElement() const {
   NOTREACHED();

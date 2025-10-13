@@ -280,9 +280,9 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
                             new Action(
                                     OmniboxDrawableState.forSmallIconWithIncognitoVariant(
                                             mContext,
-                                            action.icon.iconRes,
-                                            action.icon.incognitoIconRes,
-                                            /* allowTint= */ false),
+                                            action.icon.buttonIconRes,
+                                            action.icon.incognitoButtonIconRes,
+                                            action.icon.tintWithTextColor),
                                     action.accessibilityHint,
                                     null,
                                     () -> {
@@ -295,15 +295,11 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
 
     @Override
     @CallSuper
-    public void onOmniboxSessionStateChange(boolean activated) {
-        mActionChipsProcessor.onOmniboxSessionStateChange(activated);
-    }
+    public void onOmniboxSessionStateChange(boolean activated) {}
 
     @Override
     @CallSuper
-    public void onSuggestionsReceived() {
-        mActionChipsProcessor.onSuggestionsReceived();
-    }
+    public void onSuggestionsReceived() {}
 
     /**
      * Apply In-Place highlight to matching sections of Suggestion text.

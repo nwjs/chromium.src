@@ -30,9 +30,7 @@ bool ShouldStartDistillabilityService() {
       switches::kEnableDistillabilityService);
 }
 
-BASE_FEATURE(kReaderModeUseReadability,
-             "ReaderModeUseReadability",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kReaderModeUseReadability, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_IOS)
 constexpr base::FeatureParam<bool> kReaderModeUseReadabilityUseDistiller{
@@ -41,11 +39,14 @@ constexpr base::FeatureParam<bool> kReaderModeUseReadabilityUseDistiller{
 #endif
 constexpr base::FeatureParam<int> kReaderModeUseReadabilityHeuristicMinScore{
     &kReaderModeUseReadability, /*name=*/"heuristic_min_score",
-    /*default_value=*/35};
+    /*default_value=*/50};
 constexpr base::FeatureParam<int>
     kReaderModeUseReadabilityHeuristicMinContentLength{
         &kReaderModeUseReadability, /*name=*/"heuristic_min_content_length",
-        /*default_value=*/140};
+        /*default_value=*/160};
+constexpr base::FeatureParam<int> kReaderModeUseReadabilityMinContentLength{
+    &kReaderModeUseReadability, /*name=*/"min_content_length",
+    /*default_value=*/100};
 
 bool ShouldUseReadabilityDistiller() {
 #if BUILDFLAG(IS_IOS)
@@ -64,15 +65,17 @@ int GetReadabilityHeuristicMinContentLength() {
   return kReaderModeUseReadabilityHeuristicMinContentLength.Get();
 }
 
+int GetMinimumAllowableDistilledContentLength() {
+  return base::FeatureList::IsEnabled(kReaderModeUseReadability)
+             ? kReaderModeUseReadabilityMinContentLength.Get()
+             : 0;
+}
+
 #if BUILDFLAG(IS_ANDROID)
 // Feature declarations below -- alphabetical order.
-BASE_FEATURE(kReaderModeDistillInApp,
-             "ReaderModeDistillInApp",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kReaderModeDistillInApp, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kReaderModeImprovements,
-             "ReaderModeImprovements",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kReaderModeImprovements, base::FEATURE_DISABLED_BY_DEFAULT);
 
 namespace android {
 static jlong JNI_DomDistillerFeatureMap_GetNativeMap(JNIEnv* env) {
@@ -85,5 +88,9 @@ static jlong JNI_DomDistillerFeatureMap_GetNativeMap(JNIEnv* env) {
 }
 }  // namespace android
 #endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_IOS)
+BASE_FEATURE(kEnableReaderModeNewCss, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_IOS)
 
 }  // namespace dom_distiller

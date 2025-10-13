@@ -5,6 +5,8 @@
 #import "ios/chrome/browser/download/model/download_record.h"
 
 #import "base/strings/sys_string_conversions.h"
+#import "ios/web/public/browser_state.h"
+#import "ios/web/public/web_state.h"
 #import "url/gurl.h"
 
 DownloadRecord::DownloadRecord() = default;
@@ -32,6 +34,7 @@ DownloadRecord::DownloadRecord(web::DownloadTask* task) {
   progress_percent = task->GetPercentComplete();
   state = task->GetState();
   has_performed_background_download = task->HasPerformedBackgroundDownload();
+  is_incognito = task->GetWebState()->GetBrowserState()->IsOffTheRecord();
 }
 
 DownloadRecord::DownloadRecord(const DownloadRecord& other) = default;
@@ -42,25 +45,42 @@ DownloadRecord& DownloadRecord::operator=(DownloadRecord&& other) = default;
 DownloadRecord::~DownloadRecord() = default;
 
 bool DownloadRecord::operator==(const DownloadRecord& other) const {
-  return download_id == other.download_id && file_name == other.file_name &&
-         original_url == other.original_url &&
-         redirected_url == other.redirected_url &&
-         file_path == other.file_path && response_path == other.response_path &&
-         original_mime_type == other.original_mime_type &&
-         mime_type == other.mime_type &&
-         content_disposition == other.content_disposition &&
-         originating_host == other.originating_host &&
-         http_method == other.http_method && http_code == other.http_code &&
-         error_code == other.error_code &&
-         received_bytes == other.received_bytes &&
-         total_bytes == other.total_bytes &&
-         progress_percent == other.progress_percent && state == other.state &&
-         has_performed_background_download ==
-             other.has_performed_background_download &&
-         created_time == other.created_time &&
-         completed_time == other.completed_time;
+  return CompareFields(other, true);
 }
 
 bool DownloadRecord::operator!=(const DownloadRecord& other) const {
   return !(*this == other);
+}
+
+bool DownloadRecord::EqualsExcludingProgress(
+    const DownloadRecord& other) const {
+  return CompareFields(other, false);
+}
+
+bool DownloadRecord::CompareFields(const DownloadRecord& other,
+                                   bool include_progress_fields) const {
+  bool result =
+      download_id == other.download_id && file_name == other.file_name &&
+      original_url == other.original_url &&
+      redirected_url == other.redirected_url && file_path == other.file_path &&
+      response_path == other.response_path &&
+      original_mime_type == other.original_mime_type &&
+      mime_type == other.mime_type &&
+      content_disposition == other.content_disposition &&
+      originating_host == other.originating_host &&
+      http_method == other.http_method && http_code == other.http_code &&
+      error_code == other.error_code && total_bytes == other.total_bytes &&
+      state == other.state &&
+      has_performed_background_download ==
+          other.has_performed_background_download &&
+      is_incognito == other.is_incognito &&
+      created_time == other.created_time &&
+      completed_time == other.completed_time;
+
+  if (include_progress_fields) {
+    result = result && received_bytes == other.received_bytes &&
+             progress_percent == other.progress_percent;
+  }
+
+  return result;
 }

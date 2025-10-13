@@ -29,7 +29,7 @@
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/os_crypt/async/browser/test_utils.h"
 #include "components/os_crypt/async/common/test_encryptor.h"
-#include "components/plus_addresses/webdata/plus_address_table.h"
+#include "components/plus_addresses/core/browser/webdata/plus_address_table.h"
 #include "components/search_engines/keyword_table.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/signin/public/webdata/token_service_table.h"
@@ -1778,6 +1778,48 @@ TEST_F(WebDatabaseMigrationTest, MigrateVersion142ToCurrent) {
               "00000000-0000-0000-0000-000000000000");
     EXPECT_FALSE(s_entities.ColumnBool(1));
     ASSERT_FALSE(s_entities.Step());
+  }
+}
+
+// Tests addition of card_creation_source column in masked_credit_cards table.
+TEST_F(WebDatabaseMigrationTest, MigrateVersion143ToCurrent) {
+  ASSERT_NO_FATAL_FAILURE(LoadDatabase(FILE_PATH_LITERAL("version_143.sql")));
+  {
+    sql::Database connection(sql::test::kTestTag);
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    EXPECT_EQ(143, VersionFromConnection(&connection));
+    EXPECT_FALSE(connection.DoesColumnExist("masked_credit_cards",
+                                            "card_creation_source"));
+  }
+  DoMigration();
+  {
+    sql::Database connection(sql::test::kTestTag);
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    EXPECT_EQ(WebDatabase::kCurrentVersionNumber,
+              VersionFromConnection(&connection));
+    EXPECT_TRUE(connection.DoesColumnExist("masked_credit_cards",
+                                           "card_creation_source"));
+  }
+}
+
+// Tests dropping the use_date2 and use_date3 columns from the addresses table.
+TEST_F(WebDatabaseMigrationTest, MigrateVersion144ToCurrent) {
+  ASSERT_NO_FATAL_FAILURE(LoadDatabase(FILE_PATH_LITERAL("version_144.sql")));
+  {
+    sql::Database connection(sql::test::kTestTag);
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    EXPECT_EQ(144, VersionFromConnection(&connection));
+    EXPECT_TRUE(connection.DoesColumnExist("addresses", "use_date2"));
+    EXPECT_TRUE(connection.DoesColumnExist("addresses", "use_date3"));
+  }
+  DoMigration();
+  {
+    sql::Database connection(sql::test::kTestTag);
+    ASSERT_TRUE(connection.Open(GetDatabasePath()));
+    EXPECT_EQ(WebDatabase::kCurrentVersionNumber,
+              VersionFromConnection(&connection));
+    EXPECT_FALSE(connection.DoesColumnExist("addresses", "use_date2"));
+    EXPECT_FALSE(connection.DoesColumnExist("addresses", "use_date3"));
   }
 }
 

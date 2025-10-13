@@ -10,8 +10,8 @@
 #import "components/browsing_data/core/pref_names.h"
 #import "components/sync/base/command_line_switches.h"
 #import "components/url_formatter/elide_url.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
+#import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
+#import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/history/ui_bundled/history_ui_constants.h"
 #import "ios/chrome/browser/menu/ui_bundled/menu_action_type.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
@@ -304,6 +304,24 @@ void ExpectContextMenuHistoryEntryActionsHistogram(int count,
                  selectorWasDispatched:
                      @"showQuickDeleteAndCanPerformTabsClosureAnimation:"],
              @"Command was not dispatched");
+  [ChromeCoordinatorAppInterface reset];
+}
+
+// Tests clear browsing history.
+- (void)testClearBrowsingHistory {
+  [self addTestURLsToHistory];
+  [ChromeCoordinatorAppInterface startHistoryCoordinator];
+
+  // Assert that history displays three entries.
+  [[EarlGrey selectElementWithMatcher:HistoryEntry(_URL1, kTitle1)]
+      assertWithMatcher:grey_notNil()];
+  [[EarlGrey selectElementWithMatcher:HistoryEntry(_URL2, kTitle2)]
+      assertWithMatcher:grey_notNil()];
+  [[EarlGrey selectElementWithMatcher:HistoryEntry(_URL3, _URL3.GetContent())]
+      assertWithMatcher:grey_notNil()];
+
+  [ChromeEarlGrey clearBrowsingHistory];
+  [ChromeEarlGreyUI assertHistoryHasNoEntries];
   [ChromeCoordinatorAppInterface reset];
 }
 

@@ -180,8 +180,10 @@ void StyleAdjuster::AdjustStyleForSvgElement(
     // Note that SetFooBar() is more efficient than ResetFooBar() if the current
     // value is same as the reset value.
     builder.SetTextDecorationSkipInk(ETextDecorationSkipInk::kAuto);
-    builder.SetTextDecorationStyle(
-        ETextDecorationStyle::kSolid);  // crbug.com/1246719
+    if (!RuntimeEnabledFeatures::SvgEnableTextDecorationCssStylingEnabled()) {
+      builder.SetTextDecorationStyle(
+          ETextDecorationStyle::kSolid);  // crbug.com/1246719
+    }
     builder.SetTextDecorationThickness(TextDecorationThickness(Length::Auto()));
     builder.SetTextEmphasisMark(TextEmphasisMark::kNone);
     builder.SetTextUnderlineOffset(Length());  // crbug.com/1247912
@@ -1073,8 +1075,12 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
     // Elements in the top layer must be out-of-flow positioned.
     // Root elements that are in the top layer should just be left alone
     // because the fullscreen.css doesn't apply any style to them.
+    //
+    // Similarly, overscroll-position elements must be out of flow positioned
+    // with a box.
     if ((builder.Overlay() == EOverlay::kAuto && !is_document_element) ||
-        builder.StyleType() == kPseudoIdBackdrop) {
+        builder.StyleType() == kPseudoIdBackdrop ||
+        builder.OverscrollPosition()) {
       if (!builder.HasOutOfFlowPosition()) {
         builder.SetPosition(EPosition::kAbsolute);
       }

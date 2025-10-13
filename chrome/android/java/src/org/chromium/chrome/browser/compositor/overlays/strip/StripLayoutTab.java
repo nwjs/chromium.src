@@ -45,7 +45,6 @@ import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.util.MotionEventUtils;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * {@link StripLayoutTab} is used to keep track of the strip position and rendering information for
@@ -72,20 +71,6 @@ public class StripLayoutTab extends StripLayoutView {
                 @Override
                 public Float get(StripLayoutTab object) {
                     return object.getOffsetY();
-                }
-            };
-
-    /** A property for animations to use for changing the width of the tab. */
-    public static final FloatProperty<StripLayoutTab> WIDTH =
-            new FloatProperty<>("width") {
-                @Override
-                public void setValue(StripLayoutTab object, float value) {
-                    object.setWidth(value);
-                }
-
-                @Override
-                public Float get(StripLayoutTab object) {
-                    return object.getWidth();
                 }
             };
 
@@ -159,7 +144,6 @@ public class StripLayoutTab extends StripLayoutView {
     private final Size mCloseButtonSize;
     private TintedCompositorButton mCloseButton;
 
-    private boolean mIsDying;
     private boolean mIsClosed;
     private boolean mIsSelected;
     private boolean mIsPinned;
@@ -174,7 +158,7 @@ public class StripLayoutTab extends StripLayoutView {
     private float mContainerOpacity;
 
     // For avoiding unnecessary accessibility description updates.
-    private Optional<String> mCachedA11yDescriptionTitle = Optional.empty();
+    private @Nullable String mCachedA11yDescriptionTitle;
     private @StringRes int mCachedA11yTabstripIdentifierResId;
 
     // Startup parameters
@@ -335,7 +319,8 @@ public class StripLayoutTab extends StripLayoutView {
      * @param isPinned whether this tab has been pinned.
      */
     public void setIsPinned(boolean isPinned) {
-        mIsPinned = isPinned;
+        // TODO(crbug.com/444267914): Flag guard #setIsPinned in TabImpl too.
+        mIsPinned = StripLayoutUtils.isTabPinningFromStripEnabled() ? isPinned : false;
     }
 
     /** Gets whether this tab has been pinned */
@@ -358,7 +343,7 @@ public class StripLayoutTab extends StripLayoutView {
 
     @Override
     public void getVirtualViews(List<VirtualView> views) {
-        if (isCollapsed() || mIsDying) return;
+        if (isCollapsed() || isDying()) return;
         super.getVirtualViews(views);
         if (mShowingCloseButton || mIsSelected) mCloseButton.getVirtualViews(views);
     }
@@ -381,7 +366,7 @@ public class StripLayoutTab extends StripLayoutView {
 
         // Cache the title + resource ID used to create this description so we can avoid unnecessary
         // updates.
-        mCachedA11yDescriptionTitle = Optional.ofNullable(title);
+        mCachedA11yDescriptionTitle = title;
         mCachedA11yTabstripIdentifierResId = newA11yTabstripIdentifierResId;
     }
 
@@ -397,11 +382,11 @@ public class StripLayoutTab extends StripLayoutView {
             // A different resource ID was used to create the description.
             return true;
         }
-        if (mCachedA11yDescriptionTitle.isPresent() && newTitle == null) {
+        if (mCachedA11yDescriptionTitle != null && newTitle == null) {
             // Going from non-null title to null title.
             return true;
         }
-        if (newTitle != null && !newTitle.equals(mCachedA11yDescriptionTitle.orElse(null))) {
+        if (newTitle != null && !newTitle.equals(mCachedA11yDescriptionTitle)) {
             // Going from non-null title to some other title (may even be null).
             return true;
         }
@@ -567,23 +552,6 @@ public class StripLayoutTab extends StripLayoutView {
     @Override
     public void setIncognito(boolean incognito) {
         assert false : "Incognito state of a tab cannot change";
-    }
-
-    /**
-     * Mark this tab as in the process of dying. This lets us track which tabs are closed after
-     * animations.
-     *
-     * @param isDying Whether or not the tab is dying.
-     */
-    public void setIsDying(boolean isDying) {
-        mIsDying = isDying;
-    }
-
-    /**
-     * @return Whether or not the tab is dying.
-     */
-    public boolean isDying() {
-        return mIsDying;
     }
 
     /**
@@ -759,13 +727,7 @@ public class StripLayoutTab extends StripLayoutView {
             @Nullable Float bottom) {
         super.setTouchTargetInsets(left, top, right, bottom);
 
-        // In more density mode, the close button's touch target should match its own size.
-        // Otherwise, align its vertical insets with the parent tab.
-        if (StripLayoutUtils.shouldApplyMoreDensity()) {
-            mCloseButton.setTouchTargetInsets(null, null, null, null);
-        } else {
-            mCloseButton.setTouchTargetInsets(null, top, null, bottom);
-        }
+        mCloseButton.setTouchTargetInsets(null, top, null, bottom);
     }
 
     /**

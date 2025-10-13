@@ -49,8 +49,7 @@ namespace internal {
 namespace {
 
 // Controls whether to explicitly enable service group importance logic.
-BASE_FEATURE(ServiceGroupImportance,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kServiceGroupImportance, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Stops a child process based on the handle returned from StartChildProcess.
 void StopChildProcess(base::ProcessHandle handle) {
@@ -135,6 +134,7 @@ ChildProcessLauncherHelper::LaunchProcessOnLauncherThread(
     const base::LaunchOptions* options,
     std::unique_ptr<PosixFileDescriptorInfo> files_to_register,
     bool can_use_warm_up_connection,
+    bool is_spare_renderer,
     bool* is_synchronous_launch,
     int* launch_result) {
   DCHECK(!options);
@@ -178,7 +178,7 @@ ChildProcessLauncherHelper::LaunchProcessOnLauncherThread(
   AddRef();  // Balanced by OnChildProcessStarted.
   java_peer_.Reset(Java_ChildProcessLauncherHelperImpl_createAndStart(
       env, reinterpret_cast<intptr_t>(this), j_argv, j_file_infos,
-      can_use_warm_up_connection));
+      can_use_warm_up_connection, is_spare_renderer));
 
   client_task_runner_->PostTask(
       FROM_HERE,

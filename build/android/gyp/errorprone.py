@@ -13,8 +13,10 @@ from util import server_utils
 
 # Add a check here to cause the suggested fix to be applied while compiling.
 # Use this when trying to enable more checks.
-# BE SURE TO BUILD WITH --offline
-ERRORPRONE_CHECKS_TO_APPLY = []
+ERRORPRONE_CHECKS_TO_APPLY = [
+    # Be sure to first update "android/errorprone" within
+    # build/config/siso/android.star to set "remote": False.
+]
 
 # Checks to disable in tests.
 TESTONLY_ERRORPRONE_WARNINGS_TO_DISABLE = [
@@ -29,36 +31,98 @@ TESTONLY_ERRORPRONE_WARNINGS_TO_DISABLE = [
 # Full list of checks: https://errorprone.info/bugpatterns
 ERRORPRONE_WARNINGS_TO_DISABLE = [
     # High priority to enable in non-tests:
-    'JdkObsolete',
-    'ReturnValueIgnored',
     'StaticAssignmentInConstructor',
+    # CheckReturnValue: See note below about enabling via -Xep.
+
+    # Still to look into:
+    'AnnotationPosition',
+    'AvoidObjectArrays',
+    'BanSerializableRead',
+    'BooleanParameter',
+    'CannotMockMethod',
+    'CatchingUnchecked',
+    'CheckedExceptionNotThrown',
+    'ConstantField',
+    'ConstantPatternCompile',
+    'DeduplicateConstants',
+    'DefaultLocale',
+    'DepAnn',
+    'DifferentNameButSame',
+    'ExpectedExceptionChecker',
+    'ForEachIterable',
+    'FunctionalInterfaceClash',
+    'IdentifierName',
+    'ImmutableMemberCollection',
+    'InconsistentOverloads',
+    'InitializeInline',
+    'InterruptedExceptionSwallowed',
+    'Interruption',
+    'MethodCanBeStatic',
+    'MissingDefault',
+    'MixedArrayDimensions',
+    'MockitoDoSetup',
+    'NegativeBoolean',
+    'NonCanonicalStaticMemberImport',
+    'NonFinalStaticField',
+    'PreferJavaTimeOverload',
+    'PreferredInterfaceType',
+    'PrimitiveArrayPassedToVarargsMethod',
+    'PrivateConstructorForUtilityClass',
+    'RedundantThrows',
+    'ReturnsNullCollection',
+    'StringFormatWithLiteral',
+    'SuppressWarningsWithoutExplanation',
+    'SystemExitOutsideMain',
+    'SystemOut',
+    'TestExceptionChecker',
+    'ThrowSpecificExceptions',
+    'ThrowsUncheckedException',
+    'TooManyParameters',
+    'TryFailRefactoring',
+    'TypeParameterNaming',
+    'UngroupedOverloads',
+    'UnnecessaryAnonymousClass',
+    'UnnecessaryBoxedAssignment',
+    'UnnecessaryDefaultInEnumSwitch',
+    'UnnecessaryFinal',
+    'UnsafeLocaleUsage',
+    'UnusedException',
+    'UseEnumSwitch',
+    'UsingJsr305CheckReturnValue',
+    'Var',
+    'Varifier',
+    'YodaCondition',
 
     # Low priority.
-    'BadImport',
     'CatchAndPrintStackTrace',
-    'EffectivelyPrivate',
-    'EmptyCatch',
-    'EqualsGetClass',
     'EqualsHashCode',
-    'IdentityHashMapUsage',
     'JavaUtilDate',
     'OverrideThrowableToString',
+    'ParameterComment',
     'PatternMatchingInstanceof',
-    'RedundantControlFlow',
     'StatementSwitchToExpressionSwitch',
     'UndefinedEquals',
-    'UseCorrectAssertInTests',
-    'SameNameButDifferent',
     'StaticAssignmentOfThrowable',  # Want in non-test
     'StaticMockMember',
     'StringCaseLocaleUsage',
     'StringCharset',
     'ThreadLocalUsage',
     'TypeParameterUnusedInFormals',
+    'UnnecessaryBoxedVariable',
+    'UnnecessarilyFullyQualified',
     'UnsafeReflectiveConstructionCast',
 
     # Never Enable:
     #
+    # Chromium uses assert statements.
+    'AssertFalse',
+    # Debatable whether it makes code less readable by forcing larger names for
+    # "Builder".
+    'BadImport',
+    # Such modifiers in nested classes do not hurt readability IMO.
+    'EffectivelyPrivate',
+    # Android APIs sometimes throw random exceptions that are safe to ignore.
+    'EmptyCatch',
     # Just use Android Studio refactors to inline things.
     'InlineMeInliner',
     'InlineMeSuggester',
@@ -96,6 +160,25 @@ ERRORPRONE_WARNINGS_TO_DISABLE = [
     'FutureReturnValueIgnored',
     # Just false positives in our code.
     'ThreadJoinLoop',
+    # Fine to run the auto-fix from time to time (which replaces assert
+    # statements with Truth assertions), but because using assert statements is
+    # normal in non-test code, they also show up in test helpers, which are
+    # arguably false-positives.
+    'UseCorrectAssertInTests',
+    # NullAway makes these redundant.
+    'FieldMissingNullable',
+    'ParameterMissingNullable',
+    'ReturnMissingNullable',
+    # Style guide difference between google3 & chromium.
+    'MissingBraces',
+    # Does not seem to take into account R8 backports. Redundant with Android
+    # Lint anyways.
+    'AndroidJdkLibsChecker',
+    'Java8ApiChecker',
+    # Style guide difference between google3 & chromium.
+    'UnnecessaryTestMethodPrefix',
+    # Too many suggestions where it's not actually necessary.
+    'CanIgnoreReturnValueSuggester',
 
     # These are all for Javadoc, which we don't really care about.
     'InvalidBlockTag',
@@ -228,6 +311,14 @@ def main():
   if options.testonly:
     errorprone_flags.extend('-Xep:{}:OFF'.format(x)
                             for x in TESTONLY_ERRORPRONE_WARNINGS_TO_DISABLE)
+    errorprone_flags += ['-XepCompilingTestOnlyCode']
+
+  # To enable CheckReturnValue to be opt-out rather than opt-in:
+  # packages = 'org.chromium,com.google,java.util.regex'
+  # errorprone_flags += ['-XepOpt:CheckReturnValue:Packages=' + packages]
+  # errorprone_flags += ['-XepOpt:CheckReturnValue:CheckAllConstructors=true']
+  # Might also need "-XepOpt:CheckReturnValue:ApiExclusionList=" with a
+  # "cirvlist.txt" that annotates android.* / java.* as @CanIgnoreReturnValue.
 
   if ERRORPRONE_CHECKS_TO_APPLY:
     to_apply = list(ERRORPRONE_CHECKS_TO_APPLY)

@@ -39,10 +39,8 @@ auto kYUVReadbackSizes = std::to_array<int>({2, 4, 14});
 class YUVReadbackTest : public testing::Test {
  protected:
   YUVReadbackTest() : context_(std::make_unique<gpu::GLInProcessContext>()) {
-    gpu::ContextCreationAttribs attributes;
     auto result = context_->Initialize(
-        TestGpuServiceHolder::GetInstance()->task_executor(), attributes,
-        gpu::SharedMemoryLimits());
+        TestGpuServiceHolder::GetInstance()->task_executor());
     DCHECK_EQ(result, gpu::ContextResult::kSuccess);
     gl_ = context_->GetImplementation();
 
@@ -84,7 +82,8 @@ class YUVReadbackTest : public testing::Test {
     run_loop.Run();
     json_data.append("]");
 
-    auto parsed_json = base::JSONReader::ReadAndReturnValueWithError(json_data);
+    auto parsed_json = base::JSONReader::ReadAndReturnValueWithError(
+        json_data, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
     CHECK(parsed_json.has_value())
         << "JSON parsing failed (" << parsed_json.error().message
         << ") JSON data:\n"

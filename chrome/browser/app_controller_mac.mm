@@ -123,7 +123,7 @@
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/color/color_provider.h"
 #include "ui/color/color_provider_manager.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/native_theme/native_theme_mac.h"
 #include "ui/native_theme/native_theme_observer.h"
 #include "url/gurl.h"
@@ -366,7 +366,14 @@ void FocusWindowSetOnCurrentSpace(NSSet<NSWindow*>* windows) {
   }
 
   if (frontmost_window) {
-    [frontmost_window makeKeyAndOrderFront:nil];
+    // Use deminiaturize when the window is minimized to avoid the issue where
+    // the window suddenly appears before the animation starts during
+    // restoration.
+    if (frontmost_window.miniaturized) {
+      [frontmost_window deminiaturize:nil];
+    } else {
+      [frontmost_window makeKeyAndOrderFront:nil];
+    }
     [NSApp activateIgnoringOtherApps:YES];
   }
 }
@@ -1629,9 +1636,9 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
       break;
     case IDC_HELP_PAGE_VIA_MENU:
       if (Browser* browser = ActivateBrowser(profile))
-        chrome::ShowHelp(browser, chrome::HELP_SOURCE_MENU);
+        chrome::ShowHelp(browser, chrome::HelpSource::kMenu);
       else
-        chrome::OpenHelpWindow(profile, chrome::HELP_SOURCE_MENU);
+        chrome::OpenHelpWindow(profile, chrome::HelpSource::kMenu);
       break;
     case IDC_OPTIONS:
       [self showPreferences:sender];

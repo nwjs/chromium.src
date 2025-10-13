@@ -227,13 +227,6 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Overlay Insecure Non-player-element Fullscreen"/>
 </enum>
 
-<enum name="BlacklistedVideoCaptureDeviceNames">
-  <int value="0" label="Google GTalk Camera Adapter"/>
-  <int value="1" label="IP Camera"/>
-  <int value="2" label="Cyberlink YouCam Webcam Splitter"/>
-  <int value="3" label="EpocCam Smartphone Wireless Camera"/>
-</enum>
-
 <enum name="BooleanAfterPowerOrDisplayChange">
   <int value="0" label="Not After Power or Display Change"/>
   <int value="1" label="After Power or Display Change"/>
@@ -1449,17 +1442,6 @@ chromium-metrics-reviews@google.com.
       label="Frame got hidden while the HTMLMediaElement was playing"/>
 </enum>
 
-<enum name="MediaPlayerExitStatus">
-  <int value="0" label="No errors"/>
-  <int value="1" label="Has errors"/>
-</enum>
-
-<enum name="MediaPlayerWatchTimeType">
-  <int value="0" label="Non-HLS"/>
-  <int value="1" label="HLS audio-only"/>
-  <int value="2" label="HLS video"/>
-</enum>
-
 <enum name="MediaPreviewDeviceSelectionUserAction">
   <int value="0" label="User did not interact with the combobox"/>
   <int value="1" label="User opened the combobox"/>
@@ -1632,9 +1614,10 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <enum name="MediaSessionEnterPictureInPictureType">
-  <int value="0" label="Default Handler"/>
+  <int value="0" label="Default Manual"/>
   <int value="1" label="Registered Manual"/>
   <int value="2" label="Registered Automatic"/>
+  <int value="3" label="Default Automatic"/>
 </enum>
 
 <enum name="MediaSinkType">
@@ -1884,13 +1867,6 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/picture_in_picture/picture_in_picture_window_manager.h:PictureInPictureTuckedType) -->
-
-<enum name="PlaylistSegmentType">
-  <int value="0" label="kTS"/>
-  <int value="1" label="kMP4"/>
-  <int value="2" label="kAAC"/>
-  <int value="3" label="kUnexpected"/>
-</enum>
 
 <enum name="PresentationUrlBySink">
   <int value="0" label="Unknown"/>
@@ -2409,11 +2385,12 @@ chromium-metrics-reviews@google.com.
   <int value="26" label="kRendererSinkFrameDelivererIsNotStarted"/>
   <int value="27" label="kCropVersionNotCurrent_DEPRECATED"/>
   <int value="28" label="kGpuMemoryBufferMapFailed"/>
-  <int value="29" label="kSubCaptureTargetVersionNotCurrent"/>
+  <int value="29" label="kSubCaptureTargetVersionNotCurrent_DEPRECATED"/>
   <int value="30" label="kPostProcessingFailed"/>
   <int value="31" label="kResolutionAdapterFrameIsNotMappable"/>
   <int value="32" label="kResolutionAdapterCannotCreateConvertFrame"/>
   <int value="33" label="kResolutionAdapterConvertAndScaleFailed"/>
+  <int value="34" label="kOldCaptureVersion"/>
 </enum>
 
 <enum name="VideoCaptureStartOutcome">

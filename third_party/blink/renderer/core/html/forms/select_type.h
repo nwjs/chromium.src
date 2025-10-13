@@ -21,7 +21,7 @@ class SelectType : public GarbageCollected<SelectType> {
   // Creates an instance of a SelectType subclass depending on the current mode
   // of |select|.
   static SelectType* Create(HTMLSelectElement& select);
-  virtual void WillBeDestroyed();
+  void WillBeDestroyed();
   virtual void Trace(Visitor* visitor) const;
 
   // Returns true if the event is handled.
@@ -60,6 +60,9 @@ class SelectType : public GarbageCollected<SelectType> {
   // Clear OPTION selection information saved by SaveLastSelection().
   // This is for ListBoxes.
   virtual void ClearLastOnChangeSelection();
+  // Sets the active selection range to just the provided option element. This
+  // will make ActiveSelectionEnd() return the provided option.
+  virtual void SetListBoxActiveSelection(HTMLOptionElement*);
 
   virtual void CreateShadowSubtree(ShadowRoot& root) = 0;
   virtual void ManuallyAssignSlots() = 0;

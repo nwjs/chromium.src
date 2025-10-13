@@ -24,6 +24,8 @@ class ContextImplTflite final : public WebNNContextImpl {
       mojo::PendingAssociatedReceiver<mojom::WebNNContext> receiver,
       WebNNContextProviderImpl* context_provider,
       mojom::CreateContextOptionsPtr options,
+      mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
+      mojo::ScopedDataPipeProducerHandle read_tensor_producer,
       gpu::CommandBufferId command_buffer_id,
       std::unique_ptr<ScopedSequence> sequence,
       scoped_refptr<gpu::SchedulerTaskRunner> task_runner);
@@ -51,10 +53,10 @@ class ContextImplTflite final : public WebNNContextImpl {
                    mojom::TensorInfoPtr tensor_info) override;
 
   base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
-  CreateTensorFromMailboxImpl(
+  CreateTensorFromSharedImageImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
       mojom::TensorInfoPtr tensor_info,
-      gpu::Mailbox mailbox) override;
+      std::unique_ptr<gpu::WebNNTensorRepresentation> representation) override;
 
   base::WeakPtrFactory<ContextImplTflite> weak_factory_{this};
 };

@@ -59,19 +59,19 @@ class PhoneNumber : public FormGroup {
   void set_profile(const AutofillProfile* profile) { profile_ = profile; }
 
   // FormGroup implementation:
-  void GetMatchingTypes(const std::u16string& text,
-                        const std::string& app_locale,
+  void GetMatchingTypes(std::u16string_view text,
+                        std::string_view app_locale,
                         FieldTypeSet* matching_types) const override;
   using FormGroup::GetInfo;
   std::u16string GetInfo(const AutofillType& type,
                          std::string_view app_locale) const override;
   std::u16string GetRawInfo(FieldType type) const override;
   void SetRawInfoWithVerificationStatus(FieldType type,
-                                        const std::u16string& value,
+                                        std::u16string_view value,
                                         VerificationStatus status) override;
   bool SetInfoWithVerificationStatus(const AutofillType& type,
-                                     const std::u16string& value,
-                                     const std::string& app_locale,
+                                     std::u16string_view value,
+                                     std::string_view app_locale,
                                      const VerificationStatus status) override;
   VerificationStatus GetVerificationStatus(FieldType type) const override;
 
@@ -82,14 +82,14 @@ class PhoneNumber : public FormGroup {
     ~PhoneCombineHelper();
 
     // Processes the `value` accordingly given a phone number `field_type`.
-    void SetInfo(FieldType field_type, const std::u16string& value);
+    void SetInfo(FieldType field_type, std::u16string_view value);
 
     // Parses the number built up from pieces stored via SetInfo() according to
     // the specified `profile`'s country code, falling back to the given
     // `app_locale` if the `profile` has no associated country code.  Returns
     // true if parsing was successful, false otherwise.
     bool ParseNumber(const AutofillProfile& profile,
-                     const std::string& app_locale,
+                     std::string_view app_locale,
                      std::u16string* value) const;
 
     // Returns true if both `phone_` and `whole_number_` are empty.
@@ -108,7 +108,7 @@ class PhoneNumber : public FormGroup {
   // Returns whether the phonenumber was successfully parsed and stored.
   static bool ImportPhoneNumberToProfile(
       const PhoneNumber::PhoneCombineHelper& combined_phone,
-      const std::string& app_locale,
+      std::string_view app_locale,
       AutofillProfile& profile);
 
  private:

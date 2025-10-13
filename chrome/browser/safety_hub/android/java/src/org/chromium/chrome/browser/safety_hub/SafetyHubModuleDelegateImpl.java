@@ -25,7 +25,6 @@ import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
 import org.chromium.components.browser_ui.settings.SettingsCustomTabLauncher;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.sync.SyncService;
-import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
@@ -94,7 +93,7 @@ public class SafetyHubModuleDelegateImpl implements SafetyHubModuleDelegate {
             return INVALID_PASSWORD_COUNT;
         }
 
-        if (PasswordManagerUtilBridge.isPasswordManagerAvailable(UserPrefs.get(mProfile))) {
+        if (PasswordManagerUtilBridge.isPasswordManagerAvailable()) {
             return passwordStoreBridge.getPasswordStoreCredentialsCountForAccountStore();
         }
         return INVALID_PASSWORD_COUNT;
@@ -106,7 +105,7 @@ public class SafetyHubModuleDelegateImpl implements SafetyHubModuleDelegate {
             return INVALID_PASSWORD_COUNT;
         }
 
-        if (PasswordManagerUtilBridge.isPasswordManagerAvailable(UserPrefs.get(mProfile))) {
+        if (PasswordManagerUtilBridge.isPasswordManagerAvailable()) {
             return passwordStoreBridge.getPasswordStoreCredentialsCountForProfileStore();
         }
         return INVALID_PASSWORD_COUNT;
@@ -117,15 +116,19 @@ public class SafetyHubModuleDelegateImpl implements SafetyHubModuleDelegate {
         assert !SafetyHubUtils.isSignedIn(mProfile);
         AccountPickerBottomSheetStrings strings =
                 new AccountPickerBottomSheetStrings.Builder(
-                                R.string.signin_account_picker_bottom_sheet_title)
-                        .setSubtitleStringId(R.string.safety_check_passwords_error_signed_out)
+                                context.getString(
+                                        R.string.signin_account_picker_bottom_sheet_title))
+                        .setSubtitleString(
+                                context.getString(R.string.safety_check_passwords_error_signed_out))
                         .build();
         BottomSheetSigninAndHistorySyncConfig config =
                 new BottomSheetSigninAndHistorySyncConfig.Builder(
                                 strings,
                                 NoAccountSigninMode.BOTTOM_SHEET,
                                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                                HistorySyncConfig.OptInMode.NONE)
+                                HistorySyncConfig.OptInMode.NONE,
+                                context.getString(R.string.history_sync_title),
+                                context.getString(R.string.history_sync_subtitle))
                         .build();
         // Open the sign-in page.
 

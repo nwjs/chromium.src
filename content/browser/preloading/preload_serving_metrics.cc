@@ -8,7 +8,6 @@
 #include "base/strings/strcat.h"
 #include "content/browser/preloading/prefetch/prefetch_match_resolver.h"
 #include "content/browser/preloading/preload_serving_metrics_holder.h"
-#include "content/browser/preloading/prerender/prerender_features.h"
 
 namespace content {
 
@@ -145,23 +144,6 @@ bool PrefetchMatchMetrics::IsActualMatch() const {
   return !!prefetch_container_metrics;
 }
 
-// static
-bool PreloadServingMetrics::IsEnabled() {
-  return features::kPrerender2FallbackUsePreloadServingMetrics.Get() ||
-         GetContentClient()->browser()->UsePreloadServingMetrics();
-}
-
-// static
-std::unique_ptr<PreloadServingMetrics>
-PreloadServingMetrics::TakeFromNavigationHandle(
-    NavigationHandle& navigation_handle) {
-  CHECK(PreloadServingMetrics::IsEnabled());
-
-  return PreloadServingMetricsHolder::GetOrCreateForNavigationHandle(
-             navigation_handle)
-      ->Take();
-}
-
 const PrefetchMatchMetrics*
 PreloadServingMetrics::GetMeaningfulPrefetchMatchMetrics() const {
   // There is no `PrefetchMatchMetrics` if an interceptor ahead of
@@ -212,7 +194,7 @@ void PreloadServingMetrics::RecordMetricsForNonPrerenderNavigationCommitted()
 
 void PreloadServingMetrics::RecordMetricsForPrerenderInitialNavigationFailed()
     const {
-  CHECK(PreloadServingMetrics::IsEnabled());
+  CHECK(PreloadServingMetricsCapsule::IsFeatureEnabled());
 
   RecordMetricsInternal(
       *this, "PreloadServingMetrics.ForPrerenderInitialNavigationFailed.",
@@ -268,7 +250,7 @@ void PreloadServingMetrics::RecordFirstContentfulPaint(
 }
 
 PreloadServingMetrics::PreloadServingMetrics() {
-  CHECK(PreloadServingMetrics::IsEnabled());
+  CHECK(PreloadServingMetricsCapsule::IsFeatureEnabled());
 }
 
 PreloadServingMetrics::~PreloadServingMetrics() = default;
@@ -277,7 +259,7 @@ PreloadServingMetrics::~PreloadServingMetrics() = default;
 std::unique_ptr<PreloadServingMetricsCapsule>
 PreloadServingMetricsCapsuleImpl::TakeFromNavigationHandle(
     NavigationHandle& navigation_handle) {
-  CHECK(PreloadServingMetrics::IsEnabled());
+  CHECK(PreloadServingMetricsCapsule::IsFeatureEnabled());
 
   return base::WrapUnique(new PreloadServingMetricsCapsuleImpl(
       PreloadServingMetricsHolder::GetOrCreateForNavigationHandle(
@@ -288,7 +270,7 @@ PreloadServingMetricsCapsuleImpl::TakeFromNavigationHandle(
 PreloadServingMetricsCapsuleImpl::PreloadServingMetricsCapsuleImpl(
     std::unique_ptr<PreloadServingMetrics> preload_serving_metrics)
     : preload_serving_metrics_(std::move(preload_serving_metrics)) {
-  CHECK(PreloadServingMetrics::IsEnabled());
+  CHECK(PreloadServingMetricsCapsule::IsFeatureEnabled());
 }
 
 PreloadServingMetricsCapsuleImpl::~PreloadServingMetricsCapsuleImpl() = default;

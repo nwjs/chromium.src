@@ -6,7 +6,10 @@
 
 namespace session::features {
 
-BASE_FEATURE(SessionRestorationSessionIDCheck,
+BASE_FEATURE(kSessionRestorationSessionIDCheck,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSessionRestorationFullConversion,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace session::features

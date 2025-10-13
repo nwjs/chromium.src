@@ -12,11 +12,6 @@ namespace prefs {
 inline constexpr char kAddressBarSettingsNewBadgeShownCount[] =
     "ios.address_bar_settings_new_badge_shown_count";
 
-// Timestamp marking when the "new" badge for the AI Hub icon should stop
-// showing.
-inline constexpr char kAIHubNewBadgeExpirationTime[] =
-    "ios.ai_hub_new_badge_expiration_time";
-
 // The application locale.
 inline constexpr char kApplicationLocale[] = "intl.app_locale";
 
@@ -831,6 +826,10 @@ inline constexpr char kNextSSORecallTime[] = "ios.next_sso_recall_time";
 // 0 means Gemini is enabled (default), and 1 means it's disabled.
 inline constexpr char kGeminiEnabledByPolicy[] = "ios.gemini_enabled_by_policy";
 
+// A boolean specifying whether the user has ever been eligible for AI Hub.
+inline constexpr char kAIHubEligibilityTriggered[] =
+    "ios.ai_hub_eligibility_triggered";
+
 // A boolean specifying if the multi-profile force-migration is done.
 inline constexpr char kMultiProfileForcedMigrationDone[] =
     "ios.multi_profile_forced_migration_done";
@@ -852,6 +851,19 @@ inline constexpr char kIOSGMOSKOPlacementIDNextLogDate[] =
 // the short window or the long window.
 inline constexpr char kIOSGMOSKOLastAttributionWindowType[] =
     "ios.gmosko_last_attribution_window_type";
+
+// A profile pref for storing a list of timestamps of days the user was active.
+inline constexpr char kCrossPlatformPromosActiveDays[] =
+    "cross_platform_promos.active_days";
+
+// A profile pref for storing the 16th most recent day the user was active.
+// This is calculating by starting at the current day, and iterating back
+// through the days that the user was active, and counting until the 16th
+// active day is reached. This can be used to determine if the user has been
+// active at least 16 out of the last 28 days, by checking if this is more
+// recent than 28 days ago.
+inline constexpr char kCrossPlatformPromosIOS16thActiveDay[] =
+    "cross_platform_promos.ios_16th_active_day";
 
 }  // namespace prefs
 

@@ -36,6 +36,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterIntegerPref(
       kAutofillLastVersionDeduped, 0,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterIntegerPref(
+      kAutofillAiLastVersionDeduped, 0,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterBooleanPref(
       kAutofillHasSeenIban, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
@@ -49,11 +52,15 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       kAutofillPaymentCardBenefits, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 
-  registry->RegisterStringPref(kAutofillNameAndEmailProfileSignature, "",
-                               user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterStringPref(
+      kAutofillNameAndEmailProfileSignature, "",
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
   registry->RegisterIntegerPref(
       kAutofillNameAndEmailProfileNotSelectedCounter, 0,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
+  registry->RegisterBooleanPref(
+      kAutofillWasNameAndEmailProfileUsed, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
 
   // Non-synced prefs. Used for per-device choices, e.g., signin promo.
   registry->RegisterDictionaryPref(kAutofillAiOptInStatus);

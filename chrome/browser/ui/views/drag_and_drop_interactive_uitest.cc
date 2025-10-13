@@ -1104,7 +1104,7 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest, DropTextFromOutside) {
   // Setup test expectations.
   DOMDragEventVerifier expected_dom_event_data;
   expected_dom_event_data.set_expected_client_position("(155, 150)");
-  expected_dom_event_data.set_expected_drop_effect("none");
+  expected_dom_event_data.set_expected_drop_effect("copy");
   expected_dom_event_data.set_expected_effect_allowed("all");
   expected_dom_event_data.set_expected_mime_types("text/plain");
   expected_dom_event_data.set_expected_page_position("(155, 150)");
@@ -1275,8 +1275,9 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest, DragAndDropVirtualFiles) {
 
 // Scenario: drag a URL into the Omnibox.  This is a regression test for
 // https://crbug.com/670123.
-// TODO(crbug.com/344168586): Very flaky on linux-chromeos-rel bots.
-#if BUILDFLAG(IS_CHROMEOS) && defined(NDEBUG)
+// TODO(crbug.com/344168586): Very flaky on linux-chromeos-rel bots and
+// consistently failing on linux-chromeos-dbg.
+#if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_DropUrlIntoOmnibox DISABLED_DropUrlIntoOmnibox
 #else
 #define MAYBE_DropUrlIntoOmnibox DropUrlIntoOmnibox
@@ -1570,10 +1571,7 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest,
                                /*image_crossorigin_attr=*/false);
 }
 
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_DragCorsSameOriginImageBetweenFrames \
-  DISABLED_DragCorsSameOriginImageBetweenFrames
-#elif BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_DragCorsSameOriginImageBetweenFrames \
   DISABLED_DragCorsSameOriginImageBetweenFrames
 #else
@@ -1595,10 +1593,7 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest,
                                /*image_crossorigin_attr=*/true);
 }
 
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_DragCrossOriginImageBetweenFrames \
-  DISABLED_DragCrossOriginImageBetweenFrames
-#elif BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_DragCrossOriginImageBetweenFrames \
   DISABLED_DragCrossOriginImageBetweenFrames
 #else
@@ -1709,6 +1704,7 @@ void DragAndDropBrowserTest::DragImageBetweenFrames_Step2(
       state->expected_dom_event_data.set_expected_client_position("(355, 150)");
       state->expected_dom_event_data.set_expected_page_position("(355, 150)");
       state->expected_dom_event_data.set_expected_file_names("");
+      state->expected_dom_event_data.set_expected_drop_effect("none");
       state->expected_dom_event_data.set_expected_mime_types(
           state->expect_image_accessible
               ? "Files,text/html,text/plain,text/uri-list"
@@ -1726,6 +1722,7 @@ void DragAndDropBrowserTest::DragImageBetweenFrames_Step2(
       // (these coordinates are relative to the right frame).
       state->expected_dom_event_data.set_expected_client_position("(155, 150)");
       state->expected_dom_event_data.set_expected_page_position("(155, 150)");
+      state->expected_dom_event_data.set_expected_drop_effect("copy");
 
       EXPECT_TRUE(
           dragenter_event_waiter.WaitForNextMatchingEvent(&dragenter_event));
@@ -1857,9 +1854,8 @@ void DragAndDropBrowserTest::DragImageBetweenFrames_Step3(
 // There is no known way to execute test-controlled tasks during
 // a drag-and-drop loop run by Windows OS.
 // Also disable the test on Linux due to flaky: crbug.com/1164442
-// TODO(crbug.com/40876472): Enable on ChromeOS ASAN once flakiness is fixed.
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || \
-    (BUILDFLAG(IS_CHROMEOS) && defined(ADDRESS_SANITIZER))
+// TODO(crbug.com/40876472): Enable on ChromeOS once flakiness is fixed.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_DragImageFromDisappearingFrame \
   DISABLED_DragImageFromDisappearingFrame
 #else
@@ -1892,7 +1888,7 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest,
 
   // Setup test expectations.
   DragAndDropBrowserTest::DragImageFromDisappearingFrame_TestState state;
-  state.expected_dom_event_data.set_expected_drop_effect("none");
+  state.expected_dom_event_data.set_expected_drop_effect("copy");
   // (dragstart event handler in image_source.html is asking for "copy" only).
   state.expected_dom_event_data.set_expected_effect_allowed("copy");
   state.expected_dom_event_data.set_expected_mime_types(
@@ -2211,11 +2207,8 @@ void DragAndDropBrowserTest::CrossNavCrossSiteDrag_Step3(
 
 // There is no known way to execute test-controlled tasks during
 // a drag-and-drop loop run by Windows OS.
-#if BUILDFLAG(IS_WIN) ||                                  \
-    (BUILDFLAG(IS_CHROMEOS) &&                            \
-     (defined(ADDRESS_SANITIZER) || !defined(NDEBUG))) || \
-    BUILDFLAG(IS_LINUX)
-// TODO(crbug.com/442927728): Fix failing test on Linux
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
+// TODO(crbug.com/442927728): Fix failing test on Linux and ChromeOS
 // https://crbug.com/1393605: Flaky at ChromeOS ASAN and Debug builds
 #define MAYBE_CrossTabDrag DISABLED_CrossTabDrag
 #else
@@ -2272,7 +2265,7 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest, MAYBE_CrossTabDrag) {
   state.right_frame_events_counter =
       std::make_unique<DOMDragEventCounter>(GetRightFrame(second_contents));
   state.expected_dom_event_data.set_expected_client_position("(55, 50)");
-  state.expected_dom_event_data.set_expected_drop_effect("none");
+  state.expected_dom_event_data.set_expected_drop_effect("copy");
   // (dragstart event handler in image_source.html is asking for "copy" only).
   state.expected_dom_event_data.set_expected_effect_allowed("copy");
   state.expected_dom_event_data.set_expected_mime_types(

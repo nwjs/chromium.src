@@ -43,6 +43,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_trustedscripturl_usvstring.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_void_function.h"
 #include "third_party/blink/renderer/bindings/core/v8/worker_or_worklet_script_controller.h"
+#include "third_party/blink/renderer/core/canvas_interventions/canvas_interventions_helper.h"
 #include "third_party/blink/renderer/core/css/font_face_set_worker.h"
 #include "third_party/blink/renderer/core/css/offscreen_font_selector.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
@@ -599,8 +600,7 @@ void WorkerGlobalScope::RunWorkerScript() {
     debugger->ExternalAsyncTaskFinished(*stack_id_);
 
   script_eval_state_ = ScriptEvalState::kEvaluated;
-  TRACE_EVENT_NESTABLE_ASYNC_END0("blink.worker", "WorkerGlobalScope setup",
-                                  TRACE_ID_LOCAL(this));
+  TRACE_EVENT_END("blink.worker", perfetto::Track::FromPointer(this));
 }
 
 void WorkerGlobalScope::ReceiveMessage(BlinkTransferableMessage message) {
@@ -702,7 +702,8 @@ WorkerGlobalScope::WorkerGlobalScope(
           thread->GetWorkerReportingProxy(),
           creation_params->script_url.ProtocolIsData(),
           /*is_default_world_of_isolate=*/
-          creation_params->is_default_world_of_isolate),
+          creation_params->is_default_world_of_isolate,
+          creation_params->canvas_noise_token),
       ActiveScriptWrappable<WorkerGlobalScope>({}),
       script_type_(creation_params->script_type),
       user_agent_(creation_params->user_agent),
@@ -720,8 +721,8 @@ WorkerGlobalScope::WorkerGlobalScope(
   // Workers should always maintain the default world of an isolate.
   CHECK(creation_params->is_default_world_of_isolate);
   TRACE_EVENT("blink.worker", "WorkerGlobalScope::WorkerGlobalScope");
-  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("blink.worker", "WorkerGlobalScope setup",
-                                    TRACE_ID_LOCAL(this));
+  TRACE_EVENT_BEGIN("blink.worker", "WorkerGlobalScope setup",
+                    perfetto::Track::FromPointer(this));
 
   InstanceCounters::IncrementCounter(
       InstanceCounters::kWorkerGlobalScopeCounter);

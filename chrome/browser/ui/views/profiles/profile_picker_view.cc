@@ -179,15 +179,6 @@ void ProfilePicker::Show(Params&& params) {
 }
 
 // static
-base::FilePath ProfilePicker::GetSwitchProfilePath() {
-  if (g_profile_picker_view) {
-    return g_profile_picker_view->GetProfilePickerFlowController()
-        ->GetSwitchProfilePathOrEmpty();
-  }
-  return base::FilePath();
-}
-
-// static
 void ProfilePicker::SwitchToSignIn(
     ProfilePicker::ProfileInfo profile_info,
     base::OnceCallback<void(bool)> switch_finished_callback) {
@@ -421,7 +412,8 @@ void ProfilePickerView::Clear() {
 }
 
 bool ProfilePickerView::ShouldUseDarkColors() const {
-  return GetNativeTheme()->ShouldUseDarkColors();
+  return GetNativeTheme()->preferred_color_scheme() ==
+         ui::NativeTheme::PreferredColorScheme::kDark;
 }
 
 content::WebContents* ProfilePickerView::GetPickerContents() const {
@@ -546,11 +538,9 @@ ProfilePickerView::ProfilePickerView(ProfilePicker::Params&& params)
   // Record creation metrics.
   base::UmaHistogramEnumeration("ProfilePicker.Shown", params_.entry_point());
   if (params_.entry_point() == ProfilePicker::EntryPoint::kOnStartup) {
-    DCHECK(creation_time_on_startup_.is_null());
-    creation_time_on_startup_ = base::TimeTicks::Now();
     base::UmaHistogramTimes(
         "ProfilePicker.StartupTime.BeforeCreation",
-        creation_time_on_startup_ -
+        base::TimeTicks::Now() -
             startup_metric_utils::GetCommon().MainEntryPointTicks());
   }
 }
@@ -657,12 +647,6 @@ void ProfilePickerView::FinishInit() {
   if (IsClassicProfilePickerFlow(params_)) {
     PrefService* prefs = g_browser_process->local_state();
     prefs->SetBoolean(prefs::kBrowserProfilePickerShown, true);
-  }
-
-  if (params_.entry_point() == ProfilePicker::EntryPoint::kOnStartup) {
-    DCHECK(!creation_time_on_startup_.is_null());
-    base::UmaHistogramTimes("ProfilePicker.StartupTime.WebViewCreated",
-                            base::TimeTicks::Now() - creation_time_on_startup_);
   }
 
   if (g_profile_picker_opened_callback_for_testing) {

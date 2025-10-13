@@ -43,12 +43,8 @@ BASE_FEATURE(kFeatureOffByDefault,
              FEATURE_DISABLED_BY_DEFAULT);
 
 // For testing the 2-argument BASE_FEATURE macro.
-BASE_FEATURE(Feature2ArgsOn, FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(Feature2ArgsOff, FEATURE_DISABLED_BY_DEFAULT);
-
-// For testing the BASE_FEATURE_2 macro.
-BASE_FEATURE_2(kFeature2TestOn, FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE_2(kFeature2TestOff, FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFeature2ArgsOn, FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kFeature2ArgsOff, FEATURE_DISABLED_BY_DEFAULT);
 
 std::string SortFeatureListString(const std::string& feature_list) {
   std::vector<std::string_view> features =
@@ -58,6 +54,9 @@ std::string SortFeatureListString(const std::string& feature_list) {
 }
 
 }  // namespace
+
+// A feature outside the anonymous namespace.
+BASE_FEATURE(kFeatureOutsideAnonymousNamespace, FEATURE_DISABLED_BY_DEFAULT);
 
 class FeatureListTest : public testing::Test {
  public:
@@ -86,12 +85,10 @@ TEST_F(FeatureListTest, TwoArgMacro) {
   EXPECT_STREQ("Feature2ArgsOff", kFeature2ArgsOff.name);
 }
 
-// Testing the BASE_FEATURE_2 macro.
-TEST_F(FeatureListTest, TwoArgMacroWithK) {
-  EXPECT_TRUE(FeatureList::IsEnabled(kFeature2TestOn));
-  EXPECT_FALSE(FeatureList::IsEnabled(kFeature2TestOff));
-  EXPECT_STREQ("Feature2TestOn", kFeature2TestOn.name);
-  EXPECT_STREQ("Feature2TestOff", kFeature2TestOff.name);
+TEST_F(FeatureListTest, OutsideAnonymousNamespace) {
+  EXPECT_FALSE(FeatureList::IsEnabled(kFeatureOutsideAnonymousNamespace));
+  EXPECT_STREQ("FeatureOutsideAnonymousNamespace",
+               kFeatureOutsideAnonymousNamespace.name);
 }
 
 TEST_F(FeatureListTest, InitFromCommandLine) {

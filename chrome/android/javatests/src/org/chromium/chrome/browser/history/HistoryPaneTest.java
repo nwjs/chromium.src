@@ -5,8 +5,8 @@
 package org.chromium.chrome.browser.history;
 
 import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
+import static org.chromium.base.test.transit.Triggers.noopTo;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.MediumTest;
 
 import org.junit.Before;
@@ -16,6 +16,7 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge;
@@ -34,6 +35,7 @@ import org.chromium.chrome.test.transit.hub.RegularTabSwitcherStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.DeviceInput;
+import org.chromium.ui.test.transit.SoftKeyboardCondition;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -60,9 +62,7 @@ public class HistoryPaneTest {
                 () -> {
                     clearHistory(cta.getProfileProviderSupplier().get().getOriginalProfile());
                     supportsKeyboard.set(DeviceInput.supportsKeyboard());
-                    isTablet.set(
-                            DeviceFormFactor.isNonMultiDisplayContextOnTablet(
-                                    ApplicationProvider.getApplicationContext()));
+                    isTablet.set(DeviceFormFactor.isNonMultiDisplayContextOnTablet(cta));
                 });
         mIsLLFDevice = supportsKeyboard.get() && isTablet.get();
     }
@@ -76,6 +76,7 @@ public class HistoryPaneTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/442838631")
     public void testOpenedHistoryItem_HistoryItemsAreDisplayed() {
         String urlOne =
                 mCtaTestRule.getTestServer().getURL("/chrome/test/data/android/navigate/one.html");
@@ -94,6 +95,7 @@ public class HistoryPaneTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/442651404")
     public void testOpenedHistoryItem_SearchMatch() {
         String urlOne =
                 mCtaTestRule.getTestServer().getURL("/chrome/test/data/android/navigate/one.html");
@@ -116,6 +118,11 @@ public class HistoryPaneTest {
         // Verify that "One" is displayed as a match.
         history.expectEntry("One");
         history.expectNoEntry("Two");
+
+        noopTo().waitFor(
+                        new SoftKeyboardCondition(
+                                historyPaneStation.getActivityElement(),
+                                /* expectShowing= */ false));
     }
 
     @Test

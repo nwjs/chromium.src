@@ -17,6 +17,7 @@
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
+#include "third_party/blink/renderer/core/style/style_trigger_attachment.h"
 
 namespace blink {
 
@@ -27,11 +28,13 @@ AnimationTimeline::AnimationTimeline(Document* document)
 
 void AnimationTimeline::AnimationAttached(Animation* animation) {
   DCHECK(!animations_.Contains(animation));
+  DCHECK(!in_trigger_attachments_update_);
   animations_.insert(animation);
   animation->ResolveTimelineOffsets(GetTimelineRange());
 }
 
 void AnimationTimeline::AnimationDetached(Animation* animation) {
+  DCHECK(!in_trigger_attachments_update_);
   animations_.erase(animation);
   animations_needing_update_.erase(animation);
   if (animation->Outdated())
@@ -245,24 +248,21 @@ void AnimationTimeline::ServiceTriggers() {
 }
 
 void AnimationTimeline::UpdateAnimationTriggerAttachments() {
-  // Mitigation for  https://crbug.com/446159591 to avoid hang reports.
-  // TODO(crbug.com/c/446159591): This hang should be fixed before enabling
-  // AnimationTrigger.
-  if (!RuntimeEnabledFeatures::AnimationTriggerEnabled()) {
-    return;
-  }
+  DCHECK(RuntimeEnabledFeatures::AnimationTriggerEnabled());
   if (!GetDocument() || !GetDocument()->View()) {
     return;
   }
+  base::AutoReset<bool> in_trigger_attachments_update(
+      &in_trigger_attachments_update_, true);
   for (Animation* animation : animations_) {
     CSSAnimation* css_animation = DynamicTo<CSSAnimation>(animation);
     if (!css_animation) {
       continue;
     }
 
-    const std::optional<Vector<AtomicString>>& animation_trigger_names =
-        css_animation->GetTriggerNames();
-    if (!animation_trigger_names.has_value()) {
+    const Member<const StyleTriggerAttachmentVector>&
+        animation_trigger_attachments = css_animation->GetTriggerAttachments();
+    if (!animation_trigger_attachments) {
       continue;
     }
 
@@ -285,12 +285,12 @@ void AnimationTimeline::UpdateAnimationTriggerAttachments() {
         for (auto& entry : *named_triggers) {
           AnimationTrigger* trigger = entry.value.Get();
 
-          for (auto name : *animation_trigger_names) {
-            if (name == entry.key->GetName()) {
+          for (auto attachment : *animation_trigger_attachments) {
+            if (attachment->TriggerName()->GetName() == entry.key->GetName()) {
               // TODO(crbug.com/c/429392773): This attaches all triggers of
               // matching names. When a resolution for resolving triggers with
               // the same name has been reached, we should update this.
-              trigger->addAnimation(animation, ASSERT_NO_EXCEPTION);
+              attachment->Attach(*trigger, *animation);
             }
           }
         }

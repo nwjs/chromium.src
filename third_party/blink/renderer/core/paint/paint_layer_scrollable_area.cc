@@ -67,6 +67,7 @@
 #include "third_party/blink/renderer/core/core_probes_inl.h"
 #include "third_party/blink/renderer/core/css/color_scheme_flags.h"
 #include "third_party/blink/renderer/core/css/container_query_evaluator.h"
+#include "third_party/blink/renderer/core/css/container_state.h"
 #include "third_party/blink/renderer/core/css/snapped_query_scroll_snapshot.h"
 #include "third_party/blink/renderer/core/css/style_request.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
@@ -185,9 +186,9 @@ PaintLayerScrollableArea* PaintLayerScrollableArea::FromNode(const Node& node) {
   return box ? box->GetScrollableArea() : nullptr;
 }
 
-void PaintLayerScrollableArea::DidCompositorScroll(
-    const gfx::PointF& position) {
-  ScrollableArea::DidCompositorScroll(position);
+void PaintLayerScrollableArea::DidCompositorScroll(const gfx::PointF& position,
+                                                   cc::ScrollSourceType type) {
+  ScrollableArea::DidCompositorScroll(position, type);
   // This should be alive if it receives composited scroll callbacks.
   CHECK(!HasBeenDisposed());
 }
@@ -253,6 +254,7 @@ void PaintLayerScrollableArea::ApplyPendingHistoryRestoreScrollOffset() {
   if (!did_restore) {
     SetScrollOffset(pending_view_state_->state.scroll_offset_,
                     mojom::blink::ScrollType::kProgrammatic,
+                    cc::ScrollSourceType::kStationaryScroll,
                     pending_view_state_->scroll_behavior);
   }
 
@@ -423,7 +425,8 @@ int PaintLayerScrollableArea::ScrollSize(
 
 void PaintLayerScrollableArea::UpdateScrollOffset(
     const ScrollOffset& new_offset,
-    mojom::blink::ScrollType scroll_type) {
+    mojom::blink::ScrollType scroll_type,
+    cc::ScrollSourceType source_type) {
   if (HasBeenDisposed() || GetScrollOffset() == new_offset)
     return;
 
@@ -434,6 +437,8 @@ void PaintLayerScrollableArea::UpdateScrollOffset(
 
   LocalFrameView* frame_view = GetLayoutBox()->GetFrameView();
   CHECK(frame_view);
+
+  UpdateLastScrollDirection(scroll_offset_, new_offset, source_type);
 
   // The ScrollOffsetTranslation paint property depends on the scroll offset.
   // (see: PaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation).
@@ -534,6 +539,27 @@ void PaintLayerScrollableArea::UpdateScrollOffset(
   if (AXObjectCache* cache =
           GetLayoutBox()->GetDocument().ExistingAXObjectCache())
     cache->HandleScrollPositionChanged(GetLayoutBox());
+}
+
+void PaintLayerScrollableArea::UpdateLastScrollDirection(
+    const ScrollOffset& previous_offset,
+    const ScrollOffset& new_offset,
+    cc::ScrollSourceType source_type) {
+  if (source_type != cc::ScrollSourceType::kRelativeScroll) {
+    return;
+  }
+  if (previous_offset.x() > new_offset.x()) {
+    last_scroll_direction_horizontal_ = ContainerScrollDirection::kStart;
+  }
+  if (previous_offset.x() < new_offset.x()) {
+    last_scroll_direction_horizontal_ = ContainerScrollDirection::kEnd;
+  }
+  if (previous_offset.y() > new_offset.y()) {
+    last_scroll_direction_vertical_ = ContainerScrollDirection::kStart;
+  }
+  if (previous_offset.y() < new_offset.y()) {
+    last_scroll_direction_vertical_ = ContainerScrollDirection::kEnd;
+  }
 }
 
 void PaintLayerScrollableArea::InvalidatePaintForScrollOffsetChange() {
@@ -994,7 +1020,8 @@ void PaintLayerScrollableArea::SetScrollOffsetUnconditionally(
     const ScrollOffset& offset,
     mojom::blink::ScrollType scroll_type) {
   CancelScrollAnimation();
-  ScrollOffsetChanged(offset, scroll_type);
+  // TODO(crbug.com/414556050): Pass the correct `ScrollSourceType`.
+  ScrollOffsetChanged(offset, scroll_type, cc::ScrollSourceType::kNone);
 }
 
 void PaintLayerScrollableArea::UpdateAfterLayout() {
@@ -1219,6 +1246,7 @@ void PaintLayerScrollableArea::ClampScrollOffsetAfterOverflowChangeInternal() {
     bool targeted_scroll = group && group->SelectedMarkerIsPinned();
     ScrollableArea::SetScrollOffset(GetScrollOffset(),
                                     mojom::blink::ScrollType::kClamping,
+                                    cc::ScrollSourceType::kStationaryScroll,
                                     mojom::blink::ScrollBehavior::kInstant,
                                     ScrollCallback(), targeted_scroll);
   }
@@ -2474,12 +2502,13 @@ PhysicalRect PaintLayerScrollableArea::ScrollIntoView(
   if (params->is_for_scroll_sequence) {
     mojom::blink::ScrollBehavior behavior = DetermineScrollBehavior(
         params->behavior, GetLayoutBox()->StyleRef().GetScrollBehavior());
-    SetScrollOffset(new_scroll_offset, params->type, behavior, ScrollCallback(),
-                    true);
-  } else {
     SetScrollOffset(new_scroll_offset, params->type,
-                    mojom::blink::ScrollBehavior::kInstant, ScrollCallback(),
-                    true);
+                    cc::ScrollSourceType::kAbsoluteScroll, behavior,
+                    ScrollCallback(), true);
+  } else {
+    SetScrollOffset(
+        new_scroll_offset, params->type, cc::ScrollSourceType::kAbsoluteScroll,
+        mojom::blink::ScrollBehavior::kInstant, ScrollCallback(), true);
   }
   ScrollOffset scroll_offset_difference = new_scroll_offset - old_scroll_offset;
   // The container hasn't performed the scroll yet if it's for scroll sequence.
@@ -2554,6 +2583,11 @@ void PaintLayerScrollableArea::UpdateScrollableAreaSet() {
     UseCounter::Count(
         GetLayoutBox()->GetDocument(),
         WebFeature::kOverscrollBehaviorOnNonScrollableScrollContainer);
+    if (GetLayoutBox()->StyleRef().OverflowX() == EOverflow::kHidden &&
+        GetLayoutBox()->StyleRef().OverflowY() == EOverflow::kHidden) {
+      UseCounter::Count(GetLayoutBox()->GetDocument(),
+                        WebFeature::kOverscrollBehaviorWithOverflowHidden);
+    }
   }
 
   if (did_scroll_overflow == ScrollsOverflow())

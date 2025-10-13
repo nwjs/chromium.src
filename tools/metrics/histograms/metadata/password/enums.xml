@@ -240,11 +240,6 @@ chromium-metrics-reviews@google.com.
       label="A biometric verifier device is not configured for the user."/>
 </enum>
 
-<enum name="BooleanCalled">
-  <int value="0" label="Not called"/>
-  <int value="1" label="Called"/>
-</enum>
-
 <enum name="BooleanFormManager">
   <int value="0" label="Has Form Manager"/>
   <int value="1" label="Lacks Form Manager"/>
@@ -608,27 +603,6 @@ chromium-metrics-reviews@google.com.
              policy"/>
 </enum>
 
-<!-- LINT.IfChange(LoginDbDeprecationExportProgress) -->
-
-<enum name="LoginDbDeprecationExportProgress">
-  <int value="0" label="Scheduled"/>
-  <int value="1" label="Started"/>
-  <int value="2" label="Finished"/>
-</enum>
-
-<!-- LINT.ThenChange(/components/password_manager/core/browser/export/login_db_deprecation_runner.h:LoginDbDeprecationExportProgress) -->
-
-<!-- LINT.IfChange(LoginDbDeprecationExportResult) -->
-
-<enum name="LoginDbDeprecationExportResult">
-  <int value="0" label="Success"/>
-  <int value="1" label="No passwords"/>
-  <int value="2" label="Error fetching paswords"/>
-  <int value="3" label="File write error"/>
-</enum>
-
-<!-- LINT.ThenChange(/components/password_manager/core/browser/export/login_db_deprecation_password_exporter.h:LoginDbDeprecationExportResult) -->
-
 <enum name="LoginsChangedTrigger">
   <summary>
     Triggers that may indirectly cause PasswordStore observers notifications
@@ -753,8 +727,8 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Opened automatically / Offering a password to update"/>
   <int value="9" label="Opened manually / Confirming generated password saved"/>
   <int value="10"
-      label="Opened automatically / Offering to save unsynced passwords
-             locally"/>
+      label="(obsolete) Opened automatically / Offering to save unsynced
+             passwords locally"/>
   <int value="11"
       label="Opened automatically / Notification about compromised passwords"/>
   <int value="12"
@@ -884,6 +858,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Shown"/>
   <int value="1" label="Canceled"/>
   <int value="2" label="Continue"/>
+  <int value="3" label="Open password change tab"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/ui/passwords/password_change_ui_controller.h:PasswordChangeToastEvent) -->
@@ -995,6 +970,8 @@ chromium-metrics-reviews@google.com.
       label="(obsolete) Re-Signin to unlock account-stored passwords"/>
   <int value="6" label="WebAuthn credential"/>
   <int value="7" label="Sign in with another WebAuthn device"/>
+  <int value="8" label="Backup password"/>
+  <int value="9" label="Trouble signing in"/>
 </enum>
 
 <enum name="PasswordDropdownState">
@@ -1216,13 +1193,6 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Invalid credentials"/>
 </enum>
 
-<enum name="PasswordManager.SharedPasswordsNotificationInteractions">
-  <int value="0" label="Notification displayed"/>
-  <int value="1" label="Got it button clicked"/>
-  <int value="2" label="Manage passwords button clicked"/>
-  <int value="3" label="Close button clicked"/>
-</enum>
-
 <enum name="PasswordManager.SurfaceVisit">
   <int value="0" label="Opened Password Manager Main Page"/>
   <int value="1" label="Opened Password Details Page"/>
@@ -1285,7 +1255,7 @@ chromium-metrics-reviews@google.com.
   <int value="8"
       label=":-X Unknown password typed, no saved credentials existed and
              site is blocklisted by the smart bubble"/>
-  <int value="9" label=":-) User used manual fallback to fill the form"/>
+  <int value="9" label=":-| User used manual fallback to fill the form"/>
 </enum>
 
 <enum name="PasswordManagerFillingSource">
@@ -1469,17 +1439,6 @@ chromium-metrics-reviews@google.com.
     by the AffiliationService through a grouping affiliation.
   </int>
 </enum>
-
-<!-- LINT.IfChange(PasswordManagerNotAvailableReason) -->
-
-<enum name="PasswordManagerNotAvailableReason">
-  <int value="0" label="Internal backend missing"/>
-  <int value="1" label="No GMS, no Play Store"/>
-  <int value="2" label="Outdated GMS"/>
-  <int value="3" label="Auto-export pending"/>
-</enum>
-
-<!-- LINT.ThenChange(/chrome/browser/password_manager/android/password_manager_android_util.h:PasswordManagerNotAvailableReason) -->
 
 <enum name="PasswordManagerOfferedAndroidCredentials">
   <int value="0" label="None from Android"/>

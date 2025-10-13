@@ -42,6 +42,10 @@ const AudioObjectPropertyAddress kDefaultOutputDevicePropertyAddress = {
     kAudioHardwarePropertyDefaultOutputDevice, kAudioObjectPropertyScopeGlobal,
     kAudioObjectPropertyElementMain};
 
+const AudioObjectPropertyAddress kSampleRateAddress = {
+    kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal,
+    kAudioObjectPropertyElementMain};
+
 const char kHistogramPartsSeparator[] = ".";
 const char kHistogramStatusPrefix[] = "Status";
 const char kHistogramOperationDurationPrefix[] = "OperationDuration";
@@ -55,11 +59,13 @@ const char kHistogramSuccessSuffix[] = "Success";
 const char kHistogramFailureSuffix[] = "Failure";
 const char kHostTimeStatusName[] = "HostTimeStatus";
 const char kHistogramDeviceIsAliveName[] = "IsAlive";
+const char kHistogramChannelCountMismatchName[] = "ChannelCountMismatch";
+const char kHistogramFramesMismatchName[] = "FramesMismatch";
 
 // If this feature is enabled, the CoreAudio tap is probed after creation to
 // verify that we have the proper permissions. If this fails the creation is
 // reported as failed.
-BASE_FEATURE(MacCatapProbeTapOnCreation, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kMacCatapProbeTapOnCreation, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When `kMacCatapCaptureAllDevices` is disabled:
 //
@@ -72,7 +78,7 @@ BASE_FEATURE(MacCatapProbeTapOnCreation, base::FEATURE_ENABLED_BY_DEFAULT);
 //
 // CatapAudioInputStream captures all system audio, irrespective of the specific
 // output device it's played on or the device ID set.
-BASE_FEATURE(MacCatapCaptureAllDevices, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kMacCatapCaptureAllDevices, base::FEATURE_DISABLED_BY_DEFAULT);
 
 API_AVAILABLE(macos(14.2))
 OSStatus DeviceIoProc(AudioDeviceID,
@@ -205,6 +211,20 @@ void ReportHostTimeStatus(int total_callbacks,
                         has_recovered));
 }
 
+void ReportMismatchStatus(int total_callbacks_with_channel_count_mismatch,
+                          int total_callbacks_with_frames_mismatch) {
+  base::UmaHistogramCounts1000(
+      base::JoinString({kCatapAudioInputStreamUmaBaseName,
+                        kHistogramChannelCountMismatchName},
+                       kHistogramPartsSeparator),
+      total_callbacks_with_channel_count_mismatch);
+  base::UmaHistogramCounts1000(
+      base::JoinString(
+          {kCatapAudioInputStreamUmaBaseName, kHistogramFramesMismatchName},
+          kHistogramPartsSeparator),
+      total_callbacks_with_frames_mismatch);
+}
+
 bool operator==(const AudioObjectPropertyAddress& x,
                 const AudioObjectPropertyAddress& y) {
   return x.mSelector == y.mSelector && x.mScope == y.mScope &&
@@ -265,6 +285,10 @@ class PropertyListenerHelper {
           kAudioObjectSystemObject, &kDefaultOutputDevicePropertyAddress,
           dispatch_get_main_queue(), property_listener_block_);
     }
+
+    catap_api_->AudioObjectAddPropertyListenerBlock(
+        aggregate_device_id_, &kSampleRateAddress, dispatch_get_main_queue(),
+        property_listener_block_);
   }
 
   void RemovePropertyListener() {
@@ -273,7 +297,7 @@ class PropertyListenerHelper {
 
     // Use the stored block reference to remove the listener.
     catap_api_->AudioObjectRemovePropertyListenerBlock(
-        aggregate_device_id_, &kDeviceIsAliveAddress, dispatch_get_main_queue(),
+        aggregate_device_id_, &kSampleRateAddress, dispatch_get_main_queue(),
         property_listener_block_);
 
     if (capture_default_device_) {
@@ -281,6 +305,11 @@ class PropertyListenerHelper {
           kAudioObjectSystemObject, &kDefaultOutputDevicePropertyAddress,
           dispatch_get_main_queue(), property_listener_block_);
     }
+
+    catap_api_->AudioObjectRemovePropertyListenerBlock(
+        aggregate_device_id_, &kDeviceIsAliveAddress, dispatch_get_main_queue(),
+        property_listener_block_);
+
     property_listener_block_ = nil;
   }
 
@@ -553,6 +582,16 @@ void CatapAudioInputStream::Stop() {
 
   ReportHostTimeStatus(total_callbacks_, callbacks_with_missing_host_time_,
                        recovered_from_missing_host_time_);
+  ReportMismatchStatus(total_callbacks_with_channel_count_mismatch_,
+                       total_callbacks_with_frames_mismatch_);
+  if (total_callbacks_with_channel_count_mismatch_ > 0) {
+    SendLogMessage("%s => total_callbacks_with_channel_count_mismatch_: %d",
+                   __func__, total_callbacks_with_channel_count_mismatch_);
+  }
+  if (total_callbacks_with_frames_mismatch_ > 0) {
+    SendLogMessage("%s => total_callbacks_with_frames_mismatch_: %d", __func__,
+                   total_callbacks_with_frames_mismatch_);
+  }
 
   sink_ = nullptr;
   ReportStopStatus(true, timer.Elapsed());
@@ -642,7 +681,6 @@ void CatapAudioInputStream::OnCatapSample(const AudioBuffer* input_buffer,
   CHECK(input_buffer);
   CHECK(input_time);
   base::TimeTicks capture_time;
-  glitch_helper_.OnFramesReceived(*input_time, params_.frames_per_buffer());
   if (!(input_time->mFlags & kAudioTimeStampHostTimeValid)) {
     // Fallback if there's no host time stamp. There's no evidence that this
     // ever happens, so this is just in case.
@@ -660,11 +698,40 @@ void CatapAudioInputStream::OnCatapSample(const AudioBuffer* input_buffer,
   float* data = (float*)input_buffer->mData;
   int frames = input_buffer->mDataByteSize /
                (input_buffer->mNumberChannels * sizeof(Float32));
-  CHECK_EQ(static_cast<unsigned int>(params_.channels()),
-           input_buffer->mNumberChannels);
-  CHECK_EQ(params_.frames_per_buffer(), frames);
-  audio_bus_->FromInterleaved<Float32SampleTypeTraits>(data, frames);
 
+  // The number of channels may change when a bluetooth device is captured and
+  // the bluetooth profile is switched between A2DP and HFP. The sample rate
+  // changes at the same time, this means that the property listener will detect
+  // the change and call OnError(). We have not seen such case, but it could
+  // happen that one buffer is received with the wrong number of channels.
+  constexpr int kMaxNumberOfWarningReports = 10;
+  if (static_cast<unsigned int>(params_.channels()) !=
+      input_buffer->mNumberChannels) {
+    ++total_callbacks_with_channel_count_mismatch_;
+    if (total_callbacks_with_channel_count_mismatch_ <
+        kMaxNumberOfWarningReports) {
+      DLOG(WARNING) << "CatapAudioInputStream::OnCatapSample: "
+                       "input_buffer->mNumberChannels: "
+                    << input_buffer->mNumberChannels
+                    << " does not match params_.channels(): "
+                    << params_.channels();
+    }
+    return;
+  }
+  if (frames != params_.frames_per_buffer()) {
+    ++total_callbacks_with_frames_mismatch_;
+    if (total_callbacks_with_frames_mismatch_ < kMaxNumberOfWarningReports) {
+      DLOG(WARNING) << "CatapAudioInputStream::OnCatapSample: "
+                       "frames: "
+                    << frames << " does not match params_.frames_per_buffer(): "
+                    << params_.frames_per_buffer();
+    }
+    return;
+  }
+
+  glitch_helper_.OnFramesReceived(*input_time, params_.frames_per_buffer());
+
+  audio_bus_->FromInterleaved<Float32SampleTypeTraits>(data, frames);
   sink_->OnData(audio_bus_.get(), capture_time, kMaxVolume,
                 glitch_helper_.ConsumeGlitchInfo());
 
@@ -738,13 +805,10 @@ NSArray<NSNumber*>* CatapAudioInputStream::GetProcessAudioDeviceIds(
 bool CatapAudioInputStream::ConfigureSampleRateOfAggregateDevice() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Set sample rate.
-  AudioObjectPropertyAddress property_address = {
-      kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal,
-      kAudioObjectPropertyElementMain};
   UInt32 property_size = sizeof(Float64);
   Float64 sample_rate = params_.sample_rate();
   OSStatus result = catap_api_->AudioObjectSetPropertyData(
-      aggregate_device_id_, &property_address, /*in_qualifier_data_size=*/0,
+      aggregate_device_id_, &kSampleRateAddress, /*in_qualifier_data_size=*/0,
       /*in_qualifier_data=*/nullptr, property_size, &sample_rate);
   if (result != noErr) {
     SendLogMessage(
@@ -753,6 +817,23 @@ bool CatapAudioInputStream::ConfigureSampleRateOfAggregateDevice() {
     return false;
   }
   return true;
+}
+
+std::optional<double> CatapAudioInputStream::GetSampleRateOfAggregateDevice() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // Get sample rate.
+  UInt32 property_size = sizeof(Float64);
+  Float64 sample_rate = 0.0;
+  OSStatus result = catap_api_->AudioObjectGetPropertyData(
+      aggregate_device_id_, &kSampleRateAddress, /*in_qualifier_data_size=*/0,
+      /*in_qualifier_data=*/nullptr, &property_size, &sample_rate);
+  if (result != noErr) {
+    SendLogMessage(
+        "%s => Could not get sample rate of the aggregate device. Status: %d",
+        __func__, result);
+    return std::nullopt;
+  }
+  return sample_rate;
 }
 
 bool CatapAudioInputStream::ConfigureFramesPerBufferOfAggregateDevice() {
@@ -806,11 +887,11 @@ bool CatapAudioInputStream::ProbeAudioTapPermissions() {
 void CatapAudioInputStream::ProcessPropertyChange(
     base::span<const AudioObjectPropertyAddress> property_addresses) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  TRACE_EVENT0("audio", "CatapAudioInputStream::ProcessPropertyChange");
-
   for (const AudioObjectPropertyAddress& property_address :
        property_addresses) {
     if (property_address == kDeviceIsAliveAddress) {
+      TRACE_EVENT1("audio", "CatapAudioInputStream::ProcessPropertyChange",
+                   "property", "DeviceIsAlive");
       // Read IsAlive property.
       UInt32 property_size = sizeof(UInt32);
       UInt32 is_alive = false;
@@ -832,8 +913,23 @@ void CatapAudioInputStream::ProcessPropertyChange(
         OnError();
       }
     } else if (property_address == kDefaultOutputDevicePropertyAddress) {
+      TRACE_EVENT1("audio", "CatapAudioInputStream::ProcessPropertyChange",
+                   "property", "DefaultOutputDevice");
       // Just log this for debuggability for now.
       SendLogMessage("%s => Default output device changed.", __func__);
+    } else if (property_address == kSampleRateAddress) {
+      TRACE_EVENT1("audio", "CatapAudioInputStream::ProcessPropertyChange",
+                   "property", "SampleRate");
+      std::optional<double> sample_rate = GetSampleRateOfAggregateDevice();
+      if (!sample_rate.has_value() ||
+          sample_rate.value() != params_.sample_rate()) {
+        // The current code can't recover from a sample rate change, and will
+        // result in distorted audio. A better solution might exist, but this is
+        // a rare case so we simply report an error for now.
+        SendLogMessage("%s => Sample rate changed. New sample rate: %f",
+                       __func__, sample_rate.value_or(-1.0));
+        OnError();
+      }
     }
   }
 }

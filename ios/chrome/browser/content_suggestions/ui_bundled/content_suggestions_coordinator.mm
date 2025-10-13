@@ -8,6 +8,8 @@
 #import <vector>
 
 #import "base/apple/foundation_util.h"
+#import "base/containers/contains.h"
+#import "base/feature_list.h"
 #import "base/ios/block_types.h"
 #import "base/ios/ios_util.h"
 #import "base/memory/raw_ptr.h"
@@ -17,6 +19,7 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/commerce/core/commerce_feature_list.h"
+#import "components/commerce/core/shopping_service.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
 #import "components/image_fetcher/core/image_data_fetcher.h"
 #import "components/ntp_tiles/most_visited_sites.h"
@@ -54,6 +57,8 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_metrics_recorder.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_view_controller.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_view_controller_audience.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/default_browser/coordinator/default_browser_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/default_browser/public/features.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/impression_limits/impression_limit_service_factory.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_collection_view.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_collection_view_audience.h"
@@ -77,11 +82,13 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/shop_card_action_delegate.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/shop_card/shop_card_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/tips_magic_stack_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/tips_metrics.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/tips_module_state.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/tips_passwords_coordinator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/tips_prefs.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/coordinator/tips_magic_stack_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/coordinator/tips_passwords_coordinator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/model/tips_metrics.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/model/tips_prefs.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/ui/tips_module_state.h"
+#import "ios/chrome/browser/default_browser/model/promo_source.h"
+#import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
 #import "ios/chrome/browser/favicon/model/favicon_loader.h"
@@ -251,6 +258,7 @@ using segmentation_platform::TipIdentifier;
   SendTabPromoMediator* _sendTabPromoMediator;
   SigninCoordinator* _signinCoordinator;
   MagicStackCollectionViewController* _magicStackCollectionView;
+  DefaultBrowserMediator* _defaultBrowserMediator;
 
   raw_ptr<segmentation_platform::SegmentationPlatformService>
       _segmentationService;
@@ -361,8 +369,10 @@ using segmentation_platform::TipIdentifier;
                          browser:self.browser
         optimizationGuideService:OptimizationGuideServiceFactory::GetForProfile(
                                      profile)
-          impressionLimitService:ImpressionLimitServiceFactory::GetForProfile(
-                                     profile)
+          impressionLimitService:
+              base::FeatureList::IsEnabled(commerce::kShopCardImpressionLimits)
+                  ? ImpressionLimitServiceFactory::GetForProfile(profile)
+                  : nil
                  shoppingService:commerce::ShoppingServiceFactory::
                                      GetForProfile(profile)
                    bookmarkModel:ios::BookmarkModelFactory::GetForProfile(
@@ -403,11 +413,9 @@ using segmentation_platform::TipIdentifier;
     _priceTrackingPromoMediator.NTPActionsDelegate = self.NTPActionsDelegate;
     [moduleMediators addObject:_priceTrackingPromoMediator];
   }
-  if (base::FeatureList::IsEnabled(commerce::kShopCard) &&
-      (commerce::kShopCardVariation.Get() == commerce::kShopCardArm1 ||
-       commerce::kShopCardVariation.Get() == commerce::kShopCardArm2)) {
-    // If ShopCard experiment is on, create the ShopCard mediator.
-    // Note at this point we don't know which of the 4 variants will show.
+  // Only users that are eligible for ShoppingList are eligible for the
+  // ShopCard.
+  if (shoppingService->IsShoppingListEligible()) {
     _shopCardMediator = [[ShopCardMediator alloc]
         initWithShoppingService:commerce::ShoppingServiceFactory::GetForProfile(
                                     profile)
@@ -474,6 +482,12 @@ using segmentation_platform::TipIdentifier;
     _appBundlePromoMediator.presentationAudience = self;
     [moduleMediators addObject:_appBundlePromoMediator];
   }
+  if (base::FeatureList::IsEnabled(
+          segmentation_platform::features::kDefaultBrowserMagicStackIos)) {
+    _defaultBrowserMediator = [[DefaultBrowserMediator alloc] init];
+    _defaultBrowserMediator.presentationAudience = self;
+    [moduleMediators addObject:_defaultBrowserMediator];
+  }
 
   ContentSuggestionsViewController* viewController =
       [[ContentSuggestionsViewController alloc] init];
@@ -519,7 +533,9 @@ using segmentation_platform::TipIdentifier;
                templateURLService:ios::TemplateURLServiceFactory::GetForProfile(
                                       self.profile)
             appStoreBundleService:AppStoreBundleServiceFactory::GetForProfile(
-                                      self.profile)];
+                                      self.profile)
+                    bookmarkModel:ios::BookmarkModelFactory::GetForProfile(
+                                      profile)];
   _magicStackRankingModel.contentSuggestionsMetricsRecorder =
       self.contentSuggestionsMetricsRecorder;
   self.contentSuggestionsMediator.magicStackRankingModel =
@@ -684,6 +700,25 @@ using segmentation_platform::TipIdentifier;
                  }];
 }
 
+- (void)didTapDefaultBrowserPromo {
+  DefaultBrowserMagicStackIosVariationType variation =
+      GetDefaultBrowserMagicStackIosVariation();
+
+  if (variation ==
+      DefaultBrowserMagicStackIosVariationType::kTapToDeviceSettings) {
+    OpenIOSDefaultBrowserSettingsPage();
+  } else if (variation ==
+             DefaultBrowserMagicStackIosVariationType::kTapToAppSettings) {
+    id<SettingsCommands> settings_handler = HandlerForProtocol(
+        self.browser->GetCommandDispatcher(), SettingsCommands);
+    [settings_handler
+        showDefaultBrowserSettingsFromViewController:nil
+                                        sourceForUMA:
+                                            DefaultBrowserSettingsPageSource::
+                                                kMagicStackCard];
+  }
+}
+
 - (void)openTipDestination:(segmentation_platform::TipIdentifier)tip {
   CHECK(IsTipsMagicStackEnabled());
   CHECK(_tipsMediator);
@@ -823,6 +858,11 @@ using segmentation_platform::TipIdentifier;
           segmentation_platform::kAppBundlePromoEphemeralModule);
       break;
     }
+    case ContentSuggestionsModuleType::kDefaultBrowser: {
+      registry->NotifyCardShown(
+          segmentation_platform::kDefaultBrowserPromoEphemeralModule);
+      break;
+    }
     default:
       NOTREACHED();
   }
@@ -846,14 +886,13 @@ using segmentation_platform::TipIdentifier;
     case ContentSuggestionsModuleType::kTabResumption:
       [self showMagicStackRecentTabs];
       break;
-    case ContentSuggestionsModuleType::kShopCard:
-      if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm1) {
-        id<PriceTrackedItemsCommands> priceNotificationsCommands =
-            HandlerForProtocol(self.browser->GetCommandDispatcher(),
-                               PriceTrackedItemsCommands);
-        [priceNotificationsCommands showPriceTrackedItems];
-      }
+    case ContentSuggestionsModuleType::kShopCard: {
+      id<PriceTrackedItemsCommands> priceNotificationsCommands =
+          HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                             PriceTrackedItemsCommands);
+      [priceNotificationsCommands showPriceTrackedItems];
       break;
+    }
     default:
       break;
   }
@@ -1393,9 +1432,7 @@ using segmentation_platform::TipIdentifier;
       return ContentSuggestionsModuleType::kSafetyCheck;
     case PushNotificationClientId::kSendTab:
       return ContentSuggestionsModuleType::kSendTabPromo;
-    case PushNotificationClientId::kContent:
-    case PushNotificationClientId::kSports:
-    case PushNotificationClientId::kReminders:
+    default:
       NOTREACHED();
   }
 }

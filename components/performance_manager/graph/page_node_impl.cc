@@ -10,6 +10,7 @@
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
+#include "base/no_destructor.h"
 #include "base/strings/strcat.h"
 #include "base/time/default_tick_clock.h"
 #include "base/trace_event/typed_macros.h"
@@ -26,6 +27,7 @@
 #include "content/public/browser/web_contents.h"
 #include "third_party/perfetto/include/perfetto/tracing/tracing.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
+#include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 
 namespace performance_manager {
 
@@ -34,20 +36,20 @@ namespace {
 using perfetto::protos::pbzero::ChromeTrackEvent;
 
 // Creates a collapsible global track to hold all PageNode tracing tracks.
-const perfetto::NamedTrack CreatePageGroupTrack() {
-  perfetto::NamedTrack track("PageNodes", 0, perfetto::Track::Global(0));
-  return base::trace_event::InitializeTrack(track);
+perfetto::NamedTrack CreatePageGroupTrack() {
+  return perfetto::NamedTrack("PageNodes", 0, perfetto::Track::Global(0));
 }
 
 // Creates a tracing track for the PageNode identified by `token`.
-const perfetto::NamedTrack CreatePageNodeTrack(
-    const base::UnguessableToken& token) {
-  static const perfetto::NamedTrack page_group_track = CreatePageGroupTrack();
+perfetto::NamedTrack CreatePageNodeTrack(const base::UnguessableToken& token) {
+  static const base::NoDestructor<
+      base::trace_event::TrackRegistration<perfetto::NamedTrack>>
+      page_group_track(CreatePageGroupTrack());
   auto track =
       perfetto::NamedTrack("PageNode", base::UnguessableTokenHash()(token),
-                           page_group_track)
+                           page_group_track->track())
           .disable_sibling_merge();
-  return base::trace_event::InitializeTrack(track);
+  return track;
 }
 
 perfetto::StaticString PageNodeLoadingStateToString(
@@ -84,18 +86,18 @@ PageNodeImpl::PageNodeImpl(base::WeakPtr<content::WebContents> web_contents,
                            base::TimeTicks visibility_change_time)
     : web_contents_(std::move(web_contents)),
       tracing_track_(CreatePageNodeTrack(page_token_.value())),
-      loading_track_("Loading", 0, tracing_track_),
+      loading_track_("Loading", 0, *tracing_track_),
       visibility_change_time_(visibility_change_time),
       main_frame_url_(visible_url),
       browser_context_id_(browser_context_id),
       is_focused_(false,
-                  perfetto::NamedTrack("IsFocused", 0, tracing_track_),
+                  perfetto::NamedTrack("IsFocused", 0, *tracing_track_),
                   YesNoStateToString),
       is_visible_(initial_properties.Has(PagePropertyFlag::kIsVisible),
-                  tracing_track_,
+                  *tracing_track_,
                   PageNodeVisibilityToString),
       is_audible_(initial_properties.Has(PagePropertyFlag::kIsAudible),
-                  perfetto::NamedTrack("IsAudible", 0, tracing_track_),
+                  perfetto::NamedTrack("IsAudible", 0, *tracing_track_),
                   YesNoStateToString),
       has_picture_in_picture_(
           initial_properties.Has(PagePropertyFlag::kHasPictureInPicture)),
@@ -306,15 +308,25 @@ void PageNodeImpl::AddFrame(base::PassKey<FrameNodeImpl>,
   DCHECK(graph()->NodeInGraph(frame_node));
 
   ++frame_node_count_;
+
   if (frame_node->parent_frame_node() == nullptr) {
     main_frame_nodes_.insert(frame_node);
-    auto* rfh = frame_node->GetRenderFrameHostProxy().Get();
-    if (rfh) {
-      TRACE_EVENT_INSTANT(
-          "performance_manager.graph", "MainFrameAdded", loading_track_,
-          perfetto::protos::pbzero::ChromeTrackEvent::kRenderFrameHost, *rfh);
-    }
   }
+}
+
+void PageNodeImpl::TraceFrame(base::PassKey<FrameNodeImpl>,
+                              FrameNodeImpl* frame_node) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(frame_node);
+  DCHECK(graph()->NodeInGraph(frame_node));
+  auto frame_track = perfetto::NamedTrack::FromPointer("FrameNodes", frame_node,
+                                                       tracing_track());
+  // Unmatched end event is a no-op.
+  TRACE_EVENT_END("performance_manager.graph", frame_track);
+  TRACE_EVENT_BEGIN(
+      "performance_manager.graph",
+      perfetto::StaticString(frame_node->IsMainFrame() ? "MainFrame" : "Frame"),
+      frame_track, perfetto::TerminatingFlow::FromPointer(frame_node));
 }
 
 void PageNodeImpl::RemoveFrame(base::PassKey<FrameNodeImpl>,
@@ -328,13 +340,10 @@ void PageNodeImpl::RemoveFrame(base::PassKey<FrameNodeImpl>,
   if (frame_node->parent_frame_node() == nullptr) {
     size_t removed = main_frame_nodes_.erase(frame_node);
     DCHECK_EQ(1u, removed);
-    auto* rfh = frame_node->GetRenderFrameHostProxy().Get();
-    if (rfh) {
-      TRACE_EVENT_INSTANT(
-          "performance_manager.graph", "MainFrameRemoved", loading_track_,
-          perfetto::protos::pbzero::ChromeTrackEvent::kRenderFrameHost, *rfh);
-    }
   }
+  auto frame_track = perfetto::NamedTrack::FromPointer("FrameNodes", frame_node,
+                                                       tracing_track());
+  TRACE_EVENT_END("performance_manager.graph", frame_track);
 }
 
 void PageNodeImpl::SetLoadingState(LoadingState loading_state) {

@@ -23,15 +23,20 @@ class OpenXrSpaceBasedAnchorManager : public OpenXrAnchorManager {
   // OpenXrAnchorManager
   AnchorId CreateAnchor(XrPosef pose,
                         XrSpace space,
-                        XrTime predicted_display_time) override;
+                        XrTime predicted_display_time,
+                        std::optional<PlaneId> plane_id) override;
   void DetachAnchor(AnchorId anchor_id) override;
   std::optional<XrLocation> GetXrLocationFromAnchor(
       AnchorId anchor_id,
       const gfx::Transform& anchor_id_from_new_anchor) const override;
+  std::optional<XrLocation> GetXrLocationFromPlane(
+      PlaneId plane_id,
+      const gfx::Transform& plane_id_from_new_anchor) const override;
   mojom::XRAnchorsDataPtr GetCurrentAnchorsData(
       XrTime predicted_display_time) override;
 
  protected:
+
   virtual XrSpace CreateAnchorInternal(XrPosef pose,
                                        XrSpace space,
                                        XrTime predicted_display_time) = 0;

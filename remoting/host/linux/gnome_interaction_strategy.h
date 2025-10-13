@@ -35,8 +35,7 @@ class GnomeInteractionStrategy : public DesktopInteractionStrategy,
   std::unique_ptr<DesktopResizer> CreateDesktopResizer() override;
   std::unique_ptr<DesktopCapturer> CreateVideoCapturer(
       webrtc::ScreenId id) override;
-  std::unique_ptr<webrtc::MouseCursorMonitor> CreateMouseCursorMonitor()
-      override;
+  std::unique_ptr<MouseCursorMonitor> CreateMouseCursorMonitor() override;
   std::unique_ptr<KeyboardLayoutMonitor> CreateKeyboardLayoutMonitor(
       base::RepeatingCallback<void(const protocol::KeyboardLayout&)> callback)
       override;
@@ -75,7 +74,7 @@ class GnomeInteractionStrategy : public DesktopInteractionStrategy,
 
   // PipewireCaptureStreamManager::Observer overrides.
   void OnPipewireCaptureStreamAdded(
-      base::WeakPtr<PipewireCaptureStream> stream) override;
+      base::WeakPtr<CaptureStream> stream) override;
 
   GDBusConnectionRef connection_ GUARDED_BY_CONTEXT(sequence_checker_);
   raw_ptr<GnomeRemoteDesktopSession> remote_desktop_session_ GUARDED_BY_CONTEXT(

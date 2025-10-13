@@ -61,6 +61,10 @@ AX_BASE_EXPORT bool IsAccessibilityPruneRedundantInlineConnectivityEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityTextFormatting);
 AX_BASE_EXPORT bool IsAccessibilityTextFormattingEnabled();
 
+// Enables the addition of `labeledby` relationships in the accessibility tree.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityLabeledBy);
+AX_BASE_EXPORT bool IsAccessibilityLabeledByEnabled();
+
 // Expose the accessibility tree for views via an AXTree of AXNodes.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityTreeForViews);
 AX_BASE_EXPORT bool IsAccessibilityTreeForViewsEnabled();
@@ -143,6 +147,12 @@ AX_BASE_EXPORT bool IsUseAXPositionForDocumentMarkersEnabled();
 // not put this flag in chrome://flags so we can get the cleanest data possible.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAXRandomizedStressTests);
 AX_BASE_EXPORT bool IsAXRandomizedStressTestsEnabled();
+
+// When enabled, allows the content of <address> tags to be used in
+// calculating their ancestors' accessible names.
+// TODO(crbug.com/443765360): Remove killswitch after stability period.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAXObjectSupportsNameFromAddressContent);
+AX_BASE_EXPORT bool IsAXObjectSupportsNameFromAddressContentEnabled();
 
 // Enable the experimental on-screen AXMode .
 // TODO(accessibility): Only turn on the experimental On-Screen mode for when
@@ -279,6 +289,12 @@ AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForSwitchAccess();
 // Separator U+2028 characters in the text to denote soft line breaks.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityInlineLineSeparators);
 AX_BASE_EXPORT bool IsAccessibilityInlineLineSeparatorsEnabled();
+
+// Propagate bounding rectangles of input events to the Android platform to
+// allow Magnification to follow them
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(
+    kAccessibilityMagnificationFollowsInputFocus);
+AX_BASE_EXPORT bool IsAccessibilityMagnificationFollowsInputFocusEnabled();
 
 #endif  // BUILDFLAG(IS_ANDROID)
 

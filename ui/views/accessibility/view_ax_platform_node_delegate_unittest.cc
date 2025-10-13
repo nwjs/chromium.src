@@ -27,7 +27,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/size.h"
-#include "ui/gfx/native_window_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/menu/submenu_view.h"
@@ -867,7 +867,7 @@ TEST_F(ViewAXPlatformNodeDelegateTest, TreeNavigation) {
   //
   // Widget
   // ++NonClientView
-  // ++NonClientFrameView
+  // ++FrameView
   // ++Button
   // ++++Label
   // 0 = ++ParentView

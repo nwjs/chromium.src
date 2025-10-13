@@ -18,6 +18,7 @@
 #import "components/bookmarks/test/test_bookmark_client.h"
 #import "components/commerce/core/commerce_feature_list.h"
 #import "components/commerce/core/mock_shopping_service.h"
+#import "components/commerce/core/test_utils.h"
 #import "components/feature_engagement/test/mock_tracker.h"
 #import "components/image_fetcher/core/image_data_fetcher.h"
 #import "components/ntp_tiles/icon_cacher.h"
@@ -41,6 +42,7 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_consumer.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_metrics_constants.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_metrics_recorder.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_ranking_model+testing.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_ranking_model_delegate.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/price_tracking_promo_item.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/price_tracking_promo/price_tracking_promo_mediator+testing.h"
@@ -51,7 +53,7 @@
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_helper_delegate.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_item.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/tab_resumption/tab_resumption_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/tips_magic_stack_mediator.h"
+#import "ios/chrome/browser/content_suggestions/ui_bundled/tips/coordinator/tips_magic_stack_mediator.h"
 #import "ios/chrome/browser/default_browser/model/utils_test_support.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_cache_factory.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_service_factory.h"
@@ -96,7 +98,7 @@ using set_up_list_prefs::SetUpListItemState;
 
 namespace {
 std::unique_ptr<KeyedService> BuildFeatureEngagementMockTracker(
-    web::BrowserState* browser_state) {
+    ProfileIOS* profile) {
   // Allow ShortcutsMediator to call WouldTriggerHelpUI() without causing log
   // noise.
   auto tracker = std::make_unique<feature_engagement::test::MockTracker>();
@@ -255,7 +257,7 @@ class MagicStackRankingModelTest : public PlatformTest {
     builder.AddTestingFactory(
         commerce::ShoppingServiceFactory::GetInstance(),
         base::BindRepeating(
-            [](web::BrowserState*) -> std::unique_ptr<KeyedService> {
+            [](ProfileIOS* profile) -> std::unique_ptr<KeyedService> {
               return commerce::MockShoppingService::Build();
             }));
     builder.AddTestingFactory(TipsManagerIOSFactory::GetInstance(),
@@ -384,7 +386,8 @@ class MagicStackRankingModelTest : public PlatformTest {
                                         browser_->GetProfile())
                  templateURLService:ios::TemplateURLServiceFactory::
                                         GetForProfile(browser_->GetProfile())
-              appStoreBundleService:app_store_bundle_service_.get()];
+              appStoreBundleService:app_store_bundle_service_.get()
+                      bookmarkModel:bookmark_model_.get()];
 
     metrics_recorder_ = [[ContentSuggestionsMetricsRecorder alloc]
         initWithLocalState:GetLocalState()];
@@ -400,16 +403,22 @@ class MagicStackRankingModelTest : public PlatformTest {
     PlatformTest::TearDown();
   }
 
-  web::BrowserState* SetUpEnvironment(web::BrowserState* context) {
-    ProfileIOS* setup_profile = ProfileIOS::FromBrowserState(context);
-    segmentation_test_utils_->SetupForProfile(setup_profile);
-    return context;
+  ProfileIOS* SetUpEnvironment(ProfileIOS* profile) {
+    segmentation_test_utils_->SetupForProfile(profile);
+    return profile;
   }
 
   ProfileIOS* GetProfile() { return profile_.get(); }
 
   PrefService* GetLocalState() {
     return GetApplicationContext()->GetLocalState();
+  }
+
+  bookmarks::BookmarkModel* bookmark_model() { return bookmark_model_.get(); }
+
+  int getNumPriceDrops(
+      std::vector<const bookmarks::BookmarkNode*> subscriptions) {
+    return [_magicStackRankingModel getNumPriceDropsForTesting:subscriptions];
   }
 
   ~MagicStackRankingModelTest() override {
@@ -666,6 +675,7 @@ TEST_F(MagicStackRankingModelTest, TestEphemeralModelDidGetCardToShow) {
       static_cast<commerce::MockShoppingService*>(
           commerce::ShoppingServiceFactory::GetForProfile(GetProfile()));
   shopping_service->SetIsShoppingListEligible(true);
+  shopping_service->SetGetAllSubscriptionsCallbackValue({});
 
   FakeMagicStackRankingModelDelegate* delegate_ =
       [[FakeMagicStackRankingModelDelegate alloc] init];
@@ -686,4 +696,21 @@ TEST_F(MagicStackRankingModelTest, TestEphemeralModelDidGetCardToShow) {
     EXPECT_EQ(@(int(config.type)), expectedModuleRank[i])
         << "For Magic Stack order index " << i;
   }
+}
+
+TEST_F(MagicStackRankingModelTest, TestNumSubscriptions) {
+  std::vector<const bookmarks::BookmarkNode*> products;
+  // Price Drop item
+  products.push_back(commerce::AddProductBookmark(
+      bookmark_model(), u"product 1", GURL("http://example.com/product1"), 123L,
+      true, 1230000, "usd", std::nullopt, 2000000));
+  // Regular item with no price drop
+  products.push_back(commerce::AddProductBookmark(
+      bookmark_model(), u"product 2", GURL("http://example.com/product2"), 42L,
+      true, 4230000, "usd"));
+  // Price Drop Item
+  products.push_back(commerce::AddProductBookmark(
+      bookmark_model(), u"product 3", GURL("http://example.com/product3"), 789L,
+      true, 2230000, "usd", std::nullopt, 3000000));
+  EXPECT_EQ(2, getNumPriceDrops(products));
 }

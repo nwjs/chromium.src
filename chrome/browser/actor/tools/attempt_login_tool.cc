@@ -7,6 +7,8 @@
 #include "base/barrier_closure.h"
 #include "base/containers/flat_set.h"
 #include "base/notimplemented.h"
+#include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/tools/observation_delay_controller.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
@@ -89,6 +91,21 @@ void AttemptLoginTool::Invoke(InvokeCallback callback) {
   }
 
   invoke_callback_ = std::move(callback);
+
+  // First check if there is a user selected credential for the current request
+  // origin. If so, use it immediately.
+  const url::Origin& current_origin =
+      tab->GetContents()->GetPrimaryMainFrame()->GetLastCommittedOrigin();
+  const std::optional<actor_login::Credential> user_selected_credential =
+      tool_delegate().GetUserSelectedCredential(current_origin);
+  if (user_selected_credential.has_value()) {
+    GetActorLoginService().AttemptLogin(
+        tab, *user_selected_credential,
+        base::BindOnce(&AttemptLoginTool::OnAttemptLogin,
+                       weak_ptr_factory_.GetWeakPtr()));
+    return;
+  }
+
   GetActorLoginService().GetCredentials(
       tab, base::BindOnce(&AttemptLoginTool::OnGetCredentials,
                           weak_ptr_factory_.GetWeakPtr()));
@@ -103,6 +120,7 @@ void AttemptLoginTool::OnGetCredentials(
   }
 
   credentials_ = std::move(credentials.value());
+
   if (credentials_.empty()) {
     PostResponseTask(
         std::move(invoke_callback_),
@@ -127,17 +145,27 @@ void AttemptLoginTool::OnGetCredentials(
     return;
   }
 
-  FetchFavicons();
+  // Unless the flag is enabled, always auto-select the first credential, which
+  // is the credential that is most likely to be the correct one.
+  if (base::FeatureList::IsEnabled(actor::kGlicEnableAutoLoginDialogs)) {
+    FetchIcons();
+  } else {
+    // The task ID doesn't matter here because the task ID check is already
+    // done at this point.
+    auto response = webui::mojom::SelectCredentialDialogResponse::New();
+    response->selected_credential_id = credentials_[0].id.value();
+    OnCredentialSelected(std::move(response));
+  }
 }
 
-void AttemptLoginTool::FetchFavicons() {
+void AttemptLoginTool::FetchIcons() {
   favicon::FaviconService* favicon_service =
       tool_delegate().GetFaviconService();
   if (!favicon_service) {
     // If there is no favicon service, just proceed without favicons.
     tool_delegate().PromptToSelectCredential(
         credentials_,
-        /*favicons=*/{},
+        /*icons=*/{},
         base::BindOnce(&AttemptLoginTool::OnCredentialSelected,
                        weak_ptr_factory_.GetWeakPtr()));
     return;
@@ -150,11 +178,10 @@ void AttemptLoginTool::FetchFavicons() {
     }
   }
 
-  // OnAllFaviconsFetched is called immediately if unique_sites is empty.
+  // OnAllIconsFetched is called immediately if unique_sites is empty.
   base::RepeatingClosure barrier = base::BarrierClosure(
-      unique_sites.size(),
-      base::BindOnce(&AttemptLoginTool::OnAllFaviconsFetched,
-                     weak_ptr_factory_.GetWeakPtr()));
+      unique_sites.size(), base::BindOnce(&AttemptLoginTool::OnAllIconsFetched,
+                                          weak_ptr_factory_.GetWeakPtr()));
   favicon_requests_tracker_ =
       std::vector<base::CancelableTaskTracker>(unique_sites.size());
 
@@ -162,26 +189,26 @@ void AttemptLoginTool::FetchFavicons() {
   for (const GURL& site : unique_sites) {
     favicon_service->GetFaviconImageForPageURL(
         site,
-        base::BindOnce(&AttemptLoginTool::OnFaviconFetched,
+        base::BindOnce(&AttemptLoginTool::OnIconFetched,
                        weak_ptr_factory_.GetWeakPtr(), barrier, site),
         &favicon_requests_tracker_[i]);
     ++i;
   }
 }
 
-void AttemptLoginTool::OnFaviconFetched(
+void AttemptLoginTool::OnIconFetched(
     base::RepeatingClosure barrier,
     GURL site,
     const favicon_base::FaviconImageResult& result) {
   if (!result.image.IsEmpty()) {
-    fetched_favicons_[site] = result.image;
+    fetched_icons_[site.GetWithEmptyPath().spec()] = result.image;
   }
   barrier.Run();
 }
 
-void AttemptLoginTool::OnAllFaviconsFetched() {
+void AttemptLoginTool::OnAllIconsFetched() {
   tool_delegate().PromptToSelectCredential(
-      credentials_, fetched_favicons_,
+      credentials_, fetched_icons_,
       base::BindOnce(&AttemptLoginTool::OnCredentialSelected,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -221,6 +248,9 @@ void AttemptLoginTool::OnCredentialSelected(
     return;
   }
 
+  // Cache the user selected credential for reuse.
+  tool_delegate().SetUserSelectedCredential(*selected_credential);
+
   tabs::TabInterface* tab = tab_handle_.Get();
   if (!tab) {
     PostResponseTask(std::move(invoke_callback_),
@@ -254,14 +284,20 @@ std::string AttemptLoginTool::JournalEvent() const {
 }
 
 std::unique_ptr<ObservationDelayController>
-AttemptLoginTool::GetObservationDelayer() const {
+AttemptLoginTool::GetObservationDelayer(
+    std::optional<ObservationDelayController::PageStabilityConfig>
+        page_stability_config) const {
   return std::make_unique<ObservationDelayController>(
-      GetPrimaryMainFrameOfTab(tab_handle_));
+      GetPrimaryMainFrameOfTab(tab_handle_), task_id(), page_stability_config);
 }
 
 void AttemptLoginTool::UpdateTaskBeforeInvoke(ActorTask& task,
                                               InvokeCallback callback) const {
   task.AddTab(tab_handle_, std::move(callback));
+}
+
+tabs::TabHandle AttemptLoginTool::GetTargetTab() const {
+  return tab_handle_;
 }
 
 actor_login::ActorLoginService& AttemptLoginTool::GetActorLoginService() {

@@ -11,8 +11,10 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/types/expected.h"
@@ -29,9 +31,10 @@
 #include "components/webapps/isolated_web_apps/types/iwa_version.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
-#include "third_party/blink/public/mojom/manifest/capture_links.mojom-shared.h"
+#include "third_party/blink/public/common/safe_url_pattern.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom.h"
+#include "third_party/blink/public/mojom/manifest/manifest_launch_handler.mojom-data-view.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/size.h"
@@ -188,7 +191,7 @@ struct WebAppShortcutsMenuItemInfo {
   std::vector<Icon> monochrome;
 
   // Sizes of successfully downloaded icons for this shortcut menu item.
-  IconSizes downloaded_icon_sizes{};
+  IconSizes downloaded_icon_sizes;
 };
 
 struct IconsWithSizeAny {
@@ -223,6 +226,8 @@ struct IconsWithSizeAny {
 struct DialogImageInfo {
   DialogImageInfo();
   ~DialogImageInfo();
+  DialogImageInfo(const DialogImageInfo& dialog_image_info);
+  DialogImageInfo& operator=(const DialogImageInfo& dialog_image_info);
   DialogImageInfo(DialogImageInfo&& dialog_image_info);
   DialogImageInfo& operator=(DialogImageInfo&& dialog_image_info);
 
@@ -390,6 +395,10 @@ struct WebAppInstallInfo {
   std::optional<web_app::mojom::UserDisplayMode> user_display_mode =
       web_app::mojom::UserDisplayMode::kBrowser;
 
+  // URL patterns used to decide when a window should have display mode
+  // `kBorderless`.
+  std::vector<blink::SafeUrlPattern> borderless_url_patterns;
+
   // The extensions and mime types the app can handle.
   apps::FileHandlers file_handlers;
 
@@ -438,11 +447,6 @@ struct WebAppInstallInfo {
   // URL within scope to launch for a "new note" action. Valid iff this is
   // considered a note-taking app.
   GURL note_taking_new_note_url;
-
-  // The link capturing behaviour to use for navigations into in the app's
-  // scope.
-  blink::mojom::CaptureLinks capture_links =
-      blink::mojom::CaptureLinks::kUndefined;
 
   // The window selection behaviour of app launches.
   std::optional<blink::Manifest::LaunchHandler> launch_handler;
@@ -525,6 +529,8 @@ bool operator==(const WebAppShortcutsMenuItemInfo::Icon& icon1,
 
 bool operator==(const WebAppShortcutsMenuItemInfo& shortcut_info1,
                 const WebAppShortcutsMenuItemInfo& shortcut_info2);
+
+bool operator==(const DialogImageInfo& info1, const DialogImageInfo& info2);
 
 }  // namespace web_app
 

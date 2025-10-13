@@ -59,7 +59,7 @@
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_install_source.h"
+#include "chrome/browser/web_applications/isolated_web_apps/install/isolated_web_app_install_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_trust_checker.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
@@ -169,7 +169,7 @@ class ExtensionTabsTest : public PlatformAppBrowserTest {
   ExtensionTabsTest(const ExtensionTabsTest&) = delete;
   ExtensionTabsTest& operator=(const ExtensionTabsTest&) = delete;
 
-  std::string GetWindowType(Browser* test_browser,
+  std::string GetWindowType(BrowserWindowInterface* test_browser,
                             scoped_refptr<const Extension> extension) {
     auto function = base::MakeRefCounted<WindowsGetFunction>();
     function->set_extension(extension.get());
@@ -1006,7 +1006,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, ExtensionAPICannotNavigateDevtools) {
               "[%d, {\"url\":\"http://example.com\"}]",
               ExtensionTabUtil::GetTabId(
                   DevToolsWindowTesting::Get(devtools)->main_web_contents())),
-          DevToolsWindowTesting::Get(devtools)->browser()->profile()),
+          DevToolsWindowTesting::Get(devtools)->browser()->GetProfile()),
       tabs_constants::kNotAllowedForDevToolsError));
 
   DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
@@ -1560,7 +1560,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, ExecuteScriptOnDevTools) {
           function.get(),
           base::StringPrintf("[%u, {\"code\": \"true\"}]",
                              api::windows::WINDOW_ID_CURRENT),
-          DevToolsWindowTesting::Get(devtools)->browser()->profile()),
+          DevToolsWindowTesting::Get(devtools)->browser()->GetProfile()),
       manifest_errors::kCannotAccessPageWithUrl));
 
   DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
@@ -1927,7 +1927,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, Freezing) {
     mojom::EventFilteringInfoPtr event_filtering_info_out;
     EXPECT_TRUE(event_it->second->will_dispatch_callback.Run(
         profile(), mojom::ContextType::kUnprivilegedExtension, extension.get(),
-        /* listener_filter=*/nullptr, args_out, event_filtering_info_out));
+        /*listener_filter=*/nullptr, args_out, event_filtering_info_out,
+        /*dispatch_separate_event_out=*/nullptr));
     ASSERT_TRUE(args_out.has_value());
     ASSERT_EQ(args_out->size(), 3U);
     EXPECT_EQ(ExtensionTabUtil::GetTabId(web_contents),
@@ -2968,7 +2969,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest,
               R"([{"tabId": %d}])",
               ExtensionTabUtil::GetTabId(
                   DevToolsWindowTesting::Get(devtools)->main_web_contents())),
-          DevToolsWindowTesting::Get(devtools)->browser()->profile()),
+          DevToolsWindowTesting::Get(devtools)->browser()->GetProfile()),
       tabs_constants::kNotAllowedForDevToolsError));
 
   DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
@@ -2986,7 +2987,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ExtensionAPICannotMoveDevtoolsTab) {
               R"([%d, {"index": -1}])",
               ExtensionTabUtil::GetTabId(
                   DevToolsWindowTesting::Get(devtools)->main_web_contents())),
-          DevToolsWindowTesting::Get(devtools)->browser()->profile()),
+          DevToolsWindowTesting::Get(devtools)->browser()->GetProfile()),
       tabs_constants::kNotAllowedForDevToolsError));
 
   DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
@@ -3006,7 +3007,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ExtensionAPICannotGroupDevtoolsTab) {
               R"([{"tabIds": %d}])",
               ExtensionTabUtil::GetTabId(
                   DevToolsWindowTesting::Get(devtools)->main_web_contents())),
-          DevToolsWindowTesting::Get(devtools)->browser()->profile()),
+          DevToolsWindowTesting::Get(devtools)->browser()->GetProfile()),
       tabs_constants::kNotAllowedForDevToolsError));
 
   DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
@@ -3024,7 +3025,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ExtensionAPICannotDiscardDevtoolsTab) {
               "[%d]",
               ExtensionTabUtil::GetTabId(
                   DevToolsWindowTesting::Get(devtools)->main_web_contents())),
-          DevToolsWindowTesting::Get(devtools)->browser()->profile()),
+          DevToolsWindowTesting::Get(devtools)->browser()->GetProfile()),
       tabs_constants::kNotAllowedForDevToolsError));
 
   DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);

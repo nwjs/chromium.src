@@ -215,13 +215,8 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
     @Override
     public int getMovementFlags(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
         final int dragFlags = isMessageType(viewHolder) ? 0 : mDragFlags;
-        final int swipeFlags;
-        if (viewHolder.getItemViewType() == UiType.ARCHIVED_TABS_MESSAGE || mIsMouseInputSource) {
-            // The archived tabs message can't be dismissed.
-            swipeFlags = 0;
-        } else {
-            swipeFlags = ItemTouchHelper.START | ItemTouchHelper.END;
-        }
+        final int swipeFlags =
+                isSwipeable(viewHolder) ? ItemTouchHelper.START | ItemTouchHelper.END : 0;
 
         mRecyclerViewSupplier.set(recyclerView);
         return makeMovementFlags(dragFlags, swipeFlags);
@@ -232,6 +227,9 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
             RecyclerView recyclerView,
             RecyclerView.ViewHolder current,
             RecyclerView.ViewHolder target) {
+        if (isPinnedRegularTab(current) != isPinnedRegularTab(target)) {
+            return false;
+        }
         if (isArchivedMessageCard(current)) {
             return canDropOnArchivalMessage((SimpleRecyclerViewAdapter.ViewHolder) target);
         }
@@ -392,7 +390,8 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
                 onDropOnArchivalMessageCard();
             } else if (mHoveredTabIndex != TabModel.INVALID_TAB_INDEX
                     && mActionsOnAllRelatedTabs
-                    && !hasCollaboration(viewHolder)) {
+                    && !hasCollaboration(viewHolder)
+                    && !isPinnedRegularTab(viewHolder)) {
                 if (selectedViewHolder != null
                         && !recyclerView.isComputingLayout()
                         && shouldUpdate) {
@@ -400,7 +399,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
                     onTabMergeToGroup(
                             mModel.getTabCardCountsBefore(mSelectedTabIndex),
                             mModel.getTabCardCountsBefore(mHoveredTabIndex));
-                    assumeNonNull(recyclerView.getLayoutManager()).removeView(selectedItemView);
+                    maybeRemoveRecyclerViewChild(recyclerView, selectedItemView);
                 }
                 mActionAttempted = true;
             } else {
@@ -432,7 +431,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
                     // Handle the case where the recyclerView is cleared out after ungrouping the
                     // last tab in group.
                     if (assumeNonNull(recyclerView.getAdapter()).getItemCount() != 0) {
-                        assumeNonNull(recyclerView.getLayoutManager()).removeView(ungroupItemView);
+                        maybeRemoveRecyclerViewChild(recyclerView, ungroupItemView);
                     }
                     RecordUserAction.record("TabGrid.Drag.RemoveFromGroup." + mComponentName);
                 }
@@ -508,8 +507,8 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
         // attempts to fix this also checked for matching item positions in the adapter, but
         // this led to phantom items in the recycler view due to the position the item view
         // thought it had pre-post being inconsistent with the state after the post.
-        // TODO(crbug.com/40641179): Figure out why the deleting signal is not properly sent when
-        // item is being dragged.
+        // TODO(crbug.com/443948545): Figure out why the deleting signal is not properly sent when
+        // item is being dragged and not remove views directly off of the RecyclerView.
         Runnable removeViewHolderRunnable =
                 () -> {
                     if (viewHolder.itemView.getParent() == null
@@ -522,7 +521,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
 
                     var layoutManager = recyclerView.getLayoutManager();
                     if (layoutManager != null && adapter.getItemCount() == 0) {
-                        layoutManager.removeView(viewHolder.itemView);
+                        maybeRemoveRecyclerViewChild(recyclerView, viewHolder.itemView);
                     }
                 };
         recyclerView.post(removeViewHolderRunnable);
@@ -599,7 +598,10 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
 
             handleHoverForArchiveMessage(recyclerView);
 
-            if (hasTabPropertiesModel(hoveredViewHolder) && !hasCollaboration(viewHolder)) {
+            if (hasTabPropertiesModel(hoveredViewHolder)
+                    && !hasCollaboration(viewHolder)
+                    && !isPinnedRegularTab(viewHolder)
+                    && !isPinnedRegularTab(hoveredViewHolder)) {
                 mModel.updateHoveredCardForHover(mHoveredTabIndex, true);
             } else {
                 mHoveredTabIndex = TabModel.INVALID_TAB_INDEX;
@@ -703,7 +705,16 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
             mOnDropOnArchivalMessageCardEventListener.onDropTab(tabId);
 
             View selectedItemView = selectedViewHolder.itemView;
-            assumeNonNull(recyclerView.getLayoutManager()).removeView(selectedItemView);
+            maybeRemoveRecyclerViewChild(recyclerView, selectedItemView);
+        }
+    }
+
+    private void maybeRemoveRecyclerViewChild(RecyclerView recyclerView, View view) {
+        // TODO(crbug.com/443948545): We should not be removing views directly off of
+        //  the RecyclerView, and should fix what is preventing it from reflecting
+        //  model updates instead.
+        if (view.isAttachedToWindow()) {
+            assumeNonNull(recyclerView.getLayoutManager()).removeView(view);
         }
     }
 
@@ -843,5 +854,34 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
     private boolean isArchivedMessageCard(PropertyModel model) {
         return model.get(CARD_TYPE) == MESSAGE
                 && model.get(MESSAGE_TYPE) == MessageType.ARCHIVED_TABS_MESSAGE;
+    }
+
+    private boolean isSwipeable(RecyclerView.ViewHolder viewHolder) {
+        if (mIsMouseInputSource) {
+            return false;
+        }
+
+        // The archived tabs message can't be dismissed.
+        if (viewHolder.getItemViewType() == UiType.ARCHIVED_TABS_MESSAGE) {
+            return false;
+        }
+
+        // Pinned tabs can't be dismissed.
+        if (isPinnedRegularTab(viewHolder)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean isPinnedRegularTab(RecyclerView.@Nullable ViewHolder viewHolder) {
+        if (viewHolder instanceof SimpleRecyclerViewAdapter.ViewHolder simpleViewHolder) {
+            PropertyModel model = simpleViewHolder.model;
+            if (model != null && model.get(CARD_TYPE) == TAB) {
+                return model.get(TabProperties.IS_PINNED);
+            }
+        }
+
+        return false;
     }
 }

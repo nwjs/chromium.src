@@ -28,6 +28,7 @@ static_library("safe_browsing") {
     "//chrome/app:generated_resources",
     "//chrome/browser:browser_process",
     "//chrome/browser/google",
+    "//chrome/browser/history",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/password_manager/factories",
     "//chrome/browser/profiles",
@@ -558,6 +559,7 @@ source_set("verdict_cache_manager_factory") {
   deps = [
     "//chrome/browser:browser_process",
     "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/history",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/sync",
@@ -653,6 +655,15 @@ source_set("unit_tests") {
   ]
   if (is_android) {
     deps += [ "android:test_support" ]
+  }
+  if (is_win || is_mac || is_linux || is_chromeos) {
+    sources += [ "safe_browsing_pref_change_handler_unittest.cc" ]
+
+    deps += [
+      "//chrome/browser/ui",
+      "//chrome/browser/ui/toasts",
+      "//testing/gmock",
+    ]
   }
 }
 

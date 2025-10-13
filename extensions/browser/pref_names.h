@@ -95,6 +95,10 @@ inline constexpr char kInstallForceList[] = "extensions.install.forcelist";
 // inital_preferences file only for the initial profile during first run.
 inline constexpr char kInitialInstallList[] = "extensions.install.initiallist";
 
+// String pref indicates the name of the provider of the `kInitialInstallList`.
+inline constexpr char kInitialInstallProviderName[] =
+    "extensions.install.initialprovidername";
+
 // A dictionary containing, for each extension id, additional
 // OAuth redirect URLs that will be allowed in chrome.identity API.
 inline constexpr char kOAuthRedirectUrls[] = "extensions.oauth_redirect_urls";
@@ -125,6 +129,11 @@ inline constexpr char kPinnedExtensions[] = "extensions.pinned_extensions";
 // Pref for policy to enable/disable loading extension from command line
 inline constexpr char kExtensionInstallTypeBlocklist[] =
     "extensions.extension_install_type_blocklist";
+
+// Pref for policy to enable/disable force-install extensions with non-malware
+// violations.
+inline constexpr char kExtensionForceInstallWithNonMalwareViolationsEnabled[] =
+    "extensions.extension_force_install_with_non_malware_violations_enabled";
 
 // Properties in kExtensions dictionaries --------------------------------------
 

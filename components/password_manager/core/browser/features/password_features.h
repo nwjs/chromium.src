@@ -18,6 +18,7 @@ namespace password_manager::features {
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 BASE_DECLARE_FEATURE(kActorLogin);
+BASE_DECLARE_FEATURE(kActorLoginFillingHeuristics);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -79,6 +80,11 @@ BASE_DECLARE_FEATURE(kClearUndecryptablePasswordsOnSync);
 BASE_DECLARE_FEATURE(kDebugUiForOtps);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
+// Enables Actor Login permissions UI in Password Manager settings
+BASE_DECLARE_FEATURE(kEnableActorLoginPermissions);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 // Enables the Mojo JavaScript API for the password manager, replacing the
 // legacy passwordsPrivate extension API.
 BASE_DECLARE_FEATURE(kEnablePasswordManagerMojoApi);
@@ -119,6 +125,9 @@ BASE_DECLARE_FEATURE(kIOSProactivePasswordGenerationBottomSheet);
 BASE_DECLARE_FEATURE(kIOSFillRecoveryPassword);
 
 #endif  // BUILDFLAG(IS_IOS)
+
+// Populate the `date_last_filled` timestamp for passwords.
+BASE_DECLARE_FEATURE(kPasswordDateLastFilled);
 
 // Enables running the clientside form classifier to parse password forms.
 BASE_DECLARE_FEATURE(kPasswordFormClientsideClassifier);

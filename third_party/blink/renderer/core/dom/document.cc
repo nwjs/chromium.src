@@ -68,7 +68,8 @@
 #include "third_party/blink/public/common/privacy_budget/identifiability_sample_collector.h"
 #include "third_party/blink/public/common/privacy_budget/identifiability_study_settings.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
-#include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom-blink.h"
+#include "third_party/blink/public/mojom/css/preferred_contrast.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-blink-forward.h"
@@ -172,6 +173,7 @@
 #include "third_party/blink/renderer/core/dom/processing_instruction.h"
 #include "third_party/blink/renderer/core/dom/scripted_animation_controller.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_group_data.h"
+#include "third_party/blink/renderer/core/dom/scroll_marker_group_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_including_tree_order_traversal.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
@@ -330,6 +332,7 @@
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_controller.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_entry.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_size.h"
+#include "third_party/blink/renderer/core/route_matching/route_map.h"
 #include "third_party/blink/renderer/core/sanitizer/sanitizer_api.h"
 #include "third_party/blink/renderer/core/script/detect_javascript_frameworks.h"
 #include "third_party/blink/renderer/core/script/script_runner.h"
@@ -1429,7 +1432,16 @@ std::pair<CustomElementRegistry*, AtomicString> FlattenCreateElementOptions(
           options->hasCustomElementRegistry()) {
         registry = options->customElementRegistry();
       }
-      // 3-2. If options["is"] exists, then set is to it.
+      // 3-2. If registry's "is scoped" is false and registry is not document's
+      // custom element registry, then throw a "NotSupportedError" DOMException.
+      if (registry && registry->IsGlobalRegistry() &&
+          registry != document->customElementRegistry()) {
+        exception_state.ThrowDOMException(
+            DOMExceptionCode::kNotSupportedError,
+            "The registry provided is a global registry from another document");
+        return std::pair(registry, is);
+      }
+      // 3-3. If options["is"] exists, then set is to it.
       if (options->hasIs())
         is = AtomicString(options->is());
       // 3-3. If registry is non-null and is is non-null, then throw a
@@ -1439,6 +1451,7 @@ std::pair<CustomElementRegistry*, AtomicString> FlattenCreateElementOptions(
             DOMExceptionCode::kNotSupportedError,
             "The custom element registry and is option can't be set at the "
             "same time.");
+        return std::pair(registry, is);
       }
       // 4. If registry is null then set registry to the result of looking up a
       // custom element registry given document.
@@ -1487,6 +1500,9 @@ Element* Document::CreateElementForBinding(
   // given options.
   auto [registry, is] =
       FlattenCreateElementOptions(this, string_or_options, exception_state);
+  if (exception_state.HadException()) {
+    return nullptr;
+  }
 
   // 5. Let element be the result of creating an element given ...
   Element* element = CreateElement(
@@ -1553,6 +1569,9 @@ Element* Document::createElementNS(
   // Let registry and is be the result of flattening element creation options.
   auto [registry, is] =
       FlattenCreateElementOptions(this, string_or_options, exception_state);
+  if (exception_state.HadException()) {
+    return nullptr;
+  }
 
   if (!IsValidElementName(this, qualified_name)) {
     exception_state.ThrowDOMException(
@@ -1597,7 +1616,7 @@ Element* Document::CreateElement(const QualifiedName& q_name,
   }
 
   if (definition) {
-    return definition->CreateElement(*this, q_name, flags, registry);
+    return definition->CreateElement(*this, q_name, flags);
   }
 
   return CustomElement::CreateUncustomizedOrUndefinedElement(
@@ -1693,7 +1712,7 @@ Node* Document::importNode(Node* imported_node,
   if (options->hasCustomElementRegistry()) {
     CHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
     registry = options->customElementRegistry();
-    // 5-3. If registry's is scoped is false and registry is not this's custom
+    // 5-3. If registry's "is scoped" is false and registry is not this's custom
     // element registry, then throw a "notSupportedError" DOMException.
     if (registry->IsGlobalRegistry() && registry != customElementRegistry()) {
       exception_state.ThrowDOMException(
@@ -1714,7 +1733,8 @@ Node* Document::importNode(Node* imported_node,
 Node* Document::importNode(Node* imported_node,
                            bool deep,
                            ExceptionState& exception_state) {
-  return importNode(imported_node, deep, nullptr, exception_state);
+  return importNode(imported_node, deep, customElementRegistry(),
+                    exception_state);
 }
 
 Node* Document::importNode(Node* imported_node,
@@ -2762,8 +2782,8 @@ void Document::UpdateStyleAndLayoutTreeForThisDocument() {
 
   if (GetFrame()->IsMainFrame() &&
       RuntimeEnabledFeatures::UpdateComplexSafaAreaConstraintsEnabled()) {
-    GetViewportData().SetHasComplexSafaAreaConstraint(
-        style_engine.HasComplexSafaAreaConstraints());
+    GetViewportData().SetHasComplexSafeAreaConstraint(
+        style_engine.HasComplexSafeAreaConstraints());
   }
 
   rendering_had_begun_for_last_style_update_ = RenderingHasBegun();
@@ -2970,6 +2990,11 @@ DocumentPartRoot& Document::EnsureDocumentPartRoot() {
     document_part_root_ = MakeGarbageCollected<DocumentPartRoot>(*this);
   }
   return *document_part_root_;
+}
+
+RouteMap* Document::routeMap() {
+  DCHECK(RuntimeEnabledFeatures::RouteMatchingEnabled());
+  return &RouteMap::Ensure(*this);
 }
 
 void Document::ApplyScrollRestorationLogic() {
@@ -4358,8 +4383,7 @@ void Document::CheckCompleted() {
 }
 
 void Document::FetchDictionaryFromLinkHeader() {
-  if (!CompressionDictionaryTransportFullyEnabled(GetExecutionContext()) ||
-      !Loader()) {
+  if (!Loader()) {
     return;
   }
   Loader()->DispatchLinkHeaderPreloads(
@@ -5524,7 +5548,7 @@ Node* Document::Clone(Document& factory,
     PartRoot::CloneParts(*this, *clone, data);
   }
   if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
-    // 2. If node's custom element registry's is scoped is true, then
+    // 2. If node's custom element registry's "is scoped" is true, then
     // set copy's custom element registry to node's custom element registry.
     if (fallback_registry && !fallback_registry->IsGlobalRegistry()) {
       clone->SetCustomElementRegistry(fallback_registry);
@@ -6100,6 +6124,18 @@ void Document::SetSequentialFocusNavigationStartingPoint(Node* node) {
       node, ASSERT_NO_EXCEPTION);
 }
 
+namespace {
+
+bool IsScrollerInTabsMode(const Element& scroller) {
+  std::optional<ScrollMarkerGroup::ScrollMarkerMode> scroller_mode =
+      scroller.ComputedStyleRef().ScrollMarkerGroupMode();
+  return scroller_mode.has_value() &&
+         scroller_mode.value() == ScrollMarkerGroup::ScrollMarkerMode::kTabs &&
+         RuntimeEnabledFeatures::CSSScrollMarkerGroupModesEnabled();
+}
+
+}  // namespace
+
 Element* Document::SequentialFocusNavigationStartingPoint(
     mojom::blink::FocusType type) const {
   if (focused_element_) {
@@ -6118,11 +6154,14 @@ Element* Document::SequentialFocusNavigationStartingPoint(
         sequential_focus_navigation_starting_point_->startContainer() !=
             focused_element_ &&
         type == mojom::blink::FocusType::kForward) {
-      if (auto* column_pseudo =
-              DynamicTo<ColumnPseudoElement>(scroll_marker->parentElement())) {
-        return column_pseudo;
+      Element* scroller = scroll_marker->ScrollMarkerGroup()->parentElement();
+      if (!IsScrollerInTabsMode(*scroller)) {
+        if (auto* column_pseudo = DynamicTo<ColumnPseudoElement>(
+                scroll_marker->parentElement())) {
+          return column_pseudo;
+        }
+        return &scroll_marker->UltimateOriginatingElement();
       }
-      return &scroll_marker->UltimateOriginatingElement();
     }
     return focused_element_.Get();
   }
@@ -6922,7 +6961,7 @@ std::optional<base::Time> Document::lastModifiedTime() const {
     }
   }
   if (!http_last_modified.empty()) {
-    return ParseDate(http_last_modified, const_cast<Document&>(*this));
+    return ParseDate(http_last_modified);
   }
   return std::nullopt;
 }
@@ -8047,6 +8086,8 @@ void Document::FinishedParsing() {
     // Record the total taken time by UseCounter.
     Loader()->GetUseCounter().ReportTotalTakenTime(GetFrame(),
                                                    /*did_commit_load=*/false);
+    // Record the total taken time by subresource load observer update.
+    Loader()->ReportTotalTakenTimeToUpdateSubresourceLoadMetrics();
   }
 }
 
@@ -9392,6 +9433,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(popovers_waiting_to_hide_);
   visitor->Trace(all_open_popovers_);
   visitor->Trace(all_open_dialogs_);
+  visitor->Trace(elements_with_interest_);
   visitor->Trace(document_part_root_);
   visitor->Trace(load_event_delay_timer_);
   visitor->Trace(plugin_loading_timer_);
@@ -9593,7 +9635,11 @@ bool Document::IsScriptBlockedUntilPrerenderActivation() const {
 }
 
 mojom::blink::PreferredColorScheme Document::GetPreferredColorScheme() const {
-  return style_engine_->GetPreferredColorScheme();
+  return GetStyleEngine().GetPreferredColorScheme();
+}
+
+mojom::blink::PreferredContrast Document::GetPreferredContrast() const {
+  return GetStyleEngine().GetPreferredContrast();
 }
 
 void Document::ColorSchemeChanged() {
@@ -9621,8 +9667,7 @@ bool Document::InForcedColorsMode() const {
 
 bool Document::InDarkMode() {
   return !InForcedColorsMode() && !Printing() &&
-         GetStyleEngine().GetPreferredColorScheme() ==
-             mojom::blink::PreferredColorScheme::kDark;
+         GetPreferredColorScheme() == mojom::blink::PreferredColorScheme::kDark;
 }
 
 const ui::ColorProvider* Document::GetColorProviderForPainting(

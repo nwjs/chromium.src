@@ -308,7 +308,7 @@ public class CustomTabActivityTabController implements PauseResumeWithNativeObse
         boolean hadCipherData = mCipherFactory.restoreFromBundle(mSavedInstanceStateSupplier.get());
         if (hadCipherData && mIntentDataProvider.isOffTheRecord()) {
             // Ensure the Profile has been created.
-            mProfileProviderSupplier.get().getOffTheRecordProfile(true);
+            mProfileProviderSupplier.get().getOrCreateOffTheRecordProfile();
             ensureCookiesFetcher();
             mCookiesFetcher.restoreCookies(this::finishTabInitializationPostNative);
         } else {
@@ -339,6 +339,14 @@ public class CustomTabActivityTabController implements PauseResumeWithNativeObse
         }
 
         updateEngagementSignalsHandler();
+
+        // We may have tried to close the tab before native initialization completed (in the case of
+        // a pre-render or early navigation).
+        if (tab.didCloseWhileDetached()) {
+            tabModelSelector.tryCloseTab(
+                    TabClosureParams.closeTab(tab).allowUndo(false).build(),
+                    /* allowDialog= */ false);
+        }
     }
 
     // Creates the tab on native init, if it hasn't been created yet, and does all the additional

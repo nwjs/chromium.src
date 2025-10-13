@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <compare>
 #include <cstdint>
-#include <limits>
 #include <list>
 #include <memory>
 #include <optional>
@@ -45,7 +44,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/task_traits.h"
-#include "base/task/updateable_sequenced_task_runner.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/trace_event/memory_dump_manager.h"
@@ -189,14 +188,12 @@ BucketContext::BucketContext(
     storage::BucketInfo bucket_info,
     const base::FilePath& data_path,
     Delegate&& delegate,
-    scoped_refptr<base::UpdateableSequencedTaskRunner> updateable_task_runner,
     scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
     mojo::PendingRemote<storage::mojom::BlobStorageContext>
         blob_storage_context,
     mojo::PendingRemote<storage::mojom::FileSystemAccessContext>
         file_system_access_context)
     : bucket_info_(std::move(bucket_info)),
-      updateable_task_runner_(updateable_task_runner),
       data_path_(data_path),
       quota_manager_proxy_(std::move(quota_manager_proxy)),
       blob_storage_context_(std::move(blob_storage_context)),
@@ -308,41 +305,6 @@ void BucketContext::ReportOutstandingBlobs(bool blobs_outstanding) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   has_blobs_outstanding_ = blobs_outstanding;
   MaybeStartClosing();
-}
-
-void BucketContext::OnConnectionPriorityUpdated() {
-  if (!updateable_task_runner_) {
-    return;
-  }
-  base::TaskPriority priority = CalculateSchedulingPriority() == 0
-                                    ? base::TaskPriority::USER_BLOCKING
-                                    : base::TaskPriority::USER_VISIBLE;
-  updateable_task_runner_->UpdatePriority(priority);
-}
-
-std::optional<int> BucketContext::CalculateSchedulingPriority() {
-  std::optional<int> scheduling_priority;
-  // Established connections:
-  for (const auto& [name, database] : databases_) {
-    for (auto* connection : database->connections()) {
-      scheduling_priority = std::min(
-          scheduling_priority.value_or(std::numeric_limits<int>::max()),
-          connection->scheduling_priority());
-    }
-  }
-  // Pending connections:
-  for (auto iter = pending_connections_.begin();
-       iter != pending_connections_.end();) {
-    if (iter->WasInvalidated()) {
-      iter = pending_connections_.erase(iter);
-    } else {
-      scheduling_priority = std::min(
-          scheduling_priority.value_or(std::numeric_limits<int>::max()),
-          (*iter)->scheduling_priority);
-      ++iter;
-    }
-  }
-  return scheduling_priority;
 }
 
 void BucketContext::CheckCanUseDiskSpace(
@@ -612,11 +574,24 @@ void BucketContext::Open(
     database_ptr = CreateAndAddDatabase(name);
   } else {
     database_ptr = it->second.get();
+
+    // The `Database` might have been forced closed by dev tools, in which case
+    // no new connections should be added. The `Database` should be deleted
+    // *soon* in this case, but the request can arrive while `RunTasks()` is
+    // still queued. We could try to reschedule this open() request, but if the
+    // open request had already made it to ConnectionCoordinator, it would be
+    // pruned and errors reported: see `ShouldPruneForForceClose()`. So do that
+    // here too.
+    if (!database_ptr->IsAcceptingConnections()) {
+      connection->factory_client->OnError(
+          DatabaseError(blink::mojom::IDBException::kAbortError,
+                        "The connection was closed."));
+      connection->database_callbacks->OnForcedClose();
+      return;
+    }
   }
 
-  pending_connections_.push_back(connection->weak_factory.GetWeakPtr());
   database_ptr->ScheduleOpenConnection(std::move(connection));
-  OnConnectionPriorityUpdated();
 }
 
 void BucketContext::DeleteDatabase(

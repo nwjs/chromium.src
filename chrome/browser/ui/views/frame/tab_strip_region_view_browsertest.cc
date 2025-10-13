@@ -111,17 +111,12 @@ class TabStripRegionViewTestBase : public InProcessBrowserTest {
   }
 
  protected:
-  BrowserView* browser_view() {
-    return BrowserView::GetBrowserViewForBrowser(browser());
-  }
-
   TabStripRegionView* tab_strip_region_view() {
-    return browser_view()->tab_strip_region_view();
+    return views::AsViewClass<TabStripRegionView>(
+        BrowserView::GetBrowserViewForBrowser(browser())->tab_strip_view());
   }
 
-  TabStrip* tab_strip() {
-    return browser_view()->tab_strip_region_view()->tab_strip();
-  }
+  TabStrip* tab_strip() { return tab_strip_region_view()->tab_strip(); }
 
   TabStripModel* tab_strip_model() { return browser()->tab_strip_model(); }
 
@@ -357,8 +352,9 @@ class TabStripRegionViewTestWithScrollingEnabled
 // container. This is the opposite behavior from
 // TabStripRegionViewTestWithScrollingDisabled.
 // TabStripCannotBeLargerThanContainer.
+// TODO(crbug.com/442378742): Fix failures on the Linux ASan LSan Tests bot.
 IN_PROC_BROWSER_TEST_F(TabStripRegionViewTestWithScrollingEnabled,
-                       TabStripCanBeLargerThanContainer) {
+                       DISABLED_TabStripCanBeLargerThanContainer) {
   const int minimum_active_width = TabStyle::Get()->GetMinimumInactiveWidth();
   chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
   {
@@ -399,7 +395,7 @@ IN_PROC_BROWSER_TEST_F(TabStripRegionViewTestWithScrollingEnabled,
 }
 
 IN_PROC_BROWSER_TEST_F(TabStripRegionViewTestWithScrollingEnabled,
-                       TabStripScrollButtonsNotInWindowCaption) {
+                       DISABLED_TabStripScrollButtonsNotInWindowCaption) {
   const int minimum_active_width = TabStyle::Get()->GetMinimumInactiveWidth();
   chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
   {

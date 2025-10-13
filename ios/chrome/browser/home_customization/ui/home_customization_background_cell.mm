@@ -22,9 +22,6 @@ namespace {
 // Corner radius applied to the content view.
 const CGFloat kContentViewCornerRadius = 10.88;
 
-// Corner radius applied to the highlight border view.
-const CGFloat kHighlightCornerRadius = 16.0;
-
 // Top margin between contentView and borderWrapperView.
 const CGFloat kContentViewTopMargin = 12.0;
 
@@ -114,12 +111,14 @@ const CGFloat kAlphaValueWhenImageBackround = 0.6;
   self = [super initWithFrame:frame];
   if (self) {
     self.contentView.backgroundColor = UIColor.clearColor;
+    self.isAccessibilityElement = YES;
+    self.accessibilityTraits |= UIAccessibilityTraitButton;
 
     // Outer container view that holds the highlight border.
     self.borderWrapperView = [[UIView alloc] init];
     self.borderWrapperView.translatesAutoresizingMaskIntoConstraints = NO;
     self.borderWrapperView.backgroundColor = UIColor.clearColor;
-    self.borderWrapperView.layer.cornerRadius = kHighlightCornerRadius;
+    self.borderWrapperView.layer.cornerRadius = 2 * kContentViewCornerRadius;
     self.borderWrapperView.layer.masksToBounds = YES;
     [self.contentView addSubview:self.borderWrapperView];
 
@@ -232,6 +231,7 @@ const CGFloat kAlphaValueWhenImageBackround = 0.6;
 
   UIView* logoView = searchEngineLogoMediator.view;
   logoView.translatesAutoresizingMaskIntoConstraints = NO;
+  logoView.userInteractionEnabled = NO;
 
   // Insert the logo view right after the spacer.
   [self.innerContentView insertArrangedSubview:logoView atIndex:1];
@@ -245,6 +245,8 @@ const CGFloat kAlphaValueWhenImageBackround = 0.6;
 
   _backgroundConfiguration = option;
   _searchEngineLogoMediator = searchEngineLogoMediator;
+  self.accessibilityLabel = option.accessibilityName;
+  self.accessibilityValue = option.accessibilityValue;
 
   [self applyTheme];
 }

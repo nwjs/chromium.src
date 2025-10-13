@@ -296,7 +296,7 @@ TEST_F(CallMethodTest, ExtraDataInResponse) {
   base::RunLoop run_loop;
 
   CallMethod<"", "s">(mock_proxy_.get(), kTestInterface, kTestMethodExtraData,
-                      BindLambda([&](CallMethodResult<std::string> result) {
+                      BindLambda([&](CallMethodResultSig<"s"> result) {
                         ASSERT_FALSE(result.has_value());
                         result_error = result.error().status;
                         run_loop.Quit();
@@ -348,6 +348,46 @@ TEST_F(CallMethodTest, ArgumentsPassedCorrectly) {
   run_loop.Run();
 
   EXPECT_TRUE(success);
+}
+
+TEST_F(CallMethodTest, ArgsConvertsTypes) {
+  ExpectCallMethodWithErrorResponse(kTestMethodSuccess);
+
+  bool success = false;
+  base::RunLoop run_loop;
+
+  // Intentionally pass "42" as an int literal, even though the signature
+  // specifies a uint32_t.
+  CallMethod<"u", "">(mock_proxy_.get(), kTestInterface, kTestMethodSuccess,
+                      BindLambda([&](CallMethodResult<> result) {
+                        ASSERT_TRUE(result.has_value());
+                        success = true;
+                        run_loop.Quit();
+                      }),
+                      42);
+
+  SimulateSuccessResponse([](dbus::MessageWriter* writer) {});
+  run_loop.Run();
+
+  EXPECT_TRUE(success);
+}
+
+TEST_F(CallMethodTest, AllowBaseDoNothingComplies) {
+  ExpectCallMethodWithErrorResponse(kTestMethodSuccess);
+
+  CallMethod<"", "">(mock_proxy_.get(), kTestInterface, kTestMethodSuccess,
+                     base::DoNothing());
+
+  SimulateSuccessResponse([](dbus::MessageWriter* writer) {});
+}
+
+TEST_F(CallMethodTest, AllowBaseDoNothingCompliesWithArgs) {
+  ExpectCallMethodWithErrorResponse(kTestMethodSuccess);
+
+  CallMethod<"is", "si">(mock_proxy_.get(), kTestInterface, kTestMethodSuccess,
+                         base::DoNothing(), 123, "test");
+
+  SimulateSuccessResponse([](dbus::MessageWriter* writer) {});
 }
 
 }  // namespace

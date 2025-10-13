@@ -1065,9 +1065,9 @@ TEST(ContentSecurityPolicy, ReportViolation) {
 
   ASSERT_EQ(1u, context.violations().size());
   const char console_message[] =
-      "Refused to send form data to 'http://www.example.com/' because it "
-      "violates the following Content Security Policy directive: \"form-action "
-      "www.example.com\".\n";
+      "Sending form data to 'http://www.example.com/' violates the following "
+      "Content Security Policy directive: \"form-action www.example.com\". The "
+      "request has been blocked.\n";
   EXPECT_EQ(console_message, context.violations()[0]->console_message);
 }
 
@@ -1088,12 +1088,10 @@ TEST(ContentSecurityPolicy, DirectiveFallback) {
                                             GURL("http://b.com"), GURL(), false,
                                             &context, SourceLocation(), false));
     ASSERT_EQ(1u, context.violations().size());
-    const char console_message[] =
-        "Refused to frame 'http://b.com/' because it violates "
-        "the following Content Security Policy directive: \"default-src "
-        "http://a.com\". Note that 'frame-src' was not explicitly "
-        "set, so 'default-src' is used as a fallback.\n";
-    EXPECT_EQ(console_message, context.violations()[0]->console_message);
+    EXPECT_THAT(
+        context.violations()[0]->console_message,
+        testing::HasSubstr("Note that 'frame-src' was not explicitly set, so "
+                           "'default-src' is used as a fallback."));
     EXPECT_TRUE(CheckContentSecurityPolicy(policy, CSPDirectiveName::FrameSrc,
                                            GURL("http://a.com"), GURL(), false,
                                            &context, SourceLocation(), false));
@@ -1106,12 +1104,10 @@ TEST(ContentSecurityPolicy, DirectiveFallback) {
                                             GURL("http://b.com"), GURL(), false,
                                             &context, SourceLocation(), false));
     ASSERT_EQ(1u, context.violations().size());
-    const char console_message[] =
-        "Refused to frame 'http://b.com/' because it violates "
-        "the following Content Security Policy directive: \"child-src "
-        "http://a.com\". Note that 'frame-src' was not explicitly "
-        "set, so 'child-src' is used as a fallback.\n";
-    EXPECT_EQ(console_message, context.violations()[0]->console_message);
+    EXPECT_THAT(
+        context.violations()[0]->console_message,
+        testing::HasSubstr("Note that 'frame-src' was not explicitly set, so "
+                           "'child-src' is used as a fallback."));
     EXPECT_TRUE(CheckContentSecurityPolicy(policy, CSPDirectiveName::FrameSrc,
                                            GURL("http://a.com"), GURL(), false,
                                            &context, SourceLocation(), false));
@@ -1128,11 +1124,9 @@ TEST(ContentSecurityPolicy, DirectiveFallback) {
                                             GURL("http://b.com"), GURL(), false,
                                             &context, SourceLocation(), false));
     ASSERT_EQ(1u, context.violations().size());
-    const char console_message[] =
-        "Refused to frame 'http://b.com/' because it violates "
-        "the following Content Security Policy directive: \"frame-src "
-        "http://a.com\".\n";
-    EXPECT_EQ(console_message, context.violations()[0]->console_message);
+    EXPECT_THAT(context.violations()[0]->console_message,
+                Not(testing::HasSubstr(
+                    "Note that 'frame-src' was not explicitly set")));
   }
 }
 
@@ -2294,12 +2288,10 @@ TEST(ContentSecurityPolicy, FencedFrameSrcFallback) {
         policy, CSPDirectiveName::FencedFrameSrc, GURL("http://b.com"), GURL(),
         false, &context, SourceLocation(), false));
     ASSERT_EQ(1u, context.violations().size());
-    const char kConsoleMessage[] =
-        "Refused to frame 'http://b.com/' as a fenced frame because it "
-        "violates the following Content Security Policy directive: "
-        "\"default-src http://a.com\". Note that 'fenced-frame-src' was not "
-        "explicitly set, so 'default-src' is used as a fallback.\n";
-    EXPECT_EQ(kConsoleMessage, context.violations()[0]->console_message);
+    EXPECT_THAT(
+        context.violations()[0]->console_message,
+        testing::HasSubstr("Note that 'fenced-frame-src' was not explicitly "
+                           "set, so 'default-src' is used as a fallback."));
     EXPECT_TRUE(CheckContentSecurityPolicy(
         policy, CSPDirectiveName::FencedFrameSrc, GURL("http://a.com"), GURL(),
         false, &context, SourceLocation(), false));
@@ -2312,12 +2304,10 @@ TEST(ContentSecurityPolicy, FencedFrameSrcFallback) {
         policy, CSPDirectiveName::FencedFrameSrc, GURL("http://b.com"), GURL(),
         false, &context, SourceLocation(), false));
     ASSERT_EQ(1u, context.violations().size());
-    const char kConsoleMessage[] =
-        "Refused to frame 'http://b.com/' as a fenced frame because it "
-        "violates the following Content Security Policy directive: "
-        "\"child-src http://a.com\". Note that 'fenced-frame-src' was not "
-        "explicitly set, so 'child-src' is used as a fallback.\n";
-    EXPECT_EQ(kConsoleMessage, context.violations()[0]->console_message);
+    EXPECT_THAT(
+        context.violations()[0]->console_message,
+        testing::HasSubstr("Note that 'fenced-frame-src' was not explicitly "
+                           "set, so 'child-src' is used as a fallback."));
     EXPECT_TRUE(CheckContentSecurityPolicy(
         policy, CSPDirectiveName::FencedFrameSrc, GURL("http://a.com"), GURL(),
         false, &context, SourceLocation(), false));
@@ -2331,12 +2321,10 @@ TEST(ContentSecurityPolicy, FencedFrameSrcFallback) {
         policy, CSPDirectiveName::FencedFrameSrc, GURL("http://b.com"), GURL(),
         false, &context, SourceLocation(), false));
     ASSERT_EQ(1u, context.violations().size());
-    const char kConsoleMessage[] =
-        "Refused to frame 'http://b.com/' as a fenced frame because it "
-        "violates the following Content Security Policy directive: "
-        "\"frame-src http://a.com\". Note that 'fenced-frame-src' was not "
-        "explicitly set, so 'frame-src' is used as a fallback.\n";
-    EXPECT_EQ(kConsoleMessage, context.violations()[0]->console_message);
+    EXPECT_THAT(
+        context.violations()[0]->console_message,
+        testing::HasSubstr("Note that 'fenced-frame-src' was not explicitly "
+                           "set, so 'frame-src' is used as a fallback."));
     EXPECT_TRUE(CheckContentSecurityPolicy(
         policy, CSPDirectiveName::FencedFrameSrc, GURL("http://a.com"), GURL(),
         false, &context, SourceLocation(), false));
@@ -2353,11 +2341,10 @@ TEST(ContentSecurityPolicy, FencedFrameSrcFallback) {
         policy, CSPDirectiveName::FencedFrameSrc, GURL("http://b.com"), GURL(),
         false, &context, SourceLocation(), false));
     ASSERT_EQ(1u, context.violations().size());
-    const char kConsoleMessage[] =
-        "Refused to frame 'http://b.com/' as a fenced frame because it "
-        "violates the following Content Security Policy directive: "
-        "\"fenced-frame-src http://a.com\".\n";
-    EXPECT_EQ(kConsoleMessage, context.violations()[0]->console_message);
+    EXPECT_THAT(context.violations()[0]->console_message,
+                Not(testing::HasSubstr(
+                    "Note that 'fenced-frame-src' was not explicitly set, so "
+                    "'frame-src' is used as a fallback.")));
   }
 }
 
@@ -2373,9 +2360,9 @@ TEST(ContentSecurityPolicy, FencedFrameSrcOpaqueURL) {
       /*is_opaque_fenced_frame=*/true));
   ASSERT_EQ(1u, context.violations().size());
   const char kConsoleMessage[] =
-      "Refused to frame 'urn:uuid' as a fenced frame because it violates the "
-      "following Content Security Policy directive: \"fenced-frame-src "
-      "'none'\".\n";
+      "Framing 'urn:uuid' as a fenced frame violates the following Content "
+      "Security Policy directive: \"fenced-frame-src 'none'\". The request has "
+      "been blocked.\n";
   EXPECT_EQ(kConsoleMessage, context.violations()[0]->console_message);
 }
 

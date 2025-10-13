@@ -173,6 +173,7 @@ class BrowserWithTestWindowTest : public testing::Test, public ProfileObserver {
   ash::KioskCryptohomeRemover* kiosk_cryptohome_remover() {
     return kiosk_cryptohome_remover_.get();
   }
+  virtual void OnAshTestHelperCreated();
 #endif
 
   // The context to help determine desktop type when creating new Widgets.
@@ -308,7 +309,8 @@ class BrowserWithTestWindowTest : public testing::Test, public ProfileObserver {
   network::TestURLLoaderFactory test_url_loader_factory_;
 
   std::unique_ptr<TestingProfileManager> profile_manager_;
-  raw_ptr<BrowserWindow> window_;  // Usually a TestBrowserWindow.
+  // Usually a TestBrowserWindow, owned by Browser.
+  raw_ptr<BrowserWindow> window_;
   std::unique_ptr<Browser> browser_;
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -335,7 +337,7 @@ class BrowserWithTestWindowTest : public testing::Test, public ProfileObserver {
   const bool hosted_app_;
 
   // Initialize the variations provider.
-  variations::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
+  variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
       variations::VariationsIdsProvider::Mode::kUseSignedInState};
 
   // Some of the UI elements in top chrome need to observe the

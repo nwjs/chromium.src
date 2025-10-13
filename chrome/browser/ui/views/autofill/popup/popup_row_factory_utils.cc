@@ -46,7 +46,7 @@
 #include "components/compose/core/browser/compose_features.h"
 #include "components/favicon_base/favicon_types.h"
 #include "components/password_manager/core/common/password_manager_constants.h"
-#include "components/plus_addresses/grit/plus_addresses_strings.h"
+#include "components/plus_addresses/core/browser/grit/plus_addresses_strings.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/user_education/common/new_badge/new_badge_controller.h"
 #include "components/user_education/views/new_badge_label.h"
@@ -91,8 +91,8 @@ constexpr auto kPopupItemTypesUsingLeadingIcons = DenseSet<SuggestionType>(
      SuggestionType::kManageAutofillAi, SuggestionType::kManageCreditCard,
      SuggestionType::kManageIban, SuggestionType::kManageLoyaltyCard,
      SuggestionType::kManagePlusAddress, SuggestionType::kUndoOrClear,
-     SuggestionType::kViewPasswordDetails,
-     SuggestionType::kPendingStateSignin});
+     SuggestionType::kViewPasswordDetails, SuggestionType::kPendingStateSignin,
+     SuggestionType::kWebauthnSignInWithAnotherDevice});
 
 // Max width for the username and masked password.
 constexpr int kAutofillPopupUsernameMaxWidth = 272;

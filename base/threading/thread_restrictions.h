@@ -314,7 +314,7 @@ bool InitializeStaticGLBindings(GLImplementationParts);
 }
 }  // namespace gl
 namespace gpu {
-class GpuMemoryBufferImplDXGI;
+class MappableBufferDXGI;
 }
 namespace history_report {
 class HistoryReportJniBridge;
@@ -869,7 +869,7 @@ class BASE_EXPORT
   friend class content::SynchronousCompositor;
   friend class content::SynchronousCompositorHost;
   friend class content::SynchronousCompositorSyncCallBridge;
-  friend class gpu::GpuMemoryBufferImplDXGI;
+  friend class gpu::MappableBufferDXGI;
   friend class media::AudioInputDevice;
   friend class media::AudioOutputDevice;
   friend class media::MailboxVideoFrameConverter;

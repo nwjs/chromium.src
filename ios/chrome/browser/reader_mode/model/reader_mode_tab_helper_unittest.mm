@@ -29,6 +29,7 @@ using IOS_ReaderMode_Heuristic_Result =
     ukm::builders::IOS_ReaderMode_Heuristic_Result;
 using base::Bucket;
 using base::BucketsAre;
+using testing::_;
 
 // Mock implementation of ReaderModeTabHelper::Observer using gMock.
 class MockReaderModeTabHelperObserver : public ReaderModeTabHelper::Observer {
@@ -38,11 +39,12 @@ class MockReaderModeTabHelperObserver : public ReaderModeTabHelper::Observer {
 
   MOCK_METHOD(void,
               ReaderModeWebStateDidLoadContent,
-              (ReaderModeTabHelper * tab_helper),
+              (ReaderModeTabHelper * tab_helper, web::WebState* web_state),
               (override));
   MOCK_METHOD(void,
               ReaderModeWebStateWillBecomeUnavailable,
               (ReaderModeTabHelper * tab_helper,
+               web::WebState* web_state,
                ReaderModeDeactivationReason reason),
               (override));
   MOCK_METHOD(void,
@@ -407,7 +409,7 @@ TEST_F(ReaderModeTabHelperTest, MAYBE_NotifiesObserversOfAvailability) {
   // When ActivateReader() is called and distillation completes,
   // ReaderModeWebStateDidLoadContent should be called.
   EXPECT_CALL(mock_observer,
-              ReaderModeWebStateDidLoadContent(reader_mode_tab_helper()));
+              ReaderModeWebStateDidLoadContent(reader_mode_tab_helper(), _));
   reader_mode_tab_helper()->ActivateReader(
       ReaderModeAccessPoint::kContextualChip);
   WaitForAvailableReaderModeContentInWebState(web_state());
@@ -417,7 +419,7 @@ TEST_F(ReaderModeTabHelperTest, MAYBE_NotifiesObserversOfAvailability) {
   // ReaderModeWebStateWillBecomeUnavailable should be called.
   EXPECT_CALL(mock_observer,
               ReaderModeWebStateWillBecomeUnavailable(
-                  reader_mode_tab_helper(),
+                  reader_mode_tab_helper(), _,
                   ReaderModeDeactivationReason::kUserDeactivated));
   reader_mode_tab_helper()->DeactivateReader(
       ReaderModeDeactivationReason::kUserDeactivated);
@@ -526,7 +528,7 @@ TEST_F(ReaderModeTabHelperTest, MAYBE_WebViewProxyUpdated) {
   observation.Observe(reader_mode_tab_helper());
 
   EXPECT_CALL(mock_observer,
-              ReaderModeWebStateDidLoadContent(reader_mode_tab_helper()));
+              ReaderModeWebStateDidLoadContent(reader_mode_tab_helper(), _));
   reader_mode_tab_helper()->ActivateReader(
       ReaderModeAccessPoint::kContextualChip);
   WaitForAvailableReaderModeContentInWebState(web_state());
@@ -538,7 +540,7 @@ TEST_F(ReaderModeTabHelperTest, MAYBE_WebViewProxyUpdated) {
 
   EXPECT_CALL(mock_observer,
               ReaderModeWebStateWillBecomeUnavailable(
-                  reader_mode_tab_helper(),
+                  reader_mode_tab_helper(), _,
                   ReaderModeDeactivationReason::kUserDeactivated));
   reader_mode_tab_helper()->DeactivateReader(
       ReaderModeDeactivationReason::kUserDeactivated);
@@ -605,6 +607,7 @@ TEST_F(ReaderModeTabHelperTest, MAYBE_TestEligibleContentIsDisplayed) {
   FlushMetrics();
   EXPECT_THAT(histogram_tester_.GetAllSamples(kReaderModeStateHistogram),
               BucketsAre(Bucket(ReaderModeState::kReaderShown, 1)));
+  histogram_tester_.ExpectTotalCount(kReaderModeCustomizationHistogram, 0);
 }
 
 // Tests that distillation that takes longer than the expected timeout will

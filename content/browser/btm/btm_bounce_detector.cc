@@ -44,6 +44,7 @@
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_access_result.h"
 #include "net/cookies/cookie_setting_override.h"
+#include "net/http/http_response_headers.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -511,12 +512,6 @@ void BtmWebContentsObserver::RecordEvent(BtmRecordedEvent event,
                                          const GURL& url,
                                          const base::Time& time) {
   switch (event) {
-    case BtmRecordedEvent::kStorage: {
-      btm_service_->storage()
-          ->AsyncCall(&BtmStorage::RecordStorage)
-          .WithArgs(url, time);
-      return;
-    }
     case BtmRecordedEvent::kUserActivation: {
       btm_service_->storage()
           ->AsyncCall(&BtmStorage::RecordUserActivation)
@@ -831,21 +826,6 @@ void RedirectChainDetector::OnCookiesAccessed(
   detector_.OnClientSiteDataAccessed(fpu, details.type);
 }
 
-void BtmWebContentsObserver::OnSiteStorageAccessed(const GURL& first_party_url,
-                                                   CookieOperation op,
-                                                   bool http_cookie) {
-  base::Time now = clock_->Now();
-
-  if (!http_cookie) {
-    // Throttle client-side storage timestamp updates.
-    if (!UpdateTimestamp(last_storage_timestamp_, now)) {
-      return;
-    }
-  }
-
-  RecordEvent(BtmRecordedEvent::kStorage, first_party_url, now);
-}
-
 void RedirectChainDetector::OnCookiesAccessed(
     NavigationHandle* navigation_handle,
     const CookieAccessDetails& details) {
@@ -888,110 +868,18 @@ void BtmBounceDetector::OnClientSiteDataAccessed(const GURL& url,
       client_detection_state_->last_storage_time = now;
     }
   }
-
-  if (op == CookieOperation::kChange) {
-    delegate_->OnSiteStorageAccessed(url, op, /*http_cookie=*/false);
-  }
 }
 
 void BtmBounceDetector::OnServerCookiesAccessed(
     BtmNavigationHandle* navigation_handle,
     const GURL& url,
     CookieOperation op) {
-  if (op == CookieOperation::kChange) {
-    delegate_->OnSiteStorageAccessed(url, op, /*http_cookie=*/true);
-  }
-
   if (navigation_handle) {
     ServerBounceDetectionState* state = navigation_handle->GetServerState();
     if (state) {
       state->filter.AddAccess(url, op);
     }
   }
-}
-
-void RedirectChainDetector::OnSiteStorageAccessed(const GURL& first_party_url,
-                                                  CookieOperation op,
-                                                  bool http_cookie) {
-  for (auto& observer : observers_) {
-    observer.OnSiteStorageAccessed(first_party_url, op, http_cookie);
-  }
-}
-
-void BtmWebContentsObserver::OnServiceWorkerAccessed(
-    RenderFrameHost* render_frame_host,
-    const GURL& scope,
-    AllowServiceWorkerResult allowed) {
-  if (!IsInPrimaryPage(*render_frame_host) || !allowed) {
-    return;
-  }
-
-  const GURL& fpu = GetFirstPartyURL(*render_frame_host);
-  // TODO: crbug.com/324585403 - This is not observed by RedirectChainDetector
-  // and so doesn't influence whether a bounce is stateful or not. Should it?
-  RecordEvent(BtmRecordedEvent::kStorage, fpu, clock_->Now());
-}
-
-void BtmWebContentsObserver::OnServiceWorkerAccessed(
-    NavigationHandle* navigation_handle,
-    const GURL& scope,
-    AllowServiceWorkerResult allowed) {
-  if (!IsInPrimaryPage(*navigation_handle) || !allowed) {
-    return;
-  }
-
-  const GURL& fpu = GetFirstPartyURL(*navigation_handle);
-
-  // TODO: crbug.com/324585403 - This is not observed by RedirectChainDetector
-  // and so doesn't influence whether a bounce is stateful or not. Should it?
-  RecordEvent(BtmRecordedEvent::kStorage, fpu, clock_->Now());
-}
-
-void BtmWebContentsObserver::OnClientAdded(
-    const blink::SharedWorkerToken& token,
-    GlobalRenderFrameHostId render_frame_host_id) {
-  RenderFrameHost* render_frame_host =
-      RenderFrameHost::FromID(render_frame_host_id);
-
-  // The frame might have been deleted.
-  if (render_frame_host == nullptr) {
-    return;
-  }
-
-  if (!IsInPrimaryPage(*render_frame_host)) {
-    return;
-  }
-
-  const GURL& fpu = GetFirstPartyURL(*render_frame_host);
-  // TODO: crbug.com/324585403 - This is not observed by RedirectChainDetector
-  // and so doesn't influence whether a bounce is stateful or not. Should it?
-  RecordEvent(BtmRecordedEvent::kStorage, fpu, clock_->Now());
-}
-
-void BtmWebContentsObserver::OnWorkerCreated(
-    const blink::DedicatedWorkerToken& worker_token,
-    int worker_process_id,
-    const url::Origin& security_origin,
-    DedicatedWorkerCreator creator) {
-  const GlobalRenderFrameHostId* const render_frame_host_id =
-      std::get_if<GlobalRenderFrameHostId>(&creator);
-  if (!render_frame_host_id) {
-    return;
-  }
-
-  RenderFrameHost* render_frame_host =
-      RenderFrameHost::FromID(*render_frame_host_id);
-
-  if (render_frame_host == nullptr) {
-    return;
-  }
-
-  if (!IsInPrimaryPage(*render_frame_host)) {
-    return;
-  }
-
-  const GURL& fpu = GetFirstPartyURL(*render_frame_host);
-  RecordEvent(BtmRecordedEvent::kStorage, fpu, clock_->Now());
 }
 
 void BtmWebContentsObserver::PrimaryPageChanged(Page& page) {
@@ -1203,6 +1091,8 @@ void BtmBounceDetector::WebAuthnAssertionRequestSucceeded() {
 void RedirectChainDetector::WebAuthnAssertionRequestSucceeded(
     RenderFrameHost* render_frame_host) {
   if (!render_frame_host->IsInPrimaryMainFrame()) {
+    // TODO: crbug.com/448047352 - Investigate (and handle, if applicable) late
+    //   WAA notifications.
     return;
   }
 

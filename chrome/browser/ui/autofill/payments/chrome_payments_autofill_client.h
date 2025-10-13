@@ -118,6 +118,7 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
 #endif  // BUILDFLAG(IS_ANDROID)
   bool HasCreditCardScanFeature() const override;
   void ScanCreditCard(CreditCardScanCallback callback) override;
+  bool LocalCardSaveIsSupported() override;
   void ShowSaveCreditCardLocally(const CreditCard& card,
                                  SaveCreditCardOptions options,
                                  LocalSaveCardPromptCallback callback) override;
@@ -199,6 +200,14 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
   bool ShowTouchToFillLoyaltyCard(
       base::WeakPtr<TouchToFillDelegate> delegate,
       std::vector<autofill::LoyaltyCard> loyalty_cards_to_suggest) override;
+  bool UpdateTouchToFillBnplPaymentMethod(
+      std::optional<uint64_t> extracted_amount,
+      bool is_amount_supported_by_any_issuer) override;
+  bool ShowTouchToFillProgress(
+      base::WeakPtr<TouchToFillDelegate> delegate) override;
+  bool ShowTouchToFillBnplIssuers(
+      base::WeakPtr<TouchToFillDelegate> delegate,
+      base::span<const autofill::BnplIssuer> bnpl_issurs_to_suggest) override;
   void HideTouchToFillPaymentMethod() override;
   std::unique_ptr<webauthn::InternalAuthenticator>
   CreateCreditCardInternalAuthenticator(AutofillDriver* driver) override;

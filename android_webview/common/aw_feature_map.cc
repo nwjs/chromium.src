@@ -13,6 +13,7 @@
 #include "components/sensitive_content/features.h"
 #include "components/viz/common/features.h"
 #include "content/public/common/content_features.h"
+#include "services/tracing/public/cpp/tracing_features.h"
 #include "third_party/blink/public/common/features.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
@@ -29,17 +30,19 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     // Ordered alphabetically on feature name.
     // keep-sorted start allow_yaml_lists=yes by_regex=['\w+,']
     &features::kAndroidMetricsAsyncMetricLogging,
-    &base::features::kCollectAndroidFrameTimelineMetrics,
+    &::features::kEnablePerfettoSystemTracing,
     &blink::features::kForceOffTextAutosizing,
     &safe_browsing::kHashPrefixRealTimeLookups,
     &base::features::kPostGetMyMemoryStateToBackground,
     &sensitive_content::features::kSensitiveContent,
     &features::kWebViewBackForwardCache,
+    &features::kWebViewCacheBoundaryInterfaceMethods,
     &features::kWebViewCacheSizeLimitDerivedFromAppCacheQuota,
     &features::kWebViewConnectToComponentProviderInBackground,
     &features::kWebViewDisableCHIPS,
     &features::kWebViewDoNotSendAccessibilityEventsOnGSU,
     &features::kWebViewDrainPrefetchQueueDuringInit,
+    &features::kWebViewEarlyPerfettoInit,
     &features::kWebViewEarlyStartupTracing,
     &features::kWebViewEnableCrash,
     &features::kWebViewFileSystemAccess,
@@ -48,6 +51,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewLazyFetchHandWritingIcon,
     &features::kWebViewMixedContentAutoupgrades,
     &features::kWebViewMuteAudio,
+    &features::kWebViewOptInToGmsBindServiceOptimization,
     &features::kWebViewPrefetchNativeLibrary,
     &features::kWebViewPreloadClasses,
     &features::kWebViewQuicConnectionTimeout,
@@ -61,15 +65,14 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewSkipInterceptsForPrefetch,
     &features::kWebViewStartupTasksYieldToNative,
     &features::kWebViewTestFeature,
-    &features::kWebViewUseBackgroundThreadForGms,
     &features::kWebViewUseInitialNetworkStateAtStartup,
     &features::kWebViewUseMetricsUploadService,
     &features::kWebViewUseMetricsUploadServiceOnlySdkRuntime,
     &features::kWebViewUseRenderingHeuristic,
     &features::kWebViewUseStartupTasksLogic,
     &features::kWebViewUseStartupTasksLogicP2,
+    &features::kWebViewUseViewPositionObserverForInsets,
     &features::kWebViewWebauthn,
-    &features::kWebViewXRequestedWithHeaderControl,
     // keep-sorted end
 };
 

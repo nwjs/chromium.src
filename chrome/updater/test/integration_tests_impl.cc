@@ -171,8 +171,7 @@ std::string GetUpdateResponseForAppV4(const std::string& app_id,
       R"(            { "type":"download",)"
       R"(              "urls":[{"url":"%s/%s"}],)"
       R"(              "out":{"sha256":"%s"},)"
-      // arbitrary size, must be greater than 0:
-      R"(              "size": 10},)"
+      R"(              "size": %d},)"
       R"(            %s)"
       R"(            { "type":"crx3",)"
       R"(              "arguments":"%s",)"
@@ -192,6 +191,7 @@ std::string GetUpdateResponseForAppV4(const std::string& app_id,
                 .c_str(),
       version.GetString().c_str(), codebase.c_str(),
       update_file.BaseName().AsUTF8Unsafe().c_str(), hash.c_str(),
+      base::GetFileSize(update_file).value_or(10),
       use_xz ? R"({"type":"xz"},)" : "", arguments.c_str(), run_action.c_str(),
       hash.c_str());
 }
@@ -1052,7 +1052,7 @@ void InstallAppViaService(UpdaterScope scope,
 
     CHECK_STATE_MEMBER_STRING(app_id);
     CHECK_STATE_MEMBER_INT(state);
-    CHECK_STATE_MEMBER_VERSION(next_version);
+    CHECK_STATE_MEMBER_STRING(next_version);
     CHECK_STATE_MEMBER_INT(downloaded_bytes);
     CHECK_STATE_MEMBER_INT(total_bytes);
     CHECK_STATE_MEMBER_INT(install_progress);
@@ -1094,7 +1094,7 @@ void GetAppStates(UpdaterScope updater_scope,
           const base::Value::Dict* expected = expected_state.GetIfDict();
           ASSERT_TRUE(expected);
           EXPECT_EQ(it->app_id, *expected->FindString("app_id"));
-          EXPECT_EQ(it->version.GetString(), *expected->FindString("version"));
+          EXPECT_EQ(it->version, *expected->FindString("version"));
           EXPECT_EQ(it->ap, *expected->FindString("ap"));
           EXPECT_EQ(it->brand_code, *expected->FindString("brand_code"));
 #if BUILDFLAG(IS_WIN)

@@ -118,7 +118,7 @@ void ApplyConstraintsProcessor::ProcessVideoRequest() {
   const blink::MediaStreamDevice& device_info = video_source_->device();
   if (device_info.type == blink::mojom::MediaStreamType::DEVICE_VIDEO_CAPTURE) {
     ProcessVideoDeviceRequest();
-  } else if (video_source_->GetSubCaptureTargetVersion() == 0 &&
+  } else if (video_source_->GetCaptureVersion().sub_capture == 0 &&
              (device_info.type ==
                   mojom::blink::MediaStreamType::GUM_DESKTOP_VIDEO_CAPTURE ||
               device_info.type ==
@@ -176,6 +176,7 @@ void ApplyConstraintsProcessor::ProcessVideoContentRequest() {
   // TODO(crbug.com/768205): Support restarting the source even if there is more
   // than one track in the source.
   if (video_source_->NumTracks() > 1U) {
+    video_source_->RequestRefreshFrame();
     FinalizeVideoRequest();
     return;
   }

@@ -14,6 +14,7 @@
 #include "chrome/browser/extensions/window_controller.h"
 #include "components/tabs/public/split_tab_id.h"
 #include "extensions/buildflags/buildflags.h"
+#include "ui/base/window_open_disposition.h"
 
 // TODO(jamescook): Switch most of these guards to ENABLE_EXTENSIONS.
 #if !BUILDFLAG(IS_ANDROID)
@@ -24,8 +25,9 @@
 #include "components/tab_groups/tab_group_id.h"     // nogncheck
 #include "extensions/common/features/feature.h"
 #include "extensions/common/mojom/context_type.mojom-forward.h"
-#include "ui/base/window_open_disposition.h"
 #endif
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 class Browser;
 class BrowserWindowInterface;
@@ -61,12 +63,10 @@ class ExtensionTabUtil {
 
   static constexpr char kNoCrashBrowserError[] =
       "I'm sorry. I'm afraid I can't do that.";
-#if !BUILDFLAG(IS_ANDROID)
   static constexpr char kCanOnlyMoveTabsWithinNormalWindowsError[] =
       "Tabs can only be moved to and from normal windows.";
   static constexpr char kCanOnlyMoveTabsWithinSameProfileError[] =
       "Tabs can only be moved between windows in the same profile.";
-#endif
   static constexpr char kNoCurrentWindowError[] = "No current window";
   static constexpr char kWindowNotFoundError[] = "No window with id: *.";
   static constexpr char kTabStripNotEditableError[] =
@@ -311,17 +311,10 @@ class ExtensionTabUtil {
   static GURL ResolvePossiblyRelativeURL(const std::string& url_string,
                                          const Extension* extension);
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  // Navigates to a URL in a specific browser.
-  static void NavigateToURL(WindowOpenDisposition disposition,
-                            Browser* browser,
-                            const GURL& url);
-#else
   // Navigates to a URL in a specific web contents.
-  static void NavigateToURL(content::WebContents* web_contents,
-                            content::BrowserContext* browser_context,
+  static void NavigateToURL(WindowOpenDisposition disposition,
+                            content::WebContents* web_contents,
                             const GURL& url);
-#endif
 
   // Returns true if navigating to `url` could kill a page or the browser
   // itself, whether by simulating a crash, browser quit, thread hang, or
@@ -404,9 +397,6 @@ class ExtensionTabUtil {
   // TODO(https://crbug.com/430344931): Remove this in favor of
   // GetEditableTabList().
   static TabStripModel* GetEditableTabStripModel(Browser* browser);
-
-  static bool TabIsInSavedTabGroup(content::WebContents* contents,
-                                   TabStripModel* tab_strip_model);
 #endif  // !BUILDFLAG(IS_ANDROID)
 };
 

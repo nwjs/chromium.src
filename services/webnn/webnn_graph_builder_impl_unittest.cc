@@ -86,13 +86,15 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
                          context_provider,
                          GetContextPropertiesForTesting(),
                          mojom::CreateContextOptions::New(),
+                         mojo::ScopedDataPipeConsumerHandle(),
+                         mojo::ScopedDataPipeProducerHandle(),
                          command_buffer_id,
                          std::move(sequence),
                          std::move(task_runner)) {}
 
   // WebNNContextImpl:
   base::WeakPtr<WebNNContextImpl> AsWeakPtr() override {
-    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
     return weak_factory_.GetWeakPtr();
   }
 
@@ -135,10 +137,10 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
   }
 
   base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
-  CreateTensorFromMailboxImpl(
+  CreateTensorFromSharedImageImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
       mojom::TensorInfoPtr tensor_info,
-      gpu::Mailbox mailbox) override {
+      std::unique_ptr<gpu::WebNNTensorRepresentation> representation) override {
     return base::unexpected(mojom::Error::New(
         mojom::Error::Code::kNotSupportedError, "Not implemented"));
   }
@@ -166,7 +168,8 @@ class FakeWebNNBackend : public WebNNContextProviderImpl::BackendForTesting {
     // The receiver bound to FakeWebNNContext.
     auto success = mojom::CreateContextSuccess::New(
         std::move(remote), std::move(context_properties),
-        context_impl->handle());
+        context_impl->handle(), mojo::ScopedDataPipeProducerHandle(),
+        mojo::ScopedDataPipeConsumerHandle());
     std::move(callback).Run(
         mojom::CreateContextResult::NewSuccess(std::move(success)));
     return context_impl;
@@ -202,7 +205,9 @@ class WebNNGraphBuilderImplTest : public testing::Test {
     WebNNContextProviderImpl::SetBackendForTesting(nullptr);
   }
 
-  base::test::TaskEnvironment& task_environment() { return task_environment_; }
+  test::WebNNTestEnvironment& test_environment() {
+    return webnn_test_environment_;
+  }
 
   mojo::AssociatedRemote<mojom::WebNNGraphBuilder>& graph_builder_remote() {
     return graph_builder_remote_;
@@ -216,7 +221,6 @@ class WebNNGraphBuilderImplTest : public testing::Test {
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
-  base::test::TaskEnvironment task_environment_;
 
   FakeWebNNBackend backend_for_testing_;
 
@@ -242,7 +246,7 @@ TEST_F(WebNNGraphBuilderImplTest, CreateGraph) {
   // The remote should disconnect shortly after the future resolves since the
   // `WebNNGraphBuilder` is destroyed shortly after firing its `CreateGraph()`
   // callback.
-  task_environment().RunUntilIdle();
+  test_environment().RunUntilIdle();
   EXPECT_FALSE(graph_builder_remote().is_connected());
 }
 

@@ -32,11 +32,47 @@ constexpr std::array<const char*, kLabelInputSize>
         kContextualPageActionModelLabelReaderMode,
         kContextualPageActionModelLabelTabGrouping};
 
-MetadataWriter::CustomInput CreateCustomInput(std::string name) {
+// All stable buttons that can show in toolbar in Chrome tabbed activity.
+constexpr std::array<int32_t, 7> kNonContextualActionEnumIds = {
+    2,   // AdaptiveToolbarButtonVariant::kNewTab
+    3,   // AdaptiveToolbarButtonVariant::kShare
+    4,   // AdaptiveToolbarButtonVariant::kVoice
+    8,   // AdaptiveToolbarButtonVariant::kTranslate
+    9,   // AdaptiveToolbarButtonVariant::kAddToBookmarks
+    10,  // AdaptiveToolbarButtonVariant::kReadAloud
+    13,  // AdaptiveToolbarButtonVariant::kPageSummary
+};
+
+constexpr std::array<int32_t, 1> kTabGroupingEnumId = {
+    16,  // AdaptiveToolbarButtonVariant::kTabGrouping
+};
+
+constexpr std::array<MetadataWriter::UMAFeature, 3> kUmaFeatures = {
+    // For throttling based on non-contextual actions.
+    MetadataWriter::UMAFeature::FromEnumHistogram(
+        "Android.AdaptiveToolbarButton.Clicked",
+        /*bucket_count=*/1,
+        kNonContextualActionEnumIds.data(),
+        kNonContextualActionEnumIds.size()),
+    // For getting the shown count of tab grouping action.
+    MetadataWriter::UMAFeature::FromEnumHistogram(
+        "Android.AdaptiveToolbarButton.Variant.OnPageLoad",
+        /*bucket_count=*/1,
+        kTabGroupingEnumId.data(),
+        kTabGroupingEnumId.size()),
+    // For getting the clicked count of tab grouping action.
+    MetadataWriter::UMAFeature::FromEnumHistogram(
+        "Android.AdaptiveToolbarButton.Clicked",
+        /*bucket_count=*/1,
+        kTabGroupingEnumId.data(),
+        kTabGroupingEnumId.size()),
+};
+
+MetadataWriter::CustomInput CreateCustomInput(const char* name) {
   return MetadataWriter::CustomInput{
       .tensor_length = 1,
       .fill_policy = proto::CustomInput::FILL_FROM_INPUT_CONTEXT,
-      .name = name.c_str()};
+      .name = name};
 }
 
 }  // namespace
@@ -51,7 +87,7 @@ ContextualPageActionsModel::GetModelConfig() {
   writer.SetSegmentationMetadataConfig(
       proto::TimeUnit::SECOND, /*bucket_duration=*/1,
       /*signal_storage_length=*/kOneDayInSeconds,
-      /*min_signal_collection_length=*/kOneDayInSeconds,
+      /*min_signal_collection_length=*/0,
       /*result_time_to_live=*/kOneDayInSeconds);
 
   // Add discounts custom input.
@@ -84,6 +120,8 @@ ContextualPageActionsModel::GetModelConfig() {
   (*tab_grouping_input->mutable_additional_args())["name"] =
       kContextualPageActionModelInputTabGrouping;
 
+  writer.AddUmaFeatures(kUmaFeatures.data(), kUmaFeatures.size());
+
   // A threshold used to differentiate labels with score zero from non-zero
   // values.
   const float threshold = 0.1f;
@@ -101,18 +139,21 @@ void ContextualPageActionsModel::ExecuteModelWithInput(
     const ModelProvider::Request& inputs,
     ExecutionCallback callback) {
   // Invalid inputs.
-  if (inputs.size() != kLabelInputSize) {
+  if (inputs.size() != kLabelInputSize + kUmaFeatures.size()) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), std::nullopt));
     return;
   }
 
-  // TODO(haileywang): Use input[4] to input[9] to show share button.
   bool has_discounts = inputs[0];
   bool has_price_insights = inputs[1];
   bool can_track_price = inputs[2];
   bool has_reader_mode = inputs[3];
   bool has_tab_grouping_suggestions = inputs[4];
+  // Start of UMA features
+  float non_contextual_click_count = inputs[kLabelInputSize + 0];
+  float tab_group_shown_count = inputs[kLabelInputSize + 1];
+  float tab_group_clicked_count = inputs[kLabelInputSize + 2];
 
   // Create response.
   ModelProvider::Response response(kLabelInputSize, 0);
@@ -120,7 +161,18 @@ void ContextualPageActionsModel::ExecuteModelWithInput(
   response[1] = has_price_insights;
   response[2] = can_track_price;
   response[3] = has_reader_mode;
-  response[4] = has_tab_grouping_suggestions;
+
+  bool show_tab_grouping = has_tab_grouping_suggestions;
+  if (features::kContextualPageActionTabGroupParamThrottleOnNewTab.Get()) {
+    show_tab_grouping &= (non_contextual_click_count == 0);
+  }
+  if (features::kContextualPageActionTabGroupParamShowWhenNotClickedInLastDay
+          .Get()) {
+    show_tab_grouping &=
+        !(tab_group_shown_count > 0 && tab_group_clicked_count == 0);
+  }
+  response[4] = show_tab_grouping;
+
   // TODO(crbug.com/40249852): Set a classifier threshold.
 
   // TODO(shaktisahu): This class needs some rethinking to correctly associate

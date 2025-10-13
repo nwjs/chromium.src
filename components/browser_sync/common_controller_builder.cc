@@ -50,9 +50,7 @@
 #include "components/password_manager/core/browser/sync/password_local_data_batch_uploader.h"
 #include "components/plus_addresses/core/browser/settings/plus_address_setting_service.h"
 #include "components/plus_addresses/core/browser/sync_utils/plus_address_data_type_controller.h"
-#include "components/plus_addresses/webdata/plus_address_webdata_service.h"
-#include "components/power_bookmarks/core/power_bookmark_features.h"
-#include "components/power_bookmarks/core/power_bookmark_service.h"
+#include "components/plus_addresses/core/browser/webdata/plus_address_webdata_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/reading_list/core/dual_reading_list_model.h"
 #include "components/reading_list/core/reading_list_local_data_batch_uploader.h"
@@ -347,11 +345,6 @@ void CommonControllerBuilder::SetPlusAddressServices(
   plus_address_webdata_service_.Set(plus_address_webdata_service);
 }
 
-void CommonControllerBuilder::SetPowerBookmarkService(
-    power_bookmarks::PowerBookmarkService* power_bookmark_service) {
-  power_bookmark_service_.Set(power_bookmark_service);
-}
-
 void CommonControllerBuilder::SetPrefService(PrefService* pref_service) {
   pref_service_.Set(pref_service);
 }
@@ -555,16 +548,6 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
               std::move(full_mode_delegate), std::move(transport_mode_delegate),
               std::make_unique<sync_bookmarks::BookmarkLocalDataBatchUploader>(
                   bookmark_model_.value(), pref_service_.value())));
-    }
-
-    if (!disabled_types.Has(syncer::POWER_BOOKMARK) &&
-        power_bookmark_service_.value() &&
-        base::FeatureList::IsEnabled(power_bookmarks::kPowerBookmarkBackend)) {
-      // TODO(crbug.com/40261319): Support transport mode for POWER_BOOKMARK.
-      controllers.push_back(std::make_unique<DataTypeController>(
-          syncer::POWER_BOOKMARK,
-          power_bookmark_service_.value()->CreateSyncControllerDelegate(),
-          /*delegate_for_transport_mode=*/nullptr));
     }
   }
 
@@ -855,6 +838,11 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
   }
 #endif
 
+  if (!disabled_types.Has(syncer::ACCOUNT_SETTING) &&
+      base::FeatureList::IsEnabled(syncer::kSyncAccountSettings)) {
+    // TODO(crbug.com/441735283) Complete syncing of account settings.
+  }
+
   if (!disabled_types.Has(syncer::SHARED_TAB_GROUP_ACCOUNT_DATA) &&
       base::FeatureList::IsEnabled(syncer::kSyncSharedTabGroupAccountData) &&
       data_sharing_enabled) {
@@ -897,6 +885,38 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
     // - Inject CoolKeyedService in this class and call GetControllerDelegate()
     //   on it to create the DataTypeController.
     // In following CLs implement the bridge and keep adding unit tests.
+  }
+
+  if (!disabled_types.Has(syncer::AI_THREAD) &&
+      base::FeatureList::IsEnabled(syncer::kSyncAIThread)) {
+    // TODO(crbug.com/445841720): In CL #4, register the type, i.e. instantiate
+    // the DataTypeController. There is more than one way to go about it,
+    // but one option is:
+    // - Create a trivial implementation of DataTypeSyncBridge which lives in
+    //   your feature's directory. It should have synchronous access to your
+    //   data model (e.g. DualReadingListModel) and be (indirectly) owned by a
+    //   CoolKeyedService (often the model itself).
+    // - Expose CoolKeyedService::GetControllerDelegate() which calls
+    //   bridge->change_processor()->GetControllerDelegate().
+    // - Inject CoolKeyedService in this class and call GetControllerDelegate()
+    //   on it to create the DataTypeController.
+    // In CLs #5, #6, ..., implement the bridge and keep adding unit tests.
+  }
+
+  if (!disabled_types.Has(syncer::CONTEXTUAL_TASK) &&
+      base::FeatureList::IsEnabled(syncer::kSyncContextualTask)) {
+    // TODO(crbug.com/445840788): In CL #4, register the type, i.e. instantiate
+    // the DataTypeController. There is more than one way to go about it,
+    // but one option is:
+    // - Create a trivial implementation of DataTypeSyncBridge which lives in
+    //   your feature's directory. It should have synchronous access to your
+    //   data model (e.g. DualReadingListModel) and be (indirectly) owned by a
+    //   CoolKeyedService (often the model itself).
+    // - Expose CoolKeyedService::GetControllerDelegate() which calls
+    //   bridge->change_processor()->GetControllerDelegate().
+    // - Inject CoolKeyedService in this class and call GetControllerDelegate()
+    //   on it to create the DataTypeController.
+    // In CLs #5, #6, ..., implement the bridge and keep adding unit tests.
   }
 
 #if !BUILDFLAG(IS_ANDROID)

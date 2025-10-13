@@ -32,6 +32,10 @@ inline constexpr int kLowEntropySourceVariationIdRangeMin = 3320978;
 inline constexpr int kLowEntropySourceVariationIdRangeMax = 3328977;
 }  // namespace internal
 
+namespace test {
+class ScopedVariationsIdsProvider;
+}  // namespace test
+
 class VariationsClient;
 
 // The key for a VariationsIdsProvider's `variations_headers_map_`. A
@@ -84,7 +88,7 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsIdsProvider
 
   // Creates the VariationsIdsProvider instance. This must be called before
   // GetInstance(). Only one instance of VariationsIdsProvider may be created.
-  static VariationsIdsProvider* Create(Mode mode);
+  static VariationsIdsProvider* CreateInstance(Mode mode);
 
   static VariationsIdsProvider* GetInstance();
 
@@ -149,12 +153,20 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsIdsProvider
     INVALID_SWITCH_ENTRY,  // Invalid entry in `command_line_variation_ids`.
   };
 
+  // TODO: b/315411418 - Restrict access to approved call sites.
   // Sets *additional* variation ids and trigger variation ids to be encoded in
   // the X-Client-Data request header. This is intended for development use to
   // force a server side experiment id. `variation_ids` should be a list of
   // strings of numeric experiment ids. Ids explicitly passed in `variation_ids`
   // and those in the comma-separated `command_line_variation_ids` are added.
   ForceIdsResult ForceVariationIds(
+      const std::vector<std::string>& variation_ids,
+      const std::string& command_line_variation_ids);
+
+  // Alias for the above function, but for testing. All test uses should be via
+  // this function. Once that is the case, the above function will be restricted
+  // to call sites that are approved to use it.
+  ForceIdsResult ForceVariationIdsForTesting(
       const std::vector<std::string>& variation_ids,
       const std::string& command_line_variation_ids);
 
@@ -176,38 +188,19 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsIdsProvider
   using VariationIDEntry = std::pair<VariationID, IDCollectionKey>;
   using VariationIDEntrySet = absl::flat_hash_set<VariationIDEntry>;
 
-  friend class ScopedVariationsIdsProvider;
-
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest, ForceVariationIds_Valid);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest,
-                           ForceVariationIds_ValidCommandLine);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest,
-                           ForceVariationIds_Invalid);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest,
-                           ForceDisableVariationIds_ValidCommandLine);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest,
-                           ForceDisableVariationIds_Invalid);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest,
-                           OnFieldTrialGroupFinalized);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest,
-                           LowEntropySourceValue_Valid);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest,
-                           LowEntropySourceValue_Null);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest,
-                           GetGoogleAppVariationsString);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest, GetVariationsString);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest, GetVariationsVector);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest,
-                           GetTimeboxedVariationsVector);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest,
-                           GetVariationsVectorForWebPropertiesKeys);
-  FRIEND_TEST_ALL_PREFIXES(VariationsIdsProviderTest, GetVariationsVectorImpl);
+  friend class ::variations::test::ScopedVariationsIdsProvider;
 
   explicit VariationsIdsProvider(Mode mode);
   ~VariationsIdsProvider() override;
 
-  static void CreateInstanceForTesting(Mode mode);
-  static void DestroyInstanceForTesting();
+  // Creates a new instance of `VariationsIdsProvider` for testing, returning
+  // the pointer to the previous instance. This should only be called by
+  // `ScopedVariationsIdsProvider`.
+  static VariationsIdsProvider* CreateInstanceForTesting(Mode mode);
+  // Resets the global instance of `VariationsIdsProvider` to the given
+  // instance, for testing. This should only be called by
+  // `ScopedVariationsIdsProvider`.
+  static void DestroyInstanceForTesting(VariationsIdsProvider* previous_instance);
 
   // Returns a space-separated string containing the list of current active
   // variations (as would be reported in the `variation_id` repeated field of
@@ -271,7 +264,8 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsIdsProvider
   // any variation ids are malformed or duplicated. Returns true otherwise.
   bool AddVariationIdsToSet(const std::vector<std::string>& variation_ids,
                             bool should_dedupe,
-                            VariationIDEntrySet* target_set) EXCLUSIVE_LOCKS_REQUIRED(lock_);
+                            VariationIDEntrySet* target_set)
+      EXCLUSIVE_LOCKS_REQUIRED(lock_);
 
   // Parses a comma-separated string of variation ids and trigger variation ids
   // and adds them to `target_set`. If `should_dedupe` is true, ids that have

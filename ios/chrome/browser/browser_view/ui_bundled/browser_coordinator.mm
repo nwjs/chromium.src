@@ -41,6 +41,7 @@
 #import "components/supervised_user/core/common/supervised_user_constants.h"
 #import "components/translate/core/browser/translate_manager.h"
 #import "components/trusted_vault/trusted_vault_server_constants.h"
+#import "ios/chrome/browser/aim/prototype/coordinator/aim_prototype_container_coordinator.h"
 #import "ios/chrome/browser/app_launcher/model/app_launcher_tab_helper_browser_presentation_provider.h"
 #import "ios/chrome/browser/app_store_rating/ui_bundled/features.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
@@ -111,11 +112,7 @@
 #import "ios/chrome/browser/drive_file_picker/coordinator/root_drive_file_picker_coordinator.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_util.h"
-#import "ios/chrome/browser/find_bar/ui_bundled/find_bar_controller_ios.h"
-#import "ios/chrome/browser/find_bar/ui_bundled/find_bar_coordinator.h"
 #import "ios/chrome/browser/find_in_page/model/find_tab_helper.h"
-#import "ios/chrome/browser/find_in_page/model/java_script_find_tab_helper.h"
-#import "ios/chrome/browser/find_in_page/model/util.h"
 #import "ios/chrome/browser/first_run/ui_bundled/omnibox_position/omnibox_position_choice_coordinator.h"
 #import "ios/chrome/browser/first_run/ui_bundled/welcome_back/coordinator/welcome_back_coordinator.h"
 #import "ios/chrome/browser/follow/model/follow_browser_agent.h"
@@ -167,8 +164,8 @@
 #import "ios/chrome/browser/phone_number/ui_bundled/country_code_picker_coordinator.h"
 #import "ios/chrome/browser/plus_addresses/coordinator/plus_address_bottom_sheet_coordinator.h"
 #import "ios/chrome/browser/popup_menu/ui_bundled/popup_menu_coordinator.h"
-#import "ios/chrome/browser/prerender/model/preload_controller_delegate.h"
 #import "ios/chrome/browser/prerender/model/prerender_browser_agent.h"
+#import "ios/chrome/browser/prerender/model/prerender_browser_agent_delegate.h"
 #import "ios/chrome/browser/presenters/ui_bundled/vertical_animation_container.h"
 #import "ios/chrome/browser/price_notifications/ui_bundled/price_notifications_view_coordinator.h"
 #import "ios/chrome/browser/print/coordinator/print_coordinator.h"
@@ -183,6 +180,7 @@
 #import "ios/chrome/browser/reader_mode/model/reader_mode_browser_agent.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_browser_agent_delegate.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
+#import "ios/chrome/browser/reader_mode/model/reader_mode_web_state_utils.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/reading_list/ui_bundled/reading_list_coordinator.h"
 #import "ios/chrome/browser/reading_list/ui_bundled/reading_list_coordinator_delegate.h"
@@ -231,6 +229,7 @@
 #import "ios/chrome/browser/shared/public/commands/contextual_panel_entrypoint_iph_commands.h"
 #import "ios/chrome/browser/shared/public/commands/contextual_sheet_commands.h"
 #import "ios/chrome/browser/shared/public/commands/country_code_picker_commands.h"
+#import "ios/chrome/browser/shared/public/commands/credential_exchange_commands.h"
 #import "ios/chrome/browser/shared/public/commands/download_list_commands.h"
 #import "ios/chrome/browser/shared/public/commands/drive_file_picker_commands.h"
 #import "ios/chrome/browser/shared/public/commands/enhanced_calendar_commands.h"
@@ -309,7 +308,6 @@
 #import "ios/chrome/browser/tips_notifications/coordinator/enhanced_safe_browsing_promo_coordinator.h"
 #import "ios/chrome/browser/tips_notifications/coordinator/lens_promo_coordinator.h"
 #import "ios/chrome/browser/tips_notifications/coordinator/search_what_you_see_promo_coordinator.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/accessory/toolbar_accessory_coordinator_delegate.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/accessory/toolbar_accessory_presenter.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/toolbar_coordinator.h"
 #import "ios/chrome/browser/translate/model/chrome_ios_translate_client.h"
@@ -331,6 +329,7 @@
 #import "ios/chrome/browser/web/model/web_state_delegate_browser_agent.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent_observer_bridge.h"
+#import "ios/chrome/browser/webauthn/coordinator/credential_import_coordinator.h"
 #import "ios/chrome/browser/webui/model/net_export_tab_helper_delegate.h"
 #import "ios/chrome/browser/webui/ui_bundled/net_export_coordinator.h"
 #import "ios/chrome/browser/whats_new/coordinator/whats_new_coordinator.h"
@@ -343,6 +342,7 @@
 #import "ios/public/provider/chrome/browser/voice_search/voice_search_api.h"
 #import "ios/public/provider/chrome/browser/voice_search/voice_search_controller.h"
 #import "ios/web/public/web_state.h"
+#import "ios/web/public/web_state_id.h"
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
@@ -351,12 +351,6 @@ namespace {
 // URL to share when user selects "Share Chrome"
 const char kChromeAppStoreUrl[] =
     "https://apps.apple.com/app/id535886823?pt=9008&ct=iosChromeShare&mt=8";
-
-// Enum for toolbar to present.
-enum class ToolbarKind {
-  kTextZoom,
-  kFindInPage,
-};
 
 }  // anonymous namespace
 
@@ -372,6 +366,7 @@ enum class ToolbarKind {
     ContextualPanelEntrypointIPHCommands,
     ContextualSheetCommands,
     CountryCodePickerCommands,
+    CredentialExchangeCommands,
     DefaultBrowserGenericPromoCommands,
     DefaultPromoNonModalPresentationDelegate,
     DownloadListCommands,
@@ -379,6 +374,7 @@ enum class ToolbarKind {
     EnhancedCalendarCommands,
     EditMenuBuilder,
     EnterprisePromptCoordinatorDelegate,
+    FindInPageCommands,
     FormInputAccessoryCoordinatorNavigator,
     BWGCommands,
     GoogleOneCommands,
@@ -403,7 +399,7 @@ enum class ToolbarKind {
     PriceTrackedItemsCommands,
     PromosManagerCommands,
     PolicyChangeCommands,
-    PreloadControllerDelegate,
+    PrerenderBrowserAgentDelegate,
     QuickDeleteCommands,
     ReaderModeBrowserAgentDelegate,
     ReaderModeCommands,
@@ -418,7 +414,6 @@ enum class ToolbarKind {
     SigninPresenter,
     SnapshotGeneratorDelegate,
     StoreKitCoordinatorDelegate,
-    ToolbarAccessoryCoordinatorDelegate,
     TrustedVaultReauthenticationCoordinatorDelegate,
     UnitConversionCommands,
     URLLoadingDelegate,
@@ -521,9 +516,6 @@ enum class ToolbarKind {
 // Coordinator to show the Autofill error dialog.
 @property(nonatomic, strong)
     AutofillErrorDialogCoordinator* autofillErrorDialogCoordinator;
-
-// Coordinator for the find bar.
-@property(nonatomic, strong) FindBarCoordinator* findBarCoordinator;
 
 // Coordinator for the First Follow modal.
 @property(nonatomic, strong) FirstFollowCoordinator* firstFollowCoordinator;
@@ -675,12 +667,12 @@ enum class ToolbarKind {
   // The coordinator that shows the Send Tab To Self UI.
   SendTabToSelfCoordinator* _sendTabToSelfCoordinator;
   BookmarksCoordinator* _bookmarksCoordinator;
-  std::optional<ToolbarKind> _nextToolbarToPresent;
   CredentialProviderPromoCoordinator* _credentialProviderPromoCoordinator;
   DockingPromoCoordinator* _dockingPromoCoordinator;
   // Used to display the Voice Search UI.  Nil if not visible.
   id<VoiceSearchController> _voiceSearchController;
-  raw_ptr<UrlLoadingNotifierBrowserAgent> _urlLoadingNotifierBrowserAgent;
+  raw_ptr<UrlLoadingNotifierBrowserAgent, DanglingUntriaged>
+      _urlLoadingNotifierBrowserAgent;
   id<LoadQueryCommands> _loadQueryCommandsHandler;
   id<OmniboxCommands> _omniboxCommandsHandler;
   LayoutGuideCenter* _layoutGuideCenter;
@@ -705,6 +697,9 @@ enum class ToolbarKind {
   // Callback to remove the activity overlay started by the browser coordinator
   // itself.
   base::ScopedClosureRunner _activityOverlayCallback;
+
+  // Coordinator for the AIM prototype.
+  AIMPrototypeContainerCoordinator* _aimPrototypeCoordinator;
 
   // The coordinator for the new Delete Browsing Data screen, also called Quick
   // Delete.
@@ -736,6 +731,9 @@ enum class ToolbarKind {
 
   // The coordinator for the Welcome Back promo.
   WelcomeBackCoordinator* _welcomeBackCoordinator;
+
+  // The coordinator for the Credential Exchange feature handling the import.
+  CredentialImportCoordinator* _credentialImportCoordinator;
 }
 
 #pragma mark - ReaderModeBrowserAgentDelegate
@@ -980,6 +978,11 @@ enum class ToolbarKind {
   [self cancelCollaborationFlows];
   [self.NTPCoordinator clearPresentedState];
 
+  // The aim prototype replaces the omnibox.
+  if (dismissOmnibox) {
+    [self hideAIMPrototype];
+  }
+
   [self.viewController clearPresentedStateWithCompletion:completion
                                           dismissOmnibox:dismissOmnibox];
 }
@@ -1202,7 +1205,8 @@ enum class ToolbarKind {
     @protocol(CountryCodePickerCommands),
     @protocol(WhatsNewCommands),
     @protocol(GoogleOneCommands),
-    @protocol(WelcomeBackPromoCommands)
+    @protocol(WelcomeBackPromoCommands),
+    @protocol(CredentialExchangeCommands),
   ];
 
   for (Protocol* protocol in protocols) {
@@ -1628,9 +1632,6 @@ enum class ToolbarKind {
   [self.ARQuickLookCoordinator stop];
   self.ARQuickLookCoordinator = nil;
 
-  [self.findBarCoordinator stop];
-  self.findBarCoordinator = nil;
-
   [self.firstFollowCoordinator stop];
   self.firstFollowCoordinator = nil;
 
@@ -1776,6 +1777,9 @@ enum class ToolbarKind {
   [_BWGCoordinator stop];
   _BWGCoordinator = nil;
 
+  [_credentialImportCoordinator stop];
+  _credentialImportCoordinator = nil;
+
   [self hideDriveFilePicker];
   [self hideContextualSheet];
   [self dismissEditAddressBottomSheet];
@@ -1787,6 +1791,7 @@ enum class ToolbarKind {
   [self dismissSearchWhatYouSeePromo];
   [self dismissNotificationsOptIn];
   [self hideWelcomeBackPromo];
+  [self hideAIMPrototype];
 }
 
 // Starts independent mediators owned by this coordinator.
@@ -1917,8 +1922,10 @@ enum class ToolbarKind {
 #pragma mark - ActivityServiceCommands
 
 - (void)stopAndStartSharingCoordinator {
-  SharingParams* params =
-      [[SharingParams alloc] initWithScenario:SharingScenario::TabShareButton];
+  SharingScenario scenario = IsReaderModeActiveInWebState(self.activeWebState)
+                                 ? SharingScenario::ShareInReaderMode
+                                 : SharingScenario::TabShareButton;
+  SharingParams* params = [[SharingParams alloc] initWithScenario:scenario];
 
   // Exit fullscreen if needed to make sure that share button is visible.
   _fullscreenController->ExitFullscreen(FullscreenExitReason::kForcedByCode);
@@ -1942,10 +1949,6 @@ enum class ToolbarKind {
 }
 
 - (void)showShareSheet {
-  // Defocus Find-In-Page before opening the share sheet. This will result in
-  // closing the Find-In-Page for some OS versions.
-  [self defocusFindInPage];
-
   if (!self.sharingCoordinator) {
     [self stopAndStartSharingCoordinator];
   } else {
@@ -2566,6 +2569,10 @@ enum class ToolbarKind {
   _notificationsOptInCoordinator = nil;
 }
 
+- (void)forceFullscreenMode {
+  _fullscreenController->EnterForceFullscreenMode(YES);
+}
+
 - (void)showAddAccountWithAccessPoint:(signin_metrics::AccessPoint)accessPoint
                        prefilledEmail:(NSString*)email {
   if (_signinCoordinator.viewWillPersist) {
@@ -2575,7 +2582,8 @@ enum class ToolbarKind {
   SigninContextStyle contextStyle = SigninContextStyle::kDefault;
   _signinCoordinator = [SigninCoordinator
       addAccountCoordinatorWithBaseViewController:self.viewController
-                                          browser:self.browser
+                                          browser:signin::GetRegularBrowser(
+                                                      self.browser)
                                      contextStyle:contextStyle
                                       accessPoint:accessPoint
                                    prefilledEmail:email
@@ -2592,6 +2600,28 @@ enum class ToolbarKind {
 - (void)performReauthToRetrieveTrustedVaultKey:
     (syncer::TrustedVaultUserActionTriggerForUMA)trigger {
   [self showTrustedVaultReauthForFetchKeysWithTrigger:trigger];
+}
+
+- (void)showAIMPrototypeFromEntrypoint:(AIMPrototypeEntrypoint)entrypoint
+                             withQuery:(NSString*)query {
+  CHECK(base::FeatureList::IsEnabled(kAIMPrototype));
+  if (_aimPrototypeCoordinator) {
+    return;
+  }
+  _aimPrototypeCoordinator = [[AIMPrototypeContainerCoordinator alloc]
+      initWithBaseViewController:self.viewController
+                         browser:self.browser
+                      entrypoint:entrypoint
+                           query:query];
+  [_aimPrototypeCoordinator start];
+}
+
+- (void)hideAIMPrototype {
+  if (!_aimPrototypeCoordinator) {
+    return;
+  }
+  [_aimPrototypeCoordinator stop];
+  _aimPrototypeCoordinator = nil;
 }
 
 #pragma mark - ContextualPanelEntrypointIPHCommands
@@ -2859,20 +2889,10 @@ enum class ToolbarKind {
 #pragma mark - FindInPageCommands
 
 - (void)openFindInPage {
-  if (_toolbarAccessoryPresenter.isPresenting) {
-    _nextToolbarToPresent = ToolbarKind::kFindInPage;
-    [self closeTextZoom];
-    return;
-  }
-
   __weak __typeof(self) weakSelf = self;
 
   auto startFindInPage = ^{
-    if (IsNativeFindInPageAvailable()) {
-      [weakSelf showSystemFindPanel];
-    } else {
-      [weakSelf showFindBar];
-    }
+    [weakSelf showSystemFindPanel];
   };
 
   BOOL lensOverlayAvailable = IsLensOverlayAvailable(self.profile->GetPrefs());
@@ -2903,31 +2923,21 @@ enum class ToolbarKind {
     return;
   }
 
-  AbstractFindTabHelper* helper =
-      GetConcreteFindTabHelperFromWebState(activeWebState);
+  FindTabHelper* helper = FindTabHelper::FromWebState(activeWebState);
   DCHECK(helper);
   if (helper->IsFindUIActive()) {
     helper->StopFinding();
-  } else {
-    [self.findBarCoordinator stop];
-    self.findBarCoordinator = nil;
   }
 }
 
 - (void)showFindUIIfActive {
-  auto* findHelper =
-      GetConcreteFindTabHelperFromWebState([self activeWebStateOrReaderMode]);
+  FindTabHelper* findHelper =
+      FindTabHelper::FromWebState([self activeWebStateOrReaderMode]);
   if (!findHelper || !findHelper->IsFindUIActive()) {
     return;
   }
 
-  if (IsNativeFindInPageAvailable()) {
-    [self showSystemFindPanel];
-  } else if (!_toolbarAccessoryPresenter.isPresenting) {
-    DCHECK(!self.findBarCoordinator);
-    self.findBarCoordinator = [self newFindBarCoordinator];
-    [self.findBarCoordinator start];
-  }
+  [self showSystemFindPanel];
 }
 
 - (void)hideFindUI {
@@ -2935,50 +2945,24 @@ enum class ToolbarKind {
   if (!activeWebState) {
     return;
   }
-  if (IsNativeFindInPageAvailable()) {
-    auto* helper = FindTabHelper::FromWebState(activeWebState);
-    helper->DismissFindNavigator();
-  } else {
-    [self.findBarCoordinator stop];
-    self.findBarCoordinator = nil;
-  }
-}
-
-- (void)defocusFindInPage {
-  if (IsNativeFindInPageAvailable()) {
-    // The System Find Panel UI cannot be "defocused" so closing Find in Page
-    // altogether instead.
-    [self closeFindInPage];
-  } else {
-    [self.findBarCoordinator defocusFindBar];
-  }
-}
-
-- (void)searchFindInPage {
-  web::WebState* activeWebState = [self activeWebStateOrReaderMode];
-  DCHECK(activeWebState);
-  auto* helper = GetConcreteFindTabHelperFromWebState(activeWebState);
-  helper->StartFinding([self.findBarCoordinator.findBarController searchTerm]);
-
-  if (!self.isOffTheRecord) {
-    helper->PersistSearchTerm();
-  }
+  auto* helper = FindTabHelper::FromWebState(activeWebState);
+  helper->DismissFindNavigator();
 }
 
 - (void)findNextStringInPage {
   web::WebState* activeWebState = self.activeWebState;
   DCHECK(activeWebState);
   // TODO(crbug.com/40465124): Reshow find bar if necessary.
-  GetConcreteFindTabHelperFromWebState(activeWebState)
-      ->ContinueFinding(JavaScriptFindTabHelper::FORWARD);
+  FindTabHelper::FromWebState(activeWebState)
+      ->ContinueFinding(FindTabHelper::FORWARD);
 }
 
 - (void)findPreviousStringInPage {
   web::WebState* activeWebState = [self activeWebStateOrReaderMode];
   DCHECK(activeWebState);
   // TODO(crbug.com/40465124): Reshow find bar if necessary.
-  GetConcreteFindTabHelperFromWebState(activeWebState)
-      ->ContinueFinding(JavaScriptFindTabHelper::REVERSE);
+  FindTabHelper::FromWebState(activeWebState)
+      ->ContinueFinding(FindTabHelper::REVERSE);
 }
 
 #pragma mark - FindInPageCommands Helpers
@@ -3001,39 +2985,6 @@ enum class ToolbarKind {
   // is sufficient to call `StartFinding()` directly on the Find tab helper of
   // the current web state.
   helper->StartFinding(@"");
-}
-
-- (void)showFindBar {
-  if (!self.canShowFindBar) {
-    return;
-  }
-
-  [self.findBarCoordinator stop];
-  self.findBarCoordinator = [self newFindBarCoordinator];
-  [self.findBarCoordinator start];
-}
-
-- (BOOL)canShowFindBar {
-  web::WebState* activeWebState = [self activeWebStateOrReaderMode];
-  if (!activeWebState) {
-    return NO;
-  }
-
-  auto* helper = GetConcreteFindTabHelperFromWebState(activeWebState);
-  return (helper && helper->CurrentPageSupportsFindInPage() &&
-          !helper->IsFindUIActive());
-}
-
-- (FindBarCoordinator*)newFindBarCoordinator {
-  FindBarCoordinator* findBarCoordinator =
-      [[FindBarCoordinator alloc] initWithBaseViewController:self.viewController
-                                                     browser:self.browser];
-
-  findBarCoordinator.presenter = _toolbarAccessoryPresenter;
-  findBarCoordinator.delegate = self;
-  findBarCoordinator.presentationDelegate = self.viewController;
-
-  return findBarCoordinator;
 }
 
 #pragma mark - AddContactsCommands
@@ -3064,6 +3015,16 @@ enum class ToolbarKind {
 - (void)hideCountryCodePicker {
   [_countryCodePickerCoordinator stop];
   _countryCodePickerCoordinator = nil;
+}
+
+#pragma mark - CredentialExchangeCommands
+
+- (void)showCredentialExchangeImport:(NSUUID*)UUID {
+  _credentialImportCoordinator = [[CredentialImportCoordinator alloc]
+      initWithBaseViewController:self.viewController
+                         browser:self.browser
+                            UUID:UUID];
+  [_credentialImportCoordinator start];
 }
 
 #pragma mark - BWGCommands
@@ -3282,53 +3243,9 @@ enum class ToolbarKind {
   [self stopRepostFormCoordinator];
 }
 
-#pragma mark - ToolbarAccessoryCoordinatorDelegate
-
-- (void)toolbarAccessoryCoordinatorDidDismissUI:
-    (ChromeCoordinator*)coordinator {
-  [self.findBarCoordinator stop];
-  self.findBarCoordinator = nil;
-
-  [self hideTextZoomUI];
-
-  if (!_nextToolbarToPresent.has_value()) {
-    return;
-  }
-
-  const ToolbarKind nextToolbarToPresent = *_nextToolbarToPresent;
-  _nextToolbarToPresent = std::nullopt;
-
-  switch (nextToolbarToPresent) {
-    case ToolbarKind::kTextZoom:
-      [self openTextZoom];
-      break;
-
-    case ToolbarKind::kFindInPage:
-      [self openFindInPage];
-      break;
-  }
-}
-
 #pragma mark - TextZoomCommands
 
 - (void)openTextZoom {
-  web::WebState* activeWebState = self.activeWebState;
-  DCHECK(activeWebState);
-  AbstractFindTabHelper* findTabHelper =
-      GetConcreteFindTabHelperFromWebState(activeWebState);
-  DCHECK(findTabHelper);
-  if (findTabHelper->IsFindUIActive()) {
-    // If Find UI is active, close Find in Page.
-    [self closeFindInPage];
-    if (_toolbarAccessoryPresenter.isPresenting) {
-      // If the Chrome Find Bar is presented (as opposed to the System Find
-      // Panel UI) then open Text Zoom asynchronously once the Find Bar is
-      // dismissed.
-      _nextToolbarToPresent = ToolbarKind::kTextZoom;
-      return;
-    }
-  }
-
   [self.textZoomCoordinator stop];
   self.textZoomCoordinator = [self newTextZoomCoordinator];
   [self.textZoomCoordinator start];
@@ -3372,7 +3289,6 @@ enum class ToolbarKind {
       initWithBaseViewController:self.viewController
                          browser:self.browser];
   textZoomCoordinator.presenter = _toolbarAccessoryPresenter;
-  textZoomCoordinator.delegate = self;
 
   return textZoomCoordinator;
 }
@@ -3455,6 +3371,7 @@ enum class ToolbarKind {
       ReaderModeBrowserAgent::FromBrowser(self.browser);
   if (readerModeBrowserAgent) {
     readerModeBrowserAgent->SetDelegate(self);
+    readerModeBrowserAgent->SetWebStateDelegate(self.tabLifecycleMediator);
   }
 }
 
@@ -3907,12 +3824,7 @@ enum class ToolbarKind {
   self.passwordSuggestionCoordinator = nil;
 }
 
-#pragma mark - PreloadControllerDelegate methods
-
-- (web::WebState*)webStateToReplace {
-  return self.browser ? self.browser->GetWebStateList()->GetActiveWebState()
-                      : nullptr;
-}
+#pragma mark - PrerenderBrowserAgentDelegate methods
 
 - (UIView*)webViewContainer {
   return self.browserContainerCoordinator.viewController.view;
@@ -3930,9 +3842,10 @@ enum class ToolbarKind {
   signin_metrics::AccessPoint accessPoint =
       signin_metrics::AccessPoint::kReauthInfoBar;
   SigninContextStyle style = SigninContextStyle::kDefault;
+  Browser* regularBrowser = signin::GetRegularBrowser(self.browser);
   _signinCoordinator = [SigninCoordinator
       primaryAccountReauthCoordinatorWithBaseViewController:self.viewController
-                                                    browser:self.browser
+                                                    browser:regularBrowser
                                                contextStyle:style
                                                 accessPoint:accessPoint
                                                 promoAction:promoAction
@@ -4012,9 +3925,10 @@ enum class ToolbarKind {
       signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
   SigninContextStyle contextStyle = SigninContextStyle::kDefault;
 
+  Browser* regularBrowser = signin::GetRegularBrowser(self.browser);
   _signinCoordinator = [SigninCoordinator
       signinAndSyncReauthCoordinatorWithBaseViewController:self.viewController
-                                                   browser:self.browser
+                                                   browser:regularBrowser
                                               contextStyle:contextStyle
                                                accessPoint:accessPoint
                                                promoAction:promoAction
@@ -4035,10 +3949,10 @@ enum class ToolbarKind {
     return;
   }
   [_signinCoordinator stop];
-  _signinCoordinator =
-      [SigninCoordinator signinCoordinatorWithCommand:command
-                                              browser:self.browser
-                                   baseViewController:self.viewController];
+  _signinCoordinator = [SigninCoordinator
+      signinCoordinatorWithCommand:command
+                           browser:signin::GetRegularBrowser(self.browser)
+                baseViewController:self.viewController];
   __weak __typeof(self) weakSelf = self;
   _signinCoordinator.signinCompletion =
       ^(SigninCoordinatorResult result, id<SystemIdentity> identity) {
@@ -4503,10 +4417,10 @@ enum class ToolbarKind {
 #pragma mark - PasswordControllerDelegate methods
 
 - (BOOL)displaySignInNotification:(UIViewController*)viewController
-                        fromTabId:(NSString*)tabId {
-  NSString* visibleTabId = self.activeWebState->GetStableIdentifier();
+                        fromTabId:(web::WebStateID)tabId {
   // Ignore unless the call comes from currently visible tab.
-  if (![tabId isEqualToString:visibleTabId]) {
+  web::WebStateID visibleTabId = self.activeWebState->GetUniqueIdentifier();
+  if (tabId != visibleTabId) {
     return NO;
   }
   [self.viewController addChildViewController:viewController];
@@ -4779,7 +4693,7 @@ enum class ToolbarKind {
     self.nonModalSignInPromoCoordinator =
         [[NonModalSignInPromoCoordinator alloc]
             initWithBaseViewController:self.viewController
-                               browser:self.browser
+                               browser:signin::GetRegularBrowser(self.browser)
                              promoType:promoType];
     [self.nonModalSignInPromoCoordinator start];
     self.nonModalSignInPromoCoordinator.delegate = self;
@@ -4827,7 +4741,6 @@ enum class ToolbarKind {
 #pragma mark - DownloadListCommands
 
 - (void)hideDownloadList {
-  DCHECK(self.downloadListCoordinator);
   [self.downloadListCoordinator stop];
   self.downloadListCoordinator = nil;
 }

@@ -227,10 +227,12 @@ void MockPermissionService::HasPermission(PermissionDescriptorPtr permission,
 
 void MockPermissionService::RegisterPageEmbeddedPermissionControl(
     Vector<mojom::blink::PermissionDescriptorPtr> permissions,
+    mojom::blink::EmbeddedPermissionRequestDescriptorPtr descriptor,
     mojo::PendingRemote<mojom::blink::EmbeddedPermissionControlClient> client) {
 }
 
 void MockPermissionService::RequestPageEmbeddedPermission(
+    Vector<mojom::blink::PermissionDescriptorPtr> descriptors,
     mojom::blink::EmbeddedPermissionRequestDescriptorPtr permissions,
     RequestPageEmbeddedPermissionCallback) {
   NOTREACHED();

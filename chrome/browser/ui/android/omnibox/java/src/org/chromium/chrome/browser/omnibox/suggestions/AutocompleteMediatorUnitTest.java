@@ -63,9 +63,9 @@ import org.chromium.chrome.browser.omnibox.DeferredIMEWindowInsetApplicationCall
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.OmniboxMetrics;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
+import org.chromium.chrome.browser.omnibox.navattach.NavigationAttachmentsCoordinator;
+import org.chromium.chrome.browser.omnibox.navattach.NavigationFulfillmentType;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
-import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionFactoryImpl;
-import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxAnswerAction;
 import org.chromium.chrome.browser.omnibox.suggestions.header.HeaderProcessor;
 import org.chromium.chrome.browser.omnibox.test.R;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -101,7 +101,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 /** Tests for {@link AutocompleteMediator}. */
@@ -146,6 +145,7 @@ public class AutocompleteMediatorUnitTest {
     private @Mock AutocompleteCoordinator.OmniboxSuggestionsVisualStateObserver
             mVisualStateObserver;
     private @Mock DeferredIMEWindowInsetApplicationCallback mDeferredImeCallback;
+    private @Mock NavigationAttachmentsCoordinator mNavigationAttachmentsCoordinator;
     private @Captor ArgumentCaptor<OmniboxLoadUrlParams> mOmniboxLoadUrlParamsCaptor;
 
     private PropertyModel mListModel;
@@ -233,6 +233,7 @@ public class AutocompleteMediatorUnitTest {
                         mEmbedder,
                         mWindowAndroid,
                         mDeferredImeCallback,
+                        mNavigationAttachmentsCoordinator,
                         false);
         mMediator
                 .getDropdownItemViewInfoListBuilderForTest()
@@ -265,7 +266,7 @@ public class AutocompleteMediatorUnitTest {
         setUpLocationBarDataProvider(
                 JUnitTestGURLs.NTP_URL, "New Tab Page", PageClassification.NTP_VALUE);
 
-        mMediator.setOmniboxSuggestionsVisualStateObserver(Optional.of(mVisualStateObserver));
+        mMediator.setOmniboxSuggestionsVisualStateObserver(mVisualStateObserver);
         mMediator.onTopResumedActivityChanged(true);
     }
 
@@ -1681,23 +1682,6 @@ public class AutocompleteMediatorUnitTest {
     }
 
     @Test
-    public void onOmniboxAnswerActionClicked() {
-        mMediator.setAutocompleteProfile(mProfile);
-        mMediator.onNativeInitialized();
-        mMediator.onOmniboxSessionStateChange(true);
-        OmniboxAnswerAction answerAction =
-                (OmniboxAnswerAction)
-                        OmniboxActionFactoryImpl.get()
-                                .buildOmniboxAnswerAction(123L, "7 day forecast", "7 day forecast");
-
-        mMediator.onSuggestionsReceived(
-                AutocompleteResult.fromCache(mSuggestionsList, null), /* isFinal= */ true);
-        mMediator.onOmniboxActionClicked(answerAction, 0);
-
-        verify(mAutocompleteDelegate).loadUrl(mOmniboxLoadUrlParamsCaptor.capture());
-    }
-
-    @Test
     @SmallTest
     @EnableFeatures(OmniboxFeatureList.ANIMATE_SUGGESTIONS_LIST_APPEARANCE)
     public void onOmniboxSessionStateChange_attachesImeCallback() {
@@ -1761,5 +1745,36 @@ public class AutocompleteMediatorUnitTest {
         when(mTextStateProvider.wasLastEditPaste()).thenReturn(true);
         mMediator.onSuggestionClicked(match, 0, url);
         verify(mAutocompleteDelegate).maybeShowDefaultBrowserPromo();
+    }
+
+    @Test
+    @SmallTest
+    public void loadTypedOmniboxText_aimUrl() {
+        mMediator.setAutocompleteProfile(mProfile);
+        mMediator.onNativeInitialized();
+        mMediator.onOmniboxSessionStateChange(true);
+        when(mTextStateProvider.getTextWithoutAutocomplete()).thenReturn("test");
+        when(mTextStateProvider.getTextWithAutocomplete()).thenReturn("test");
+        ObservableSupplierImpl<Integer> supplier = new ObservableSupplierImpl<>();
+        supplier.set(NavigationFulfillmentType.AI_MODE);
+        when(mNavigationAttachmentsCoordinator.getNavigationFulfillmentTypeSupplier())
+                .thenReturn(supplier);
+        GURL url = JUnitTestGURLs.BLUE_2;
+        when(mNavigationAttachmentsCoordinator.getAimUrl("test")).thenReturn(url);
+
+        AutocompleteMatch defaultMatch =
+                AutocompleteMatchBuilder.searchWithType(OmniboxSuggestionType.SEARCH_SUGGEST)
+                        .setDisplayText("test suggestion")
+                        .setInlineAutocompletion("")
+                        .setAllowedToBeDefaultMatch(true)
+                        .setUrl(JUnitTestGURLs.GOOGLE_URL)
+                        .build();
+        mSuggestionsList.add(0, defaultMatch);
+        mMediator.onSuggestionsReceived(AutocompleteResult.fromCache(mSuggestionsList, null), true);
+
+        mMediator.loadTypedOmniboxText(123L, false);
+
+        verify(mAutocompleteDelegate).loadUrl(mOmniboxLoadUrlParamsCaptor.capture());
+        assertEquals(mOmniboxLoadUrlParamsCaptor.getValue().url, url.getSpec());
     }
 }

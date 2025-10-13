@@ -250,6 +250,23 @@ bool PaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
   return false;
 }
 
+bool PaymentsAutofillClient::UpdateTouchToFillBnplPaymentMethod(
+    std::optional<uint64_t> extracted_amount,
+    bool is_amount_supported_by_any_issuer) {
+  return false;
+}
+
+bool PaymentsAutofillClient::ShowTouchToFillProgress(
+    base::WeakPtr<TouchToFillDelegate> delegate) {
+  return false;
+}
+
+bool PaymentsAutofillClient::ShowTouchToFillBnplIssuers(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    base::span<const BnplIssuer> bnpl_issuers_to_suggest) {
+  return false;
+}
+
 void PaymentsAutofillClient::HideTouchToFillPaymentMethod() {}
 
 const PaymentsDataManager& PaymentsAutofillClient::GetPaymentsDataManager()

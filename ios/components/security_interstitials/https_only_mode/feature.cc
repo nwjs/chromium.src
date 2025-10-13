@@ -7,9 +7,9 @@
 namespace security_interstitials {
 namespace features {
 
-BASE_FEATURE(HttpsUpgrades, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kHttpsUpgrades, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(InsecureFormSubmissionInterstitial,
+BASE_FEATURE(kInsecureFormSubmissionInterstitial,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features

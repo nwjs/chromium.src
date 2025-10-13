@@ -78,6 +78,10 @@ void ContentAnalysisInfo::InitializeRequest(
 }
 
 std::string ContentAnalysisInfo::GetContentAreaAccountEmail() const {
+  if (!CanRetrieveActiveUser(tab_url())) {
+    return "";
+  }
+
   std::string email = GetActiveContentAreaUser(identity_manager(), tab_url());
   if (!email.empty()) {
     return email;
@@ -119,6 +123,21 @@ std::string ContentAreaUserProvider::GetUser(Profile* profile,
              IdentityManagerFactory::GetForProfile(profile),
              web_contents, tab_url)
       .GetContentAreaAccountEmail();
+}
+
+// static
+std::string ContentAreaUserProvider::GetUser(
+    const content::ClipboardEndpoint& endpoint) {
+  if (!endpoint.data_transfer_endpoint() ||
+      !endpoint.data_transfer_endpoint()->IsUrlType() ||
+      !endpoint.data_transfer_endpoint()->GetURL() ||
+      !endpoint.browser_context()) {
+    return "";
+  }
+
+  return GetUser(Profile::FromBrowserContext(endpoint.browser_context()),
+                 endpoint.web_contents(),
+                 *endpoint.data_transfer_endpoint()->GetURL());
 }
 
 const GURL& ContentAreaUserProvider::tab_url() const {

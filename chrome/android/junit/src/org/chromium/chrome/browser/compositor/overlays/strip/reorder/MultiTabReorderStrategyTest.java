@@ -30,12 +30,15 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutGroupTitle;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTab;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView;
 import org.chromium.chrome.browser.compositor.overlays.strip.reorder.ReorderDelegate.ReorderType;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter.MergeNotificationType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -118,10 +121,10 @@ public class MultiTabReorderStrategyTest extends ReorderStrategyTestBase {
     protected void setupStripViews() {
         // Layout: [Tab1] [ExpandedGroup]([Tab2][Tab3]) [Tab4(CollapsedGroup)] [Tab5] [Tab6]
         mUngroupedTab1 = buildStripTab(TAB_ID1, 0);
-        mExpandedGroupTitle = buildGroupTitle(TAB_ID2, GROUP_ID1, TAB_WIDTH);
+        mExpandedGroupTitle = buildGroupTitle(GROUP_ID1, TAB_WIDTH);
         mGroupedTab1 = buildStripTab(TAB_ID2, 2 * TAB_WIDTH);
         mGroupedTab2 = buildStripTab(TAB_ID3, 3 * TAB_WIDTH);
-        mCollapsedGroupTitle = buildGroupTitle(TAB_ID4, GROUP_ID2, 4 * TAB_WIDTH);
+        mCollapsedGroupTitle = buildGroupTitle(GROUP_ID2, 4 * TAB_WIDTH);
         mCollapsedGroupTab = buildStripTab(TAB_ID4, 4 * TAB_WIDTH);
         mUngroupedTab2 = buildStripTab(TAB_ID5, 5 * TAB_WIDTH);
         mUngroupedTab3 = buildStripTab(TAB_ID6, 6 * TAB_WIDTH);
@@ -192,7 +195,7 @@ public class MultiTabReorderStrategyTest extends ReorderStrategyTestBase {
         Tab expectedPrimaryTab = mModel.getTabById(mGroupedTab2.getTabId());
         verify(mTabGroupModelFilter)
                 .mergeListOfTabsToGroup(
-                        mergeCaptor.capture(), eq(expectedPrimaryTab), anyInt(), anyBoolean());
+                        mergeCaptor.capture(), eq(expectedPrimaryTab), anyInt(), anyInt());
         assertEquals("Should merge 2 tabs.", 2, mergeCaptor.getValue().size());
 
         // Verify no reorder operations took place.
@@ -231,6 +234,7 @@ public class MultiTabReorderStrategyTest extends ReorderStrategyTestBase {
     }
 
     @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS_TABLET_TAB_STRIP})
     @SuppressWarnings("DirectInvocationOnMock")
     public void testStartReorder_nonPinnedPrimaryTab_pinnedTabNotGathered() {
         // Select an unpinned tab and a pinned tab
@@ -248,6 +252,7 @@ public class MultiTabReorderStrategyTest extends ReorderStrategyTestBase {
 
     @Test
     @SuppressWarnings("DirectInvocationOnMock")
+    @EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS_TABLET_TAB_STRIP})
     public void testStartReorder_pinnedPrimaryTab_nonPinnedTabNotGathered() {
         // Select an unpinned tab and a pinned tab
         selectTabs(mUngroupedTab1, mUngroupedTab2);
@@ -280,7 +285,8 @@ public class MultiTabReorderStrategyTest extends ReorderStrategyTestBase {
         drag(DRAG_INTO_GROUP_SUCCESS);
 
         verify(mTabGroupModelFilter)
-                .mergeListOfTabsToGroup(anyList(), any(Tab.class), eq(0), eq(false));
+                .mergeListOfTabsToGroup(
+                        anyList(), any(Tab.class), eq(0), eq(MergeNotificationType.DONT_NOTIFY));
         verify(mAnimationHost, times(2)).startAnimations(anyList(), isNull());
     }
 
@@ -310,6 +316,7 @@ public class MultiTabReorderStrategyTest extends ReorderStrategyTestBase {
 
     @Test
     @SuppressWarnings("DirectInvocationOnMock")
+    @EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS_TABLET_TAB_STRIP})
     public void testUpdateReorder_success_dragPinnedTabPastPinnedTab() {
         mUngroupedTab2.setIsPinned(true);
         mUngroupedTab3.setIsPinned(true);
@@ -322,6 +329,7 @@ public class MultiTabReorderStrategyTest extends ReorderStrategyTestBase {
     // updateReorderPosition failure tests
     @Test
     @SuppressWarnings("DirectInvocationOnMock")
+    @EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS_TABLET_TAB_STRIP})
     public void testUpdateReorder_fail_dragPinnedTabPastUnpinnedTab() {
         mUngroupedTab2.setIsPinned(true);
         selectTabs(mUngroupedTab2);

@@ -22,6 +22,9 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -90,21 +93,24 @@ void AddMediaStreamSourceConstraints(content::WebContents* target_contents,
   MediaStreamConstraint* constraints_to_modify[2] = {nullptr, nullptr};
 
   if (options->audio && *options->audio) {
-    if (!options->audio_constraints)
+    if (!options->audio_constraints) {
       options->audio_constraints.emplace();
+    }
     constraints_to_modify[0] = &*options->audio_constraints;
   }
 
   if (options->video && *options->video) {
-    if (!options->video_constraints)
+    if (!options->video_constraints) {
       options->video_constraints.emplace();
+    }
     constraints_to_modify[1] = &*options->video_constraints;
   }
 
   // Append chrome specific tab constraints.
   for (MediaStreamConstraint* msc : constraints_to_modify) {
-    if (!msc)
+    if (!msc) {
       continue;
+    }
     base::Value::Dict* constraint = &msc->mandatory.additional_properties;
     constraint->Set(kMediaStreamSource, kMediaStreamSourceTab);
     constraint->Set(kMediaStreamSourceId, device_id);
@@ -114,18 +120,21 @@ void AddMediaStreamSourceConstraints(content::WebContents* target_contents,
 // Find the last-active browser that matches a profile this ExtensionFunction
 // can access.  We can't use FindLastActiveWithProfile() because we may want to
 // include incognito profile browsers.
-Browser* GetLastActiveBrowser(const Profile* profile,
-                              const bool match_incognito_profile) {
-  Browser* target_browser = nullptr;
-  for (Browser* browser : BrowserList::GetInstance()->OrderedByActivation()) {
-    Profile* browser_profile = browser->profile();
-    if (browser_profile == profile ||
-        (match_incognito_profile &&
-         browser_profile->GetOriginalProfile() == profile)) {
-      target_browser = browser;
-      break;
-    }
-  }
+BrowserWindowInterface* GetLastActiveBrowser(
+    const Profile* profile,
+    const bool match_incognito_profile) {
+  BrowserWindowInterface* target_browser = nullptr;
+  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+      [&](BrowserWindowInterface* browser) {
+        Profile* browser_profile = browser->GetProfile();
+        if (browser_profile == profile ||
+            (match_incognito_profile &&
+             browser_profile->GetOriginalProfile() == profile)) {
+          target_browser = browser;
+          return false;  // stop iterating
+        }
+        return true;  // continue iterating
+      });
 
   return target_browser;
 }
@@ -145,20 +154,24 @@ ExtensionFunction::ResponseAction TabCaptureCaptureFunction::Run() {
 
   Profile* profile = Profile::FromBrowserContext(browser_context());
   const bool match_incognito_profile = include_incognito_information();
-  Browser* target_browser =
+  BrowserWindowInterface* target_browser =
       GetLastActiveBrowser(profile, match_incognito_profile);
+
 #if 0
-  if (!target_browser)
+  if (!target_browser) {
     return RespondNow(Error(kFindingTabError));
+  }
 #endif
 
   content::WebContents* target_contents = nullptr;
   if (target_browser)
-    target_contents = target_browser->tab_strip_model()->GetActiveWebContents();
+      target_contents = target_browser->GetFeatures().tab_strip_model()->GetActiveWebContents();
   else
     target_contents = GetSenderWebContents();
-  if (!target_contents)
+
+  if (!target_contents) {
     return RespondNow(Error(kFindingTabError));
+  }
 
   content::WebContents* const extension_web_contents = GetSenderWebContents();
   EXTENSION_FUNCTION_VALIDATE(extension_web_contents);
@@ -189,8 +202,9 @@ ExtensionFunction::ResponseAction TabCaptureCaptureFunction::Run() {
     return RespondNow(Error(kGrantError));
   }
 
-  if (!OptionsSpecifyAudioOrVideo(params->options))
+  if (!OptionsSpecifyAudioOrVideo(params->options)) {
     return RespondNow(Error(kNoAudioOrVideo));
+  }
 
   DesktopMediaID source =
       BuildDesktopMediaID(target_contents, &params->options);
@@ -221,8 +235,9 @@ ExtensionFunction::ResponseAction TabCaptureCaptureFunction::Run() {
 ExtensionFunction::ResponseAction TabCaptureGetCapturedTabsFunction::Run() {
   TabCaptureRegistry* registry = TabCaptureRegistry::Get(browser_context());
   base::Value::List list;
-  if (registry)
+  if (registry) {
     registry->GetCapturedTabs(extension()->id(), &list);
+  }
   return RespondNow(WithArguments(std::move(list)));
 }
 
@@ -241,15 +256,18 @@ ExtensionFunction::ResponseAction TabCaptureGetMediaStreamIdFunction::Run() {
   } else {
     Profile* profile = Profile::FromBrowserContext(browser_context());
     const bool match_incognito_profile = include_incognito_information();
-    Browser* target_browser =
+    BrowserWindowInterface* target_browser =
         GetLastActiveBrowser(profile, match_incognito_profile);
-    if (!target_browser)
+    if (!target_browser) {
       return RespondNow(Error(kFindingTabError));
+    }
 
-    target_contents = target_browser->tab_strip_model()->GetActiveWebContents();
+    target_contents =
+        target_browser->GetFeatures().tab_strip_model()->GetActiveWebContents();
   }
-  if (!target_contents)
+  if (!target_contents) {
     return RespondNow(Error(kFindingTabError));
+  }
 
   const std::string& extension_id = extension()->id();
 

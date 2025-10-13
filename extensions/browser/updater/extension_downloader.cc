@@ -251,12 +251,6 @@ ExtensionDownloader::FetchDataGroupKey::FetchDataGroupKey(
 
 ExtensionDownloader::FetchDataGroupKey::~FetchDataGroupKey() = default;
 
-bool ExtensionDownloader::FetchDataGroupKey::operator<(
-    const FetchDataGroupKey& other) const {
-  return std::tie(request_id, update_url, is_force_installed) <
-         std::tie(other.request_id, other.update_url, other.is_force_installed);
-}
-
 ExtensionDownloader::ExtensionDownloader(
     ExtensionDownloaderDelegate* delegate,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
@@ -1436,11 +1430,13 @@ bool ExtensionDownloader::IterateFetchCredentialsAfterFailure(
       if (response_code == net::HTTP_UNAUTHORIZED &&
           fetch->oauth2_attempt_count <= kMaxOAuth2Attempts) {
         DCHECK(identity_manager_);
-        identity_manager_->RemoveAccessTokenFromCache(
-            identity_manager_->GetPrimaryAccountId(
-                signin::ConsentLevel::kSignin),
-            signin::OAuthConsumerId::kExtensionDownloader, access_token_);
-        access_token_.clear();
+        if (!access_token_.empty()) {
+          identity_manager_->RemoveAccessTokenFromCache(
+              identity_manager_->GetPrimaryAccountId(
+                  signin::ConsentLevel::kSignin),
+              signin::OAuthConsumerId::kExtensionDownloader, access_token_);
+          access_token_.clear();
+        }
         return true;
       }
       // Either there is no Gaia identity available, the active identity

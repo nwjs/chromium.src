@@ -45,19 +45,13 @@ namespace content {
 
 namespace {
 
-// Another switch for `kServiceWorkerBackgroundUpdateForRegisteredStorageKeys`
-// intended to be controlled from Field Trial (e.g. kill-switch). The original
-// flag may be overridden by `AwFieldTrials::RegisterFeatureOverrides`.
-BASE_FEATURE(ServiceWorkerBackgroundUpdateForRegisteredStorageKeysFieldTrialControlled,
-    base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(ServiceWorkerBackgroundUpdateForServiceWorkerScopeCache,
+BASE_FEATURE(kServiceWorkerBackgroundUpdateForServiceWorkerScopeCache,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(ServiceWorkerBackgroundUpdateForFindRegistrationForClientUrl,
+BASE_FEATURE(kServiceWorkerBackgroundUpdateForFindRegistrationForClientUrl,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(ReduceCallingServiceWorkerRegisteredStorageKeysOnStartup,
+BASE_FEATURE(kReduceCallingServiceWorkerRegisteredStorageKeysOnStartup,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool ReduceCallingServiceWorkerRegisteredStorageKeysOnStartupEnabled() {
@@ -175,7 +169,7 @@ constexpr size_t kServiceWorkerRegistrationCacheSize = 100;
 }  // namespace
 
 // Enables merging duplicate calls of FindRegistrationForClientUrl.
-BASE_FEATURE(ServiceWorkerMergeFindRegistrationForClientUrl,
+BASE_FEATURE(kServiceWorkerMergeFindRegistrationForClientUrl,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 template <typename... ReplyArgs>
@@ -233,10 +227,7 @@ ServiceWorkerRegistry::ServiceWorkerRegistry(
                              storage::ServiceWorkerStorage::
                                  StorageSharedBuffer>(
           base::FeatureList::IsEnabled(
-              features::
-                  kServiceWorkerBackgroundUpdateForRegisteredStorageKeys) &&
-              base::FeatureList::IsEnabled(
-                  kServiceWorkerBackgroundUpdateForRegisteredStorageKeysFieldTrialControlled),
+              features::kServiceWorkerBackgroundUpdateForRegisteredStorageKeys),
           base::FeatureList::IsEnabled(
               kServiceWorkerBackgroundUpdateForServiceWorkerScopeCache),
           base::FeatureList::IsEnabled(

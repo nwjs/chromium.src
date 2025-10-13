@@ -439,6 +439,8 @@ public class TabListMediatorUnitTest {
         mViewHolder2 = prepareViewHolder(TAB2_ID, POSITION2);
         mFakeViewHolder1 = prepareFakeViewHolder(mItemView1, POSITION1);
         mFakeViewHolder2 = prepareFakeViewHolder(mItemView2, POSITION2);
+        when(mItemView1.isAttachedToWindow()).thenReturn(true);
+        when(mItemView2.isAttachedToWindow()).thenReturn(true);
         List<Tab> tabs1 = new ArrayList<>(Arrays.asList(mTab1));
         List<Tab> tabs2 = new ArrayList<>(Arrays.asList(mTab2));
         mSavedTabGroup1 = prepareSavedTabGroup(SYNC_GROUP_ID1, GROUP_TITLE, SYNC_GROUP_COLOR1, 1);
@@ -1109,6 +1111,9 @@ public class TabListMediatorUnitTest {
         when(mTabModel.getTabAt(3)).thenReturn(tab4);
         View itemView3 = mock(View.class);
         View itemView4 = mock(View.class);
+        when(itemView3.isAttachedToWindow()).thenReturn(true);
+        when(itemView4.isAttachedToWindow()).thenReturn(true);
+
         RecyclerView.ViewHolder fakeViewHolder3 = prepareFakeViewHolder(itemView3, 2);
         RecyclerView.ViewHolder fakeViewHolder4 = prepareFakeViewHolder(itemView4, 3);
 
@@ -4372,6 +4377,7 @@ public class TabListMediatorUnitTest {
         assertEquals(
                 TabActionButtonType.CLOSE,
                 mModelList.get(POSITION1).model.get(TabProperties.TAB_ACTION_BUTTON_DATA).type);
+        assertFalse(mModelList.get(POSITION1).model.get(TabProperties.IS_PINNED));
 
         // Scenario 2: Tab is PINNED
         // Mock the tab at POSITION1 as pinned.
@@ -4382,6 +4388,40 @@ public class TabListMediatorUnitTest {
 
         assertEquals(
                 TabActionButtonType.PIN,
+                mModelList.get(POSITION1).model.get(TabProperties.TAB_ACTION_BUTTON_DATA).type);
+        assertTrue(mModelList.get(POSITION1).model.get(TabProperties.IS_PINNED));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
+    public void testOnTabPinnedStateChanged() {
+        mMediator.setComponentNameForTesting(TabSwitcherPaneCoordinator.COMPONENT_NAME);
+
+        List<Tab> tabsInModel = new ArrayList<>();
+        for (int i = 0; i < mTabModel.getCount(); i++) {
+            tabsInModel.add(mTabModel.getTabAt(i));
+        }
+        Tab tabToTest = tabsInModel.get(POSITION1);
+
+        // Set initial state to unpinned.
+        doReturn(false).when(tabToTest).getIsPinned();
+        mMediator.resetWithListOfTabs(tabsInModel, null, false);
+        assertFalse(mModelList.get(POSITION1).model.get(TabProperties.IS_PINNED));
+
+        // Pin the tab and notify the observer.
+        doReturn(true).when(tabToTest).getIsPinned();
+        mTabObserverCaptor.getValue().onTabPinnedStateChanged(tabToTest, true);
+        assertTrue(mModelList.get(POSITION1).model.get(TabProperties.IS_PINNED));
+        assertEquals(
+                TabActionButtonType.PIN,
+                mModelList.get(POSITION1).model.get(TabProperties.TAB_ACTION_BUTTON_DATA).type);
+
+        // Unpin the tab and notify the observer.
+        doReturn(false).when(tabToTest).getIsPinned();
+        mTabObserverCaptor.getValue().onTabPinnedStateChanged(tabToTest, false);
+        assertFalse(mModelList.get(POSITION1).model.get(TabProperties.IS_PINNED));
+        assertEquals(
+                TabActionButtonType.CLOSE,
                 mModelList.get(POSITION1).model.get(TabProperties.TAB_ACTION_BUTTON_DATA).type);
     }
 
@@ -5186,25 +5226,59 @@ public class TabListMediatorUnitTest {
     public void testMediaState_TabAudible() {
         assertEquals(MediaState.NONE, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
 
-        when(mTab1.getMediaState()).thenReturn(MediaState.AUDIBLE);
-        mTabObserverCaptor.getValue().onMediaStateChanged(mTab1, MediaState.AUDIBLE);
-
+        updateTabMediaState(mTab1, MediaState.AUDIBLE);
         assertEquals(
                 MediaState.AUDIBLE, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
     }
 
     @Test
     @EnableFeatures(ChromeFeatureList.MEDIA_INDICATORS_ANDROID)
-    public void testMediaState_TabNone() {
-        when(mTab1.getMediaState()).thenReturn(MediaState.AUDIBLE);
-        mTabObserverCaptor.getValue().onMediaStateChanged(mTab1, MediaState.AUDIBLE);
+    public void testMediaState_TabMuted() {
+        assertEquals(MediaState.NONE, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
+
+        updateTabMediaState(mTab1, MediaState.AUDIBLE);
         assertEquals(
                 MediaState.AUDIBLE, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
 
-        when(mTab1.getMediaState()).thenReturn(MediaState.NONE);
-        mTabObserverCaptor.getValue().onMediaStateChanged(mTab1, MediaState.NONE);
+        updateTabMediaState(mTab1, MediaState.MUTED);
+        assertEquals(MediaState.MUTED, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
+    }
 
+    @Test
+    @EnableFeatures(ChromeFeatureList.MEDIA_INDICATORS_ANDROID)
+    public void testMediaState_TabNone() {
+        updateTabMediaState(mTab1, MediaState.AUDIBLE);
+        assertEquals(
+                MediaState.AUDIBLE, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
+
+        updateTabMediaState(mTab1, MediaState.NONE);
         assertEquals(MediaState.NONE, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.MEDIA_INDICATORS_ANDROID)
+    public void testMediaState_TabGroup() {
+        when(mTab1.getMediaState()).thenReturn(MediaState.MUTED);
+        when(mTab2.getMediaState()).thenReturn(MediaState.AUDIBLE);
+
+        List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, mTab2));
+        createTabGroup(tabs, TAB1_ID, TAB_GROUP_ID);
+        mMediator.resetWithListOfTabs(tabs, null, false);
+
+        // AUDIBLE has priority over MUTED.
+        assertEquals(
+                MediaState.AUDIBLE, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
+
+        updateTabMediaState(mTab2, MediaState.MUTED);
+        assertEquals(MediaState.MUTED, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
+
+        updateTabMediaState(mTab1, MediaState.AUDIBLE);
+        assertEquals(
+                MediaState.AUDIBLE, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
+
+        // MUTED has priority over NONE.
+        updateTabMediaState(mTab1, MediaState.NONE);
+        assertEquals(MediaState.MUTED, mModelList.get(0).model.get(TabProperties.MEDIA_INDICATOR));
     }
 
     @Test
@@ -5544,7 +5618,8 @@ public class TabListMediatorUnitTest {
             assertNull(
                     "Expected property to be unset, property=" + objectKey, model.get(objectKey));
         } else {
-            assert false : "Unsupported key type passed to function, add it to #assertUnset";
+            throw new AssertionError(
+                    "Unsupported key type passed to function, add it to #assertUnset");
         }
     }
 
@@ -5599,5 +5674,10 @@ public class TabListMediatorUnitTest {
         savedTabGroup.title = GROUP_TITLE;
         savedTabGroup.collaborationId = isShared ? COLLABORATION_ID1 : null;
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(savedTabGroup);
+    }
+
+    private void updateTabMediaState(Tab tab, @MediaState int mediaState) {
+        when(tab.getMediaState()).thenReturn(mediaState);
+        mTabObserverCaptor.getValue().onMediaStateChanged(tab, mediaState);
     }
 }

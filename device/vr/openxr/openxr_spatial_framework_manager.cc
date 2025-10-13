@@ -14,12 +14,14 @@
 #include "device/vr/openxr/openxr_extension_helper.h"
 #include "device/vr/openxr/openxr_spatial_anchor_manager.h"
 #include "device/vr/openxr/openxr_spatial_capability_configuration_base.h"
+#include "device/vr/openxr/openxr_spatial_hit_test_manager.h"
 #include "device/vr/openxr/openxr_spatial_plane_manager.h"
 #include "device/vr/openxr/openxr_spatial_utils.h"
 #include "device/vr/openxr/openxr_util.h"
 #include "device/vr/public/cpp/features.h"
 #include "device/vr/public/mojom/xr_session.mojom-shared.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+#include "third_party/openxr/dev/xr_android.h"
 #include "third_party/openxr/src/include/openxr/openxr.h"
 
 #define OPENXR_LOAD_FN(fn)             \
@@ -32,25 +34,32 @@ namespace device {
 OpenXrSpatialFrameworkManager::OpenXrSpatialFrameworkManager(
     const OpenXrExtensionHelper& extension_helper,
     OpenXrApiWrapper* openxr,
-    XrSession session,
     XrSpace space,
     const std::set<device::mojom::XRSessionFeature>& supported_features)
     : extension_helper_(extension_helper),
       openxr_(openxr),
-      session_(session),
       base_space_(space) {
   absl::flat_hash_map<XrSpatialCapabilityEXT,
                       absl::flat_hash_set<XrSpatialComponentTypeEXT>>
       capability_configuration;
   if (supported_features.contains(
           device::mojom::XRSessionFeature::PLANE_DETECTION)) {
-    plane_manager_ = std::make_unique<OpenXrSpatialPlaneManager>();
+    plane_manager_ = std::make_unique<OpenXrSpatialPlaneManager>(
+        extension_helper_.get(), *this);
     plane_manager_->PopulateCapabilityConfiguration(capability_configuration);
+  }
+
+  if (supported_features.contains(device::mojom::XRSessionFeature::HIT_TEST)) {
+    hit_test_manager_ = std::make_unique<OpenXrSpatialHitTestManager>(
+        extension_helper_.get(), *this, plane_manager_.get(), base_space_,
+        openxr_->instance(), openxr_->system());
+    hit_test_manager_->PopulateCapabilityConfiguration(
+        capability_configuration);
   }
 
   if (supported_features.contains(device::mojom::XRSessionFeature::ANCHORS)) {
     anchor_manager_ = std::make_unique<OpenXrSpatialAnchorManager>(
-        extension_helper_.get(), *this, base_space_);
+        extension_helper_.get(), *this, plane_manager_.get(), base_space_);
     anchor_manager_->PopulateCapabilityConfiguration(capability_configuration);
   }
 
@@ -80,7 +89,7 @@ OpenXrSpatialFrameworkManager::OpenXrSpatialFrameworkManager(
   // or something is seriously wrong with the system.
   if (XR_FAILED(
           extension_helper_->ExtensionMethods().xrCreateSpatialContextAsyncEXT(
-              session_, &create_info, &future))) {
+              openxr_->session(), &create_info, &future))) {
     DLOG(ERROR) << __func__ << " Failed to create spatial context";
     return;
   }
@@ -103,12 +112,17 @@ OpenXrSpatialFrameworkManager::~OpenXrSpatialFrameworkManager() {
   }
 }
 
+OpenXrSceneUnderstandingManagerType OpenXrSpatialFrameworkManager::GetType()
+    const {
+  return OpenXrSceneUnderstandingManagerType::kSpatialEntities;
+}
+
 OpenXrPlaneManager* OpenXrSpatialFrameworkManager::GetPlaneManager() {
   return plane_manager_.get();
 }
 
 OpenXrHitTestManager* OpenXrSpatialFrameworkManager::GetHitTestManager() {
-  return nullptr;
+  return hit_test_manager_.get();
 }
 
 OpenXrAnchorManager* OpenXrSpatialFrameworkManager::GetAnchorManager() {
@@ -163,8 +177,8 @@ void OpenXrSpatialFrameworkManager::OnCreateSpatialContextComplete(
   XrCreateSpatialContextCompletionEXT complete_info = {
       XR_TYPE_CREATE_SPATIAL_CONTEXT_COMPLETION_EXT};
   if (XR_FAILED(extension_helper_->ExtensionMethods()
-                    .xrCreateSpatialContextCompleteEXT(session_, future,
-                                                       &complete_info))) {
+                    .xrCreateSpatialContextCompleteEXT(
+                        openxr_->session(), future, &complete_info))) {
     return;
   }
 
@@ -216,6 +230,10 @@ void OpenXrSpatialFrameworkManager::OnCreateSpatialDiscoverySnapshotComplete(
   }
 
   discovery_snapshot_ = completion.snapshot;
+
+  if (plane_manager_) {
+    plane_manager_->OnSnapshotChanged();
+  }
 }
 
 OpenXrSpatialFrameworkManagerFactory::OpenXrSpatialFrameworkManagerFactory() =
@@ -236,6 +254,7 @@ OpenXrSpatialFrameworkManagerFactory::GetRequestedExtensions() const {
       XR_EXT_SPATIAL_ENTITY_EXTENSION_NAME,
       XR_EXT_SPATIAL_ANCHOR_EXTENSION_NAME,
       XR_EXT_SPATIAL_PLANE_TRACKING_EXTENSION_NAME,
+      XR_ANDROID_SPATIAL_DISCOVERY_RAYCAST_EXTENSION_NAME,
   });
 
   return *kExtensions;
@@ -280,6 +299,15 @@ void OpenXrSpatialFrameworkManagerFactory::CheckAndUpdateEnabledState(
     supported_features_.insert(device::mojom::XRSessionFeature::ANCHORS);
   }
 
+  if (extension_enum->ExtensionSupported(
+          XR_ANDROID_SPATIAL_DISCOVERY_RAYCAST_EXTENSION_NAME)) {
+    if (OpenXrSpatialHitTestManager::IsSupported(
+            instance, system_id, xrEnumerateSpatialCapabilityComponentTypesEXT,
+            capabilities)) {
+      supported_features_.insert(device::mojom::XRSessionFeature::HIT_TEST);
+    }
+  }
+
   SetEnabled(!supported_features_.empty());
 }
 
@@ -292,13 +320,12 @@ std::unique_ptr<OpenXRSceneUnderstandingManager>
 OpenXrSpatialFrameworkManagerFactory::CreateSceneUnderstandingManager(
     const OpenXrExtensionHelper& extension_helper,
     OpenXrApiWrapper* openxr,
-    XrSession session,
     XrSpace base_space) const {
   bool is_supported = IsEnabled();
   DVLOG(2) << __func__ << " is_supported=" << is_supported;
   if (is_supported) {
     return std::make_unique<OpenXrSpatialFrameworkManager>(
-        extension_helper, openxr, session, base_space, supported_features_);
+        extension_helper, openxr, base_space, supported_features_);
   }
 
   return nullptr;

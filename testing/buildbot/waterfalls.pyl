@@ -424,7 +424,7 @@
           'chromiumos_preflight',
         ],
         'test_suites': {
-          'skylab_tests': 'chromeos_ctp_preuprev_tests',
+          'skylab_tests': 'chromeos_ctp_preuprev_tests_no_arc',
         },
         'os_type': 'chromeos',
         'cros_board': 'reven-vmtest',
@@ -1115,6 +1115,9 @@
         'os_type': 'ios',
       },
       'optimization_guide-linux': {
+        'additional_compile_targets': [
+          'ondevice_model_benchmark'
+        ],
         'mixins': [
           'chrome-intelligence-swarming-pool',
           'linux-jammy',

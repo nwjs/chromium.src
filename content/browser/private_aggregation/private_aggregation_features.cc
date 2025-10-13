@@ -8,7 +8,7 @@
 
 namespace content {
 
-BASE_FEATURE(PrivateAggregationApiDebugModeRequires3pcEligibility,
+BASE_FEATURE(kPrivateAggregationApiDebugModeRequires3pcEligibility,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace content

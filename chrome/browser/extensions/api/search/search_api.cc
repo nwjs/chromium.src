@@ -24,6 +24,8 @@
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #endif
 
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 using tabs::TabModel;
 #endif
@@ -144,26 +146,12 @@ ExtensionFunction::ResponseAction SearchQueryFunction::Run() {
           /*extra_headers=*/std::string());
       break;
     case Disposition::kNewTab:
-#if BUILDFLAG(ENABLE_EXTENSIONS)
       ExtensionTabUtil::NavigateToURL(WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                      browser, url);
-#else
-      // TODO(crbug.com//440173000): The search API supports opening url in a
-      // tab vs. window distinction, The `NavigateTOURL` should be refactored to
-      // support the disposition on Android.
-      ExtensionTabUtil::NavigateToURL(web_contents, browser_context(), url);
-#endif
+                                      web_contents, url);
       break;
     case Disposition::kNewWindow:
-#if BUILDFLAG(ENABLE_EXTENSIONS)
       ExtensionTabUtil::NavigateToURL(WindowOpenDisposition::NEW_WINDOW,
-                                      browser, url);
-#else
-      // TODO(crbug.com//440173000): The search API supports opening url in a
-      // tab vs. window distinction, The `NavigateTOURL` should be refactored to
-      // support the disposition on Android.
-      ExtensionTabUtil::NavigateToURL(web_contents, browser_context(), url);
-#endif
+                                      web_contents, url);
       break;
   }
 

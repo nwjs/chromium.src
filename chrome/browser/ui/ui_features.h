@@ -28,8 +28,15 @@ BASE_DECLARE_FEATURE(kAllowEyeDropperWGCScreenCapture);
 
 BASE_DECLARE_FEATURE(kCloseOmniboxPopupOnInactiveAreaClick);
 
+BASE_DECLARE_FEATURE(kCreateNewTabGroupAppMenuTopLevel);
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_DECLARE_FEATURE(kFewerUpdateConfirmations);
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+// Feature that manages the transition between old and new browser layout.
+BASE_DECLARE_FEATURE(kDesktopNewTopAreaLayoutFeature);
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -59,6 +66,10 @@ BASE_DECLARE_FEATURE_PARAM(PdfInfoBarTrigger, kPdfInfoBarTrigger);
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 // When enabled, user may see the session restore UI flow.
 BASE_DECLARE_FEATURE(kSessionRestoreInfobar);
+
+// When this param is true, the session restore preference will have
+// continue where you left off as default behavior
+BASE_DECLARE_FEATURE_PARAM(bool, kSetDefaultToContinueSession);
 #endif
 
 BASE_DECLARE_FEATURE(kPreloadTopChromeWebUI);
@@ -143,8 +154,6 @@ BASE_DECLARE_FEATURE(kCloseActiveTabInSplitViewViaHotkey);
 
 BASE_DECLARE_FEATURE(kScrimForBrowserWindowModal);
 
-BASE_DECLARE_FEATURE(KScrimForTabModal);
-
 BASE_DECLARE_FEATURE(kSideBySide);
 
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kSideBySideShowDropTargetDelay);
@@ -203,6 +212,10 @@ bool IsRestoringSplitViewEnabled();
 
 BASE_DECLARE_FEATURE(kSideBySideLinkMenuNewBadge);
 
+BASE_DECLARE_FEATURE(kSideBySideKeyboardShortcut);
+
+bool IsSideBySideKeyboardShortcutEnabled();
+
 BASE_DECLARE_FEATURE(kTabDuplicateMetrics);
 
 BASE_DECLARE_FEATURE(kTabScrollingButtonPosition);
@@ -214,11 +227,13 @@ BASE_DECLARE_FEATURE(kSidePanelResizing);
 BASE_DECLARE_FEATURE(kSidePanelSearchCompanion);
 
 BASE_DECLARE_FEATURE(kTabGroupsCollapseFreezing);
+BASE_DECLARE_FEATURE(kTabGroupHoverCards);
 
 #if !BUILDFLAG(IS_ANDROID)
 // General improvements to tab group menus
 BASE_DECLARE_FEATURE(kTabGroupMenuImprovements);
 BASE_DECLARE_FEATURE(kTabGroupMenuMoreEntryPoints);
+bool IsTabGroupMenuMoreEntryPointsEnabled();
 
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -312,17 +327,11 @@ BASE_DECLARE_FEATURE(kThreeButtonPasswordSaveDialog);
 
 bool IsToolbarPinningEnabled();
 
-BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingForAvatar);
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingForMenu);
 BASE_DECLARE_FEATURE(kEnterpriseBadgingForNtpFooter);
 BASE_DECLARE_FEATURE(kNTPFooterBadgingPolicies);
-BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingPolicies);
 BASE_DECLARE_FEATURE(kEnterpriseManagementDisclaimerUsesCustomLabel);
 BASE_DECLARE_FEATURE(kManagedProfileRequiredInterstitial);
-
-// Enables using the same colors used for the default app menu button for the
-// avatar button states using default colors.
-BASE_DECLARE_FEATURE(kEnableAppMenuButtonColorsForDefaultAvatarButtonStates);
 
 BASE_DECLARE_FEATURE(kWebUITabStrip);
 
@@ -382,6 +391,7 @@ BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationCollaborationMessaging);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationPriceTracking);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationAutofillMandatoryReauth);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationClickToCall);
+BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationSharingHub);
 
 // Determines whether the "save password" page action displays different UI if
 // the user has said to never save passwords for that site.
@@ -428,6 +438,15 @@ BASE_DECLARE_FEATURE(kNonMilestoneUpdateToast);
 BASE_DECLARE_FEATURE(kBookmarkTabGroupConversion);
 
 bool IsBookmarkTabGroupConversionEnabled();
+
+#if BUILDFLAG(IS_ANDROID)
+BASE_DECLARE_FEATURE(kAndroidAnimatedProgressBarInBrowser);
+
+bool IsAndroidAnimatedProgressBarInBrowserEnabled();
+#endif  // BUILDFLAG(IS_ANDROID)
+
+// Controls whether the updated What's New page is enabled.
+BASE_DECLARE_FEATURE(kWhatsNewDesktopRefresh);
 
 }  // namespace features
 

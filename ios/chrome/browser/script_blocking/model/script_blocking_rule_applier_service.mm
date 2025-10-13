@@ -167,8 +167,8 @@ std::optional<std::string> ScriptBlockingRuleApplierService::BuildRules() {
   }
 
   // Read the base anti-fingerprinting blocklist.
-  std::optional<base::Value> rules_value =
-      base::JSONReader::Read(*base_rules_json);
+  std::optional<base::Value> rules_value = base::JSONReader::Read(
+      *base_rules_json, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
 
   // If the base rule list is empty or invalid, there are no rules to apply.
   // An exception list is meaningless without a base list.
@@ -206,7 +206,5 @@ std::optional<std::string> ScriptBlockingRuleApplierService::BuildRules() {
       "IOS.FingerprintingProtection.RuleList.TotalRulesApplied." + suffix,
       rules_list.size());
 
-  std::string rules_json;
-  base::JSONWriter::Write(rules_list, &rules_json);
-  return rules_json;
+  return base::WriteJson(rules_list);
 }

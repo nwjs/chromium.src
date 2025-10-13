@@ -30,9 +30,9 @@
 #include "chrome/browser/web_applications/callback_utils.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_install_command_helper.h"
+#include "chrome/browser/web_applications/isolated_web_apps/install/pending_install_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/isolated_web_apps/jobs/prepare_install_info_job.h"
-#include "chrome/browser/web_applications/isolated_web_apps/pending_install_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/remove_isolated_web_app_data.h"
 #include "chrome/browser/web_applications/locks/app_lock.h"
 #include "chrome/browser/web_applications/web_app.h"
@@ -66,12 +66,9 @@ IsolatedWebAppApplyUpdateCommand::IsolatedWebAppApplyUpdateCommand(
     std::unique_ptr<content::WebContents> web_contents,
     std::unique_ptr<ScopedKeepAlive> optional_keep_alive,
     std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive,
-    base::OnceCallback<void(
-        base::expected<void, IsolatedWebAppApplyUpdateCommandError>)> callback,
+    base::OnceCallback<void(IsolatedWebAppApplyUpdateCommandResult)> callback,
     std::unique_ptr<IsolatedWebAppInstallCommandHelper> command_helper)
-    : WebAppCommand<
-          AppLock,
-          base::expected<void, IsolatedWebAppApplyUpdateCommandError>>(
+    : WebAppCommand<AppLock, IsolatedWebAppApplyUpdateCommandResult>(
           "IsolatedWebAppApplyUpdateCommand",
           AppLockDescription(url_info.app_id()),
           std::move(callback), /*args_for_shutdown=*/

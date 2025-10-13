@@ -36,7 +36,6 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
 import org.chromium.base.AconfigFlaggedApiDelegate;
-import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -49,6 +48,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter.MergeNotificationType;
 import org.chromium.chrome.browser.util.AndroidTaskUtils;
 import org.chromium.chrome.browser.util.WindowFeatures;
 import org.chromium.content_public.browser.BrowserContextHandle;
@@ -158,7 +158,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
 
     private static final int TEST_DISPLAY_ID = 73;
     private static final float TEST_DENSITY = 1.0f;
-    private static final Rect TEST_BOUNDS = new Rect(0, 0, 1920, 1080);
+    private static final Rect TEST_LOCAL_BOUNDS = new Rect(0, 0, 1920, 1080);
 
     private TestActivityTabWebContentsDelegateAndroid mTabWebContentsDelegateAndroid;
 
@@ -178,7 +178,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
         doReturn(mDisplayAndroid).when(mWindowAndroid).getDisplay();
         doReturn(TEST_DISPLAY_ID).when(mDisplayAndroid).getDisplayId();
         doReturn(TEST_DENSITY).when(mDisplayAndroid).getDipScale();
-        doReturn(TEST_BOUNDS).when(mDisplayAndroid).getBounds();
+        doReturn(TEST_LOCAL_BOUNDS).when(mDisplayAndroid).getLocalBounds();
     }
 
     @After
@@ -258,15 +258,14 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
                 Map.of(mWebContents, mock(Tab.class), newWebContents, mock(Tab.class));
         mTabWebContentsDelegateAndroid.setTabMap(tabMap);
 
-        mTabWebContentsDelegateAndroid.webContentsCreated(
-                mWebContents, 0, 0, "testFrame", new GURL("https://foo.com"), newWebContents);
         mTabWebContentsDelegateAndroid.addNewContents(
                 mWebContents,
                 newWebContents,
+                new GURL("https://foo.com"),
                 WindowOpenDisposition.NEW_FOREGROUND_TAB,
                 new WindowFeatures(),
                 false);
-        verify(mTabGroupModelFilter, never()).mergeListOfTabsToGroup(any(), any(), anyBoolean());
+        verify(mTabGroupModelFilter, never()).mergeListOfTabsToGroup(any(), any(), anyInt());
     }
 
     @Test
@@ -285,16 +284,16 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
         Map<WebContents, Tab> tabMap = Map.of(mWebContents, parentTab, newWebContents, newTab);
         mTabWebContentsDelegateAndroid.setTabMap(tabMap);
 
-        mTabWebContentsDelegateAndroid.webContentsCreated(
-                mWebContents, 0, 0, "testFrame", new GURL("https://foo.com"), newWebContents);
         mTabWebContentsDelegateAndroid.addNewContents(
                 mWebContents,
                 newWebContents,
+                new GURL("https://foo.com"),
                 WindowOpenDisposition.NEW_FOREGROUND_TAB,
                 new WindowFeatures(),
                 false);
         verify(mTabGroupModelFilter)
-                .mergeListOfTabsToGroup(Arrays.asList(newTab), parentTab, false);
+                .mergeListOfTabsToGroup(
+                        Arrays.asList(newTab), parentTab, MergeNotificationType.DONT_NOTIFY);
     }
 
     @Test
@@ -308,11 +307,10 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
                 .createTabWithWebContents(
                         any(), anyBoolean(), any(), anyInt(), any(), anyBoolean());
 
-        mTabWebContentsDelegateAndroid.webContentsCreated(
-                mWebContents, 0, 0, "testFrame", new GURL("https://foo.com"), newWebContents);
         mTabWebContentsDelegateAndroid.addNewContents(
                 mWebContents,
                 newWebContents,
+                new GURL("https://foo.com"),
                 WindowOpenDisposition.NEW_POPUP,
                 new WindowFeatures(),
                 true);
@@ -348,8 +346,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
         mTabWebContentsDelegateAndroid.setIsPopup(true);
         final AppTask mockAppTask = mock(AppTask.class);
         AndroidTaskUtils.setAppTaskForTesting(mockAppTask);
-        ServiceLoaderUtil.setInstanceForTesting(
-                AconfigFlaggedApiDelegate.class, mFlaggedApiDelegate);
+        AconfigFlaggedApiDelegate.setInstanceForTesting(mFlaggedApiDelegate);
 
         mTabWebContentsDelegateAndroid.setContentsBounds(mWebContents, new Rect(0, 0, 400, 400));
 
@@ -362,8 +359,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
         mTabWebContentsDelegateAndroid.setIsPopup(true);
         final AppTask mockAppTask = mock(AppTask.class);
         AndroidTaskUtils.setAppTaskForTesting(mockAppTask);
-        ServiceLoaderUtil.setInstanceForTesting(
-                AconfigFlaggedApiDelegate.class, mFlaggedApiDelegate);
+        AconfigFlaggedApiDelegate.setInstanceForTesting(mFlaggedApiDelegate);
 
         mTabWebContentsDelegateAndroid.setContentsBounds(
                 mWebContents, new Rect(-100, -100, 2000, 2000));
@@ -373,7 +369,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
         final Rect passedBounds = captor.getValue();
         Assert.assertTrue(
                 "The bounds passed to moveTaskTo do not fit inside display",
-                TEST_BOUNDS.contains(passedBounds));
+                TEST_LOCAL_BOUNDS.contains(passedBounds));
     }
 
     @Test
@@ -382,8 +378,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
         mTabWebContentsDelegateAndroid.setIsPopup(true);
         final AppTask mockAppTask = mock(AppTask.class);
         AndroidTaskUtils.setAppTaskForTesting(mockAppTask);
-        ServiceLoaderUtil.setInstanceForTesting(
-                AconfigFlaggedApiDelegate.class, mFlaggedApiDelegate);
+        AconfigFlaggedApiDelegate.setInstanceForTesting(mFlaggedApiDelegate);
 
         mTabWebContentsDelegateAndroid.setContentsBounds(mWebContents, new Rect(0, 0, 400, 400));
 
@@ -396,7 +391,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
         mTabWebContentsDelegateAndroid.setIsPopup(true);
         final AppTask mockAppTask = mock(AppTask.class);
         AndroidTaskUtils.setAppTaskForTesting(mockAppTask);
-        ServiceLoaderUtil.setInstanceForTesting(AconfigFlaggedApiDelegate.class, null);
+        AconfigFlaggedApiDelegate.setInstanceForTesting(null);
 
         mTabWebContentsDelegateAndroid.setContentsBounds(mWebContents, new Rect(0, 0, 400, 400));
         // No assertions -- just verifying that there is no NPE thrown.
@@ -408,8 +403,7 @@ public class ActivityTabWebContentsDelegateAndroidUnitTest {
         mTabWebContentsDelegateAndroid.setIsPopup(false);
         final AppTask mockAppTask = mock(AppTask.class);
         AndroidTaskUtils.setAppTaskForTesting(mockAppTask);
-        ServiceLoaderUtil.setInstanceForTesting(
-                AconfigFlaggedApiDelegate.class, mFlaggedApiDelegate);
+        AconfigFlaggedApiDelegate.setInstanceForTesting(mFlaggedApiDelegate);
 
         mTabWebContentsDelegateAndroid.setContentsBounds(mWebContents, new Rect(0, 0, 400, 400));
 

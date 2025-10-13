@@ -62,7 +62,7 @@
 #include "ui/gfx/geometry/size_conversions.h"
 #import "ui/gfx/mac/coordinate_conversion.h"
 #import "ui/gfx/mac/nswindow_frame_controls.h"
-#include "ui/gfx/native_window_types.h"
+#include "ui/gfx/native_ui_types.h"
 
 using remote_cocoa::mojom::VisibilityTransition;
 using remote_cocoa::mojom::WindowVisibilityState;
@@ -536,10 +536,11 @@ void NativeWidgetNSWindowBridge::InitWindow(
   is_translucent_window_ = params->is_translucent;
   pending_restoration_data_ = params->state_restoration_data;
 
-  if (params->is_headless_mode_window)
+  if (display::Screen::Get()->IsHeadless()) {
     headless_mode_window_ = std::make_optional<HeadlessModeWindow>();
+  }
 
-  [window_ setIsHeadless:params->is_headless_mode_window];
+  [window_ setIsHeadless:headless_mode_window_.has_value()];
 
   // Register for application hide notifications so that visibility can be
   // properly tracked. This is not done in the delegate so that the lifetime is
@@ -1018,8 +1019,11 @@ void NativeWidgetNSWindowBridge::SetLocalEventMonitorEnabled(bool enabled) {
           ui::EventFromNative(base::apple::OwnedNSEvent(event));
       bool event_handled = false;
       if (ui_event && ui_event->type() != ui::EventType::kUnknown) {
-        weak_ptr->host_->DispatchMonitorEvent(std::move(ui_event),
-                                              &event_handled);
+        // Pass up whether or not the event is for this specific window. This
+        // allows consumers to filter events that are not for this window.
+        bool target_is_this_window = event.window == weak_ptr->window_;
+        weak_ptr->host_->DispatchMonitorEvent(
+            std::move(ui_event), target_is_this_window, &event_handled);
       }
 
       return event_handled ? nil : event;

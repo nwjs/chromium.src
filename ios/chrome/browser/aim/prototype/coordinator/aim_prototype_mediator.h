@@ -10,6 +10,7 @@
 #include <memory>
 
 #import "components/omnibox/composebox/ios/composebox_file_upload_observer_bridge.h"
+#import "ios/chrome/browser/aim/prototype/coordinator/aim_omnibox_client_delegate.h"
 #import "ios/chrome/browser/aim/prototype/ui/aim_prototype_consumer.h"
 #import "ios/chrome/browser/aim/prototype/ui/aim_prototype_mutator.h"
 #import "ios/chrome/browser/shared/public/commands/load_query_commands.h"
@@ -17,6 +18,9 @@
 class ComposeboxQueryControllerIOS;
 @class AIMPrototypeMediator;
 class UrlLoadingBrowserAgent;
+class FaviconLoader;
+class GURL;
+class WebStateList;
 
 // Delegate for the AIM prototype mediator.
 @protocol AIMPrototypeMediatorDelegate
@@ -24,7 +28,8 @@ class UrlLoadingBrowserAgent;
 @end
 
 // Mediator for the AIM prototype.
-@interface AIMPrototypeMediator : NSObject <AIMPrototypeMutator,
+@interface AIMPrototypeMediator : NSObject <AIMOmniboxClientDelegate,
+                                            AIMPrototypeMutator,
                                             ComposeboxFileUploadObserver,
                                             LoadQueryCommands>
 
@@ -35,12 +40,17 @@ class UrlLoadingBrowserAgent;
                     (UrlLoadingBrowserAgent*)urlLoadingBrowserAgent
                      composeboxQueryController:
                          (std::unique_ptr<ComposeboxQueryControllerIOS>)
-                             composeboxQueryController;
+                             composeboxQueryController
+                                  webStateList:(WebStateList*)webStateList
+                                 faviconLoader:(FaviconLoader*)faviconLoader;
 
 - (void)disconnect;
 
 // Processes the given `itemProvider` for an image.
 - (void)processImageItemProvider:(NSItemProvider*)itemProvider;
+
+// Processes the given `PDFFileURL` for a file.
+- (void)processPDFFileURL:(GURL)PDFFileURL;
 
 @end
 

@@ -12,4 +12,7 @@ bool IsRichAutocompletionEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kRichAutocompletion);
 }
 
-BASE_FEATURE(BeginCursorAtPointTentativeFix, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSOmniboxUseTextView, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kBeginCursorAtPointTentativeFix,
+             base::FEATURE_DISABLED_BY_DEFAULT);

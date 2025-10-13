@@ -109,7 +109,30 @@ class CORE_EXPORT HTMLPermissionElement
   bool IsHTMLPermissionElement() const final { return true; }
 
  protected:
+  // blink::HTMLElement:
+  void AttributeChanged(const AttributeModificationParams& params) override;
+
   void setType(const AtomicString& type);
+  uint16_t GetTranslatedMessageID(uint16_t message_id,
+                                  const AtomicString& language_string);
+  virtual void UpdateText();
+
+  // Update permission statuses and appearance based on the current statuses.
+  virtual void UpdatePermissionStatusAndAppearance();
+
+  virtual mojom::blink::EmbeddedPermissionRequestDescriptorPtr
+  CreateEmbeddedPermissionRequestDescriptor();
+
+  // Called when the |permission_status_map_| is updated to
+  // - Ensure that |aggregated_permission_status_| and
+  //   |initial_aggregated_permission_status_| are updated.
+  void UpdatePermissionStatus();
+
+  HTMLSpanElement* permission_text_span() const {
+    return permission_text_span_.Get();
+  }
+
+  bool is_precise_location() const { return is_precise_location_; }
 
  private:
   // TODO(crbug.com/1315595): remove this friend class once migration
@@ -120,6 +143,13 @@ class CORE_EXPORT HTMLPermissionElement
   friend class HTMLPermissionElementLayoutChangeTest;
 
   FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTestBase, GetTypeAttribute);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTest,
+                           GeolocationTranslateInnerText);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTest,
+                           GeolocationSetInnerTextAfterRegistration);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementTest, GeolocationStatusChange);
+  FRIEND_TEST_ALL_PREFIXES(HTMLGeolocationElementSimTest,
+                           GeolocationInitializeGrantedText);
   FRIEND_TEST_ALL_PREFIXES(HTMLPermissionElementClickingEnabledTest,
                            UnclickableBeforeRegistered);
   FRIEND_TEST_ALL_PREFIXES(HTMLPermissionElementIntersectionTest,
@@ -327,7 +357,6 @@ class CORE_EXPORT HTMLPermissionElement
   void EnsureUnregisterPageEmbeddedPermissionControl();
 
   // blink::Element implements
-  void AttributeChanged(const AttributeModificationParams& params) override;
   void DidAddUserAgentShadowRoot(ShadowRoot&) override;
   void AdjustStyle(ComputedStyleBuilder& builder) override;
   void DidRecalcStyle(const StyleRecalcChange change) override;
@@ -443,14 +472,6 @@ class CORE_EXPORT HTMLPermissionElement
   //   reason. As the result, the timer will always match with the "longest
   //   alive temporary disabling reason".
   void RefreshDisableReasonsAndUpdateTimer();
-
-  // Called when the |permission_status_map_| is updated to
-  // - Ensure that |aggregated_permission_status_| and
-  //   |initial_aggregated_permission_status_| are updated.
-  // - Update appearance based on the current statuses.
-  void UpdatePermissionStatusAndAppearance();
-
-  void UpdateText();
 
   void AddConsoleError(String error);
   void AddConsoleWarning(String warning);

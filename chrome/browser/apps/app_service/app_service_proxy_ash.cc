@@ -17,7 +17,6 @@
 #include "chrome/browser/apps/app_service/app_icon/app_icon_factory.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_util.h"
 #include "chrome/browser/apps/app_service/app_install/app_install_service.h"
-#include "chrome/browser/apps/app_service/instance_registry_updater.h"
 #include "chrome/browser/apps/app_service/metrics/app_platform_metrics.h"
 #include "chrome/browser/apps/app_service/metrics/app_platform_metrics_service.h"
 #include "chrome/browser/apps/app_service/metrics/app_service_metrics.h"
@@ -25,9 +24,8 @@
 #include "chrome/browser/apps/app_service/promise_apps/promise_app_registry_cache.h"
 #include "chrome/browser/apps/app_service/promise_apps/promise_app_service.h"
 #include "chrome/browser/apps/app_service/publisher.h"
+#include "chrome/browser/apps/app_service/publisher_host_factory.h"
 #include "chrome/browser/apps/app_service/uninstall_dialog.h"
-#include "chrome/browser/apps/browser_instance/browser_app_instance_registry.h"
-#include "chrome/browser/apps/browser_instance/browser_app_instance_tracker.h"
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
 #include "chrome/browser/ash/app_restore/full_restore_service_factory.h"
 #include "chrome/browser/ash/child_accounts/child_user_service.h"
@@ -74,8 +72,10 @@ AppServiceProxyAsh::OnAppsRequest::OnAppsRequest(std::vector<AppPtr> deltas,
 
 AppServiceProxyAsh::OnAppsRequest::~OnAppsRequest() = default;
 
-AppServiceProxyAsh::AppServiceProxyAsh(Profile* profile)
-    : AppServiceProxyBase(profile),
+AppServiceProxyAsh::AppServiceProxyAsh(
+    Profile* profile,
+    PublisherHostFactory* publisher_host_factory)
+    : AppServiceProxyBase(profile, publisher_host_factory),
       icon_reader_(profile),
       icon_writer_(profile) {
   instance_registry_observer_.Observe(&instance_registry_);
@@ -141,7 +141,7 @@ void AppServiceProxyAsh::Initialize() {
     app_registry_cache_observer_.Observe(cache);
   }
 
-  publisher_host_ = std::make_unique<PublisherHost>(this);
+  publisher_host_ = publisher_host_factory_->CreatePublisherHost(this);
 
   if (!profile_->AsTestingProfile() &&
       (!::ash::features::IsShimlessRMA3pDiagnosticsEnabled() ||
@@ -171,16 +171,6 @@ apps::AppPlatformMetricsService*
 AppServiceProxyAsh::AppPlatformMetricsService() {
   return app_platform_metrics_service_ ? app_platform_metrics_service_.get()
                                        : nullptr;
-}
-
-apps::BrowserAppInstanceTracker*
-AppServiceProxyAsh::BrowserAppInstanceTracker() {
-  return nullptr;
-}
-
-apps::BrowserAppInstanceRegistry*
-AppServiceProxyAsh::BrowserAppInstanceRegistry() {
-  return nullptr;
 }
 
 apps::AppInstallService& AppServiceProxyAsh::AppInstallService() {
@@ -385,7 +375,7 @@ base::WeakPtr<AppServiceProxyAsh> AppServiceProxyAsh::GetWeakPtr() {
 
 void AppServiceProxyAsh::ReInitializeCrostiniForTesting() {
   if (publisher_host_) {
-    publisher_host_->ReInitializeCrostiniForTesting(this);  // IN-TEST
+    publisher_host_->ReInitializeCrostiniForTesting();  // IN-TEST
   }
 }
 

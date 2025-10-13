@@ -11,6 +11,7 @@
 #include "base/feature_list.h"
 #include "base/i18n/rtl.h"
 #include "base/notreached.h"
+#include "chrome/browser/actor/ui/actor_overlay_web_view.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -20,6 +21,7 @@
 #include "chrome/browser/ui/views/frame/contents_rounded_corner.h"
 #include "chrome/browser/ui/views/frame/contents_separator.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
+#include "chrome/browser/ui/views/frame/multi_contents_background_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_drop_target_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_resize_area.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view_delegate.h"
@@ -34,7 +36,11 @@
 #include "content/public/browser/web_contents.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/ozone_buildflags.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_type.h"
 #include "ui/events/types/event_type.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/views/view_class_properties.h"
@@ -59,6 +65,9 @@ MultiContentsView::MultiContentsView(
   SetLayoutManager(std::make_unique<views::DelegatingLayoutManager>(this));
   SetProperty(views::kElementIdentifierKey, kMultiContentsViewElementId);
 
+  background_view_ =
+      AddChildView(std::make_unique<MultiContentsBackgroundView>(browser_view));
+
   contents_container_views_.push_back(
       AddChildView(std::make_unique<ContentsContainerView>(browser_view_)));
   contents_container_views_[0]
@@ -79,17 +88,17 @@ MultiContentsView::MultiContentsView(
           *drop_target_view_, *delegate_, g_browser_process->local_state());
 
   contents_separators_.top_separator =
-      AddChildView(std::make_unique<ContentsSeparator>());
+      AddChildView(ContentsSeparator::CreateLayerBasedContentsSeparator());
   contents_separators_.top_separator->SetProperty(
       views::kElementIdentifierKey, kContentsSeparatorTopEdgeElementId);
 
   contents_separators_.leading_separator =
-      AddChildView(std::make_unique<ContentsSeparator>());
+      AddChildView(ContentsSeparator::CreateLayerBasedContentsSeparator());
   contents_separators_.leading_separator->SetProperty(
       views::kElementIdentifierKey, kContentsSeparatorLeadingEdgeElementId);
 
   contents_separators_.trailing_separator =
-      AddChildView(std::make_unique<ContentsSeparator>());
+      AddChildView(ContentsSeparator::CreateLayerBasedContentsSeparator());
   contents_separators_.trailing_separator->SetProperty(
       views::kElementIdentifierKey, kContentsSeparatorTrailingEdgeElementId);
 
@@ -122,6 +131,14 @@ MultiContentsView::MultiContentsView(
                   base::BindRepeating(&MultiContentsView::OnNtpFooterFocused,
                                       base::Unretained(this))));
     }
+
+    if (contents_container_view->actor_overlay_web_view()) {
+      actor_overlay_focused_subscriptions_.push_back(
+          contents_container_view->actor_overlay_web_view()
+              ->AddWebContentsFocusedCallback(
+                  base::BindRepeating(&MultiContentsView::OnActorOverlayFocused,
+                                      base::Unretained(this))));
+    }
   }
 
   is_drag_drop_pref_enabled_ =
@@ -142,6 +159,7 @@ MultiContentsView::~MultiContentsView() {
   drop_target_view_ = nullptr;
   resize_area_ = nullptr;
   contents_separators_.Reset();
+  background_view_ = nullptr;
   RemoveAllChildViews();
 }
 
@@ -161,6 +179,14 @@ ContentsContainerView* MultiContentsView::GetActiveContentsContainerView()
 ContentsContainerView* MultiContentsView::GetInactiveContentsContainerView()
     const {
   return contents_container_views_[GetInactiveIndex()];
+}
+
+const gfx::RoundedCornersF& MultiContentsView::background_radii() const {
+  return background_view_->GetRoundedCorners();
+}
+
+void MultiContentsView::SetBackgroundRadii(const gfx::RoundedCornersF& radii) {
+  background_view_->SetRoundedCorners(radii);
 }
 
 ContentsContainerView* MultiContentsView::GetContentsContainerViewFor(
@@ -363,11 +389,6 @@ double MultiContentsView::CalculateRatioWithSnapPoints(
   return end_width / total_width;
 }
 
-void MultiContentsView::OnPaint(gfx::Canvas* canvas) {
-  // Paint the multi contents area background to match the toolbar.
-  TopContainerBackground::PaintBackground(canvas, this, browser_view_);
-}
-
 void MultiContentsView::OnThemeChanged() {
   views::View::OnThemeChanged();
   UpdateContentsBorderAndOverlay();
@@ -384,6 +405,20 @@ void MultiContentsView::OnWebContentsFocused(views::WebView* web_view) {
     if (GetInactiveContentsView()->web_contents() == web_view->web_contents() &&
         GetWidget()->IsVisible()) {
       delegate_->WebContentsFocused(web_view->web_contents());
+    }
+  }
+}
+
+void MultiContentsView::OnActorOverlayFocused(views::WebView* web_view) {
+  if (IsInSplitView() && GetWidget()->IsVisible()) {
+    for (auto* contents_container_view : contents_container_views_) {
+      if (contents_container_view->actor_overlay_web_view() &&
+          contents_container_view->actor_overlay_web_view() == web_view &&
+          GetInactiveContentsView() ==
+              contents_container_view->contents_view()) {
+        return delegate_->WebContentsFocused(
+            GetInactiveContentsView()->web_contents());
+      }
     }
   }
 }
@@ -414,6 +449,12 @@ views::ProposedLayout MultiContentsView::CalculateProposedLayout(
   const int height = size_bounds.height().value();
 
   gfx::Rect available_space = gfx::Rect(width, height);
+
+  const bool show_background =
+      drop_target_view_->GetVisible() || IsInSplitView();
+  layouts.child_layouts.emplace_back(background_view_.get(), show_background,
+                                     available_space);
+
   if (IsDragAndDropEnabled()) {
     available_space =
         CalculateDropTargetLayout(available_space, layouts.child_layouts);

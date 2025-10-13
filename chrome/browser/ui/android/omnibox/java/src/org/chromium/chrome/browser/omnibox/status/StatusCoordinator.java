@@ -95,7 +95,8 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
             PageInfoAction pageInfoAction,
             @Nullable Supplier<MerchantTrustSignalsCoordinator>
                     merchantTrustSignalsCoordinatorSupplier,
-            BrowserStateBrowserControlsVisibilityDelegate browserControlsVisibilityDelegate) {
+            @Nullable BrowserStateBrowserControlsVisibilityDelegate
+                    browserControlsVisibilityDelegate) {
         mIsTablet = isTablet;
         mStatusView = statusView;
         mLocationBarDataProvider = locationBarDataProvider;
@@ -110,7 +111,9 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
         PageInfoIphController pageInfoIphController =
                 new PageInfoIphController(
                         new UserEducationHelper(
-                                activity, profileSupplier, new Handler(Looper.getMainLooper())),
+                                activity,
+                                (Supplier<@Nullable Profile>) profileSupplier,
+                                new Handler(Looper.getMainLooper())),
                         getSecurityIconView());
 
         mMediator =

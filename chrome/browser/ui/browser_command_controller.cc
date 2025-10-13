@@ -63,6 +63,7 @@
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_prefs.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
@@ -651,6 +652,12 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_MOVE_TAB_TO_NEW_WINDOW:
       MoveActiveTabToNewWindow(browser_);
       break;
+    case IDC_NEW_SPLIT_TAB:
+      if (!browser_->tab_strip_model()->GetActiveTab()->IsSplit()) {
+        NewSplitTab(browser_,
+                    split_tabs::SplitTabCreatedSource::kKeyboardShortcut);
+      }
+      break;
     case IDC_NAME_WINDOW:
       PromptToNameWindow(browser_);
       break;
@@ -971,6 +978,10 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       ShowSettingsSubPage(browser_->GetBrowserForOpeningWebUi(),
                           chrome::kPeopleSubPage);
       break;
+    case IDC_RECENT_TABS_SEE_DEVICE_TABS:
+      ShowHistorySubPage(browser_->GetBrowserForOpeningWebUi(),
+                         kChromeUIHistorySyncedTabs);
+      break;
     case IDC_SHOW_BOOKMARK_MANAGER:
       ShowBookmarkManager(browser_->GetBrowserForOpeningWebUi());
       break;
@@ -1051,10 +1062,10 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
                           chrome::kSafetyHubSubPage);
       break;
     case IDC_HELP_PAGE_VIA_KEYBOARD:
-      ShowHelp(browser_, HELP_SOURCE_KEYBOARD);
+      ShowHelp(browser_, chrome::HelpSource::kKeyboard);
       break;
     case IDC_HELP_PAGE_VIA_MENU:
-      ShowHelp(browser_, HELP_SOURCE_MENU);
+      ShowHelp(browser_, chrome::HelpSource::kMenu);
       break;
     case IDC_CHROME_TIPS:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -1113,6 +1124,7 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
                                     TabGroupShortcut::kCloseTabGroup);
       break;
     case IDC_CREATE_NEW_TAB_GROUP:
+    case IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL:
       CreateNewTabGroup(browser_);
       base::UmaHistogramEnumeration("TabGroups.Shortcuts",
                                     TabGroupShortcut::kCreateNewTabGroup);
@@ -1121,6 +1133,11 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       AddNewTabToGroup(browser_);
       base::UmaHistogramEnumeration("TabGroups.Shortcuts",
                                     TabGroupShortcut::kAddNewTabToGroup);
+      break;
+    case IDC_GROUP_UNGROUPED_TABS:
+      GroupAllUngroupedTabs(browser_);
+      base::RecordAction(
+          base::UserMetricsAction("TabGroups_GroupAllUngroupedTabs"));
       break;
 
     case IDC_WINDOW_CLOSE_TABS_TO_RIGHT:
@@ -1408,6 +1425,9 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_FOCUS_NEXT_TAB_GROUP, true);
   command_updater_.UpdateCommandEnabled(IDC_FOCUS_PREV_TAB_GROUP, true);
   command_updater_.UpdateCommandEnabled(IDC_CLOSE_TAB_GROUP, true);
+  command_updater_.UpdateCommandEnabled(IDC_GROUP_UNGROUPED_TABS, true);
+  command_updater_.UpdateCommandEnabled(IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL,
+                                        true);
 
   // Omnibox commands
   command_updater_.UpdateCommandEnabled(IDC_SHOW_FULL_URLS, true);
@@ -1529,6 +1549,10 @@ void BrowserCommandController::InitCommandState() {
                              !profile()->IsIncognitoProfile()));
   command_updater_.UpdateCommandEnabled(
       IDC_RECENT_TABS_LOGIN_FOR_DEVICE_TABS,
+      (!guest_session && !profile()->IsSystemProfile() &&
+       !profile()->IsIncognitoProfile()));
+  command_updater_.UpdateCommandEnabled(
+      IDC_RECENT_TABS_SEE_DEVICE_TABS,
       (!guest_session && !profile()->IsSystemProfile() &&
        !profile()->IsIncognitoProfile()));
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -2242,6 +2266,8 @@ void BrowserCommandController::UpdateCommandsForTabStripStateChanged() {
                                         CanCloseOtherTabs(browser_));
   command_updater_.UpdateCommandEnabled(IDC_MOVE_TAB_TO_NEW_WINDOW,
                                         CanMoveActiveTabToNewWindow(browser_));
+  command_updater_.UpdateCommandEnabled(IDC_NEW_SPLIT_TAB,
+                                        browser_->is_type_normal());
   UpdateCommandsForBookmarkEditing();
 }
 

@@ -64,6 +64,8 @@ import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
@@ -76,6 +78,7 @@ import org.chromium.chrome.browser.dragdrop.ChromeDropDataAndroid;
 import org.chromium.chrome.browser.dragdrop.ChromeMultiTabDropDataAndroid;
 import org.chromium.chrome.browser.dragdrop.ChromeTabDropDataAndroid;
 import org.chromium.chrome.browser.dragdrop.ChromeTabGroupDropDataAndroid;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowTestUtils;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
@@ -221,6 +224,7 @@ public class TabStripDragHandlerTest {
         FaviconHelperJni.setInstanceForTesting(mFaviconHelperJniMock);
 
         when(mTabModel.getProfile()).thenReturn(mProfile);
+        when(mTabModelSelector.getCurrentTab()).thenReturn(mTabBeingDragged);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mTabModel);
         when(mTabModelSelector.getModel(anyBoolean())).thenReturn(mTabModel);
         when(mTabModelSelector.getTabGroupModelFilterProvider())
@@ -854,20 +858,44 @@ public class TabStripDragHandlerTest {
 
     /** Test for Tab Drag {@link #ONDRAG_TEST_CASES} - Scenario D.2 */
     @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void test_onDrag_dropInStrip_differentModel_destination() {
         doTestDropInDestinationDifferentModel(/* isGroupDrag= */ false);
     }
 
     /** Test for Tab Group Drag {@link #ONDRAG_TEST_CASES} - Scenario D.2 */
     @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void test_onDrag_dropInStrip_differentModel_destination_tabGroup() {
         doTestDropInDestinationDifferentModel(/* isGroupDrag= */ true);
     }
 
     /** Test for Multi-Tab Drag {@link #ONDRAG_TEST_CASES} - Scenario D.2 */
     @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void test_onDrag_dropInStrip_differentModel_destination_multiTab() {
         doTestDropInDestinationDifferentModel_multiTab();
+    }
+
+    /** Test for Tab Drag {@link #ONDRAG_TEST_CASES} - Scenario D.2 */
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
+    public void test_onDrag_dropInStrip_differentModel_fail_incognitoAsNewWindow() {
+        doTestDropInDestinationDifferentModel_fail(/* isGroupDrag= */ false);
+    }
+
+    /** Test for Tab Group Drag {@link #ONDRAG_TEST_CASES} - Scenario D.2 */
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
+    public void test_onDrag_dropInStrip_differentModel_fail_tabGroup_incognitoAsNewWindow() {
+        doTestDropInDestinationDifferentModel_fail(/* isGroupDrag= */ true);
+    }
+
+    /** Test for Multi-Tab Drag {@link #ONDRAG_TEST_CASES} - Scenario D.2 */
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
+    public void test_onDrag_dropInStrip_differentModel_fail_multiTab_incognitoAsNewWindow() {
+        doTestDropInDestinationDifferentModel_fail_multiTab();
     }
 
     /**
@@ -1272,8 +1300,7 @@ public class TabStripDragHandlerTest {
                 .dragExit(mSourceInstance)
                 .end(false);
 
-        verifyToast(
-                ContextUtils.getApplicationContext().getString(R.string.max_number_of_windows, 5));
+        verify(mSourceMultiInstanceManager).showInstanceCreationLimitMessage(any());
         if (!isGroupDrag) {
             histogramExpectation.assertExpected();
         }
@@ -1482,6 +1509,39 @@ public class TabStripDragHandlerTest {
 
         // Verify histograms.
         histogramExpectation.assertExpected();
+    }
+
+    private void doTestDropInDestinationDifferentModel_fail(boolean isGroupDrag) {
+        // Destination tab model is incognito.
+        when(mTabModel.isIncognitoBranded()).thenReturn(true);
+        TabModel standardModelDestination = mock(TabModel.class);
+        when(standardModelDestination.getProfile()).thenReturn(mProfile);
+        when(mTabModelSelector.getModel(false)).thenReturn(standardModelDestination);
+        when(standardModelDestination.getCount()).thenReturn(5);
+
+        // Verify - View did not moved to destination window at end.
+        invokeDropInDestinationStrip(
+                /* dragEndRes= */ false, isGroupDrag, /* isGroupShared= */ false);
+        verifyViewNotMovedToWindow(isGroupDrag);
+    }
+
+    private void doTestDropInDestinationDifferentModel_fail_multiTab() {
+        // Destination tab model is incognito.
+        when(mTabModel.isIncognitoBranded()).thenReturn(true);
+        TabModel standardModelDestination = mock(TabModel.class);
+        when(standardModelDestination.getProfile()).thenReturn(mProfile);
+        when(mTabModelSelector.getModel(false)).thenReturn(standardModelDestination);
+        when(standardModelDestination.getCount()).thenReturn(5);
+
+        // Verify - View did not moved to destination window at end.
+        new DragEventInvoker(DragType.MULTI_TAB, /* isGroupShared= */ false)
+                .dragExit(mSourceInstance)
+                .verifyShadowVisibility(true)
+                .dragEnter(mDestInstance)
+                .verifyShadowVisibility(true)
+                .drop(mDestInstance)
+                .end(true);
+        verifyViewNotMovedToWindow(/* isGroupDrag= */ false);
     }
 
     private void doTestDropInDestinationToolbarContainer(boolean isGroupDrag) {
@@ -2108,11 +2168,11 @@ public class TabStripDragHandlerTest {
     private void verifyViewNotMovedToWindow(boolean isGroupDrag) {
         if (isGroupDrag) {
             // Verify tab group is not moved.
-            verify(mSourceMultiInstanceManager, times(0))
+            verify(mDestMultiInstanceManager, times(0))
                     .moveTabGroupToWindow(any(Activity.class), eq(mTabGroupMetadata), anyInt());
         } else {
             // Verify tab is not moved.
-            verify(mSourceMultiInstanceManager, times(0))
+            verify(mDestMultiInstanceManager, times(0))
                     .moveTabsToWindow(any(Activity.class), any(), anyInt());
         }
     }

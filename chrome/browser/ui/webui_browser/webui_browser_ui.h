@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
 #include "chrome/browser/ui/webui_browser/bookmark_bar.mojom.h"
 #include "chrome/browser/ui/webui_browser/browser.mojom.h"
+#include "chrome/browser/ui/webui_browser/extensions_bar.mojom.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_window.h"
 #include "components/guest_contents/common/guest_contents.mojom.h"
 #include "content/public/browser/web_contents.h"
@@ -19,6 +20,7 @@
 #include "content/public/browser/webui_config.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "ui/webui/color_change_listener/color_change_handler.h"
 #include "ui/webui/mojo_web_ui_controller.h"
 #include "ui/webui/resources/js/tracked_element/tracked_element.mojom.h"
 
@@ -52,7 +54,8 @@ class WebUIBrowserUIConfig
 // The WebUI for chrome://webui-browser
 class WebUIBrowserUI : public ui::MojoWebUIController,
                        public webui_browser::mojom::PageHandlerFactory,
-                       public bookmark_bar::mojom::PageHandlerFactory {
+                       public bookmark_bar::mojom::PageHandlerFactory,
+                       public extensions_bar::mojom::PageHandlerFactory {
  public:
   explicit WebUIBrowserUI(content::WebUI* web_ui);
   ~WebUIBrowserUI() override;
@@ -61,6 +64,9 @@ class WebUIBrowserUI : public ui::MojoWebUIController,
       mojo::PendingReceiver<webui_browser::mojom::PageHandlerFactory> receiver);
   void BindInterface(
       mojo::PendingReceiver<bookmark_bar::mojom::PageHandlerFactory> receiver);
+  void BindInterface(
+      mojo::PendingReceiver<extensions_bar::mojom::PageHandlerFactory>
+          receiver);
   void BindInterface(mojo::PendingReceiver<searchbox::mojom::PageHandler>
                          pending_page_handler);
   void BindInterface(
@@ -71,6 +77,9 @@ class WebUIBrowserUI : public ui::MojoWebUIController,
       mojo::PendingReceiver<tabs_api::mojom::TabStripService> receiver);
   void BindInterface(
       mojo::PendingReceiver<tracked_element::mojom::TrackedElementHandler>
+          receiver);
+  void BindInterface(
+      mojo::PendingReceiver<color_change_listener::mojom::PageHandler>
           receiver);
 
   void BookmarkBarStateChanged(BookmarkBar::AnimateChangeType change_type);
@@ -102,6 +111,12 @@ class WebUIBrowserUI : public ui::MojoWebUIController,
                          mojo::PendingReceiver<bookmark_bar::mojom::PageHandler>
                              receiver) override;
 
+  // extensions_bar::mojom::PageHandlerFactory:
+  void CreatePageHandler(
+      mojo::PendingRemote<extensions_bar::mojom::Page> page,
+      mojo::PendingReceiver<extensions_bar::mojom::PageHandler> receiver)
+      override;
+
   // Returns the list of known element identifiers. These elements are HTML
   // elements tracked by ui/webui/tracked_element. Used for anchoring secondary
   // UIs.
@@ -112,6 +127,7 @@ class WebUIBrowserUI : public ui::MojoWebUIController,
   std::unique_ptr<WebUIBrowserBookmarkBarPageHandler>
       bookmark_bar_page_handler_;
   std::unique_ptr<ui::TrackedElementHandler> tracked_element_handler_;
+  std::unique_ptr<ui::ColorChangeHandler> color_provider_handler_;
 
   mojo::Remote<webui_browser::mojom::Page> page_;
   mojo::Receiver<webui_browser::mojom::PageHandlerFactory>
@@ -119,6 +135,8 @@ class WebUIBrowserUI : public ui::MojoWebUIController,
 
   mojo::Receiver<bookmark_bar::mojom::PageHandlerFactory>
       bookmark_bar_page_factory_receiver_{this};
+  mojo::Receiver<extensions_bar::mojom::PageHandlerFactory>
+      extensions_bar_page_factory_receiver_{this};
 
   raw_ptr<Browser> browser_;
 

@@ -5,10 +5,10 @@
 package org.chromium.chrome.browser.ntp_customization.theme.chrome_colors;
 
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.ColorRes;
-import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.core.content.ContextCompat;
 
@@ -39,23 +39,48 @@ public class NtpThemeColorInfo {
     // Used as the omnibox color.
     public @ColorInt int highlightColor;
 
-    public @DrawableRes int iconResId;
+    public Drawable iconDrawable;
 
     private static final float HIGHLIGHT_COLOR_ALPHA = 0.15f;
 
+    /**
+     * Constructor for predefined colors.
+     *
+     * @param context The Activity context.
+     * @param id The ID of the theme color.
+     * @param backgroundColorResId The resource ID of the background color.
+     * @param primaryColorResId The resource ID of the primary color.
+     */
     public NtpThemeColorInfo(
             Context context,
             @NtpThemeColorId int id,
             @ColorRes int backgroundColorResId,
-            @ColorRes int primaryColorResId,
-            @DrawableRes int iconResId) {
+            @ColorRes int primaryColorResId) {
         this.id = id;
-        this.backgroundColor = ContextCompat.getColor(context, backgroundColorResId);
-        this.primaryColor = ContextCompat.getColor(context, primaryColorResId);
-        this.highlightColor =
+        backgroundColor = ContextCompat.getColor(context, backgroundColorResId);
+        primaryColor = ContextCompat.getColor(context, primaryColorResId);
+        highlightColor =
                 ColorUtils.setAlphaComponentWithFloat(this.primaryColor, HIGHLIGHT_COLOR_ALPHA);
-        // TODO(https://crbug.com/440583138): User LayerDrawable and update @fillcolor instead of
-        // creating one drawable per svg file for the icon.
-        this.iconResId = iconResId;
+        iconDrawable =
+                NtpThemeColorUtils.createColoredCircle(
+                        context, backgroundColor, primaryColor, highlightColor);
+    }
+
+    /**
+     * Constructor for custom colors.
+     *
+     * @param context The Activity context.
+     * @param backgroundColor The background color.
+     * @param primaryColor The primary color.
+     */
+    public NtpThemeColorInfo(
+            Context context, @ColorInt int backgroundColor, @ColorInt int primaryColor) {
+        this.backgroundColor = backgroundColor;
+        this.primaryColor = primaryColor;
+        this.highlightColor =
+                ColorUtils.setAlphaComponentWithFloat(primaryColor, HIGHLIGHT_COLOR_ALPHA);
+        iconDrawable =
+                NtpThemeColorUtils.createColoredCircle(
+                        context, backgroundColor, primaryColor, highlightColor);
     }
 }

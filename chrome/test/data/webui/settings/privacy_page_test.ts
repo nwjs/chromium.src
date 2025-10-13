@@ -7,53 +7,23 @@ import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {CrToastElement} from 'chrome://settings/lazy_load.js';
-import {ClearBrowsingDataBrowserProxyImpl, ContentSetting, CookieControlsMode, SiteSettingsPrefsBrowserProxyImpl} from 'chrome://settings/lazy_load.js';
+import {ClearBrowsingDataBrowserProxyImpl, CookieControlsMode} from 'chrome://settings/lazy_load.js';
 import type {CrLinkRowElement, Route, SettingsPrefsElement, SettingsPrivacyPageElement, SyncStatus} from 'chrome://settings/settings.js';
 import {CrSettingsPrefs, HatsBrowserProxyImpl, MetricsBrowserProxyImpl, PrivacyGuideInteractions, PrivacyPageBrowserProxyImpl, resetRouterForTesting, Router, routes, StatusAction, TrustSafetyInteraction} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue, assertThrows} from 'chrome://webui-test/chai_assert.js';
-import {eventToPromise, isChildVisible, isVisible} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, isChildVisible} from 'chrome://webui-test/test_util.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 
 import {TestClearBrowsingDataBrowserProxy} from './test_clear_browsing_data_browser_proxy.js';
 import {TestHatsBrowserProxy} from './test_hats_browser_proxy.js';
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
 import {TestPrivacyPageBrowserProxy} from './test_privacy_page_browser_proxy.js';
-import {TestSiteSettingsPrefsBrowserProxy} from './test_site_settings_prefs_browser_proxy.js';
 
 const redesignedPages: Route[] = [
-  routes.SITE_SETTINGS_ADS,
-  routes.SITE_SETTINGS_AR,
-  routes.SITE_SETTINGS_AUTOMATIC_DOWNLOADS,
-  routes.SITE_SETTINGS_BACKGROUND_SYNC,
-  routes.SITE_SETTINGS_CAMERA,
-  routes.SITE_SETTINGS_CLIPBOARD,
-  routes.SITE_SETTINGS_FEDERATED_IDENTITY_API,
-  routes.SITE_SETTINGS_FILE_SYSTEM_WRITE,
   routes.SITE_SETTINGS_HANDLERS,
-  routes.SITE_SETTINGS_HID_DEVICES,
-  routes.SITE_SETTINGS_IDLE_DETECTION,
-  routes.SITE_SETTINGS_IMAGES,
-  routes.SITE_SETTINGS_JAVASCRIPT,
-  routes.SITE_SETTINGS_JAVASCRIPT_OPTIMIZER,
-  routes.SITE_SETTINGS_LOCAL_FONTS,
-  routes.SITE_SETTINGS_MICROPHONE,
-  routes.SITE_SETTINGS_MIDI_DEVICES,
   routes.SITE_SETTINGS_NOTIFICATIONS,
-  routes.SITE_SETTINGS_PAYMENT_HANDLER,
   routes.SITE_SETTINGS_PDF_DOCUMENTS,
-  routes.SITE_SETTINGS_POPUPS,
   routes.SITE_SETTINGS_PROTECTED_CONTENT,
-  routes.SITE_SETTINGS_SENSORS,
-  routes.SITE_SETTINGS_SERIAL_PORTS,
-  routes.SITE_SETTINGS_SOUND,
-  routes.SITE_SETTINGS_STORAGE_ACCESS,
-  routes.SITE_SETTINGS_USB_DEVICES,
-  routes.SITE_SETTINGS_VR,
-
-  // WEB_PRINTING is currently only supported on ChromeOS.
-  // <if expr="is_chromeos">
-  routes.SITE_SETTINGS_WEB_PRINTING,
-  // </if>
 
   // TODO(crbug.com/40719916) After restructure add coverage for elements on
   // routes which depend on flags being enabled.
@@ -147,75 +117,16 @@ suite('PrivacyPage', function() {
     assertEquals('test', toast.textContent!.trim());
   });
 
-  // TODO(crbug.com/417690232): Update once its kBundledSecuritySettings is
-  // launched.
+  // Test that clicking on the security page row navigates to
+  // chrome://settings/security
   test('onSecurityPageClick', function() {
-    // Click on the security page row that takes us to
-    // chrome://settings/security
     page.$.securityLinkRow.click();
     flush();
     assertEquals(routes.SECURITY, Router.getInstance().getCurrentRoute());
-
-    // Make sure that the new UI is visible and the old UI is not.
-    assertTrue(!!page.shadowRoot!.querySelector('settings-security-page-v2'));
-    assertFalse(!!page.shadowRoot!.querySelector('settings-security-page'));
   });
 
   test('privacySandboxRestricted', function() {
     assertFalse(isChildVisible(page, '#privacySandboxLinkRow'));
-  });
-
-  test('LearnMoreHid', async function() {
-    Router.getInstance().navigateTo(routes.SITE_SETTINGS_HID_DEVICES);
-    await flushTasks();
-
-    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage');
-    assertTrue(!!settingsSubpage);
-    assertTrue(isVisible(settingsSubpage));
-    assertEquals(
-        settingsSubpage.learnMoreUrl,
-        'https://support.google.com/chrome?p=webhid&hl=en-US');
-  });
-
-  test('LearnMoreSerial', async function() {
-    Router.getInstance().navigateTo(routes.SITE_SETTINGS_SERIAL_PORTS);
-    await flushTasks();
-
-    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage');
-    assertTrue(!!settingsSubpage);
-    assertTrue(isVisible(settingsSubpage));
-    assertEquals(
-        settingsSubpage.learnMoreUrl,
-        'https://support.google.com/chrome?p=webserial&hl=en-US');
-  });
-
-  test('LearnMoreUsb', async function() {
-    Router.getInstance().navigateTo(routes.SITE_SETTINGS_USB_DEVICES);
-    await flushTasks();
-
-    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage');
-    assertTrue(!!settingsSubpage);
-    assertTrue(isVisible(settingsSubpage));
-    assertEquals(
-        settingsSubpage.learnMoreUrl,
-        'https://support.google.com/chrome?p=webusb&hl=en-US');
-  });
-
-  test('StorageAccessPage', async function() {
-    Router.getInstance().navigateTo(routes.SITE_SETTINGS_STORAGE_ACCESS);
-    await flushTasks();
-
-    const categorySettingExceptions =
-        page.shadowRoot!.querySelectorAll('storage-access-site-list');
-
-    assertEquals(2, categorySettingExceptions.length);
-    assertTrue(isVisible(categorySettingExceptions[0]!));
-    assertEquals(
-        ContentSetting.BLOCK, categorySettingExceptions[0]!.categorySubtype);
-
-    assertTrue(isVisible(categorySettingExceptions[1]!));
-    assertEquals(
-        ContentSetting.ALLOW, categorySettingExceptions[1]!.categorySubtype);
   });
 });
 
@@ -853,62 +764,6 @@ suite('HappinessTrackingSurveys', function() {
   });
 });
 
-suite('EnableWebBluetoothNewPermissionsBackend', function() {
-  let page: SettingsPrivacyPageElement;
-  let settingsPrefs: SettingsPrefsElement;
-  let testClearBrowsingDataBrowserProxy: TestClearBrowsingDataBrowserProxy;
-  let siteSettingsBrowserProxy: TestSiteSettingsPrefsBrowserProxy;
-  let metricsBrowserProxy: TestMetricsBrowserProxy;
-
-  suiteSetup(function() {
-    loadTimeData.overrideValues({
-      isPrivacySandboxRestricted: true,
-      enableWebBluetoothNewPermissionsBackend: true,
-    });
-    resetRouterForTesting();
-
-    settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
-  });
-
-  setup(function() {
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-
-    testClearBrowsingDataBrowserProxy = new TestClearBrowsingDataBrowserProxy();
-    ClearBrowsingDataBrowserProxyImpl.setInstance(
-        testClearBrowsingDataBrowserProxy);
-    const testBrowserProxy = new TestPrivacyPageBrowserProxy();
-    PrivacyPageBrowserProxyImpl.setInstance(testBrowserProxy);
-    siteSettingsBrowserProxy = new TestSiteSettingsPrefsBrowserProxy();
-    SiteSettingsPrefsBrowserProxyImpl.setInstance(siteSettingsBrowserProxy);
-    metricsBrowserProxy = new TestMetricsBrowserProxy();
-    MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
-
-    page = document.createElement('settings-privacy-page');
-    page.prefs = settingsPrefs.prefs!;
-    document.body.appendChild(page);
-    return flushTasks();
-  });
-
-  teardown(function() {
-    page.remove();
-    Router.getInstance().navigateTo(routes.BASIC);
-  });
-
-  test('LearnMoreBluetooth', async function() {
-    Router.getInstance().navigateTo(
-        routes.SITE_SETTINGS.createChild('bluetoothDevices'));
-    await flushTasks();
-
-    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage');
-    assertTrue(!!settingsSubpage);
-    assertTrue(isVisible(settingsSubpage));
-    assertEquals(
-        settingsSubpage.learnMoreUrl,
-        'https://support.google.com/chrome?p=bluetooth&hl=en-US');
-  });
-});
-
 // TODO(crbug.com/397187800): Remove once kDbdRevampDesktop is launched.
 suite('DeleteBrowsingDataRevampDisabled', () => {
   let page: SettingsPrivacyPageElement;
@@ -941,37 +796,5 @@ suite('DeleteBrowsingDataRevampDisabled', () => {
     const dialog =
         page.shadowRoot!.querySelector('settings-clear-browsing-data-dialog');
     assertTrue(!!dialog);
-  });
-});
-
-// TODO(crbug.com/417690232): Remove once kBundledSecuritySettings is launched.
-suite('BundledSecuritySettingsDisabled', () => {
-  let page: SettingsPrivacyPageElement;
-  let settingsPrefs: SettingsPrefsElement;
-
-  suiteSetup(function() {
-    settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
-  });
-
-  setup(function() {
-    loadTimeData.overrideValues({
-      enableBundledSecuritySettings: false,
-    });
-    resetRouterForTesting();
-
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    page = document.createElement('settings-privacy-page');
-    page.prefs = settingsPrefs.prefs!;
-    document.body.appendChild(page);
-    return flushTasks();
-  });
-
-  test('renderOriginalSecurityPage', function() {
-    assertFalse(!!page.shadowRoot!.querySelector('settings-security-page'));
-    page.$.securityLinkRow.click();
-    flush();
-
-    assertTrue(!!page.shadowRoot!.querySelector('settings-security-page'));
   });
 });

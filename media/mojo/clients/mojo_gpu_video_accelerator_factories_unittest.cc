@@ -139,7 +139,7 @@ class TestGpuChannelHost : public gpu::GpuChannelHost {
 
 class MockOverlayInfoCbHandler {
  public:
-  MOCK_METHOD2(Call, void(bool, media::ProvideOverlayInfoCB));
+  MOCK_METHOD1(Call, void(media::ProvideOverlayInfoCB));
 };
 
 class MockContextProviderCommandBuffer
@@ -147,16 +147,7 @@ class MockContextProviderCommandBuffer
  public:
   explicit MockContextProviderCommandBuffer(
       scoped_refptr<gpu::GpuChannelHost> channel)
-      : viz::ContextProviderCommandBuffer(
-            std::move(channel),
-            kGpuStreamIdDefault,
-            kGpuStreamPriorityDefault,
-            GURL(),
-            false,
-            true,
-            gpu::SharedMemoryLimits(),
-            gpu::ContextCreationAttribs(),
-            viz::command_buffer_metrics::ContextType::FOR_TESTING) {}
+      : viz::ContextProviderCommandBuffer(std::move(channel)) {}
 
   MOCK_METHOD(gpu::CommandBufferProxyImpl*,
               GetCommandBufferProxy,
@@ -448,9 +439,11 @@ class MojoGpuVideoAcceleratorFactoriesTest : public testing::Test {
     gpu_command_buffer_proxy_ = std::make_unique<gpu::CommandBufferProxyImpl>(
         gpu_channel_host_, kGpuStreamIdDefault,
         task_environment_.GetMainThreadTaskRunner());
-    gpu_command_buffer_proxy_->Initialize(nullptr, kGpuStreamPriorityDefault,
-                                          gpu::ContextCreationAttribs(),
-                                          GURL());
+    gpu_command_buffer_proxy_->Initialize(
+        nullptr, kGpuStreamPriorityDefault,
+        gpu::mojom::ContextCreationAttribs::NewGles(
+            gpu::mojom::GLESCreationAttribs::New()),
+        GURL());
     ON_CALL(*mock_context_provider_, GetCommandBufferProxy())
         .WillByDefault(Return(gpu_command_buffer_proxy_.get()));
   }

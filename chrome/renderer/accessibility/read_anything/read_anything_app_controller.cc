@@ -494,29 +494,32 @@ void ReadAnythingAppController::OnNodeWillBeDeleted(ui::AXTree* tree,
 
 void ReadAnythingAppController::OnNodeDeleted(ui::AXTree* tree,
                                               ui::AXNodeID node_id) {
-  if (displayed_nodes_pending_deletion_.contains(node_id)) {
-    displayed_nodes_pending_deletion_.erase(node_id);
+  if (!displayed_nodes_pending_deletion_.contains(node_id)) {
+    return;
+  }
 
-    // Instead of redrawing everything, we inform the webui that the node is
-    // being deleted and it will adjust on that side. See OnNodeWillBeDeleted.
-    if (IsReadAloudEnabled()) {
-      return;
-    }
+  displayed_nodes_pending_deletion_.erase(node_id);
 
-    // For Google Docs, we extract text from the "annotated canvas" element
-    // nodes, which hold the currently visible text on screen. As the user
-    // scrolls, these canvas elements are dynamically updated, resulting in
-    // frequent calls to OnNodeDeleted. We found that redrawing content in the
-    // Reading Model panel after node deletion during scrolling can lead to
-    // unexpected behavior (e.g., an empty side panel). Therefore, Google Docs
-    // require special handling to ensure correct text extraction and avoid
-    // these issues.
-    if (displayed_nodes_pending_deletion_.empty() && !IsGoogleDocs()) {
-      Draw(false);
-      if (model_.has_selection()) {
-        DrawSelection();
-      }
-    }
+  // For Google Docs, we extract text from the "annotated canvas" element
+  // nodes, which hold the currently visible text on screen. As the user
+  // scrolls, these canvas elements are dynamically updated, resulting in
+  // frequent calls to OnNodeDeleted. We found that redrawing content in the
+  // Reading Model panel after node deletion during scrolling can lead to
+  // unexpected behavior (e.g., an empty side panel). Therefore, Google Docs
+  // require special handling to ensure correct text extraction and avoid
+  // these issues.
+  if (!displayed_nodes_pending_deletion_.empty() || IsGoogleDocs()) {
+    return;
+  }
+
+  // Instead of redrawing everything when Read aloud is enabled, we inform
+  // the webui that the node is being deleted and it will adjust on that
+  // side. See OnNodeWillBeDeleted.
+  if (!IsReadAloudEnabled()) {
+    Draw(false);
+  }
+  if (model_.has_selection()) {
+    DrawSelection();
   }
 }
 
@@ -1021,6 +1024,9 @@ void ReadAnythingAppController::DrawSelection() {
 
 void ReadAnythingAppController::DrawEmptyState() {
   ExecuteJavaScript("chrome.readingMode.showEmpty();");
+}
+
+void ReadAnythingAppController::LogEmptyState() {
   base::UmaHistogramEnumeration(ReadAnythingAppModel::kEmptyStateHistogramName,
                                 ReadAnythingAppModel::EmptyState::kShown);
 }
@@ -1099,6 +1105,13 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetProperty("darkTheme", &ReadAnythingAppController::DarkTheme)
       .SetProperty("yellowTheme", &ReadAnythingAppController::YellowTheme)
       .SetProperty("blueTheme", &ReadAnythingAppController::BlueTheme)
+      .SetProperty("highContrastTheme",
+                   &ReadAnythingAppController::HighContrastTheme)
+      .SetProperty("lowContrastTheme",
+                   &ReadAnythingAppController::LowContrastTheme)
+      .SetProperty("sepiaLightTheme",
+                   &ReadAnythingAppController::SepiaLightTheme)
+      .SetProperty("sepiaDarkTheme", &ReadAnythingAppController::SepiaDarkTheme)
       .SetProperty("autoHighlighting",
                    &ReadAnythingAppController::AutoHighlighting)
       .SetProperty("wordHighlighting",
@@ -1155,6 +1168,7 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetMethod("onCopy", &ReadAnythingAppController::OnCopy)
       .SetMethod("onNoTextContent", &ReadAnythingAppController::OnNoTextContent)
       .SetMethod("updateWordsSeen", &ReadAnythingAppController::UpdateWordsSeen)
+      .SetMethod("logEmptyState", &ReadAnythingAppController::LogEmptyState)
       .SetMethod("updateWordsHeard",
                  &ReadAnythingAppController::UpdateWordsHeard)
       .SetMethod("onFontSizeChanged",
@@ -1176,6 +1190,8 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
                  &ReadAnythingAppController::OnSpeechRateChange)
       .SetMethod("getStoredVoice", &ReadAnythingAppController::GetStoredVoice)
       .SetMethod("onVoiceChange", &ReadAnythingAppController::OnVoiceChange)
+      .SetMethod("logExtensionState",
+                 &ReadAnythingAppController::LogExtensionState)
       .SetMethod("onLanguagePrefChange",
                  &ReadAnythingAppController::OnLanguagePrefChange)
       .SetMethod("getLanguagesEnabledInPref",
@@ -1369,6 +1385,22 @@ int ReadAnythingAppController::YellowTheme() const {
 
 int ReadAnythingAppController::BlueTheme() const {
   return base::to_underlying(read_anything::mojom::Colors::kBlue);
+}
+
+int ReadAnythingAppController::HighContrastTheme() const {
+  return base::to_underlying(read_anything::mojom::Colors::kHighContrast);
+}
+
+int ReadAnythingAppController::LowContrastTheme() const {
+  return base::to_underlying(read_anything::mojom::Colors::kLowContrast);
+}
+
+int ReadAnythingAppController::SepiaLightTheme() const {
+  return base::to_underlying(read_anything::mojom::Colors::kSepiaLight);
+}
+
+int ReadAnythingAppController::SepiaDarkTheme() const {
+  return base::to_underlying(read_anything::mojom::Colors::kSepiaDark);
 }
 
 bool ReadAnythingAppController::IsHighlightOn() {
@@ -1768,15 +1800,8 @@ void ReadAnythingAppController::OnCopy() const {
   page_handler_->OnCopy();
 }
 
-void ReadAnythingAppController::OnNoTextContent(bool previouslyHadContent) {
-  if (previouslyHadContent) {
-    Distill();
-  } else {
-    // If updateContent was called on a page with no valid content and
-    // reading mode previously didn't have content, ensure the empty state
-    // is now showing. Otherwise, the loading screen may never terminate.
-    DrawEmptyState();
-  }
+void ReadAnythingAppController::OnNoTextContent() {
+  Distill();
 }
 
 void ReadAnythingAppController::UpdateWordsSeen(int words_seen) {
@@ -1865,6 +1890,12 @@ void ReadAnythingAppController::OnVoiceChange(const std::string& voice,
   std::string base_lang = std::string(language::ExtractBaseLanguage(lang));
   page_handler_->OnVoiceChange(voice, base_lang);
   read_aloud_model_.SetVoice(voice, base_lang);
+}
+
+void ReadAnythingAppController::LogExtensionState() {
+#if !BUILDFLAG(IS_CHROMEOS)
+  page_handler_->LogExtensionState();
+#endif
 }
 
 void ReadAnythingAppController::OnLanguagePrefChange(const std::string& lang,
@@ -2045,6 +2076,7 @@ void ReadAnythingAppController::OnDeviceLocked() {
 }
 #else
 void ReadAnythingAppController::OnTtsEngineInstalled() {
+  VLOG(1) << "OnTtsEngineInstalled";
   ExecuteJavaScript("chrome.readingMode.onTtsEngineInstalled()");
 }
 #endif

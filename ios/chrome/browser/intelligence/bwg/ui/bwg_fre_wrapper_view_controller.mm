@@ -30,6 +30,9 @@ const CGFloat kExtraSpacingTitleContent = 8.0;
 const CGFloat kAnimationDuration = 1.0;
 const CGFloat kDamping = 0.85;
 
+// Spacing for secondary button.
+const CGFloat kSpacingAfterSecondaryButton = 32.0;
+
 }  // namespace
 
 @interface BWGFREWrapperViewController () <BWGPromoViewControllerDelegate>
@@ -117,7 +120,7 @@ const CGFloat kDamping = 0.85;
 - (void)viewWillAppear:(BOOL)animated {
   [super viewWillAppear:animated];
   _contentHeightConstraint = [self.contentScrollView.heightAnchor
-      constraintEqualToConstant:[_currentChildViewController contentHeight]];
+      constraintEqualToConstant:[self childContentHeight]];
   _contentHeightConstraint.active = YES;
   [self.sheetPresentationController invalidateDetents];
 }
@@ -144,8 +147,16 @@ const CGFloat kDamping = 0.85;
 
 // Updates the content height constraint.
 - (void)updateContentHeightConstraint {
-  _contentHeightConstraint.constant =
-      [_currentChildViewController contentHeight];
+  _contentHeightConstraint.constant = [self childContentHeight];
+}
+
+// Returns the child view controller's content height.
+- (CGFloat)childContentHeight {
+  if (@available(iOS 26, *)) {
+    return [_currentChildViewController contentHeight] +
+           kSpacingAfterSecondaryButton;
+  }
+  return [_currentChildViewController contentHeight];
 }
 
 // Creates and returns the stack view containing the animated logos.
@@ -328,7 +339,7 @@ const CGFloat kDamping = 0.85;
 
 // Calculates the total height of the content to be displayed in the sheet.
 - (CGFloat)contentHeight {
-  CGFloat childContentHeight = [_currentChildViewController contentHeight];
+  CGFloat childContentHeight = [self childContentHeight];
   return childContentHeight + kLogoPointSize + kLogoTopGap +
          kExtraSpacingTitleContent;
 }

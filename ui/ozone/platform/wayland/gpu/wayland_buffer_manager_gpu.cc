@@ -4,14 +4,18 @@
 
 #include "ui/ozone/platform/wayland/gpu/wayland_buffer_manager_gpu.h"
 
+#include <drm_fourcc.h>
+
 #include <utility>
 
+#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/process/process.h"
 #include "base/task/current_thread.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "base/version.h"
+#include "components/viz/common/resources/shared_image_format_utils.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rrect_f.h"
 #include "ui/gfx/linux/drm_util_linux.h"
@@ -351,11 +355,21 @@ WaylandBufferManagerGpu::GetModifiersForBufferFormat(
   auto it = supported_buffer_formats_with_modifiers_.find(buffer_format);
   if (it != supported_buffer_formats_with_modifiers_.end()) {
     if (drm_modifiers_filter_) {
-      return drm_modifiers_filter_->Filter(buffer_format, it->second);
+      return drm_modifiers_filter_->Filter(
+          viz::GetSharedImageFormat(buffer_format), it->second);
     }
     return it->second;
   }
   return {};
+}
+
+bool WaylandBufferManagerGpu::AllowsImplicitModifierForBufferFormat(
+    gfx::BufferFormat buffer_format) const {
+  auto it = supported_buffer_formats_with_modifiers_.find(buffer_format);
+  if (it != supported_buffer_formats_with_modifiers_.end()) {
+    return base::Contains(it->second, DRM_FORMAT_MOD_INVALID);
+  }
+  return false;
 }
 
 uint32_t WaylandBufferManagerGpu::AllocateBufferID() {

@@ -36,7 +36,7 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 #include "ui/base/window_open_disposition.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -259,6 +259,9 @@ class BrowserWindow : public ui::BaseWindow {
   // changed.
   virtual void UpdateDevTools(content::WebContents* inspected_web_contents) = 0;
 
+  // Returns true if the browser window can dock a DevTools panel.
+  virtual bool CanDockDevTools() const = 0;
+
   // Update any loading animations running in the window. |is_visible| is true
   // if the window is visible.
   virtual void UpdateLoadingAnimations(bool is_visible) = 0;
@@ -474,7 +477,7 @@ class BrowserWindow : public ui::BaseWindow {
   virtual views::Button* GetSharingHubIconButton() = 0;
 
   // Toggles the multitask menu on the browser frame size button.
-  virtual void ToggleMultitaskMenu() const = 0;
+  virtual void ToggleMultitaskMenu() = 0;
 #else
   // Shows the Sharing Hub bubble. This must only be called as a direct result
   // of user action.
@@ -564,13 +567,14 @@ class BrowserWindow : public ui::BaseWindow {
   GetWebContentsModalDialogHostFor(content::WebContents* web_contents) = 0;
 
   // Construct a BrowserWindow implementation for the specified |browser|.
-  static BrowserWindow* CreateBrowserWindow(std::unique_ptr<Browser> browser,
-                                            bool user_gesture,
-                                            bool in_tab_dragging);
+  static std::unique_ptr<BrowserWindow, BrowserWindowDeleter>
+  CreateBrowserWindow(Browser* browser,
+                      bool user_gesture,
+                      bool in_tab_dragging);
 
   virtual void ShowAvatarBubbleFromAvatarButton(bool is_source_accelerator) = 0;
 
-  // Attempts showing the In-Produce-Help for profile Switching. This is called
+  // Attempts showing the In-Product-Help for profile Switching. This is called
   // after creating a new profile or opening an existing profile. If the profile
   // customization bubble is shown, the IPH should be shown after.
   virtual void MaybeShowProfileSwitchIPH() = 0;
@@ -671,11 +675,10 @@ class BrowserWindow : public ui::BaseWindow {
   virtual BrowserView* AsBrowserView() = 0;
 
  protected:
-  // Synchronously destroys the Browser.
-  // TODO(crbug.com/413168662): This can be removed once the ownership structure
-  // is updated and Browser owns BrowserWindow.
-  friend class Browser;
-  virtual void DestroyBrowser() = 0;
+  friend struct BrowserWindowDeleter;
+  // Deletes `this`. Note BrowserWindow will no longer be valid after this
+  // returns.
+  virtual void DeleteBrowserWindow() = 0;
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_H_

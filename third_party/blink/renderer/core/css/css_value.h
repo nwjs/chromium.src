@@ -235,7 +235,6 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   void ReResolveUrl(const Document&) const;
 
   bool operator==(const CSSValue&) const;
-  bool operator!=(const CSSValue& o) const { return !(*this == o); }
 
   // Returns the same CSS value, but populated with the given tree scope for
   // tree-scoped names and references.
@@ -246,6 +245,10 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     return PopulateWithTreeScope(tree_scope);
   }
   bool IsScopedValue() const { return !needs_tree_scope_population_; }
+
+  bool IsTriggerAttachmentValue() const {
+    return class_type_ == kTriggerAttachmentClass;
+  }
 
 #if DCHECK_IS_ON()
   String ClassTypeToString() const;
@@ -350,6 +353,8 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     kRepeatStyleClass,
 
     kSuperellipseClass,
+
+    kTriggerAttachmentClass,
 
     // List class types must appear after ValueListClass.
     kValueListClass,

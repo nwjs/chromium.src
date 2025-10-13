@@ -17,9 +17,6 @@ namespace base {
 class TimeDelta;
 }  // namespace base
 
-// Feature flag to enable the Keyboard Accessory Upgrade for iPads.
-BASE_DECLARE_FEATURE(kIOSKeyboardAccessoryUpgradeForIPad);
-
 // Test-only: Feature flag used to verify that EG2 can trigger flags. Must be
 // always disabled by default, because it is used to verify that enabling
 // features in tests works.
@@ -161,6 +158,9 @@ BASE_DECLARE_FEATURE(kShareInWebContextMenuIOS);
 // Feature flag to log metrics for the edit menu.
 BASE_DECLARE_FEATURE(kIOSBrowserEditMenuMetrics);
 
+// Feature flag to enable the custom file upload menu.
+BASE_DECLARE_FEATURE(kIOSCustomFileUploadMenu);
+
 // Docking Promo experiment variations.
 
 // A parameter representing the experimental arm for when the Docking Promo is
@@ -296,6 +296,9 @@ BASE_DECLARE_FEATURE(kLensOverlayForceShowOnboardingScreen);
 // Feature flag to add lens overlay navigation to history.
 BASE_DECLARE_FEATURE(kLensOverlayNavigationHistory);
 
+// Feature flag to add a custom bottom sheet presentation Lens results.
+BASE_DECLARE_FEATURE(kLensOverlayCustomBottomSheet);
+
 // Feature flag to check headers for lens searches.
 BASE_DECLARE_FEATURE(kLensSearchHeadersCheckEnabled);
 
@@ -317,6 +320,13 @@ BASE_DECLARE_FEATURE(kNTPMIAEntrypointAllLocales);
 // contains temporary UI exploration for AIM.
 BASE_DECLARE_FEATURE(kAIMPrototype);
 
+// Used to gate the immersive SRP in the AIM prototype.
+BASE_DECLARE_FEATURE(kAIMPrototypeImmersiveSRP);
+
+// Variations of AIM prototype.
+extern const char kAIMPrototypeParam[];
+extern const char kAIMPrototypeParamAllOmniboxEntrypoints[];
+
 // Feature for the DRS prototype.
 BASE_DECLARE_FEATURE(kOmniboxDRSPrototype);
 
@@ -329,6 +339,14 @@ BASE_DECLARE_FEATURE(kRemoveExcessNTPs);
 
 // Feature flag / Kill Switch for TCRex.
 BASE_DECLARE_FEATURE(kTCRexKillSwitch);
+
+// When this flag is enabled, the tab grid will show an empty thumbnail for
+// tabs that don't have one.
+BASE_DECLARE_FEATURE(kTabGridEmptyThumbnail);
+
+// Returns YES when the tab grid should show an empty thumbnail for
+// tabs that don't have one.
+bool IsTabGridEmptyThumbnailUIEnabled();
 
 // When enabled uses new transitions in the TabGrid.
 BASE_DECLARE_FEATURE(kTabGridNewTransitions);
@@ -394,6 +412,9 @@ extern const char kBottomOmniboxDefaultSettingParamBottom[];
 extern const char kBottomOmniboxDefaultSettingParamSafariSwitcher[];
 // Feature flag to change the default position of the omnibox.
 BASE_DECLARE_FEATURE(kBottomOmniboxDefaultSetting);
+
+// Feature flag the "Hide Toolbar" button in the overflow menu.
+BASE_DECLARE_FEATURE(kHideToolbarsInOverflowMenu);
 
 // Feature flag to enable improvdements in the bottom omnibox.
 BASE_DECLARE_FEATURE(kBottomOmniboxEvolution);
@@ -463,8 +484,6 @@ int SafetyCheckNotificationsImpressionLimit();
 
 // Feature flag enabling Choose from Drive.
 BASE_DECLARE_FEATURE(kIOSChooseFromDrive);
-// Feature flag enabling support for simulated clicks in Choose from Drive.
-BASE_DECLARE_FEATURE(kIOSChooseFromDriveSimulatedClick);
 
 // Feature flag enabling a fix for the Download manager mediator.
 BASE_DECLARE_FEATURE(kIOSDownloadNoUIUpdateInBackground);
@@ -656,17 +675,11 @@ bool IsContentPushNotificationsProvisionalRegistrationOnly();
 // change.
 bool IsContentPushNotificationsSetUpListRegistrationOnly();
 
-// Whether or not the Keyboard Accessory Upgrade feature is enabled.
-bool IsKeyboardAccessoryUpgradeEnabled();
-
 // Whether the liquid glass effect is enabled. Returns true on iOS 26+ if the
 // Keyboard Accessory Upgrade feature is enabled (pre KA upgrade code is about
 // to be deprecated, so we're not adding liquid glass support to it). Returns
 // false otherwise.
 bool IsLiquidGlassEffectEnabled();
-
-// Feature for the Magic Stack.
-BASE_DECLARE_FEATURE(kMagicStack);
 
 // Feature that enables tab resumption.
 BASE_DECLARE_FEATURE(kTabResumption);
@@ -741,18 +754,6 @@ BASE_DECLARE_FEATURE(kHomeMemoryImprovements);
 // Whether Home memory improvements are enabled.
 bool IsHomeMemoryImprovementsEnabled();
 
-// Feature flag to enable account confirmation snackbar on startup.
-BASE_DECLARE_FEATURE(kIdentityConfirmationSnackbar);
-
-// Feature params to specify how much time between identity confirmation
-// snackbar triggers to avoid over-prompting. Overridable through Finch.
-extern const base::FeatureParam<base::TimeDelta>
-    kIdentityConfirmationMinDisplayInterval1;
-extern const base::FeatureParam<base::TimeDelta>
-    kIdentityConfirmationMinDisplayInterval2;
-extern const base::FeatureParam<base::TimeDelta>
-    kIdentityConfirmationMinDisplayInterval3;
-
 // Feature flag to enable the registration of customized UITrait arrays. This
 // feature flag is related to the effort to remove invocations of
 // 'traitCollectionDidChange' which was deprecated in iOS 17.
@@ -777,11 +778,6 @@ extern const base::FeatureParam<base::TimeDelta>
 // Feature flag to control force-migrating the primary managed account to its
 // own separate profile.
 BASE_DECLARE_FEATURE(kSeparateProfilesForManagedAccountsForceMigration);
-
-// Kill switch to turn off `kSeparateProfilesForManagedAccounts`, even if
-// multiple profiles already exist.
-// DO NOT CHECK DIRECTLY, use AreSeparateProfilesForManagedAccountsEnabled()!
-BASE_DECLARE_FEATURE(kSeparateProfilesForManagedAccountsKillSwitch);
 
 // Feature to control resyncing the omaha ping timer on foregrounding.
 BASE_DECLARE_FEATURE(kOmahaResyncTimerOnForeground);
@@ -1012,6 +1008,13 @@ bool IsSignInButtonNoAvatarEnabled();
 
 // Feature flag to enable background customization on the NTP.
 BASE_DECLARE_FEATURE(kNTPBackgroundCustomization);
+
+// The parameter representing the maximum number of recently used NTP
+// backgrounds to store.
+extern const base::FeatureParam<int> kMaxRecentlyUsedBackgrounds;
+
+// The maximum number of recently used NTP backgrounds to store.
+int MaxRecentlyUsedBackgrounds();
 
 // Checks if background customization is enabled on the NTP.
 bool IsNTPBackgroundCustomizationEnabled();

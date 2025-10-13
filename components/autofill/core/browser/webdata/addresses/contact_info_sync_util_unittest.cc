@@ -27,8 +27,6 @@ constexpr char kGuid[] = "00000000-0000-0000-0000-000000000001";
 constexpr char kInvalidGuid[] = "1234";
 constexpr int kNonChromeModifier = 1234;
 const auto kUseDate = base::Time::FromSecondsSinceUnixEpoch(123);
-const auto kUseDate2 = base::Time::FromSecondsSinceUnixEpoch(34);
-// No third last use date, to test that absence is handled correctly.
 const auto kModificationDate = base::Time::FromSecondsSinceUnixEpoch(456);
 
 // Returns a profile with all fields set. Contains identical data to the data
@@ -39,8 +37,7 @@ AutofillProfile ConstructBaseProfile(
                           country_code);
 
   profile.usage_history().set_use_count(123);
-  profile.usage_history().set_use_date(kUseDate, 1);
-  profile.usage_history().set_use_date(kUseDate2, 2);
+  profile.usage_history().set_use_date(kUseDate);
   profile.usage_history().set_modification_date(kModificationDate);
   profile.set_language_code("en");
   profile.set_profile_label("profile_label");
@@ -325,6 +322,18 @@ AutofillProfile ConstructCompleteProfileIN() {
   return profile;
 }
 
+AutofillProfile ConstructCompleteProfileJP() {
+  AutofillProfile profile = ConstructBaseProfile(AddressCountryCode("JP"));
+  profile.SetRawInfoWithVerificationStatus(ALTERNATIVE_FULL_NAME,
+                                           u"やまもと あおい",
+                                           VerificationStatus::kUserVerified);
+  profile.SetRawInfoWithVerificationStatus(ALTERNATIVE_GIVEN_NAME, u"あおい",
+                                           VerificationStatus::kParsed);
+  profile.SetRawInfoWithVerificationStatus(ALTERNATIVE_FAMILY_NAME, u"やまもと",
+                                           VerificationStatus::kParsed);
+  return profile;
+}
+
 // Helper function to set ContactInfoSpecifics::String- and IntegerToken
 // together with their verification status and value_hash.
 template <typename TokenType, typename Value>
@@ -346,7 +355,6 @@ ContactInfoSpecifics ConstructBaseSpecifics() {
   specifics.set_address_type(ContactInfoSpecifics::REGULAR);
   specifics.set_use_count(123);
   specifics.set_use_date_unix_epoch_seconds(kUseDate.ToTimeT());
-  specifics.set_use_date2_unix_epoch_seconds(kUseDate2.ToTimeT());
   specifics.set_date_modified_unix_epoch_seconds(kModificationDate.ToTimeT());
   specifics.set_language_code("en");
   specifics.set_profile_label("profile_label");
@@ -373,12 +381,12 @@ ContactInfoSpecifics ConstructBaseSpecifics() {
            ContactInfoSpecifics::PARSED);
   SetToken(specifics.mutable_name_full(), "John K. von Doe",
            ContactInfoSpecifics::USER_VERIFIED);
-  SetToken(specifics.mutable_alternative_family_name(), "Doe",
-           ContactInfoSpecifics::PARSED);
-  SetToken(specifics.mutable_alternative_given_name(), "John",
-           ContactInfoSpecifics::PARSED);
-  SetToken(specifics.mutable_alternative_full_name(), "John Doe",
-           ContactInfoSpecifics::USER_VERIFIED);
+  SetToken(specifics.mutable_alternative_family_name(), "",
+           ContactInfoSpecifics::VERIFICATION_STATUS_UNSPECIFIED);
+  SetToken(specifics.mutable_alternative_given_name(), "",
+           ContactInfoSpecifics::VERIFICATION_STATUS_UNSPECIFIED);
+  SetToken(specifics.mutable_alternative_full_name(), "",
+           ContactInfoSpecifics::VERIFICATION_STATUS_UNSPECIFIED);
 
   // Set address-related values and statuses.
   SetToken(specifics.mutable_address_city(), "Mountain View",
@@ -691,13 +699,29 @@ ContactInfoSpecifics ConstructCompleteSpecificsIN() {
   return specifics;
 }
 
+ContactInfoSpecifics ConstructCompleteSpecificsJP() {
+  ContactInfoSpecifics specifics = ConstructBaseSpecifics();
+
+  SetToken(specifics.mutable_address_country(), "JP",
+           ContactInfoSpecifics::OBSERVED);
+  SetToken(specifics.mutable_alternative_family_name(), "やまもと",
+           ContactInfoSpecifics::PARSED);
+  SetToken(specifics.mutable_alternative_given_name(), "あおい",
+           ContactInfoSpecifics::PARSED);
+  SetToken(specifics.mutable_alternative_full_name(), "やまもと あおい",
+           ContactInfoSpecifics::USER_VERIFIED);
+
+  return specifics;
+}
+
 enum class I18nCountryModel {
   kLegacy = 0,
   kAU = 1,
   kBR = 2,
   kDE = 3,
   kIN = 4,
-  kMX = 5
+  kMX = 5,
+  kJP = 6
 };
 
 // The tests are parameterized with a country to assert that all custom address
@@ -728,6 +752,8 @@ class ContactInfoSyncUtilTest
         return ConstructCompleteProfileMX();
       case I18nCountryModel::kIN:
         return ConstructCompleteProfileIN();
+      case I18nCountryModel::kJP:
+        return ConstructCompleteProfileJP();
     }
   }
 
@@ -746,6 +772,8 @@ class ContactInfoSyncUtilTest
         return ConstructCompleteSpecificsMX();
       case I18nCountryModel::kIN:
         return ConstructCompleteSpecificsIN();
+      case I18nCountryModel::kJP:
+        return ConstructCompleteSpecificsJP();
     }
   }
 
@@ -951,7 +979,8 @@ INSTANTIATE_TEST_SUITE_P(AutofillI18nModels,
                          testing::Values(I18nCountryModel::kLegacy,
                                          I18nCountryModel::kBR,
                                          I18nCountryModel::kMX,
-                                         I18nCountryModel::kIN));
+                                         I18nCountryModel::kIN,
+                                         I18nCountryModel::kJP));
 
 }  // namespace
 }  // namespace autofill

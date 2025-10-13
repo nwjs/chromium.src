@@ -1339,7 +1339,6 @@ ServiceWorkerClient::CreateNetworkURLLoaderFactory(
 
 // If a blob URL is used for a SharedWorker script's URL, a controller will be
 // inherited.
-BASE_FEATURE(SharedWorkerBlobURLFix,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSharedWorkerBlobURLFix, base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace content

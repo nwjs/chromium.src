@@ -13,6 +13,7 @@
 #include "components/favicon_base/favicon_types.h"
 #include "components/favicon_base/favicon_url_parser.h"
 #include "content/public/browser/browser_context.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -21,6 +22,8 @@
 #include "ui/native_theme/native_theme.h"
 #include "ui/resources/grit/ui_resources.h"
 #include "url/gurl.h"
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 namespace extensions {
 class Extension;
@@ -31,7 +34,8 @@ namespace {
 
 int GetResourceID(int size_in_pixels) {
   const bool is_dark =
-      ui::NativeTheme::GetInstanceForNativeUi()->ShouldUseDarkColors();
+      ui::NativeTheme::GetInstanceForNativeUi()->preferred_color_scheme() ==
+      ui::NativeTheme::PreferredColorScheme::kDark;
   if (size_in_pixels >= 64) {
     return is_dark ? IDR_DEFAULT_FAVICON_DARK_64 : IDR_DEFAULT_FAVICON_64;
   }

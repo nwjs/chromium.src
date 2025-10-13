@@ -118,6 +118,7 @@ namespace css_parsing_utils {
 namespace {
 
 const char kTwoDashes[] = "--";
+constexpr size_t kMaxLanguageOverrideLength = 4;
 
 bool IsLeftOrRightKeyword(CSSValueID id) {
   return IdentMatches<CSSValueID::kLeft, CSSValueID::kRight>(id);
@@ -4398,6 +4399,61 @@ CSSValue* ConsumeAnimationDuration(CSSParserTokenStream& stream,
                      CSSPrimitiveValue::ValueRange::kNonNegative);
 }
 
+CSSValue* ConsumeSingleAnimationTriggerAttachment(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context) {
+  if (stream.Peek().FunctionId() != CSSValueID::kTrigger) {
+    return nullptr;
+  }
+
+  CSSCustomIdentValue* trigger_name = nullptr;
+  HeapVector<std::pair<Member<const CSSCustomIdentValue>,
+                       Member<const CSSCustomIdentValue>>>
+      action_behavior_pairs;
+
+  {
+    CSSParserTokenStream::BlockGuard guard(stream);
+    stream.ConsumeWhitespace();
+    // First get the trigger name.
+    trigger_name = ConsumeDashedIdent(stream, context);
+    if (!trigger_name) {
+      return nullptr;
+    }
+
+    stream.ConsumeWhitespace();
+
+    // Now get the action-behavior pairs.
+    while (!stream.AtEnd()) {
+      if (!ConsumeCommaIncludingWhitespace(stream)) {
+        return nullptr;
+      }
+
+      // TODO: separate this out into a ConsumeTriggerAction method, which can
+      // consume actions which are functions, e.g. keypress("Enter"). For now,
+      // we only support simple ident actions.
+      CSSCustomIdentValue* action = ConsumeCustomIdent(stream, context);
+      if (!action) {
+        return nullptr;
+      }
+
+      CSSCustomIdentValue* behavior = ConsumeCustomIdent(stream, context);
+      if (!behavior) {
+        return nullptr;
+      }
+
+      action_behavior_pairs.push_back(std::make_pair(action, behavior));
+    }
+  }
+  stream.ConsumeWhitespace();
+
+  if (!action_behavior_pairs.empty()) {
+    return MakeGarbageCollected<cssvalue::CSSTriggerAttachmentValue>(
+        trigger_name, action_behavior_pairs);
+  }
+
+  return nullptr;
+}
+
 CSSValue* ConsumeTimelineRangeName(CSSParserTokenStream& stream) {
   return RuntimeEnabledFeatures::ScrollTimelineNamedRangeScrollEnabled()
              ? ConsumeIdent<CSSValueID::kContain, CSSValueID::kCover,
@@ -4585,7 +4641,7 @@ CSSValue* ConsumeTimelineTriggerValue(CSSPropertyID property,
       return css_parsing_utils::ConsumeIdent<
           CSSValueID::kOnce, CSSValueID::kRepeat, CSSValueID::kAlternate,
           CSSValueID::kState>(stream);
-    case CSSPropertyID::kTimelineTriggerTimeline:
+    case CSSPropertyID::kTimelineTriggerSource:
       return css_parsing_utils::ConsumeAnimationTimeline(stream, context);
     case CSSPropertyID::kTimelineTriggerRangeStart:
       return css_parsing_utils::ConsumeAnimationRange(stream, context, 0.0,
@@ -6202,6 +6258,62 @@ CSSValue* ConsumeFontFeatureSettings(CSSParserTokenStream& stream,
 CSSValue* ConsumeFontVariationSettings(CSSParserTokenStream& stream,
                                        const CSSParserContext& context) {
   return ConsumeFontSettings<CSSFontVariationValue>(stream, context);
+}
+
+CSSValue* ParseFontLanguageOverrideString(CSSParserTokenStream& stream) {
+  if (stream.Peek().GetType() != kStringToken) {
+    return nullptr;
+  }
+  String language_override = ConsumeStringAsString(stream);
+  if (language_override.IsNull() ||
+      language_override.length() > kMaxLanguageOverrideLength) {
+    return nullptr;
+  }
+
+  // The CSS Fonts Level 4 spec:
+  // https://www.w3.org/TR/css-fonts-4/#font-language-override-prop
+  // is ambiguous about when to pad strings shorter than 4 characters.
+  // To match Firefox's interpretation (Mozilla bug 1814408):
+  // https://bugzilla.mozilla.org/show_bug.cgi?id=1814408
+  // we do not apply padding during parsing. Instead, 1–4 ASCII characters
+  // are accepted as-is, this ensures consistency with shipped behavior.
+  size_t end = language_override.length() - 1;
+  while (end >= 0 && IsCSSSpace(language_override[end])) {
+    --end;
+  }
+  language_override = language_override.Substring(0, end + 1);
+
+  // "All tags are four-character strings composed of a limited set of ASCII
+  // characters" per
+  // https://learn.microsoft.com/en-us/typography/opentype/spec/languagetags
+  // Rejecting non-ASCII characters here also aligns with Firefox's behavior,
+  // even though they allow tags shorter than four characters. This apparent
+  // inconsistency is documented and justified here
+  // https://bugzilla.mozilla.org/show_bug.cgi?id=1814408
+  if (!language_override.ContainsOnlyASCIIOrEmpty()) {
+    return nullptr;
+  }
+
+  if (language_override.length()) {
+    return MakeGarbageCollected<CSSStringValue>(language_override);
+  }
+  return nullptr;
+}
+
+CSSValue* ConsumeFontLanguageOverride(CSSParserTokenStream& stream,
+                                      const CSSParserContext&) {
+  switch (stream.Peek().GetType()) {
+    case kIdentToken:
+      if (stream.Peek().Id() == CSSValueID::kNormal) {
+        return css_parsing_utils::ConsumeIdent(stream);
+      }
+      break;
+    case kStringToken:
+      return ParseFontLanguageOverrideString(stream);
+    default:
+      break;
+  }
+  return nullptr;
 }
 
 CSSIdentifierValue* ConsumeFontVariantCSS21(CSSParserTokenStream& stream) {
@@ -8871,7 +8983,7 @@ CSSValue* ConsumeDashedIdentOrTactic(CSSParserTokenStream& stream,
 
 CSSValue* ConsumeSinglePositionTryFallback(CSSParserTokenStream& stream,
                                            const CSSParserContext& context) {
-  // // <dashed-ident> || <try-tactic>
+  // <dashed-ident> || <try-tactic>
   if (CSSValue* value = ConsumeDashedIdentOrTactic(stream, context)) {
     return value;
   }
@@ -8887,6 +8999,16 @@ CSSValue* ConsumePositionTryFallbacks(CSSParserTokenStream& stream,
   }
   return ConsumeCommaSeparatedList(ConsumeSinglePositionTryFallback, stream,
                                    context);
+}
+
+CSSValue* ConsumeAnchoredFallbackQueryValue(CSSParserTokenStream& stream,
+                                            const CSSParserContext& context) {
+  // <dashed-ident> || <try-tactic>
+  if (CSSValue* value = ConsumeDashedIdentOrTactic(stream, context)) {
+    return value;
+  }
+  // <position-area-query>
+  return ConsumePositionAreaQueryValue(stream);
 }
 
 CSSValue* ConsumeFitText(CSSParserTokenStream& stream,
@@ -8989,9 +9111,15 @@ struct PositionAreaKeyword {
 };
 
 std::optional<PositionAreaKeyword> ConsumePositionAreaKeyword(
-    CSSParserTokenStream& stream) {
+    CSSParserTokenStream& stream,
+    bool allow_any_keyword) {
   PositionAreaKeyword::Type type = PositionAreaKeyword::kGeneral;
   switch (stream.Peek().Id()) {
+    case CSSValueID::kAny:
+      if (!allow_any_keyword) {
+        return std::nullopt;
+      }
+      [[fallthrough]];
     case CSSValueID::kSpanAll:
     case CSSValueID::kCenter:
       // General keywords
@@ -9096,13 +9224,15 @@ std::optional<PositionAreaKeyword> ConsumePositionAreaKeyword(
 //                  [ self-start | center | self-end | span-self-start |
 //                    span-self-end | span-all ]{1,2}
 //                ]
-CSSValue* ConsumePositionArea(CSSParserTokenStream& stream) {
-  std::optional<PositionAreaKeyword> first = ConsumePositionAreaKeyword(stream);
+CSSValue* ConsumePositionArea(CSSParserTokenStream& stream,
+                              bool allow_any_keyword) {
+  std::optional<PositionAreaKeyword> first =
+      ConsumePositionAreaKeyword(stream, allow_any_keyword);
   if (!first.has_value()) {
     return nullptr;
   }
   std::optional<PositionAreaKeyword> second =
-      ConsumePositionAreaKeyword(stream);
+      ConsumePositionAreaKeyword(stream, allow_any_keyword);
   if (!second.has_value()) {
     return first.value().value;
   }
@@ -9123,12 +9253,14 @@ CSSValue* ConsumePositionArea(CSSParserTokenStream& stream) {
   if (first_value->GetValueID() == second_value->GetValueID()) {
     return first_value;
   }
-  if (first_value->GetValueID() == CSSValueID::kSpanAll &&
+  CSSValueID non_repeated_default =
+      allow_any_keyword ? CSSValueID::kAny : CSSValueID::kSpanAll;
+  if (first_value->GetValueID() == non_repeated_default &&
       !css_parsing_utils::IsRepeatedPositionAreaValue(
           second_value->GetValueID())) {
     return second_value;
   }
-  if (second_value->GetValueID() == CSSValueID::kSpanAll &&
+  if (second_value->GetValueID() == non_repeated_default &&
       !css_parsing_utils::IsRepeatedPositionAreaValue(
           first_value->GetValueID())) {
     return first_value;
@@ -9149,8 +9281,9 @@ bool IsRepeatedPositionAreaValue(CSSValueID value_id) {
     case CSSValueID::kSelfEnd:
     case CSSValueID::kSpanSelfStart:
     case CSSValueID::kSpanSelfEnd:
-      // A single value is repeated for the values above. For other values the
-      // default is span-all.
+    case CSSValueID::kAny:  // Used for <position-area-query>
+      // A single value is repeated for the values above.
+      // For other values the default is span-all.
       return true;
     default:
       return false;

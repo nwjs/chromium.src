@@ -672,6 +672,49 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                                  Comparator(ANY, 0), 0, 0);
     return config;
   }
+
+  if (kIPHiOSLensPromoDesktopFeature.name == feature->name) {
+    // Config for allowing other IPH's to explicitly block the iOS lens
+    // promo bubble on desktop if needed. Blocked and blocking by default, so
+    // won't appear at the same time as other IPH, but without any session rate
+    // impact.
+
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(ANY, 0);
+    config.session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config.blocked_by.type = BlockedBy::Type::ALL;
+    config.blocking.type = Blocking::Type::ALL;
+    config.used =
+        EventConfig("ios_lens_promo_bubble_on_desktop_interacted_with",
+                    Comparator(ANY, 0), 0, 0);
+    config.trigger = EventConfig("ios_lens_promo_bubble_on_desktop_shown",
+                                 Comparator(ANY, 0), 0, 0);
+    return config;
+  }
+
+  if (kIPHiOSEnhancedBrowsingDesktopFeature.name == feature->name) {
+    // Config for allowing other IPH's to explicitly block the iOS enhanced
+    // browsing promo bubble on desktop if needed. Blocked and blocking by
+    // default, so won't appear at the same time as other IPH, but without any
+    // session rate impact.
+
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(ANY, 0);
+    config.session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config.blocked_by.type = BlockedBy::Type::ALL;
+    config.blocking.type = Blocking::Type::ALL;
+    config.used = EventConfig(
+        "ios_enhanced_browsing_promo_bubble_on_desktop_interacted_with",
+        Comparator(ANY, 0), 0, 0);
+    config.trigger =
+        EventConfig("ios_enhanced_browsing_promo_bubble_on_desktop_shown",
+                    Comparator(ANY, 0), 0, 0);
+    return config;
+  }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1698,6 +1741,25 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHBookmarksBarFeature.name == feature->name) {
+    FeatureConfig config;
+    config.valid = true;
+    // This feature is available to show immediately upon release and we are not
+    // adding an organic discovery period.
+    config.availability = Comparator(ANY, 0);
+    // The IPH will only be shown if no other IPHs have been shown in the
+    // current session.
+    config.session_rate = Comparator(EQUAL, 0);
+    // Once the trigger event is fired, remember it for 360 days.
+    config.trigger =
+        EventConfig("bookmark_bar_iph_triggered", Comparator(ANY, 0), 0, 360);
+    // The IPH will only be shown if a trigger condition is met + the user has
+    // not opened Appearance in Settings in 360 days.
+    config.used = EventConfig("settings_appearance_opened",
+                              Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+
   if (kIPHPdfPageDownloadFeature.name == feature->name) {
     // A config that allows the pdf page download IPH to be shown to users.
     // This will be triggered a maximum of 3 times (once per 2 weeks) with pdf
@@ -2201,6 +2263,34 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     session_rate_impact.affected_features = affected_features;
     config.session_rate_impact = session_rate_impact;
 
+    return config;
+  }
+
+  if (kIPHiOSReaderModeOptionsFeature.name == feature->name) {
+    // A config that shows the IPH on the Reading mode entrypoint in the
+    // omnibox. Aligns with the contextual panel IPH entrypoint defaults, ie.
+    // shows the IPH 3 times every 6 months (max 1 per day), for a maximum of 6
+    // times lifetime. Stops showing the IPH if Reading Mode options
+    // configuration is used.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(ANY, 0);
+    config.session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config.used = EventConfig(
+        feature_engagement::events::kIOSIPHReaderModeOptionsUsed,
+        Comparator(LESS_THAN, 1), feature_engagement::kMaxStoragePeriod,
+        feature_engagement::kMaxStoragePeriod);
+    config.trigger = EventConfig(
+        feature_engagement::events::kIOSIPHReaderModeOptionsTriggered,
+        Comparator(LESS_THAN, 3), 182, feature_engagement::kMaxStoragePeriod);
+    config.event_configs.insert(EventConfig(
+        feature_engagement::events::kIOSIPHReaderModeOptionsTriggered,
+        Comparator(LESS_THAN, 1), 1, feature_engagement::kMaxStoragePeriod));
+    config.event_configs.insert(EventConfig(
+        feature_engagement::events::kIOSIPHReaderModeOptionsTriggered,
+        Comparator(LESS_THAN, 6), feature_engagement::kMaxStoragePeriod,
+        feature_engagement::kMaxStoragePeriod));
     return config;
   }
 
@@ -2795,35 +2885,34 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
   if (kIPHiOSAIHubNewBadge.name == feature->name) {
     FeatureConfig config;
     config.valid = true;
-    config.availability = Comparator(ANY, 0);  // Available immediately
-    config.session_rate = Comparator(LESS_THAN, 1);
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(ANY, 0);
 
     // This badge showing does not affect the session count for other IPHs.
     config.session_rate_impact.type = SessionRateImpact::Type::NONE;
     config.blocked_by.type = BlockedBy::Type::NONE;
     config.blocking.type = Blocking::Type::NONE;
 
-    // Feature should show as long as used event count is 0.
+    // Feature should show as long as the AI Hub was never used.
     config.used =
         EventConfig(events::kIOSAIHubNewBadgeUsed, Comparator(EQUAL, 0),
                     feature_engagement::kMaxStoragePeriod,
                     feature_engagement::kMaxStoragePeriod);
 
-    // Should trigger no matter how many impressions there are given that other
-    // criterias also allow this feature to show.
+    // Should trigger no matter how many impressions there are.
     config.trigger =
         EventConfig(events::kIOSAIHubNewBadgeTriggered, Comparator(ANY, 0),
                     feature_engagement::kMaxStoragePeriod,
                     feature_engagement::kMaxStoragePeriod);
 
-    // This feature can start showing only after the Gemini promo was shown once
-    // within the past 2 weeks. After 2 weeks since the first time the Gemini
-    // promo was shown, this feature, AI Hub "New" badge, should no longer show.
-    config.event_configs.insert(EventConfig(
-        events::kIOSGeminiPromoFirstCompletion, Comparator(EQUAL, 1), 14,
-        feature_engagement::kMaxStoragePeriod));
+    // This feature should show for 2 weeks after the client was first
+    // considered eligible for the AI Hub.
+    config.event_configs.insert(
+        EventConfig(events::kIOSGeminiEligiblity, Comparator(EQUAL, 1), 14,
+                    feature_engagement::kMaxStoragePeriod));
     return config;
   }
+
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_CHROMEOS)

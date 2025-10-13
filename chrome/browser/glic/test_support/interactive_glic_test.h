@@ -41,6 +41,7 @@
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "content/public/browser/web_contents.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/interactive_test.h"
@@ -427,12 +428,17 @@ class InteractiveGlicTestT : public T {
   }
 
   content::RenderFrameHost* FindGlicGuestMainFrame() {
-    for (GlicPageHandler* handler : host().GetPageHandlersForTesting()) {
+    for (GlicPageHandler* handler :
+         GetHostForActiveTab()->GetPageHandlersForTesting()) {
       if (handler->GetGuestMainFrame()) {
         return handler->GetGuestMainFrame();
       }
     }
     return nullptr;
+  }
+
+  content::WebContents* FindGlicWebUIContents() {
+    return GetHostForActiveTab()->webui_contents();
   }
 
   glic::GlicTestEnvironment& glic_test_environment() {
@@ -461,7 +467,11 @@ class InteractiveGlicTestT : public T {
     return glic_service()->window_controller();
   }
 
-  Host& host() { return glic_service()->host(); }
+  Host* GetHostForActiveTab() {
+    GlicInstance* instance = glic_service()->GetInstanceForActiveTab(browser());
+    CHECK(instance);
+    return &instance->host();
+  }
 
   template <typename... M>
   auto EnsureGlicWindowState(const std::string& desc, M&&... matchers) {

@@ -20,22 +20,19 @@
 #import "ios/chrome/common/channel_info.h"
 #import "ui/base/device_form_factor.h"
 
-BASE_FEATURE(IOSKeyboardAccessoryUpgradeForIPad,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kTestFeature, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(TestFeature, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSafetyCheckMagicStack, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(SafetyCheckMagicStack, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(SafetyCheckAutorunByManagerKillswitch,
+BASE_FEATURE(kSafetyCheckAutorunByManagerKillswitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(SafetyCheckModuleHiddenIfNoIssuesKillswitch,
+BASE_FEATURE(kSafetyCheckModuleHiddenIfNoIssuesKillswitch,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(SafetyCheckNotifications, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSafetyCheckNotifications, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(OmahaServiceRefactor, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kOmahaServiceRefactor, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kTipsLensShopExperimentType[] = "TipsLensShopExperimentType";
 
@@ -124,11 +121,15 @@ const base::TimeDelta TimeDelayForSafetyCheckAutorun() {
   return base::Hours(delay);
 }
 
-BASE_FEATURE(SharedHighlightingIOS, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kHideToolbarsInOverflowMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(ShareInWebContextMenuIOS, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSharedHighlightingIOS, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(IOSBrowserEditMenuMetrics, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kShareInWebContextMenuIOS, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kIOSBrowserEditMenuMetrics, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kIOSCustomFileUploadMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kIOSDockingPromoExperimentType[] = "IOSDockingPromoExperimentType";
 const char kIOSDockingPromoNewUserInactiveThresholdHours[] =
@@ -140,34 +141,35 @@ const char kIOSDockingPromoNewUserInactiveThreshold[] =
 const char kIOSDockingPromoOldUserInactiveThreshold[] =
     "IOSDockingPromoOldUserInactiveThreshold";
 
-BASE_FEATURE(IOSDockingPromo, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSDockingPromo, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(IOSDockingPromoForEligibleUsersOnly,
+BASE_FEATURE(kIOSDockingPromoForEligibleUsersOnly,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(IOSDockingPromoFixedTriggerLogicKillswitch,
+BASE_FEATURE(kIOSDockingPromoFixedTriggerLogicKillswitch,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(IOSDockingPromoPreventDeregistrationKillswitch,
+BASE_FEATURE(kIOSDockingPromoPreventDeregistrationKillswitch,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableLensInOmniboxCopiedImage, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableLensInOmniboxCopiedImage,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableLensOverlay, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableLensOverlay, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableLensViewFinderUnifiedExperience,
+BASE_FEATURE(kEnableLensViewFinderUnifiedExperience,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Update to the correct milestone after launch.
 // Also update in components/omnibox/browser/autocomplete_result.cc.
 const base::NotFatalUntil kLensOverlayNotFatalUntil = base::NotFatalUntil::M200;
 
-BASE_FEATURE(LensLoadAIMInLensResultPage, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensLoadAIMInLensResultPage, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(LensOverlayDisablePriceInsights,
+BASE_FEATURE(kLensOverlayDisablePriceInsights,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(LensOverlayPriceInsightsCounterfactual,
+BASE_FEATURE(kLensOverlayPriceInsightsCounterfactual,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayEnableIPadCompatibility,
@@ -178,12 +180,13 @@ BASE_FEATURE(kLensOverlayEnableLandscapeCompatibility,
              "EnableLensOverlayLandscapeSupport",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(LensOverlayEnableLVFEscapeHatch, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(LensOverlayEnableLocationBarEntrypoint,
+BASE_FEATURE(kLensOverlayEnableLVFEscapeHatch,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(LensOverlayEnableLocationBarEntrypointOnSRP,
+BASE_FEATURE(kLensOverlayEnableLocationBarEntrypoint,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensOverlayEnableLocationBarEntrypointOnSRP,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayEnableSameTabNavigation,
@@ -194,9 +197,11 @@ BASE_FEATURE(kLensOverlayForceShowOnboardingScreen,
              "EnableLensOverlayForceShowOnboardingScreen",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(LensOverlayNavigationHistory, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayNavigationHistory, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(LensSearchHeadersCheckEnabled, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayCustomBottomSheet, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensSearchHeadersCheckEnabled, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Variations of MIA NTP entrypoint.
 const char kNTPMIAEntrypointParam[] = "kNTPMIAEntrypointParam";
@@ -221,19 +226,33 @@ BASE_FEATURE(kNTPMIAEntrypointAllLocales,
 
 // When enabled the AIM ZPS entrypoint will open the AIM prototype which
 // contains temporary UI exploration for AIM.
-BASE_FEATURE(AIMPrototype, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAIMPrototype, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(OmniboxDRSPrototype, base::FEATURE_DISABLED_BY_DEFAULT);
+const char kAIMPrototypeParam[] = "AIMPrototypeParam";
+const char kAIMPrototypeParamAllOmniboxEntrypoints[] =
+    "AIMPrototypeAllOmniboxEntrypoints";
 
-BASE_FEATURE(EnableTraitCollectionWorkAround, base::FEATURE_ENABLED_BY_DEFAULT);
+// Used to gate the immersive SRP in the AIM prototype.
+BASE_FEATURE(kAIMPrototypeImmersiveSRP, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(RemoveExcessNTPs, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kOmniboxDRSPrototype, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableTraitCollectionWorkAround,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kRemoveExcessNTPs, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTCRexKillSwitch,
              "kTCRexKillSwitch",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(TabGridNewTransitions, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTabGridEmptyThumbnail, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsTabGridEmptyThumbnailUIEnabled() {
+  return base::FeatureList::IsEnabled(kTabGridEmptyThumbnail);
+}
+
+BASE_FEATURE(kTabGridNewTransitions, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsNewTabGridTransitionsEnabled() {
   if (IsDiamondPrototypeEnabled()) {
@@ -242,14 +261,14 @@ bool IsNewTabGridTransitionsEnabled() {
   return base::FeatureList::IsEnabled(kTabGridNewTransitions);
 }
 
-BASE_FEATURE(ContextualPanelForceShowEntrypoint,
+BASE_FEATURE(kContextualPanelForceShowEntrypoint,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsContextualPanelForceShowEntrypointEnabled() {
   return base::FeatureList::IsEnabled(kContextualPanelForceShowEntrypoint);
 }
 
-BASE_FEATURE(ContextualPanel, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kContextualPanel, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsContextualPanelEnabled() {
   return base::FeatureList::IsEnabled(kContextualPanel);
@@ -288,7 +307,7 @@ bool ShouldShowRichContextualPanelEntrypointIPH() {
   return kContextualPanelEntrypointRichIPH.Get();
 }
 
-BASE_FEATURE(NonModalDefaultBrowserPromoImpressionLimit,
+BASE_FEATURE(kNonModalDefaultBrowserPromoImpressionLimit,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<int>
@@ -296,7 +315,7 @@ constexpr base::FeatureParam<int>
         &kNonModalDefaultBrowserPromoImpressionLimit,
         /*name=*/"impression-limit", /*default_value=*/3};
 
-BASE_FEATURE(NotificationSettingsMenuItem, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kNotificationSettingsMenuItem, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kBottomOmniboxDefaultSettingParam[] =
     "BottomOmniboxDefaultSettingParam";
@@ -304,13 +323,13 @@ const char kBottomOmniboxDefaultSettingParamTop[] = "Top";
 const char kBottomOmniboxDefaultSettingParamBottom[] = "Bottom";
 const char kBottomOmniboxDefaultSettingParamSafariSwitcher[] =
     "BottomSafariSwitcher";
-BASE_FEATURE(BottomOmniboxDefaultSetting, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kBottomOmniboxDefaultSetting, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(BottomOmniboxEvolution, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kBottomOmniboxEvolution, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(OnlyAccessClipboardAsync, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kOnlyAccessClipboardAsync, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(ThemeColorInTopToolbar, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kThemeColorInTopToolbar, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsSafetyCheckAutorunByManagerEnabled() {
   return base::FeatureList::IsEnabled(kSafetyCheckAutorunByManagerKillswitch);
@@ -355,7 +374,7 @@ int SafetyCheckNotificationsImpressionLimit() {
   return base::GetFieldTrialParamByFeatureAsInt(
       kSafetyCheckNotifications, kSafetyCheckNotificationsImpressionLimit,
       /*default_value=*/
-      3);
+      0);
 }
 
 bool IsTipsMagicStackEnabled() {
@@ -380,36 +399,34 @@ TipsSafeBrowsingExperimentType TipsSafeBrowsingExperimentTypeEnabled() {
       (int)TipsSafeBrowsingExperimentType::kShowEnhancedSafeBrowsingPromo));
 }
 
-BASE_FEATURE(IOSChooseFromDrive, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSChooseFromDrive, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(IOSChooseFromDriveSimulatedClick,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(IOSDownloadNoUIUpdateInBackground,
+BASE_FEATURE(kIOSDownloadNoUIUpdateInBackground,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(IOSManageAccountStorage, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSManageAccountStorage, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(DeprecateFeedHeader, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDeprecateFeedHeader, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableFeedBackgroundRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableFeedBackgroundRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(CreateDiscoverFeedServiceEarly, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kCreateDiscoverFeedServiceEarly,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableFeedAblation, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableFeedAblation, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kContentPushNotificationsExperimentType[] =
     "ContentPushNotificationsExperimentType";
 
-BASE_FEATURE(ContentPushNotifications, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kContentPushNotifications, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(ContentNotificationExperiment, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kContentNotificationExperiment, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsContentNotificationExperimentEnabled() {
   return base::FeatureList::IsEnabled(kContentNotificationExperiment);
 }
 
-BASE_FEATURE(ContentNotificationProvisionalIgnoreConditions,
+BASE_FEATURE(kContentNotificationProvisionalIgnoreConditions,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsContentNotificationProvisionalIgnoreConditions() {
@@ -417,22 +434,22 @@ bool IsContentNotificationProvisionalIgnoreConditions() {
       kContentNotificationProvisionalIgnoreConditions);
 }
 
-BASE_FEATURE(ContentNotificationDeliveredNAU,
+BASE_FEATURE(kContentNotificationDeliveredNAU,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kDeliveredNAUMaxPerSession[] = "DeliveredNAUMaxPerSession";
 
-BASE_FEATURE(FullscreenImprovement, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFullscreenImprovement, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(NewSyncOptInIllustration, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNewSyncOptInIllustration, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsNewSyncOptInIllustration() {
   return base::FeatureList::IsEnabled(kNewSyncOptInIllustration);
 }
 
-BASE_FEATURE(DisableLensCamera, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDisableLensCamera, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(DownloadAutoDeletionClearFilesOnEveryStartup,
+BASE_FEATURE(kDownloadAutoDeletionClearFilesOnEveryStartup,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool isDownloadAutoDeletionTestingFeatureEnabled() {
@@ -440,7 +457,7 @@ bool isDownloadAutoDeletionTestingFeatureEnabled() {
       kDownloadAutoDeletionClearFilesOnEveryStartup);
 }
 
-BASE_FEATURE(DownloadAutoDeletionFeatureEnabled,
+BASE_FEATURE(kDownloadAutoDeletionFeatureEnabled,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsDownloadAutoDeletionFeatureEnabled() {
@@ -460,7 +477,7 @@ DownloadListUIType CurrentDownloadListUIType() {
       (int)DownloadListUIType::kDefaultUI));
 }
 
-BASE_FEATURE(DownloadList, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDownloadList, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Key for NSUserDefaults containing a bool indicating whether the next run
 // should enable feed background refresh capability. This is used because
@@ -663,26 +680,15 @@ bool IsContentPushNotificationsSetUpListRegistrationOnly() {
           NotificationsExperimentTypeSetUpListsRegistrationOnly);
 }
 
-bool IsKeyboardAccessoryUpgradeEnabled() {
-  return (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) ||
-         base::FeatureList::IsEnabled(kIOSKeyboardAccessoryUpgradeForIPad);
-}
-
 bool IsLiquidGlassEffectEnabled() {
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
   if (@available(iOS 26, *)) {
-    return IsKeyboardAccessoryUpgradeEnabled();
+    return true;
   }
-#endif  // defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >=
-        // __IPHONE_26_0
 
   return false;
 }
 
-// Feature disabled by default.
-BASE_FEATURE(MagicStack, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(TabResumption, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kTabResumption, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // A parameter to indicate whether the native UI is enabled for the discover
 // feed.
@@ -703,7 +709,7 @@ const base::TimeDelta TabResumptionForXDevicesTimeThreshold() {
   return base::Seconds(threshold);
 }
 
-BASE_FEATURE(TabResumptionImages, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kTabResumptionImages, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kTabResumptionImagesTypes[] = "tr-images-type";
 const char kTabResumptionImagesTypesSalient[] = "salient";
@@ -737,7 +743,7 @@ bool IsPinnedTabsEnabled() {
   return ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
 }
 
-BASE_FEATURE(SegmentationPlatformIosModuleRankerCaching,
+BASE_FEATURE(kSegmentationPlatformIosModuleRankerCaching,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsSegmentationTipsManagerEnabled() {
@@ -745,13 +751,13 @@ bool IsSegmentationTipsManagerEnabled() {
       segmentation_platform::features::kSegmentationPlatformTipsEphemeralCard);
 }
 
-BASE_FEATURE(SpotlightNeverRetainIndex, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSpotlightNeverRetainIndex, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool ShouldDeprecateFeedHeader() {
   return base::FeatureList::IsEnabled(kDeprecateFeedHeader);
 }
 
-BASE_FEATURE(EnableAppBackgroundRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableAppBackgroundRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsAppBackgroundRefreshEnabled() {
   version_info::Channel channel = ::GetChannel();
@@ -769,41 +775,22 @@ bool IsAppBackgroundRefreshEnabled() {
              crypto::features::kMigrateIOSKeychainAccessibility);
 }
 
-BASE_FEATURE(HomeMemoryImprovements, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kHomeMemoryImprovements, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsHomeMemoryImprovementsEnabled() {
   return base::FeatureList::IsEnabled(kHomeMemoryImprovements);
 }
 
-BASE_FEATURE(IdentityConfirmationSnackbar, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Feature parameters for kIdentityConfirmationSnackbar.
-constexpr base::FeatureParam<base::TimeDelta>
-    kIdentityConfirmationMinDisplayInterval1{
-        &kIdentityConfirmationSnackbar,
-        /*name=*/"IdentityConfirmationMinDisplayInterval1",
-        /*default_value=*/base::Days(1)};
-constexpr base::FeatureParam<base::TimeDelta>
-    kIdentityConfirmationMinDisplayInterval2{
-        &kIdentityConfirmationSnackbar,
-        /*name=*/"IdentityConfirmationMinDisplayInterval2",
-        /*default_value=*/base::Days(7)};
-constexpr base::FeatureParam<base::TimeDelta>
-    kIdentityConfirmationMinDisplayInterval3{
-        &kIdentityConfirmationSnackbar,
-        /*name=*/"IdentityConfirmationMinDisplayInterval3",
-        /*default_value=*/base::Days(30)};
-
-BASE_FEATURE(EnableTraitCollectionRegistration,
+BASE_FEATURE(kEnableTraitCollectionRegistration,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(BlueDotOnToolsMenuButton, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kBlueDotOnToolsMenuButton, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsBlueDotOnToolsMenuButtoneEnabled() {
   return base::FeatureList::IsEnabled(kBlueDotOnToolsMenuButton);
 }
 
-BASE_FEATURE(SeparateProfilesForManagedAccounts,
+BASE_FEATURE(kSeparateProfilesForManagedAccounts,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Feature parameter for kSeparateProfilesForManagedAccountsForceMigration.
@@ -812,17 +799,14 @@ constexpr base::FeatureParam<base::TimeDelta> kMultiProfileMigrationGracePeriod{
     /*name=*/"MultiProfileMigrationGracePeriod",
     /*default_value=*/base::Days(90)};
 
-BASE_FEATURE(SeparateProfilesForManagedAccountsForceMigration,
+BASE_FEATURE(kSeparateProfilesForManagedAccountsForceMigration,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(SeparateProfilesForManagedAccountsKillSwitch,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kOmahaResyncTimerOnForeground, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(OmahaResyncTimerOnForeground, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kChromeStartupParametersAsync, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(ChromeStartupParametersAsync, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(YoutubeIncognito, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kYoutubeIncognito, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kYoutubeIncognitoTargetApps[] = "youtube-incognito-target-apps";
 
@@ -858,7 +842,7 @@ bool IsYoutubeIncognitoErrorHandlingWithoutIncognitoInterstitialEnabled() {
       kYoutubeIncognitoErrorHandlingWithoutIncognitoInterstitialParam, false);
 }
 
-BASE_FEATURE(IOSReactivationNotifications, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSReactivationNotifications, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kIOSReactivationNotificationsTriggerTimeParam[] =
     "reactivation_trigger_time";
@@ -868,23 +852,23 @@ bool IsIOSReactivationNotificationsEnabled() {
   return base::FeatureList::IsEnabled(kIOSReactivationNotifications);
 }
 
-BASE_FEATURE(IOSExpandedTips, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSExpandedTips, base::FEATURE_DISABLED_BY_DEFAULT);
 const char kIOSExpandedTipsOrderParam[] = "expanded_tips_order";
 
 bool IsIOSExpandedTipsEnabled() {
   return base::FeatureList::IsEnabled(kIOSExpandedTips);
 }
 
-BASE_FEATURE(ProvisionalNotificationAlert, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kProvisionalNotificationAlert, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsProvisionalNotificationAlertEnabled() {
   return base::FeatureList::IsEnabled(kProvisionalNotificationAlert);
 }
 
-BASE_FEATURE(IOSOneTimeDefaultBrowserNotification,
+BASE_FEATURE(kIOSOneTimeDefaultBrowserNotification,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(DefaultBrowserBannerPromo, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kDefaultBrowserBannerPromo, base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<int> kDefaultBrowserBannerPromoImpressionLimit{
     &kDefaultBrowserBannerPromo, "DefaultBrowserBannerPromoImpressionLimit", 5};
@@ -901,14 +885,15 @@ constexpr base::FeatureParam<std::string>
 const std::string_view kFRESignInSecondaryActionLabelUpdateParamStaySignedOut =
     "StaySignedOut";
 
-BASE_FEATURE(FRESignInSecondaryActionLabelUpdate,
+BASE_FEATURE(kFRESignInSecondaryActionLabelUpdate,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool FRESignInSecondaryActionLabelUpdate() {
   return base::FeatureList::IsEnabled(kFRESignInSecondaryActionLabelUpdate);
 }
 
-BASE_FEATURE(IOSPushNotificationMultiProfile, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSPushNotificationMultiProfile,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kFullscreenTransitionSlower[] = "SlowFullscreenTransitionSpeed";
 const char kFullscreenTransitionDefaultSpeed[] =
@@ -926,25 +911,26 @@ FullscreenTransitionSpeed FullscreenTransitionSpeedParam() {
           kFullscreenTransitionSpeed, kFullscreenTransitionSpeedParam, 1));
 }
 
-BASE_FEATURE(FullscreenTransitionSpeed, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFullscreenTransitionSpeed, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(RefactorToolbarsSize, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kRefactorToolbarsSize, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsRefactorToolbarsSize() {
   return base::FeatureList::IsEnabled(kRefactorToolbarsSize);
 }
 
-BASE_FEATURE(NewShareExtension, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNewShareExtension, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(IPHAblation, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHAblation, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(LensOverlayDisableIPHPanGesture, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayDisableIPHPanGesture,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsIPHAblationEnabled() {
   return base::FeatureList::IsEnabled(kIPHAblation);
 }
 
-BASE_FEATURE(IPHGestureRecognitionAblation, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHGestureRecognitionAblation, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kIPHGestureRecognitionInsideTapAblation[] =
     "IPHGestureRecognitionInsideTapAblation";
@@ -991,13 +977,13 @@ bool IsIPHGestureRecognitionImprovementEnabled() {
       kIPHGestureRecognitionAblation, kIPHGestureRecognitionImprovement, false);
 }
 
-BASE_FEATURE(NonModalSignInPromo, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNonModalSignInPromo, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsNonModalSignInPromoEnabled() {
   return base::FeatureList::IsEnabled(kNonModalSignInPromo);
 }
 
-BASE_FEATURE(IOSOneTapMiniMapRestrictions, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSOneTapMiniMapRestrictions, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kIOSOneTapMiniMapRestrictionCrossValidateParamName[] =
     "ios-one-tap-minimap-cross-validate";
@@ -1040,40 +1026,48 @@ constexpr base::FeatureParam<double>
         /*name=*/kIOSOneTapMiniMapRestrictionMinAlphanumProportionParamName,
         /*default_value=*/0};
 
-BASE_FEATURE(IOSOneTapMiniMapRemoveSectionsBreaks,
+BASE_FEATURE(kIOSOneTapMiniMapRemoveSectionsBreaks,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(IOSMiniMapUniversalLink, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSMiniMapUniversalLink, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsNotificationCollisionManagementEnabled() {
   return base::FeatureList::IsEnabled(kNotificationCollisionManagement);
 }
 
-BASE_FEATURE(NotificationCollisionManagement,
+BASE_FEATURE(kNotificationCollisionManagement,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(IOSProvidesAppNotificationSettings,
+BASE_FEATURE(kIOSProvidesAppNotificationSettings,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(SignInButtonNoAvatar, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSignInButtonNoAvatar, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsSignInButtonNoAvatarEnabled() {
   return base::FeatureList::IsEnabled(kSignInButtonNoAvatar);
 }
 
-BASE_FEATURE(NTPBackgroundCustomization, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNTPBackgroundCustomization, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsNTPBackgroundCustomizationEnabled() {
   return base::FeatureList::IsEnabled(kNTPBackgroundCustomization);
 }
 
-BASE_FEATURE(RunDefaultStatusCheck, base::FEATURE_ENABLED_BY_DEFAULT);
+constexpr base::FeatureParam<int> kMaxRecentlyUsedBackgrounds{
+    &kNTPBackgroundCustomization,
+    /*name=*/"max-recently-used-backgrounds", /*default_value=*/7};
+
+int MaxRecentlyUsedBackgrounds() {
+  return kMaxRecentlyUsedBackgrounds.Get();
+}
+
+BASE_FEATURE(kRunDefaultStatusCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsRunDefaultStatusCheckEnabled() {
   return base::FeatureList::IsEnabled(kRunDefaultStatusCheck);
 }
 
-BASE_FEATURE(BestOfAppFRE, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kBestOfAppFRE, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsBestOfAppFREEnabled() {
   return base::FeatureList::IsEnabled(kBestOfAppFRE);
@@ -1101,7 +1095,7 @@ bool IsBestOfAppLensAnimatedPromoEnabled() {
                                          kBestOfAppFRE, "variant") == "2");
 }
 
-BASE_FEATURE(FeedbackIncludeGWSVariations, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kFeedbackIncludeGWSVariations, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsFeedbackIncludeGWSVariationsEnabled() {
   return base::FeatureList::IsEnabled(kFeedbackIncludeGWSVariations);
@@ -1112,13 +1106,13 @@ bool IsDefaultBrowserPromoPropensityModelEnabled() {
       segmentation_platform::features::kDefaultBrowserPromoPropensityModel);
 }
 
-BASE_FEATURE(IOSTrustedVaultNotification, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSTrustedVaultNotification, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsIOSTrustedVaultNotificationEnabled() {
   return base::FeatureList::IsEnabled(kIOSTrustedVaultNotification);
 }
 
-BASE_FEATURE(DiamondPrototype, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDiamondPrototype, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsDiamondPrototypeEnabled() {
   if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE) {
@@ -1127,24 +1121,23 @@ bool IsDiamondPrototypeEnabled() {
   return base::FeatureList::IsEnabled(kDiamondPrototype);
 }
 
-BASE_FEATURE(IOSDefaultBrowserOffCyclePromo, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSDefaultBrowserOffCyclePromo,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsDefaultBrowserOffCyclePromoEnabled() {
-#if defined(__IPHONE_18_3) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_18_3
   if (@available(iOS 18.3, *)) {
     return base::FeatureList::IsEnabled(kIOSDefaultBrowserOffCyclePromo);
   }
-#endif
   return false;
 }
 
-BASE_FEATURE(IOSLogInstallAttribution, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSLogInstallAttribution, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsInstallAttributionLoggingEnabled() {
   return base::FeatureList::IsEnabled(kIOSLogInstallAttribution);
 }
 
-BASE_FEATURE(IOSUseDefaultAppsDestinationForPromos,
+BASE_FEATURE(kIOSUseDefaultAppsDestinationForPromos,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsDefaultAppsDestinationAvailable() {
@@ -1158,7 +1151,7 @@ bool IsUseDefaultAppsDestinationForPromosEnabled() {
   return base::FeatureList::IsEnabled(kIOSUseDefaultAppsDestinationForPromos);
 }
 
-BASE_FEATURE(SynchronousEditMenuItems, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSynchronousEditMenuItems, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool ShouldShowEditMenuItemsSynchronously() {
   if (@available(iOS 26, *)) {

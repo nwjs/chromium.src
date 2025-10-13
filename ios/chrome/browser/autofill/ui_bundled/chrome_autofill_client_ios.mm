@@ -20,6 +20,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "components/application_locale_storage/application_locale_storage.h"
+#import "components/autofill/core/browser/autofill_server_prediction.h"
 #import "components/autofill/core/browser/crowdsourcing/votes_uploader.h"
 #import "components/autofill/core/browser/data_manager/valuables/valuables_data_manager.h"
 #import "components/autofill/core/browser/form_import/addresses/autofill_save_update_address_profile_delegate_ios.h"
@@ -42,7 +43,7 @@
 #import "components/password_manager/core/browser/form_parsing/form_data_parser.h"
 #import "components/password_manager/core/browser/password_form.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
-#import "components/plus_addresses/plus_address_service.h"
+#import "components/plus_addresses/core/browser/plus_address_service.h"
 #import "components/security_state/ios/security_state_utils.h"
 #import "components/sync/service/sync_service.h"
 #import "components/translate/core/browser/translate_manager.h"
@@ -64,7 +65,6 @@
 #import "ios/chrome/browser/plus_addresses/model/plus_address_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -227,7 +227,7 @@ ChromeAutofillClientIOS::GetPaymentsAutofillClient() {
   return &payments_autofill_client_;
 }
 
-StrikeDatabase* ChromeAutofillClientIOS::GetStrikeDatabase() {
+strike_database::StrikeDatabase* ChromeAutofillClientIOS::GetStrikeDatabase() {
   return StrikeDatabaseFactory::GetForProfile(profile_->GetOriginalProfile());
 }
 
@@ -295,7 +295,7 @@ void ChromeAutofillClientIOS::ShowAutofillSettings(
 void ChromeAutofillClientIOS::ConfirmSaveAddressProfile(
     const AutofillProfile& profile,
     const AutofillProfile* original_profile,
-    bool is_migration_to_account,
+    SaveAddressBubbleType save_address_bubble_type,
     AddressProfileSavePromptCallback callback) {
   for (infobars::InfoBar* infobar : infobar_manager_->infobars()) {
     AutofillSaveUpdateAddressProfileDelegateIOS* existing_delegate =
@@ -325,7 +325,8 @@ void ChromeAutofillClientIOS::ConfirmSaveAddressProfile(
 
   auto delegate = std::make_unique<AutofillSaveUpdateAddressProfileDelegateIOS>(
       profile, original_profile, GetUserEmail(), GetAppLocale(),
-      is_migration_to_account, std::move(callback));
+      save_address_bubble_type == SaveAddressBubbleType::kMigrateToAccount,
+      std::move(callback));
 
   infobar_manager_->AddInfoBar(std::make_unique<InfoBarIOS>(
       InfobarType::kInfobarTypeSaveAutofillAddressProfile,
@@ -429,7 +430,7 @@ bool ChromeAutofillClientIOS::IsLastQueriedField(FieldGlobalId field_id) {
 }
 
 bool ChromeAutofillClientIOS::ShouldFormatForLargeKeyboardAccessory() const {
-  return IsKeyboardAccessoryUpgradeEnabled();
+  return YES;
 }
 
 std::unique_ptr<device_reauth::DeviceAuthenticator>

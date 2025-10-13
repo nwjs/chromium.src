@@ -32,6 +32,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
+#include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -48,7 +49,6 @@
 #include "chrome/browser/browsing_data/chrome_browsing_data_lifetime_manager.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_lifetime_manager_factory.h"
 #include "chrome/browser/buildflags.h"
-#include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service_factory.h"
 #include "chrome/browser/navigation_predictor/preloading_model_keyed_service_factory.h"
@@ -115,6 +115,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 #include "extensions/browser/api/management/management_api.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension_set.h"
@@ -1214,7 +1215,7 @@ std::unique_ptr<Profile> ProfileManager::CreateProfileAsyncHelper(
   return Profile::CreateProfile(path, this, Profile::CreateMode::kAsynchronous);
 }
 
-bool ProfileManager::HasKeepAliveForTesting(const Profile* profile,
+bool ProfileManager::HasKeepAliveForTesting(Profile* profile,
                                             ProfileKeepAliveOrigin origin) {
   DCHECK(profile);
   ProfileInfo* info = GetProfileInfoByPath(profile->GetPath());
@@ -1243,7 +1244,7 @@ void ProfileManager::RecordZombieMetrics() {
   base::UmaHistogramCounts100("Profile.ZombieProfileCount", zombie_count);
 }
 
-void ProfileManager::AddKeepAlive(const Profile* profile,
+void ProfileManager::AddKeepAlive(Profile* profile,
                                   ProfileKeepAliveOrigin origin) {
   DCHECK_NE(ProfileKeepAliveOrigin::kWaitingForFirstBrowserWindow, origin);
 
@@ -1286,7 +1287,7 @@ void ProfileManager::AddKeepAlive(const Profile* profile,
   }
 }
 
-void ProfileManager::RemoveKeepAlive(const Profile* profile,
+void ProfileManager::RemoveKeepAlive(Profile* profile,
                                      ProfileKeepAliveOrigin origin) {
   DCHECK_NE(ProfileKeepAliveOrigin::kWaitingForFirstBrowserWindow, origin);
 
@@ -1340,7 +1341,7 @@ void ProfileManager::RemoveKeepAlive(const Profile* profile,
   UnloadProfileIfNoKeepAlive(info);
 }
 
-void ProfileManager::ClearFirstBrowserWindowKeepAlive(const Profile* profile) {
+void ProfileManager::ClearFirstBrowserWindowKeepAlive(Profile* profile) {
   CHECK(profile);
   CHECK(!profile->IsOffTheRecord());
 

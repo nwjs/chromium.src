@@ -64,6 +64,10 @@ inline constexpr char kUserVerifyingPlatformAuthenticator[] =
     "userVerifyingPlatformAuthenticator";
 inline constexpr char kRelatedOrigins[] = "relatedOrigins";
 inline constexpr char kImmediateGet[] = "immediateGet";
+inline constexpr char kSignalAllAcceptedCredentials[] =
+    "signalAllAcceptedCredentials";
+inline constexpr char kSignalCurrentUserDetails[] = "signalCurrentUserDetails";
+inline constexpr char kSignalUnknownCredential[] = "signalUnknownCredential";
 
 }  // namespace client_capabilities
 
@@ -378,7 +382,9 @@ class CONTENT_EXPORT AuthenticatorCommonImpl : public AuthenticatorCommon {
       blink::mojom::GetAssertionAuthenticatorResponsePtr response);
 
   void UpdateChallengeFromUrl(
-      ClientDataJsonParams params,
+      webauthn::ClientDataJsonParams params,
+      blink::mojom::PaymentOptionsPtr payment_options,
+      std::string payment_rp,
       std::optional<base::span<const uint8_t>> challenge);
 
   // Get an identifier for the current request. Callbacks that might span a

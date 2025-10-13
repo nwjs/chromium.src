@@ -249,9 +249,7 @@ class InspectorFileReaderLoaderClient final
 
   ~InspectorFileReaderLoaderClient() override = default;
 
-  void Start() {
-    loader_->Start(blob_);
-  }
+  void Start() { loader_->Start(blob_); }
 
   FileErrorCode DidStartLoading(uint64_t) override {
     return FileErrorCode::kOK;
@@ -702,14 +700,13 @@ String GetReferrerPolicy(network::mojom::ReferrerPolicy policy) {
 std::unique_ptr<protocol::Network::WebSocketFrame> WebSocketMessageToProtocol(
     int op_code,
     bool masked,
-    base::span<const char> payload) {
+    base::span<const uint8_t> payload) {
   return protocol::Network::WebSocketFrame::create()
       .setOpcode(op_code)
       .setMask(masked)
       // Only interpret the payload as UTF-8 when it's a text message
-      .setPayloadData(op_code == 1 ? String::FromUTF8WithLatin1Fallback(
-                                         base::as_bytes(payload))
-                                   : Base64Encode(base::as_bytes(payload)))
+      .setPayloadData(op_code == 1 ? String::FromUTF8WithLatin1Fallback(payload)
+                                   : Base64Encode(payload))
       .build();
 }
 
@@ -1021,6 +1018,9 @@ BuildObjectForResourceRequest(const ResourceRequest& request,
     result->setTrustTokenParams(
         BuildTrustTokenParams(*request.TrustTokenParams()));
   }
+  if (request.IsAdResource()) {
+    result->setIsAdRelated(true);
+  }
   return result;
 }
 
@@ -1170,10 +1170,10 @@ BuildObjectForResourceResponse(const ResourceResponse& response,
                 resource_load_timing->WorkerRouterEvaluationStart()));
       }
 
-      if (!resource_load_timing->WorkerCacheLokupStart().is_null()) {
+      if (!resource_load_timing->WorkerCacheLookupStart().is_null()) {
         load_timing->setWorkerCacheLookupStart(
             resource_load_timing->CalculateMillisecondDelta(
-                resource_load_timing->WorkerCacheLokupStart()));
+                resource_load_timing->WorkerCacheLookupStart()));
       }
     }
 
@@ -2044,12 +2044,12 @@ void InspectorNetworkAgent::DidReceiveWebSocketMessage(
     uint64_t identifier,
     int op_code,
     bool masked,
-    const Vector<base::span<const char>>& data) {
+    const Vector<base::span<const uint8_t>>& data) {
   size_t size = 0;
   for (const auto& span : data) {
     size += span.size();
   }
-  Vector<char> flatten;
+  Vector<uint8_t> flatten;
   flatten.reserve(base::checked_cast<wtf_size_t>(size));
   for (const auto& span : data) {
     flatten.AppendSpan(span);
@@ -2064,7 +2064,7 @@ void InspectorNetworkAgent::DidSendWebSocketMessage(
     uint64_t identifier,
     int op_code,
     bool masked,
-    base::span<const char> payload) {
+    base::span<const uint8_t> payload) {
   GetFrontend()->webSocketFrameSent(
       IdentifiersFactory::SubresourceRequestId(identifier),
       base::TimeTicks::Now().since_origin().InSecondsF(),
@@ -2493,6 +2493,24 @@ protocol::Response InspectorNetworkAgent::emulateNetworkConditions(
     std::optional<double> packet_loss,
     std::optional<int> packet_queue_length,
     std::optional<bool> packet_reordering) {
+  return overrideNetworkState(offline, latency, download_throughput,
+                              upload_throughput, std::move(connection_type));
+}
+
+protocol::Response InspectorNetworkAgent::emulateNetworkConditionsByRule(
+    bool offline,
+    std::unique_ptr<protocol::Array<protocol::Network::NetworkConditions>>
+        matched_network_conditions,
+    std::unique_ptr<protocol::Array<String>>* rule_ids_result) {
+  return protocol::Response::Success();
+}
+
+protocol::Response InspectorNetworkAgent::overrideNetworkState(
+    bool offline,
+    double latency,
+    double download_throughput,
+    double upload_throughput,
+    std::optional<String> connection_type) {
   WebConnectionType type = kWebConnectionTypeUnknown;
   if (connection_type.has_value()) {
     type = ToWebConnectionType(connection_type.value());

@@ -207,6 +207,7 @@ public class CompositorViewHolder extends FrameLayout
 
     private boolean mControlsResizeView;
     private boolean mInGesture;
+    private boolean mInTouch;
     private boolean mContentViewScrolling;
     // The number of active touch pointers. We are sending a gesture begin
     // event for every added touch point, and a gesnture end event for every
@@ -318,6 +319,11 @@ public class CompositorViewHolder extends FrameLayout
                 }
 
                 @Override
+                public void onCrash(Tab tab) {
+                    mNumGestureActiveTouches = 0;
+                }
+
+                @Override
                 public void onDidFinishNavigationInPrimaryMainFrame(
                         Tab tab, NavigationHandle navigation) {
                     if (!navigation.isSameDocument() && navigation.hasCommitted()) {
@@ -337,8 +343,26 @@ public class CompositorViewHolder extends FrameLayout
 
                 @Override
                 public void onGestureEnd() {
-                    mNumGestureActiveTouches--;
+                    mNumGestureActiveTouches = Math.max(mNumGestureActiveTouches - 1, 0);
                     updateInMotion();
+                }
+
+                @Override
+                public void onTouchDown() {
+                    if (ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.TOOLBAR_STALE_CAPTURE_BUG_FIX)) {
+                        mInTouch = true;
+                        updateInMotion();
+                    }
+                }
+
+                @Override
+                public void onTouchUp() {
+                    if (ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.TOOLBAR_STALE_CAPTURE_BUG_FIX)) {
+                        mInTouch = false;
+                        updateInMotion();
+                    }
                 }
             };
 
@@ -760,7 +784,9 @@ public class CompositorViewHolder extends FrameLayout
     private void updateInMotion() {
         // TODO(crbug.com/40244051): Track fling as well.
         boolean inMotion = mContentViewScrolling;
-        if (ChromeFeatureList.sSuppressToolbarCapturesAtGestureEnd.isEnabled()) {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TOOLBAR_STALE_CAPTURE_BUG_FIX)) {
+            inMotion |= mInTouch;
+        } else if (ChromeFeatureList.sSuppressToolbarCapturesAtGestureEnd.isEnabled()) {
             inMotion |= mNumGestureActiveTouches > 0;
         } else {
             inMotion |= mInGesture;
@@ -1541,6 +1567,7 @@ public class CompositorViewHolder extends FrameLayout
             mHasKeyboardGeometryChangeFired = false;
             if (mTabVisible != null) mTabVisible.removeObserver(mTabObserver);
             if (tab != null) {
+                mNumGestureActiveTouches = 0;
                 tab.addObserver(mTabObserver);
                 mCompositorView.onTabChanged();
             }

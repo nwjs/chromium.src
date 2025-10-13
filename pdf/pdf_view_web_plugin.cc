@@ -506,7 +506,8 @@ PdfViewWebPlugin::PdfViewWebPlugin(
       max_save_buffer_size_(kMaxSaveBufferSize) {
   DCHECK(pdf_host_);
   pdf_host_->SetListener(listener_receiver_.BindNewPipeAndPassRemote());
-  if (chrome_pdf::features::IsPdfGetSaveDataInBlocksEnabled()) {
+  if (base::FeatureList::IsEnabled(
+          chrome_pdf::features::kPdfGetSaveDataInBlocks)) {
     SetPluginCanSave(true);
   }
 }
@@ -1437,11 +1438,12 @@ void PdfViewWebPlugin::DocumentLoadComplete() {
       base::BindRepeating(&Client::PerformOcr, client_->GetWeakPtr()));
 #endif
 
+  pdf_host_->OnDocumentLoadComplete();
+
   if (!full_frame_)
     return;
 
   DidStopLoading();
-  pdf_host_->OnDocumentLoadComplete();
   pdf_host_->UpdateContentRestrictions(GetContentRestrictions());
 }
 

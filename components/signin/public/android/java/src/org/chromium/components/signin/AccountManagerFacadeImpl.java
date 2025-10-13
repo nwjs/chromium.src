@@ -45,6 +45,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** AccountManagerFacade wraps our access of AccountManager in Android. */
@@ -65,6 +66,8 @@ public class AccountManagerFacadeImpl implements AccountManagerFacade {
     // Time, in milliseconds, between two attempts to fetch the accounts.
     private static final long GET_ACCOUNTS_BACKOFF_DELAY = 1000L;
 
+    private static final String OAUTH2_SCOPE_PREFIX = "oauth2:";
+
     private static final String TAG = "AccountManager";
 
     private final AccountManagerDelegate mDelegate;
@@ -76,7 +79,6 @@ public class AccountManagerFacadeImpl implements AccountManagerFacade {
             new AtomicReference<>();
     private final AtomicReference<List<PatternMatcher>> mAccountRestrictionPatterns =
             new AtomicReference<>();
-
     private Promise<List<AccountInfo>> mAccountsPromise = new Promise<>();
 
     private @Nullable AsyncTask<@Nullable List<GaiaId>> mFetchGaiaIdsTask;
@@ -157,12 +159,56 @@ public class AccountManagerFacadeImpl implements AccountManagerFacade {
         }
 
         pendingRequestStarted();
+
+        if (!SigninFeatureMap.sMigrateAccountManagerDelegate.isEnabled()) {
+            String oauth2Scope = OAUTH2_SCOPE_PREFIX + scope;
+            ConnectionRetry.runAuthTask(
+                    new AuthTask() {
+                        @Override
+                        public AccessTokenData run() throws AuthException {
+                            return mDelegate.getAccessToken(
+                                    CoreAccountInfo.getAndroidAccountFrom(coreAccountInfo),
+                                    oauth2Scope);
+                        }
+
+                        @Override
+                        public void onSuccess(@Nullable AccessTokenData token) {
+                            assert token != null : "AccessTokenData must not be null on success.";
+                            callback.onGetTokenSuccess(token);
+                            pendingRequestFinished();
+                        }
+
+                        @Override
+                        public void onFailure(GoogleServiceAuthError authError) {
+                            callback.onGetTokenFailure(authError);
+                            pendingRequestFinished();
+                        }
+                    });
+            return;
+        }
+
+        getAccounts()
+                .then(
+                        unused -> {
+                            getAccessTokenHelper(coreAccountInfo, scope, callback);
+                        });
+    }
+
+    private void getAccessTokenHelper(
+            CoreAccountInfo coreAccountInfo, String scope, GetAccessTokenCallback callback) {
+        PlatformAccount platformAccount = getPlatformAccount(coreAccountInfo.getGaiaId());
+        if (platformAccount == null) {
+            callback.onGetTokenFailure(
+                    new GoogleServiceAuthError(GoogleServiceAuthErrorState.USER_NOT_SIGNED_UP));
+            pendingRequestFinished();
+            return;
+        }
+
         ConnectionRetry.runAuthTask(
                 new AuthTask() {
                     @Override
                     public AccessTokenData run() throws AuthException {
-                        return mDelegate.getAccessToken(
-                                CoreAccountInfo.getAndroidAccountFrom(coreAccountInfo), scope);
+                        return mDelegate.getAccessTokenForPlatformAccount(platformAccount, scope);
                     }
 
                     @Override
@@ -210,6 +256,11 @@ public class AccountManagerFacadeImpl implements AccountManagerFacade {
                 new AuthTask() {
                     @Override
                     public @Nullable AccessTokenData run() throws AuthException {
+                        if (SigninFeatureMap.sMigrateAccountManagerDelegate.isEnabled()) {
+                            mDelegate.invalidateAccessTokenForPlatformAccount(accessToken);
+                            return null;
+                        }
+
                         mDelegate.invalidateAccessToken(accessToken);
                         return null;
                     }
@@ -246,13 +297,55 @@ public class AccountManagerFacadeImpl implements AccountManagerFacade {
     public void checkIsSubjectToParentalControls(
             CoreAccountInfo coreAccountInfo, ChildAccountStatusListener listener) {
         ThreadUtils.assertOnUiThread();
+        if (!SigninFeatureMap.sMigrateAccountManagerDelegate.isEnabled()) {
+            new AsyncTask<Boolean>() {
+                @Override
+                public Boolean doInBackground() {
+                    Account account = CoreAccountInfo.getAndroidAccountFrom(coreAccountInfo);
+                    @CapabilityResponse
+                    int capability =
+                            mDelegate.hasCapability(
+                                    account,
+                                    getAndroidCapabilityName(
+                                            IS_SUBJECT_TO_PARENTAL_CONTROLS_CAPABILITY_NAME));
+                    return capability == CapabilityResponse.YES;
+                }
+
+                @Override
+                protected void onPostExecute(Boolean isSubjectToParentalControls) {
+                    // TODO(crbug.com/40201126): rework this interface to avoid passing a null
+                    // account.
+                    listener.onStatusReady(
+                            isSubjectToParentalControls,
+                            isSubjectToParentalControls ? coreAccountInfo : null);
+                }
+            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            return;
+        }
+
+        // Wait for list of accounts to be available before checking capabilities.
+        getAccounts()
+                .then(
+                        unused -> {
+                            checkIsSubjectToParentalControlsHelper(coreAccountInfo, listener);
+                        });
+    }
+
+    private void checkIsSubjectToParentalControlsHelper(
+            CoreAccountInfo coreAccountInfo, ChildAccountStatusListener listener) {
+        assert SigninFeatureMap.sMigrateAccountManagerDelegate.isEnabled();
+        @Nullable PlatformAccount account = getPlatformAccount(coreAccountInfo.getGaiaId());
+        if (account == null) {
+            listener.onStatusReady(false, null);
+            return;
+        }
+
         new AsyncTask<Boolean>() {
             @Override
             public Boolean doInBackground() {
-                Account account = CoreAccountInfo.getAndroidAccountFrom(coreAccountInfo);
                 @CapabilityResponse
                 int capability =
-                        mDelegate.hasCapability(
+                        mDelegate.fetchCapability(
                                 account,
                                 getAndroidCapabilityName(
                                         IS_SUBJECT_TO_PARENTAL_CONTROLS_CAPABILITY_NAME));
@@ -261,7 +354,6 @@ public class AccountManagerFacadeImpl implements AccountManagerFacade {
 
             @Override
             protected void onPostExecute(Boolean isSubjectToParentalControls) {
-                // TODO(crbug.com/40201126): rework this interface to avoid passing a null account.
                 listener.onStatusReady(
                         isSubjectToParentalControls,
                         isSubjectToParentalControls ? coreAccountInfo : null);
@@ -275,8 +367,55 @@ public class AccountManagerFacadeImpl implements AccountManagerFacade {
      */
     @Override
     public Promise<AccountCapabilities> getAccountCapabilities(CoreAccountInfo coreAccountInfo) {
+        // TODO(crbug.com/436520680): Remove non signin uses of getAccountCapabilities.
         ThreadUtils.assertOnUiThread();
+
         Promise<AccountCapabilities> accountCapabilitiesPromise = new Promise<>();
+        if (!SigninFeatureMap.sMigrateAccountManagerDelegate.isEnabled()) {
+            new AsyncTask<AccountCapabilities>() {
+                @Override
+                public AccountCapabilities doInBackground() {
+                    Map<String, Integer> capabilitiesResponse = new HashMap<>();
+                    for (String capabilityName :
+                            AccountCapabilitiesConstants.SUPPORTED_ACCOUNT_CAPABILITY_NAMES) {
+                        @CapabilityResponse
+                        int capability =
+                                mDelegate.hasCapability(
+                                        CoreAccountInfo.getAndroidAccountFrom(coreAccountInfo),
+                                        getAndroidCapabilityName(capabilityName));
+                        capabilitiesResponse.put(capabilityName, capability);
+                    }
+                    return AccountCapabilities.parseFromCapabilitiesResponse(capabilitiesResponse);
+                }
+
+                @Override
+                protected void onPostExecute(AccountCapabilities result) {
+                    accountCapabilitiesPromise.fulfill(result);
+                }
+            }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+
+            return accountCapabilitiesPromise;
+        }
+
+        getAccounts()
+                .then(
+                        unused -> {
+                            fetchCapabilitiesHelper(coreAccountInfo, accountCapabilitiesPromise);
+                        });
+        return accountCapabilitiesPromise;
+    }
+
+    private void fetchCapabilitiesHelper(
+            CoreAccountInfo coreAccountInfo,
+            Promise<AccountCapabilities> accountCapabilitiesPromise) {
+        assert SigninFeatureMap.sMigrateAccountManagerDelegate.isEnabled();
+
+        @Nullable PlatformAccount account = getPlatformAccount(coreAccountInfo.getGaiaId());
+        if (account == null) {
+            // if there is no account, the capabilities will be empty.
+            return;
+        }
+
         new AsyncTask<AccountCapabilities>() {
             @Override
             public AccountCapabilities doInBackground() {
@@ -285,8 +424,8 @@ public class AccountManagerFacadeImpl implements AccountManagerFacade {
                         AccountCapabilitiesConstants.SUPPORTED_ACCOUNT_CAPABILITY_NAMES) {
                     @CapabilityResponse
                     int capability =
-                            mDelegate.hasCapability(
-                                    CoreAccountInfo.getAndroidAccountFrom(coreAccountInfo),
+                            mDelegate.fetchCapability(
+                                    assumeNonNull(account),
                                     getAndroidCapabilityName(capabilityName));
                     capabilitiesResponse.put(capabilityName, capability);
                 }
@@ -298,7 +437,22 @@ public class AccountManagerFacadeImpl implements AccountManagerFacade {
                 accountCapabilitiesPromise.fulfill(result);
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        return accountCapabilitiesPromise;
+    }
+
+    @Nullable
+    private PlatformAccount getPlatformAccount(GaiaId gaiaId) {
+        assert getAccounts().isFulfilled();
+        if (mAllPlatformAccounts.get() == null) {
+            return null;
+        }
+
+        for (PlatformAccount account : assumeNonNull(mAllPlatformAccounts.get())) {
+            if (Objects.equals(account.getId(), gaiaId)) {
+                return account;
+            }
+        }
+
+        return null;
     }
 
     /**

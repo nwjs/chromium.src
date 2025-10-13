@@ -14,9 +14,9 @@
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/base/command_line_switches.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_matchers.h"
+#import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
+#import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
+#import "ios/chrome/browser/authentication/test/signin_matchers.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_group_app_interface.h"
@@ -148,8 +148,8 @@ AppLaunchConfiguration SharedTabGroupAppLaunchConfiguration(
                  chrome_test_util::ConsistencySigninPrimaryButtonMatcher()]
       performAction:grey_tap()];
   [SigninEarlGrey verifySignedInWithFakeIdentity:fakeIdentity];
-  [SigninEarlGreyUI
-      maybeDismissIdentityConfirmationSnackbarOnSignin:fakeIdentity];
+  [SigninEarlGreyUI dismissSigninConfirmationSnackbarForIdentity:fakeIdentity
+                                                   assertVisible:NO];
 
   // Check that a custom history & sync promo is displayed.
   [ChromeEarlGrey waitForMatcher:PromoScreenPrimaryButtonMatcher()];

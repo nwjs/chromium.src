@@ -4,9 +4,9 @@
 
 import {assertNotReachedCase} from '//resources/js/assert.js';
 
-import type {TabsEvent, TabsObserverInterface} from './tab_strip_api.mojom-webui.js';
+import type {TabsEvent, TabsObserverInterface, TabsObserverPendingReceiverEndpoint} from './tab_strip_api.mojom-webui.js';
 import {TabsEventFieldTags, TabsObserverReceiver, whichTabsEvent} from './tab_strip_api.mojom-webui.js';
-import type {OnDataChangedEvent, OnTabGroupCreatedEvent, OnTabMovedEvent, OnTabsClosedEvent, OnTabsCreatedEvent} from './tab_strip_api_events.mojom-webui.js';
+import type {OnCollectionCreatedEvent, OnDataChangedEvent, OnNodeMovedEvent, OnTabsClosedEvent, OnTabsCreatedEvent} from './tab_strip_api_events.mojom-webui.js';
 
 type CallbackType<EventType> = (event: EventType) => void;
 
@@ -53,8 +53,8 @@ class Channel<EventType> {
  */
 export class TabStripObservation implements TabsObserverInterface {
   readonly onDataChanged = new Channel<OnDataChangedEvent>();
-  readonly onTabGroupCreated = new Channel<OnTabGroupCreatedEvent>();
-  readonly onTabMoved = new Channel<OnTabMovedEvent>();
+  readonly onCollectionCreated = new Channel<OnCollectionCreatedEvent>();
+  readonly onNodeMoved = new Channel<OnNodeMovedEvent>();
   readonly onTabsClosed = new Channel<OnTabsClosedEvent>();
   readonly onTabsCreated = new Channel<OnTabsCreatedEvent>();
 
@@ -64,7 +64,7 @@ export class TabStripObservation implements TabsObserverInterface {
     this.receiver_ = new TabsObserverReceiver(this);
   }
 
-  bind(handle: any) {
+  bind(handle: TabsObserverPendingReceiverEndpoint) {
     // TODO(crbug.com/439639253): throw error if already bound. This will
     // already throw, but the msg is probably not very helpful.
     this.receiver_.$.bindHandle(handle);
@@ -82,11 +82,11 @@ export class TabStripObservation implements TabsObserverInterface {
       case TabsEventFieldTags.DATA_CHANGED_EVENT:
         this.onDataChanged.notify(event.dataChangedEvent!);
         break;
-      case TabsEventFieldTags.TAB_GROUP_CREATED_EVENT:
-        this.onTabGroupCreated.notify(event.tabGroupCreatedEvent!);
+      case TabsEventFieldTags.COLLECTION_CREATED_EVENT:
+        this.onCollectionCreated.notify(event.collectionCreatedEvent!);
         break;
-      case TabsEventFieldTags.TAB_MOVED_EVENT:
-        this.onTabMoved.notify(event.tabMovedEvent!);
+      case TabsEventFieldTags.NODE_MOVED_EVENT:
+        this.onNodeMoved.notify(event.nodeMovedEvent!);
         break;
       case TabsEventFieldTags.TABS_CLOSED_EVENT:
         this.onTabsClosed.notify(event.tabsClosedEvent!);

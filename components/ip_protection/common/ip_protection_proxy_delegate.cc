@@ -13,13 +13,11 @@
 
 #include "base/check.h"
 #include "base/containers/fixed_flat_set.h"
-#include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/memory/raw_ref.h"
-#include "base/metrics/histogram_functions.h"
-#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_split.h"
 #include "base/types/expected.h"
 #include "components/ip_protection/common/ip_protection_core.h"
 #include "components/ip_protection/common/ip_protection_data_types.h"
@@ -64,16 +62,39 @@ ProxyResolutionResult IpProtectionProxyDelegate::ClassifyRequest(
             << ") - " << message;
   };
 
-  // Check eligibility of this request.
-  if (!ip_protection_core_->IsMdlPopulated()) {
-    vlog("proxy allow list not populated");
-    return ProxyResolutionResult::kMdlNotPopulated;
-  } else if (!ip_protection_core_->RequestShouldBeProxied(
-                 url, network_anonymization_key)) {
-    vlog("proxy allow list did not match");
-    return ProxyResolutionResult::kNoMdlMatch;
-  } else {
-    vlog("proxy allow list matched");
+  bool is_unconditional_match = false;
+  if (std::string domain_list_str =
+          net::features::kIpPrivacyUnconditionalProxyDomainList.Get();
+      !domain_list_str.empty()) {
+    std::vector<std::string> domain_list = base::SplitString(
+        domain_list_str, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+    std::optional<net::SchemefulSite> top_frame_site =
+        network_anonymization_key.GetTopFrameSite();
+    if (top_frame_site.has_value()) {
+      for (const auto& domain : domain_list) {
+        // SchemefulSite normalizes to eTLD+1 using the Public Suffix List.
+        std::string registrable_domain = top_frame_site->GetURL().host();
+        if (registrable_domain == domain) {
+          vlog("unconditional proxy domain matched");
+          is_unconditional_match = true;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!is_unconditional_match) {
+    // Check eligibility of this request.
+    if (!ip_protection_core_->IsMdlPopulated()) {
+      vlog("proxy allow list not populated");
+      return ProxyResolutionResult::kMdlNotPopulated;
+    } else if (!ip_protection_core_->RequestShouldBeProxied(
+                   url, network_anonymization_key)) {
+      vlog("proxy allow list did not match");
+      return ProxyResolutionResult::kNoMdlMatch;
+    } else {
+      vlog("proxy allow list matched");
+    }
   }
 
   result->set_is_mdl_match(true);
@@ -106,6 +127,10 @@ ProxyResolutionResult IpProtectionProxyDelegate::ClassifyRequest(
     return ProxyResolutionResult::kTokensNeverAvailable;
   } else if (!auth_tokens_are_available) {
     vlog("no auth token available from cache");
+    // Signal demand for both proxy layers. The respective token managers can
+    // determine whether a token fetch is ongoing or not.
+    ip_protection_core_->RecordTokenDemand(/*chain_index=*/0);
+    ip_protection_core_->RecordTokenDemand(/*chain_index=*/1);
     return ProxyResolutionResult::kTokensExhausted;
   }
 
@@ -114,6 +139,12 @@ ProxyResolutionResult IpProtectionProxyDelegate::ClassifyRequest(
       ip_protection_core_->HasTrackingProtectionException(
           network_anonymization_key.GetTopFrameSite()->GetURL())) {
     return ProxyResolutionResult::kHasSiteException;
+  }
+
+  // Require kIpPrivacyEnableIppPanelInDevTools to enable the bypass.
+  if (net::features::kIpPrivacyEnableIppPanelInDevTools.Get() &&
+      ip_protection_core_->IsProxyBypassed()) {
+    return ProxyResolutionResult::kBypassedByDevTools;
   }
 
   return ProxyResolutionResult::kAttemptProxy;
@@ -127,7 +158,13 @@ void IpProtectionProxyDelegate::OnResolveProxy(
     net::ProxyInfo* result) {
   ProxyResolutionResult resolution_result =
       ClassifyRequest(url, network_anonymization_key, result);
-  Telemetry().ProxyResolution(resolution_result);
+  // Don't emit the ProxyResolution metric if unconditional proxying is enabled,
+  // since it can skew common IPP analyses.
+  // TODO(crbug.com/447391924) - Rework this metric so we can support
+  // unconditional proxying as well.
+  if (net::features::kIpPrivacyUnconditionalProxyDomainList.Get().empty()) {
+    Telemetry().ProxyResolution(resolution_result);
+  }
 
   const std::optional<net::SchemefulSite>& top_frame_site =
       network_anonymization_key.GetTopFrameSite();
@@ -174,6 +211,28 @@ void IpProtectionProxyDelegate::OnResolveProxy(
             << ") - setting proxy list (before deprioritization) to "
             << proxy_list.ToDebugString();
   }
+
+  if (!net::features::kIpPrivacyDirectOnly.Get()) {
+    proxy_list.DeprioritizeBadProxyChains(proxy_retry_info);
+    if (proxy_list.IsEmpty()) {
+      return;
+    }
+    // Two cases are possible here:
+    //   1. All IPP Proxy Chains were marked as bad.
+    //   2. IPPCore returned no chains.
+    //
+    // In either case, using a proxy chain where is_for_ip_protection() is true
+    // is misleading since IPP is not used at all.
+    if (proxy_list.First().is_direct()) {
+      VLOG(3) << "IPPD::OnResolveProxy(" << url << ", "
+              << (top_frame_site.has_value() ? top_frame_site.value()
+                                             : net::SchemefulSite())
+              << ") - all proxy chains deprioritized: "
+              << proxy_list.ToDebugString();
+      return;
+    }
+  }
+
   result->OverrideProxyList(MergeProxyRules(result->proxy_list(), proxy_list));
   result->DeprioritizeBadProxyChains(proxy_retry_info);
   return;
@@ -225,6 +284,7 @@ IpProtectionProxyDelegate::OnBeforeTunnelRequest(
   };
   net::HttpRequestHeaders extra_headers;
   if (proxy_chain.is_for_ip_protection()) {
+    ip_protection_core_->RecordTokenDemand(proxy_index);
     std::optional<BlindSignedAuthToken> token =
         ip_protection_core_->GetAuthToken(proxy_index);
     if (token) {
@@ -319,9 +379,8 @@ net::Error IpProtectionProxyDelegate::OnTunnelHeadersReceived(
       }
       continue;
     }
-    // TODO(crbug.com/435524190): We can enforce that the value is a string
-    // type once all proxy B providers adhere to the spec for this.
-    if (name == "rcode" && (item.is_token() || item.is_string())) {
+
+    if (name == "rcode" && item.is_string()) {
       const std::string& rcode_val = item.GetString();
       if (rcode_val == "NXDOMAIN" || rcode_val == "NODATA") {
         rcode_is_nxdomain_or_nodata = true;

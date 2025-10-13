@@ -8,6 +8,7 @@
 
 #include "base/check.h"
 #include "base/check_deref.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/notimplemented.h"
@@ -23,18 +24,29 @@
 #include "chrome/browser/glic/host/webui_contents_container.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/service/glic_instance_helper.h"
+#include "chrome/browser/glic/service/glic_instance_impl.h"
+#include "chrome/browser/glic/service/glic_ui_embedder.h"
 #include "chrome/browser/glic/widget/browser_conditions.h"
+#include "chrome/browser/glic/widget/glic_side_panel_ui.h"
 #include "chrome/browser/glic/widget/glic_view.h"
 #include "chrome/browser/glic/widget/glic_widget.h"
 #include "chrome/browser/glic/widget/glic_window_animator.h"
 #include "chrome/browser/glic/widget/glic_window_config.h"
 #include "chrome/browser/glic/widget/glic_window_controller_impl.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/side_panel/side_panel.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/common/chrome_features.h"
 #include "components/prefs/pref_service.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/display/screen.h"
@@ -43,30 +55,88 @@
 
 namespace glic {
 
-GlicInstanceCoordinatorImpl::GlicInstanceCoordinatorImpl(
-    Profile* profile,
-    signin::IdentityManager* identity_manager,
-    GlicKeyedService* service,
-    GlicEnabling* enabling)
-    : profile_(profile),
-      host_manager_(std::make_unique<HostManager>(profile)) {}
-
-GlicInstanceCoordinatorImpl::~GlicInstanceCoordinatorImpl() = default;
-
-Host& GlicInstanceCoordinatorImpl::host() const {
-  NOTIMPLEMENTED();
-  return host_manager_->primary_host();
-}
-
+// TODO(refactor): Remove.
 HostManager& GlicInstanceCoordinatorImpl::host_manager() {
   NOTIMPLEMENTED();
   return *host_manager_;
 }
 
+GlicInstanceCoordinatorImpl::GlicInstanceCoordinatorImpl(
+    Profile* profile,
+    signin::IdentityManager* identity_manager,
+    GlicKeyedService* service,
+    GlicEnabling* enabling)
+    : profile_(profile) {
+  host_manager_ = std::make_unique<HostManager>(profile, GetWeakPtr());
+}
+
+GlicInstanceCoordinatorImpl::~GlicInstanceCoordinatorImpl() = default;
+
+GlicInstanceImpl* GlicInstanceCoordinatorImpl::GetInstanceImplForTab(
+    tabs::TabInterface* tab) {
+  if (!tab) {
+    return nullptr;
+  }
+
+  auto* helper = GlicInstanceHelper::From(tab);
+  if (!helper) {
+    return nullptr;
+  }
+
+  auto instance_id = helper->GetInstanceId();
+  if (instance_id.has_value()) {
+    if (auto* instance = GetInstanceImplFor(instance_id.value())) {
+      return instance;
+    }
+  }
+
+  return nullptr;
+}
+
+void GlicInstanceCoordinatorImpl::OnInstanceOrphaned(GlicInstance* instance) {
+  if (floating_instance_key_.has_value() &&
+      floating_instance_key_.value() == instance->id()) {
+    return;
+  }
+  RemoveInstance(instance);
+}
+
+std::vector<GlicInstance*> GlicInstanceCoordinatorImpl::GetInstances() {
+  std::vector<GlicInstance*> instances;
+  if (warmed_instance_) {
+    instances.push_back(warmed_instance_.get());
+  }
+  for (auto& entry : instances_) {
+    instances.push_back(entry.second.get());
+  }
+  return instances;
+}
+
+GlicInstance* GlicInstanceCoordinatorImpl::GetInstanceForTab(
+    tabs::TabInterface* tab) {
+  return GetInstanceImplForTab(tab);
+}
+
+void GlicInstanceCoordinatorImpl::FindInstanceFromGlicContentsAndBindToTab(
+    content::WebContents* source_glic_web_contents,
+    tabs::TabInterface* tab_to_bind) {
+  // Find the instance for the given web contents
+  for (auto const& [instance_id, instance] : instances_) {
+    if (instance->host().webui_contents() == source_glic_web_contents) {
+      // Show the instance in the new tab
+      instance->Show(GlicInstanceImpl::EmbedderType::kSidePanel, tab_to_bind);
+    }
+  }
+}
+
 void GlicInstanceCoordinatorImpl::Toggle(BrowserWindowInterface* browser,
                                          bool prevent_close,
                                          mojom::InvocationSource source) {
-  NOTIMPLEMENTED();
+  if (!browser) {
+    ToggleFloaty();
+    return;
+  }
+  ToggleSidePanel(browser);
 }
 
 bool GlicInstanceCoordinatorImpl::ActivateBrowser() {
@@ -91,27 +161,7 @@ void GlicInstanceCoordinatorImpl::FocusIfOpen() {
   NOTIMPLEMENTED();
 }
 
-void GlicInstanceCoordinatorImpl::Attach() {
-  NOTIMPLEMENTED();
-}
-
-void GlicInstanceCoordinatorImpl::Detach() {
-  NOTIMPLEMENTED();
-}
-
 void GlicInstanceCoordinatorImpl::Shutdown() {
-  // Method should only be called on individual panels not the coordinator.
-  NOTIMPLEMENTED();
-}
-
-void GlicInstanceCoordinatorImpl::Resize(const gfx::Size& size,
-                                         base::TimeDelta duration,
-                                         base::OnceClosure callback) {
-  // Method should only be called on individual panels not the coordinator.
-  NOTIMPLEMENTED();
-}
-
-void GlicInstanceCoordinatorImpl::EnableDragResize(bool enabled) {
   // Method should only be called on individual panels not the coordinator.
   NOTIMPLEMENTED();
 }
@@ -125,17 +175,6 @@ gfx::Size GlicInstanceCoordinatorImpl::GetSize() {
   // Method should only be called on individual panels not the coordinator.
   NOTIMPLEMENTED();
   return gfx::Size();
-}
-
-void GlicInstanceCoordinatorImpl::SetDraggableAreas(
-    const std::vector<gfx::Rect>& draggable_areas) {
-  // Method should only be called on individual panels not the coordinator.
-  NOTIMPLEMENTED();
-}
-
-void GlicInstanceCoordinatorImpl::SetMinimumWidgetSize(const gfx::Size& size) {
-  // Method should only be called on individual panels not the coordinator.
-  NOTIMPLEMENTED();
 }
 
 void GlicInstanceCoordinatorImpl::Close() {
@@ -212,8 +251,7 @@ GlicInstanceCoordinatorImpl::AddWindowActivationChangedCallback(
 }
 
 void GlicInstanceCoordinatorImpl::Preload() {
-  // Method should only be called on individual panels not the coordinator.
-  NOTIMPLEMENTED();
+  CreateWarmedInstance();
 }
 
 void GlicInstanceCoordinatorImpl::Reload() {
@@ -228,34 +266,37 @@ bool GlicInstanceCoordinatorImpl::IsWarmed() const {
 }
 
 base::WeakPtr<GlicWindowController> GlicInstanceCoordinatorImpl::GetWeakPtr() {
-  // TODO(crbug.com/441542357) - remove from public interface.
-  // Method should only be called on individual panels not the coordinator.
-  NOTREACHED();
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 GlicView* GlicInstanceCoordinatorImpl::GetGlicView() const {
   // Method should only be called on individual panels not the coordinator.
-  NOTREACHED();
+  NOTIMPLEMENTED();
+  return nullptr;
 }
 
 base::WeakPtr<views::View> GlicInstanceCoordinatorImpl::GetGlicViewAsView() {
   // Method should only be called on individual panels not the coordinator.
-  NOTREACHED();
+  NOTIMPLEMENTED();
+  return nullptr;
 }
 
 GlicWidget* GlicInstanceCoordinatorImpl::GetGlicWidget() const {
   // Method should only be called on individual panels not the coordinator.
-  NOTREACHED();
+  NOTIMPLEMENTED();
+  return nullptr;
 }
 
 gfx::NativeWindow GlicInstanceCoordinatorImpl::GetHostNativeWindow() {
   // Method should only be called on individual panels not the coordinator.
-  NOTREACHED();
+  NOTIMPLEMENTED();
+  return gfx::NativeWindow{};
 }
 
 Browser* GlicInstanceCoordinatorImpl::attached_browser() {
   // Method should only be called on individual panels not the coordinator.
-  NOTREACHED();
+  NOTIMPLEMENTED();
+  return nullptr;
 }
 
 GlicWindowController::State GlicInstanceCoordinatorImpl::state() const {
@@ -267,7 +308,8 @@ GlicWindowController::State GlicInstanceCoordinatorImpl::state() const {
 GlicWindowAnimator* GlicInstanceCoordinatorImpl::window_animator() {
   // TODO(crbug.com/441545112) - Remove from GlicWindowController.
   // Method should only be called on individual panels not the coordinator.
-  NOTREACHED();
+  NOTIMPLEMENTED();
+  return nullptr;
 }
 
 Profile* GlicInstanceCoordinatorImpl::profile() {
@@ -292,18 +334,25 @@ void GlicInstanceCoordinatorImpl::SetPreviousPositionForTesting(
   NOTIMPLEMENTED();
 }
 
-std::unique_ptr<GlicView>
-GlicInstanceCoordinatorImpl::CreateGlicViewForSidePanel() {
-  // Method should only be called on individual panels not the coordinator.
-  NOTREACHED();
+std::unique_ptr<views::View>
+GlicInstanceCoordinatorImpl::CreateViewForSidePanel(tabs::TabInterface& tab) {
+  // This method is only used by single instance (when the GlicMultiTab feature
+  // is disabled). This implementation is never called.
+  NOTIMPLEMENTED();
+  return std::make_unique<views::View>();
 }
 
-base::CallbackListSubscription
-GlicInstanceCoordinatorImpl::RegisterFloatyStateChange(
-    FloatyStateChangeCallback callback) {
+void GlicInstanceCoordinatorImpl::SidePanelShown(
+    BrowserWindowInterface* browser) {
   // Method should only be called on individual panels not the coordinator.
   NOTIMPLEMENTED();
-  return floaty_state_change_callback_list_.Add(std::move(callback));
+}
+
+base::CallbackListSubscription GlicInstanceCoordinatorImpl::RegisterStateChange(
+    StateChangeCallback callback) {
+  // Method should only be called on individual panels not the coordinator.
+  NOTIMPLEMENTED();
+  return base::CallbackListSubscription();
 }
 
 void GlicInstanceCoordinatorImpl::AttachInstance(GlicInstance* instance) {
@@ -313,4 +362,122 @@ void GlicInstanceCoordinatorImpl::AttachInstance(GlicInstance* instance) {
 void GlicInstanceCoordinatorImpl::DetachInstance(GlicInstance* instance) {
   NOTIMPLEMENTED();
 }
+
+GlicInstanceImpl*
+GlicInstanceCoordinatorImpl::GetOrCreateGlicInstanceImplForTab(
+    tabs::TabInterface* tab) {
+  if (GlicInstanceImpl* instance = GetInstanceImplForTab(tab)) {
+    return instance;
+  }
+
+  auto* helper = GlicInstanceHelper::From(tab);
+  CHECK(helper);
+
+  // Create a new conversation and instance.
+  auto* new_instance = CreateGlicInstance();
+  if (tab) {
+    new_instance->sharing_manager().PinTabs({tab->GetHandle()});
+  }
+  helper->SetInstanceId(new_instance->id());
+  return new_instance;
+}
+
+GlicInstanceImpl* GlicInstanceCoordinatorImpl::GetInstanceImplFor(
+    const InstanceId& id) {
+  auto it = instances_.find(id);
+  if (it != instances_.end()) {
+    return it->second.get();
+  }
+  return nullptr;
+}
+
+GlicInstanceImpl* GlicInstanceCoordinatorImpl::CreateGlicInstance() {
+  if (!warmed_instance_) {
+    CreateWarmedInstance();
+  }
+  auto* instance_ptr = warmed_instance_.get();
+  instances_[instance_ptr->id()] = std::move(warmed_instance_);
+  CreateWarmedInstance();
+  return instance_ptr;
+}
+
+void GlicInstanceCoordinatorImpl::CreateWarmedInstance() {
+  // TODO: Sync this id with the web client.
+  InstanceId instance_id = base::Uuid::GenerateRandomV4();
+  warmed_instance_ = std::make_unique<GlicInstanceImpl>(
+      profile_, instance_id, weak_ptr_factory_.GetWeakPtr(),
+      GlicKeyedServiceFactory::GetGlicKeyedService(profile_)->metrics());
+}
+
+void GlicInstanceCoordinatorImpl::ToggleFloaty() {
+  if (!floating_instance_key_.has_value()) {
+    floating_instance_key_ = CreateGlicInstance()->id();
+  }
+  auto instance_iter = instances_.find(*floating_instance_key_);
+  CHECK(instance_iter != instances_.end());
+  GlicInstanceImpl* instance = instance_iter->second.get();
+  instance->Toggle(GlicInstanceImpl::EmbedderType::kFloating, nullptr);
+}
+
+void GlicInstanceCoordinatorImpl::ToggleSidePanel(
+    BrowserWindowInterface* browser) {
+  auto* tab = browser->GetActiveTabInterface();
+  if (!tab) {
+    return;
+  }
+  auto* instance = GetOrCreateGlicInstanceImplForTab(tab);
+  instance->Toggle(GlicInstanceImpl::EmbedderType::kSidePanel, tab);
+}
+
+void GlicInstanceCoordinatorImpl::RemoveInstance(GlicInstance* instance) {
+  instances_.erase(instance->id());
+}
+
+bool GlicInstanceCoordinatorImpl::HasAttachedInstance(GlicInstance* instance) {
+  NOTIMPLEMENTED();
+  return false;
+}
+
+void GlicInstanceCoordinatorImpl::SwitchConversation(
+    tabs::TabInterface* tab,
+    glic::mojom::ConversationInfoPtr info,
+    mojom::WebClientHandler::SwitchConversationCallback callback) {
+  GlicInstanceImpl* current_instance = GetInstanceImplForTab(tab);
+
+  GlicInstanceImpl* target_instance = nullptr;
+  if (!info) {
+    target_instance = CreateGlicInstance();
+  } else {
+    for (const auto& [id, instance] : instances_) {
+      if (instance->conversation_id().has_value() &&
+          instance->conversation_id().value() == info->conversation_id) {
+        target_instance = instance.get();
+        break;
+      }
+    }
+    if (!target_instance) {
+      // No instance exists for this conversation. If the current instance
+      // already has a conversation, create a new instance. Otherwise, reuse
+      // the current instance.
+      target_instance = current_instance->conversation_id()
+                            ? CreateGlicInstance()
+                            : current_instance;
+      target_instance->RegisterConversation(std::move(info), base::DoNothing());
+    }
+  }
+
+  CHECK(target_instance);
+  if (current_instance && current_instance != target_instance) {
+    current_instance->DisassociateFromTab(tab);
+  }
+
+  auto* helper = GlicInstanceHelper::From(tab);
+  CHECK(helper);
+  helper->SetInstanceId(target_instance->id());
+
+  target_instance->Show(GlicInstanceImpl::EmbedderType::kSidePanel, tab);
+
+  std::move(callback).Run(std::nullopt);
+}
+
 }  // namespace glic

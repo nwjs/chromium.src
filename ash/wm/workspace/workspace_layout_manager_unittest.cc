@@ -11,7 +11,7 @@
 #include "ash/accessibility/accessibility_controller.h"
 #include "ash/accessibility/test_accessibility_controller_client.h"
 #include "ash/app_list/test/app_list_test_helper.h"
-#include "ash/frame/non_client_frame_view_ash.h"
+#include "ash/frame/frame_view_ash.h"
 #include "ash/keyboard/ui/keyboard_ui.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/keyboard/ui/keyboard_util.h"
@@ -384,7 +384,7 @@ TEST_F(WorkspaceLayoutManagerTest, FullscreenInDisplayToBeRestored) {
 
 // aura::WindowObserver implementation used by
 // DontClobberRestoreBoundsWindowObserver. This code mirrors what
-// BrowserFrameAsh does. In particular when this code sees the window was
+// BrowserNativeWidgetAsh does. In particular when this code sees the window was
 // maximized it changes the bounds of a secondary window. The secondary window
 // mirrors the status window.
 class DontClobberRestoreBoundsWindowObserver : public aura::WindowObserver {
@@ -430,7 +430,7 @@ TEST_F(WorkspaceLayoutManagerTest, DontClobberRestoreBounds) {
   window->Init(ui::LAYER_TEXTURED);
   window->SetBounds(gfx::Rect(10, 20, 30, 40));
   // NOTE: for this test to exercise the failure the observer needs to be added
-  // before the parent set. This mimics what BrowserFrameAsh does.
+  // before the parent set. This mimics what BrowserNativeWidgetAsh does.
   window->AddObserver(&window_observer);
   ParentWindowInPrimaryRootWindow(window.get());
   window->Show();
@@ -1122,7 +1122,7 @@ TEST_F(WorkspaceLayoutManagerTest, DragToSnapThenMaximize) {
   UpdateDisplay("800x600");
 
   auto get_drag_point = [](aura::Window* win) {
-    auto* frame = NonClientFrameViewAsh::Get(win);
+    auto* frame = FrameViewAsh::Get(win);
     return frame->GetHeaderView()->GetBoundsInScreen().CenterPoint();
   };
 

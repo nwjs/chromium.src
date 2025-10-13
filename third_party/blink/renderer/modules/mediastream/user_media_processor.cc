@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "base/containers/contains.h"
-#include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -328,13 +327,10 @@ String ErrorCodeToString(MediaStreamRequestResult result) {
 }
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
-// Returns true if `kGetUserMediaDeferredDeviceSettingsSelection` is enabled,
-// but gates it on `kCameraMicPreview` also being being enabled. This only
-// applies to user media requests.
+// This only applies to user media requests.
 bool ShouldDeferDeviceSettingsSelection(
     UserMediaRequestType request_type,
-    mojom::blink::MediaStreamType media_stream_type,
-    const ExecutionContext* execution_context) {
+    mojom::blink::MediaStreamType media_stream_type) {
   // The new behavior shouldn't be applied for anything except for user media
   // requests.
   // TODO(crbug.com/341136036): Find a better long-term solution for keeping
@@ -354,20 +350,13 @@ bool ShouldDeferDeviceSettingsSelection(
     return false;
   }
 
-  if (RuntimeEnabledFeatures::MediaPreviewsOptOutEnabled(execution_context)) {
-    return false;
-  }
-
   // Enables camera preview in permission bubble and site settings.
-  return base::FeatureList::IsEnabled(features::kCameraMicPreview) &&
-         base::FeatureList::IsEnabled(
-             features::kGetUserMediaDeferredDeviceSettingsSelection);
+  return true;
 }
 #else
 bool ShouldDeferDeviceSettingsSelection(
     UserMediaRequestType request_type,
-    mojom::blink::MediaStreamType media_stream_type,
-    const ExecutionContext* execution_context) {
+    mojom::blink::MediaStreamType media_stream_type) {
   return false;
 }
 #endif
@@ -846,8 +835,7 @@ void UserMediaProcessor::SelectAudioSettings(
                                     current_request_info_->request_id()));
   if (ShouldDeferDeviceSettingsSelection(
           user_media_request->MediaRequestType(),
-          user_media_request->AudioMediaStreamType(),
-          user_media_request->GetExecutionContext())) {
+          user_media_request->AudioMediaStreamType())) {
     base::expected<Vector<blink::AudioCaptureSettings>, std::string>
         eligible_settings = SelectEligibleSettingsAudioCapture(
             capabilities, user_media_request->AudioConstraints(),
@@ -1097,8 +1085,7 @@ void UserMediaProcessor::SelectVideoDeviceSettings(
   // Do constraints processing.
   if (ShouldDeferDeviceSettingsSelection(
           user_media_request->MediaRequestType(),
-          user_media_request->VideoMediaStreamType(),
-          user_media_request->GetExecutionContext())) {
+          user_media_request->VideoMediaStreamType())) {
     auto eligible_settings = SelectEligibleSettingsVideoDeviceCapture(
         std::move(capabilities), user_media_request->VideoConstraints(),
         blink::MediaStreamVideoSource::kDefaultWidth,
@@ -1316,12 +1303,9 @@ void UserMediaProcessor::OnStreamsGenerated(
     return;
   }
 
-  const auto* execution_context =
-      current_request_info_->request()->GetExecutionContext();
   if (ShouldDeferDeviceSettingsSelection(
           current_request_info_->request()->MediaRequestType(),
-          current_request_info_->request()->AudioMediaStreamType(),
-          execution_context) &&
+          current_request_info_->request()->AudioMediaStreamType()) &&
       !current_request_info_->eligible_audio_settings().empty() &&
       stream_devices_set->stream_devices.front()->audio_device.has_value()) {
     const std::string selected_id =
@@ -1345,8 +1329,7 @@ void UserMediaProcessor::OnStreamsGenerated(
   }
   if (ShouldDeferDeviceSettingsSelection(
           current_request_info_->request()->MediaRequestType(),
-          current_request_info_->request()->VideoMediaStreamType(),
-          execution_context) &&
+          current_request_info_->request()->VideoMediaStreamType()) &&
       !current_request_info_->eligible_video_settings().empty() &&
       stream_devices_set->stream_devices.front()->video_device.has_value()) {
     const std::string selected_id =

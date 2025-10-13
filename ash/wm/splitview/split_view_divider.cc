@@ -190,7 +190,7 @@ gfx::Rect SplitViewDivider::GetDividerBoundsInScreen(
 }
 
 aura::Window* SplitViewDivider::GetDividerWindow() {
-  return divider_widget_ ? divider_widget_->GetNativeWindow() : nullptr;
+  return divider_window_observation_.GetSource();
 }
 
 bool SplitViewDivider::HasDividerWidget() const {
@@ -497,15 +497,33 @@ void SplitViewDivider::SwapWindows() {
 }
 
 void SplitViewDivider::OnWindowDestroying(aura::Window* window) {
+  if (divider_window_observation_.IsObservingSource(window)) {
+    DCHECK_EQ(window, GetDividerWindow());
+    // This can happen as a result of closing the divider window's transient
+    // parent. Destroy the widget now so that other code won't have to deal with
+    // a zombie widget.
+    divider_window_observation_.Reset();
+    divider_view_ = nullptr;
+    divider_widget_.reset();
+    return;
+  }
   MaybeRemoveObservedWindow(window);
 }
 
 void SplitViewDivider::OnWindowStackingChanged(aura::Window* window) {
+  if (divider_window_observation_.IsObservingSource(window)) {
+    DCHECK_EQ(window, GetDividerWindow());
+    return;
+  }
   RefreshStackingOrder();
 }
 
 void SplitViewDivider::OnWindowVisibilityChanged(aura::Window* window,
                                                  bool visible) {
+  if (divider_window_observation_.IsObservingSource(window)) {
+    DCHECK_EQ(window, GetDividerWindow());
+    return;
+  }
   if (transient_windows_observations_.IsObservingSource(window) && visible &&
       is_resizing_with_divider_) {
     window->layer()->SetOpacity(kOpacityForTransientDuringResize);
@@ -615,6 +633,7 @@ void SplitViewDivider::CreateDividerWidget(int divider_position) {
       std::make_unique<SplitViewDividerView>(this));
   auto* divider_widget_native_window = divider_widget_->GetNativeWindow();
   divider_widget_native_window->SetProperty(kLockedToRootKey, true);
+  divider_window_observation_.Observe(divider_widget_native_window);
 
   // Use a window targeter and enlarge the hit region to allow located events
   // that are slightly outside the divider widget bounds be consumed by
@@ -643,9 +662,16 @@ void SplitViewDivider::CloseDividerWidget() {
   dragged_window_ = nullptr;
 
   if (divider_widget_) {
-    auto* divider_window = divider_widget_->GetNativeWindow();
-    if (auto* transient_parent = wm::GetTransientParent(divider_window)) {
-      wm::RemoveTransientChild(transient_parent, divider_window);
+    // Widget::GetNativeWindow() may be null if the NativeWidget is closed
+    // independently of the Widget, which may occur during Widget teardown when
+    // using the CLIENT_OWNS_WIDGET ownership scheme.
+    auto* const divider_window = divider_widget_->GetNativeWindow();
+    if (divider_window) {
+      divider_window_observation_.Reset();
+      if (auto* const transient_parent =
+              wm::GetTransientParent(divider_window)) {
+        wm::RemoveTransientChild(transient_parent, divider_window);
+      }
     }
 
     // During the asynchronous window closing, there may be a duration when the
@@ -656,7 +682,10 @@ void SplitViewDivider::CloseDividerWidget() {
     // Disable any event handling on the divider while we are closing the
     // widget.
     divider_view_->SetCanProcessEventsWithinSubtree(false);
-    divider_window->SetEventTargetingPolicy(aura::EventTargetingPolicy::kNone);
+    if (divider_window) {
+      divider_window->SetEventTargetingPolicy(
+          aura::EventTargetingPolicy::kNone);
+    }
     divider_view_ = nullptr;
     divider_widget_.reset();
     widget_delegate_.reset();
@@ -664,7 +693,7 @@ void SplitViewDivider::CloseDividerWidget() {
 }
 
 bool SplitViewDivider::GetActualTargetVisibility() const {
-  return divider_widget_ &&
+  return divider_widget_ && divider_widget_->GetNativeWindow() &&
          divider_widget_->GetNativeWindow()->TargetVisibility();
 }
 

@@ -16,7 +16,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if BUILDFLAG(IS_MAC)
-#include "gpu/ipc/service/gpu_memory_buffer_factory_io_surface.h"
+#include "gpu/command_buffer/service/shared_image/gpu_memory_buffer_factory_io_surface.h"
 #endif
 
 namespace viz {
@@ -42,9 +42,6 @@ class WebGPUTest : public testing::Test {
   struct Options {
     Options();
 
-    // Shared memory limits
-    SharedMemoryLimits shared_memory_limits =
-        SharedMemoryLimits::ForWebGPUContext();
     bool force_fallback_adapter = false;
     wgpu::FeatureLevel feature_level = wgpu::FeatureLevel::Core;
     bool enable_unsafe_webgpu = false;

@@ -22,7 +22,10 @@
 
 namespace blink {
 
+class HTMLMetaElement;
+class HTMLScriptElement;
 class LocalFrame;
+class MutationObserver;
 
 // Registry used to Add Observers for when frame metadata changes.
 class MODULES_EXPORT FrameMetadataObserverRegistry final
@@ -57,21 +60,35 @@ class MODULES_EXPORT FrameMetadataObserverRegistry final
 
  private:
   class DomContentLoadedListener;
+  class MetaTagAttributeObserver;
   class MetaTagsMutationObserver;
+  class PaidContentAttributeObserver;
+  class PaidContentMutationObserver;
   friend class DomContentLoadedListener;
 
   void Bind(mojo::PendingReceiver<mojom::blink::FrameMetadataObserverRegistry>
                 receiver);
 
+  void DisconnectAllAttributeObservers();
+  void ObserveMetaTagAttributes(HTMLMetaElement* meta);
+  void StopObservingMetaTagAttributes(HTMLMetaElement* meta);
+  void DisconnectAllPaidContentAttributeObservers();
+  void ObservePaidContentScriptAttributes(HTMLScriptElement* script);
+  void StopObservingPaidContentScriptAttributes(HTMLScriptElement* script);
+
   void OnDomContentLoaded();
   void OnPaidContentMetadataChanged();
   void OnMetaTagsChanged();
 
-  void UpdateMetaTagsObserver();
+  // Returns true if there are observers.
+  bool UpdateMetaTagsObserver();
+  // Returns true if there are observers.
+  bool UpdatePaidContentObserver();
 
   void ListenForDomContentLoaded();
 
-  void DisconnectHandler(mojo::RemoteSetElementId id);
+  void DisconnectHandler(mojo::RemoteSetElementId);
+  void PaidContentDisconnectHandler(mojo::RemoteSetElementId);
 
   HeapMojoReceiverSet<mojom::blink::FrameMetadataObserverRegistry,
                       FrameMetadataObserverRegistry>
@@ -99,6 +116,12 @@ class MODULES_EXPORT FrameMetadataObserverRegistry final
   Member<DomContentLoadedListener> dom_content_loaded_observer_;
 
   Member<MetaTagsMutationObserver> meta_tags_mutation_observer_;
+  Member<PaidContentMutationObserver> paid_content_mutation_observer_;
+
+  HeapHashMap<WeakMember<HTMLMetaElement>, Member<MutationObserver>>
+      meta_tag_attribute_observers_;
+  HeapHashMap<WeakMember<HTMLScriptElement>, Member<MutationObserver>>
+      paid_content_attribute_observers_;
 };
 
 }  // namespace blink

@@ -21,7 +21,6 @@
 #include "chrome/browser/web_applications/web_contents/web_app_data_retriever.h"
 #include "chrome/browser/web_applications/web_contents/web_contents_manager.h"
 #include "components/webapps/browser/web_contents/web_app_url_loader.h"
-#include "components/webapps/isolated_web_apps/reading/response_reader_factory.h"
 #include "components/webapps/isolated_web_apps/types/source.h"
 #include "components/webapps/isolated_web_apps/types/storage_location.h"
 #include "content/public/browser/web_contents.h"
@@ -43,9 +42,7 @@ class WebAppInstallInfoFetcher {
         source_(source),
         helper_(std::make_unique<IsolatedWebAppInstallCommandHelper>(
             url_info,
-            provider->web_contents_manager().CreateDataRetriever(),
-            IsolatedWebAppInstallCommandHelper::
-                CreateDefaultResponseReaderFactory(*profile))),
+            provider->web_contents_manager().CreateDataRetriever())),
         web_contents_(
             IsolatedWebAppInstallCommandHelper::CreateIsolatedWebAppWebContents(
                 *profile)) {}
@@ -143,7 +140,7 @@ void SignedWebBundleMetadata::Create(
               return SignedWebBundleMetadata(
                   url_info, source, install_info.title,
                   install_info.isolated_web_app_version(),
-                  install_info.icon_bitmaps);
+                  install_info.GetIconBitmapsForSecureSurfaces());
             }));
       },
       url_info, source,
@@ -157,8 +154,9 @@ SignedWebBundleMetadata SignedWebBundleMetadata::CreateForTesting(
     const IwaSourceBundleWithMode& source,
     const std::u16string& app_name,
     const IwaVersion& version,
-    const IconBitmaps& icons) {
-  return SignedWebBundleMetadata(url_info, source, app_name, version, icons);
+    DialogImageInfo image_info) {
+  return SignedWebBundleMetadata(url_info, source, app_name, version,
+                                 std::move(image_info));
 }
 
 SignedWebBundleMetadata::SignedWebBundleMetadata(
@@ -166,11 +164,11 @@ SignedWebBundleMetadata::SignedWebBundleMetadata(
     const IwaSourceBundleWithMode& source,
     const std::u16string& app_name,
     const IwaVersion& version,
-    const IconBitmaps& icons)
+    DialogImageInfo image_info)
     : url_info_(url_info),
       app_name_(app_name),
       version_(version),
-      icons_(icons) {}
+      image_info_(std::move(image_info)) {}
 
 SignedWebBundleMetadata::~SignedWebBundleMetadata() = default;
 
@@ -183,7 +181,7 @@ SignedWebBundleMetadata& SignedWebBundleMetadata::operator=(
 bool SignedWebBundleMetadata::operator==(
     const SignedWebBundleMetadata& other) const {
   return url_info_ == other.url_info_ && app_name_ == other.app_name_ &&
-         version_ == other.version_ && icons_ == other.icons_;
+         version_ == other.version_ && image_info_ == other.image_info_;
 }
 
 }  // namespace web_app

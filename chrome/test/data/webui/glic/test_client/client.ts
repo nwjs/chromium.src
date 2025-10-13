@@ -138,6 +138,41 @@ class WebClient implements GlicWebClient {
     $.enableDragResizeCheckbox.disabled =
         browser.enableDragResize === undefined;
 
+    $.switchConversationBtn.addEventListener('click', async () => {
+      if (this.browser?.switchConversation) {
+        const conversationId = $.conversationIdInput.value;
+        const conversationTitle = $.conversationTitleInput.value;
+        const info =
+            conversationId ? {conversationId, conversationTitle} : undefined;
+        try {
+          await this.browser.switchConversation(info);
+          logMessage(`switchConversation(${JSON.stringify(info)})`);
+        } catch (e) {
+          logMessage(
+              `switchConversation(${JSON.stringify(info)}) failed: ${e}`);
+        }
+      }
+    });
+
+    $.registerConversationBtn.addEventListener('click', async () => {
+      if (this.browser?.registerConversation) {
+        const conversationId = $.conversationIdInput.value;
+        if (!conversationId) {
+          logMessage('Cannot register conversation with empty ID.');
+          return;
+        }
+        const conversationTitle = $.conversationTitleInput.value;
+        const info = {conversationId, conversationTitle};
+        try {
+          await this.browser.registerConversation(info);
+          logMessage(`registerConversation(${JSON.stringify(info)})`);
+        } catch (e) {
+          logMessage(
+              `registerConversation(${JSON.stringify(info)}) failed: ${e}`);
+        }
+      }
+    });
+
     this.initialized = true;
     const cbs = this.onInitializedCallbacks;
     this.onInitializedCallbacks = [];
@@ -157,6 +192,10 @@ class WebClient implements GlicWebClient {
     delete (panelOpeningData as Partial<PanelState>).windowId;
     logMessage(`notifyPanelWillOpen(${JSON.stringify(panelOpeningData)})`);
     this.browser!.setContextAccessIndicator!($.contextAccessIndicator.checked);
+
+    if (panelOpeningData.conversationId) {
+      $.conversationId.value = panelOpeningData.conversationId;
+    }
 
     return {
       startingMode: WebClientMode.TEXT,

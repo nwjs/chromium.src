@@ -4,6 +4,8 @@
 
 package org.chromium.components.signin;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
@@ -31,6 +33,7 @@ import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DoNotBatch;
+import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.test.util.FakeAccountManagerDelegate;
 import org.chromium.components.signin.test.util.TestAccounts;
@@ -65,7 +68,7 @@ public class AccountManagerFacadeTest {
         }
 
         void blockGetAccount() {
-            assert mGetAccountsLatch == null;
+            assertThat(mGetAccountsLatch).isNull();
             mGetAccountsLatch = new CountDownLatch(1);
         }
 
@@ -79,8 +82,15 @@ public class AccountManagerFacadeTest {
             return super.getAccessToken(account, scope);
         }
 
+        @Override
+        public AccessTokenData getAccessTokenForPlatformAccount(
+                PlatformAccount platformAccount, String authTokenScopes) throws AuthException {
+            maybeBlockOnLatch(mGetAuthTokenLatch);
+            return super.getAccessTokenForPlatformAccount(platformAccount, authTokenScopes);
+        }
+
         void blockGetAuthToken() {
-            assert mGetAuthTokenLatch == null;
+            assertThat(mGetAuthTokenLatch).isNull();
             mGetAuthTokenLatch = new CountDownLatch(1);
         }
 
@@ -139,7 +149,8 @@ public class AccountManagerFacadeTest {
         }
     }
 
-    private static final String TOKEN_SCOPE = "oauth2:http://example.com/scope";
+    private static final String TOKEN_SCOPE = "http://example.com/scope";
+    private static final String OAUTH2_SCOPE_PREFIX = "oauth2:";
 
     public static class AccountManagerFacadeTestParams implements ParameterProvider {
         private static final List<ParameterSet> sAccountManagerFacadeTestParams =
@@ -252,15 +263,26 @@ public class AccountManagerFacadeTest {
 
     @Test
     @SmallTest
-    public void testGetOAuth2AccessTokenOnSuccess() throws AuthException {
+    @ParameterAnnotations.UseMethodParameter(AccountManagerFacadeTestParams.class)
+    public void testGetOAuth2AccessTokenOnSuccess(boolean isMigrationEnabled) throws AuthException {
         FakeAccountManagerDelegate delegate = new FakeAccountManagerDelegate();
         AccountManagerFacade facade =
                 ThreadUtils.runOnUiThreadBlocking(() -> new AccountManagerFacadeImpl(delegate));
+        PlatformAccount platformAccount = delegate.addAccount(TestAccounts.ACCOUNT1);
+        waitForAccountToBeAdded(facade, TestAccounts.ACCOUNT1);
 
-        delegate.addAccount(TestAccounts.ACCOUNT1);
-        AccessTokenData expectedToken =
-                delegate.getAccessToken(
-                        CoreAccountInfo.getAndroidAccountFrom(TestAccounts.ACCOUNT1), TOKEN_SCOPE);
+        final AccessTokenData expectedToken;
+        if (isMigrationEnabled) {
+            assert SigninFeatureMap.sMigrateAccountManagerDelegate.isEnabled();
+            expectedToken = delegate.getAccessTokenForPlatformAccount(platformAccount, TOKEN_SCOPE);
+            assertNotNull(expectedToken);
+        } else {
+            expectedToken =
+                    delegate.getAccessToken(
+                            CoreAccountInfo.getAndroidAccountFrom(TestAccounts.ACCOUNT1),
+                            OAUTH2_SCOPE_PREFIX + TOKEN_SCOPE);
+            assertNotNull(expectedToken);
+        }
 
         CustomGetAccessTokenCallback callback = new CustomGetAccessTokenCallback();
         ThreadUtils.runOnUiThread(
@@ -286,12 +308,13 @@ public class AccountManagerFacadeTest {
 
     @Test
     @SmallTest
-    public void testGetAndInvalidateAccessToken() throws Exception {
+    @ParameterAnnotations.UseMethodParameter(AccountManagerFacadeTestParams.class)
+    public void testGetAndInvalidateAccessToken(boolean isMigrationEnabled) throws Exception {
         FakeAccountManagerDelegate delegate = new FakeAccountManagerDelegate();
         AccountManagerFacade facade =
                 ThreadUtils.runOnUiThreadBlocking(() -> new AccountManagerFacadeImpl(delegate));
-
         delegate.addAccount(TestAccounts.ACCOUNT1);
+        waitForAccountToBeAdded(facade, TestAccounts.ACCOUNT1);
 
         CustomGetAccessTokenCallback callback1 = new CustomGetAccessTokenCallback();
         ThreadUtils.runOnUiThread(
@@ -325,9 +348,7 @@ public class AccountManagerFacadeTest {
 
     @Test
     @SmallTest
-    @ParameterAnnotations.UseMethodParameter(AccountManagerFacadeTestParams.class)
-    public void testWaitForPendingTokenRequestsToComplete(boolean isMigrationEnabled)
-            throws Exception {
+    public void testWaitForPendingTokenRequestsToComplete() throws Exception {
         BlockingAccountManagerDelegate blockingDelegate = new BlockingAccountManagerDelegate();
         blockingDelegate.addAccount(TestAccounts.ACCOUNT1);
         blockingDelegate.blockGetAuthToken();
@@ -353,5 +374,31 @@ public class AccountManagerFacadeTest {
         blockingDelegate.unblockGetAuthToken();
         pendingRequestsCompleteCallback.waitForOnly();
         assertTrue(tokenCallback.isReady());
+    }
+
+    @Test
+    @SmallTest
+    public void testFetchAccessTokenIfNoAccountsAreLoaded() throws Exception {
+        FeatureOverrides.overrideFlag(SigninFeatures.MIGRATE_ACCOUNT_MANAGER_DELEGATE, true);
+
+        FakeAccountManagerDelegate delegate = new FakeAccountManagerDelegate();
+        AccountManagerFacade facade =
+                ThreadUtils.runOnUiThreadBlocking(() -> new AccountManagerFacadeImpl(delegate));
+        assert SigninFeatureMap.sMigrateAccountManagerDelegate.isEnabled();
+        CustomGetAccessTokenCallback callback = new CustomGetAccessTokenCallback();
+
+        // Fetching account with a test
+        ThreadUtils.runOnUiThread(
+                () -> facade.getAccessToken(TestAccounts.ACCOUNT1, TOKEN_SCOPE, callback));
+
+        assertNull(callback.getToken());
+    }
+
+    private static void waitForAccountToBeAdded(AccountManagerFacade facade, AccountInfo account) {
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    return facade.getAccounts().isFulfilled()
+                            && facade.getAccounts().getResult().contains(account);
+                });
     }
 }

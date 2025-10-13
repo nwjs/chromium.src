@@ -17,7 +17,11 @@
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 
 namespace policy {
+class ManagementService;
 class PolicyService;
+}
+namespace signin {
+class IdentityManager;
 }
 namespace variations {
 class VariationsService;
@@ -25,7 +29,7 @@ class VariationsService;
 namespace regional_capabilities {
 class RegionalCapabilitiesService;
 struct ChoiceScreenEligibilityConfig;
-}
+}  // namespace regional_capabilities
 namespace TemplateURLPrepopulateData {
 class Resolver;
 }
@@ -93,7 +97,9 @@ class SearchEngineChoiceService : public KeyedService {
       PrefService& profile_prefs,
       PrefService* local_state,
       regional_capabilities::RegionalCapabilitiesService& regional_capabilities,
-      TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver);
+      TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver,
+      signin::IdentityManager& identity_manager,
+      policy::ManagementService& platform_management_service);
   ~SearchEngineChoiceService() override;
 
   // Runs the initialisation step for this service, checking consistency in the
@@ -127,6 +133,10 @@ class SearchEngineChoiceService : public KeyedService {
   // the legacy histograms are not recorded by `RecordProfileLoadEligibility()`
   void RecordLegacyStaticEligibility(
       SearchEngineChoiceScreenConditions condition);
+
+  // Indicates whether the choice screen can be shown on a surface with a
+  // particular "first run experience" status.
+  bool IsSurfaceEligible(bool is_first_run_experience_surface) const;
 #endif  // BUILDFLAG(IS_IOS)
 
   // Records the specified choice screen condition for relevant navigations.
@@ -171,7 +181,7 @@ class SearchEngineChoiceService : public KeyedService {
   Client& GetClientForTesting();
 
   enum class ChoiceStatus {
-    // Metedata indicates that a search engine choice has been made and is
+    // Metadata indicates that a search engine choice has been made and is
     // considered valid.
     kValid,
     // No search engine choice has been made yet.
@@ -197,6 +207,12 @@ class SearchEngineChoiceService : public KeyedService {
     // The current default search provider has a prepopulated ID that doesn't
     // match any of the preopulated engines currently available.
     kCurrentIsUnknownPrepopulated,
+    // The user is not eligible for the choice screen based on their account
+    // capabilities.
+    kAccountNotEligible,
+    // The device is not eligible for the choice screen based on its management
+    // status.
+    kManaged,
   };
   ChoiceStatus EvaluateSearchProviderChoiceForTesting(
       const TemplateURLService& template_url_service);
@@ -261,6 +277,8 @@ class SearchEngineChoiceService : public KeyedService {
       regional_capabilities_service_;
   const raw_ref<TemplateURLPrepopulateData::Resolver>
       prepopulate_data_resolver_;
+  const raw_ref<signin::IdentityManager> identity_manager_;
+  const raw_ref<policy::ManagementService> platform_management_service_;
   base::ObserverList<Observer> observers_;
 
   // Used to track whether `MaybeRecordChoiceScreenDisplayState()` has already

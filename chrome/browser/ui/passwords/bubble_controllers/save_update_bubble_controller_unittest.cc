@@ -20,7 +20,6 @@
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/test_signin_client_builder.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/browser/ui/passwords/passwords_model_delegate_mock.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
@@ -649,10 +648,10 @@ TEST_P(SaveUpdateBubbleControllerPasswordRevealingTest,
 
   if (reauth_expected) {
     EXPECT_CALL(*delegate(), AuthenticateUserWithMessage)
-        .WillOnce(testing::WithArg<1>(testing::Invoke(
+        .WillOnce(testing::WithArg<1>(
             [&](PasswordsModelDelegate::AvailabilityCallback callback) {
               std::move(callback).Run(!does_os_support_user_auth);
-            })));
+            }));
     base::MockCallback<PasswordsModelDelegate::AvailabilityCallback>
         mock_callback;
     EXPECT_CALL(mock_callback, Run(!does_os_support_user_auth));

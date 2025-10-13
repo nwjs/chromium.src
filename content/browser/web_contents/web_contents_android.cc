@@ -89,8 +89,7 @@ std::unordered_set<WebContentsAndroid*>& GetAllocatedWebContentsAndroids() {
 void JavaScriptResultCallback(const ScopedJavaGlobalRef<jobject>& callback,
                               base::Value result) {
   JNIEnv* env = base::android::AttachCurrentThread();
-  std::string json;
-  base::JSONWriter::Write(result, &json);
+  std::string json = base::WriteJson(result).value_or("");
   ScopedJavaLocalRef<jstring> j_json = ConvertUTF8ToJavaString(env, json);
   Java_WebContentsImpl_onEvaluateJavaScriptResult(env, j_json, callback);
 }
@@ -974,6 +973,21 @@ jint WebContentsAndroid::GetOriginalWindowOpenDisposition(JNIEnv* env) {
 
 jboolean WebContentsAndroid::HasOpener(JNIEnv* env) {
   return static_cast<jboolean>(web_contents_->HasOpener());
+}
+
+void WebContentsAndroid::UpdateWindowControlsOverlay(JNIEnv* env,
+                                                     jint left,
+                                                     jint top,
+                                                     jint right,
+                                                     jint bottom) {
+  float dip_scale = web_contents_->GetNativeView()->GetDipScale();
+  left = std::round(left / dip_scale);
+  top = std::round(top / dip_scale);
+  right = std::round(right / dip_scale);
+  bottom = std::round(bottom / dip_scale);
+
+  web_contents_->UpdateWindowControlsOverlay(
+      gfx::Rect(left, top, right - left, bottom - top));
 }
 
 void WebContentsAndroid::UpdateOffsetTagDefinitions(

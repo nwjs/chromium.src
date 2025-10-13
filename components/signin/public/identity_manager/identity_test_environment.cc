@@ -45,15 +45,17 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "base/check_deref.h"
-#include "chromeos/ash/components/account_manager/account_manager_facade_factory.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "components/account_manager_core/chromeos/account_manager.h"
 #include "components/signin/internal/identity_manager/test_profile_oauth2_token_service_delegate_chromeos.h"
 #endif
 
 #if BUILDFLAG(IS_IOS)
-#include "components/signin/internal/identity_manager/device_accounts_synchronizer_impl.h"
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service_delegate_ios.h"
+#endif
+
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#include "components/signin/internal/identity_manager/device_accounts_synchronizer_impl.h"
 #endif
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
@@ -63,25 +65,6 @@
 using TokenResponseBuilder = OAuth2AccessTokenConsumer::TokenResponse::Builder;
 
 namespace signin {
-
-#if BUILDFLAG(IS_CHROMEOS)
-int ScopedIdentityTestEnvironmentTracker::count_ = 0;
-
-ScopedIdentityTestEnvironmentTracker::ScopedIdentityTestEnvironmentTracker() {
-  ++count_;
-}
-
-ScopedIdentityTestEnvironmentTracker::~ScopedIdentityTestEnvironmentTracker() {
-  --count_;
-  if (count_ == 0) {
-    // TODO(crbug.com/421058020): Integrate `GetAccountManagerFacade` into
-    // `AccountManagerFactory` and let it manage the lifetime.
-    // Remove the facade for the empty path as it was previously a separate
-    // instance and reset after each test.
-    ash::DeleteAccountManagerFacadeInstanceForTesting("");
-  }
-}
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
 class IdentityManagerDependenciesOwner {
  public:
@@ -258,7 +241,7 @@ IdentityTestEnvironment::BuildIdentityManagerForTests(
       signin_client->GetURLLoaderFactory());
 
   auto* account_manager_facade =
-      ash::GetAccountManagerFacade(user_data_dir.value());
+      account_manager_factory->GetAccountManagerFacade(user_data_dir.value());
 
   auto token_service = std::make_unique<FakeProfileOAuth2TokenService>(
       pref_service,
@@ -350,7 +333,7 @@ IdentityTestEnvironment::FinishBuildIdentityManagerForTests(
           signin_client, token_service.get(), gaia_cookie_manager_service.get(),
           account_tracker_service.get());
 
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   init_params.device_accounts_synchronizer =
       std::make_unique<DeviceAccountsSynchronizerImpl>(
           token_service->GetDelegate());
@@ -362,8 +345,6 @@ IdentityTestEnvironment::FinishBuildIdentityManagerForTests(
       std::move(gaia_cookie_manager_service);
   init_params.primary_account_manager = std::move(primary_account_manager);
   init_params.token_service = std::move(token_service);
-  // TODO: Set the account_manager_facade on Lacros once Mirror is enabled by
-  // default.
 #if BUILDFLAG(IS_CHROMEOS)
   init_params.account_manager_facade = account_manager_facade;
 #endif

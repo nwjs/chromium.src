@@ -28,6 +28,23 @@ static constexpr char kVcSdJwt[] = "vc+sd-jwt";
 bool IsFrameActive(RenderFrameHost* frame) {
   return frame && frame->IsActive();
 }
+
+bool ValidateWellKnownFormatForClientMetadata(
+    const IdpNetworkRequestManager::WellKnown& well_known,
+    bool has_client_metadata_endpoint) {
+  if (!has_client_metadata_endpoint) {
+    return true;
+  }
+
+  // client_metadata endpoint exists - require direct endpoints format
+  // Check if both accounts_endpoint and login_url are present (direct endpoints
+  // format)
+  if (well_known.accounts.is_empty() || well_known.login_url.is_empty()) {
+    return false;
+  }
+
+  return true;
+}
 }  // namespace
 
 AccountsFetcher::IdentityProviderGetInfo::IdentityProviderGetInfo(
@@ -187,6 +204,22 @@ void AccountsFetcher::OnAllConfigAndWellKnownFetched(
       continue;
     }
 
+    if (IsWellKnownEndpointValidationEnabled()) {
+      // Check if this IDP has a client_metadata endpoint
+      bool has_client_metadata_endpoint =
+          !fetch_result.endpoints.client_metadata.is_empty();
+
+      if (!ValidateWellKnownFormatForClientMetadata(
+              fetch_result.wellknown, has_client_metadata_endpoint)) {
+        federated_auth_request_impl_->OnFetchDataForIdpFailed(
+            std::move(idp_info),
+            FederatedAuthRequestResult::kWellKnownInvalidResponse,
+            TokenStatus::kWellKnownInvalidResponse,
+            /*should_delay_callback=*/false);
+        continue;
+      }
+    }
+
     if (IsIdPRegistrationEnabled()) {
       if (get_info_it->second.provider->config->type) {
         if (!base::Contains(fetch_result.metadata->types,
@@ -339,7 +372,7 @@ void AccountsFetcher::OnAccountsFetchSucceeded(
   bool need_client_metadata = false;
   if (IsIframeOriginEnabled()) {
     // For cross-site iframes, we need to fetch client metadata in case the
-    // IDP sends `client_matches_top_frame_origin: false`.
+    // IDP sends `client_is_third_party_to_top_frame_origin: true`.
     url::Origin embedding_origin =
         render_frame_host_->GetMainFrame()->GetLastCommittedOrigin();
     url::Origin rp_origin = render_frame_host_->GetLastCommittedOrigin();
@@ -420,8 +453,8 @@ void AccountsFetcher::OnFetchDataForIdpSucceeded(
                      client_metadata.brand_icon_url, rp_brand_icon},
       idp_info->rp_context, idp_info->format, disclosure_fields,
       /*has_login_status_mismatch=*/false);
-  idp_info->client_matches_top_frame_origin =
-      client_metadata.client_matches_top_frame_origin;
+  idp_info->client_is_third_party_to_top_frame_origin =
+      client_metadata.client_is_third_party_to_top_frame_origin;
   for (auto& account : accounts) {
     account->identity_provider = idp_info->data;
   }

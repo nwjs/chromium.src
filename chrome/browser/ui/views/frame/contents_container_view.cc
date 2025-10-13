@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 
+#include "chrome/browser/actor/ui/actor_overlay_web_view.h"
 #include "chrome/browser/devtools/devtools_contents_resizing_strategy.h"
 #include "chrome/browser/enterprise/watermark/watermark_view.h"
 #include "chrome/browser/profiles/profile.h"
@@ -85,7 +86,7 @@ ContentsContainerView::ContentsContainerView(BrowserView* browser_view)
 
   if (base::FeatureList::IsEnabled(ntp_features::kNtpFooter)) {
     new_tab_footer_view_separator_ =
-        AddChildView(std::make_unique<ContentsSeparator>());
+        AddChildView(ContentsSeparator::CreateContentsSeparator());
     new_tab_footer_view_separator_->SetVisible(false);
     new_tab_footer_view_separator_->SetProperty(
         views::kElementIdentifierKey, kFooterWebViewSeparatorElementId);
@@ -103,11 +104,11 @@ ContentsContainerView::ContentsContainerView(BrowserView* browser_view)
   contents_scrim_view_->layer()->SetName("ContentsScrimView");
 
   if (features::kGlicActorUiOverlay.Get()) {
-    auto actor_overlay_view = std::make_unique<views::View>();
-    actor_overlay_view->SetID(VIEW_ID_ACTOR_OVERLAY);
-    actor_overlay_view->SetVisible(false);
-    actor_overlay_view->SetLayoutManager(std::make_unique<views::FillLayout>());
-    actor_overlay_view_ = AddChildView(std::move(actor_overlay_view));
+    auto actor_overlay_web_view =
+        std::make_unique<ActorOverlayWebView>(browser_view->browser());
+    actor_overlay_web_view->SetID(VIEW_ID_ACTOR_OVERLAY);
+    actor_overlay_web_view->SetVisible(false);
+    actor_overlay_web_view_ = AddChildView(std::move(actor_overlay_web_view));
   }
 
 #if BUILDFLAG(ENABLE_GLIC)
@@ -213,16 +214,13 @@ void ContentsContainerView::UpdateBorderRoundedCorners() {
                    ? content_upper_rounded_corners
                    : content_rounded_corners;
 
+  contents_view_->SetBackgroundRadii(radii);
   contents_view_->holder()->SetCornerRadii(radii);
+  contents_scrim_view_->SetRoundedCorners(kContentRoundedCorners);
 
   if (new_tab_footer_view_) {
     new_tab_footer_view_->holder()->SetCornerRadii(
         content_lower_rounded_corners);
-  }
-
-  if (contents_scrim_view_->layer()->rounded_corner_radii() !=
-      kContentRoundedCorners) {
-    contents_scrim_view_->SetRoundedCorners(kContentRoundedCorners);
   }
 
 #if BUILDFLAG(ENABLE_GLIC)
@@ -238,6 +236,7 @@ void ContentsContainerView::ClearBorderRoundedCorners() {
   devtools_web_view_->holder()->SetCornerRadii(kNoRoundedCorners);
   devtools_scrim_view_->SetRoundedCorners(kNoRoundedCorners);
 
+  contents_view_->SetBackgroundRadii(kNoRoundedCorners);
   contents_view_->holder()->SetCornerRadii(kNoRoundedCorners);
 
   if (new_tab_footer_view_) {
@@ -298,16 +297,9 @@ void ContentsContainerView::ApplyWatermarkSettings(
 
 void ContentsContainerView::UpdateDevToolsDockedPlacement() {
   DevToolsDockedPlacement placement = DevToolsDockedPlacement::kUnknown;
-  gfx::Rect contents_view_bounds = contents_view_->bounds();
-  // Include ntp footer bounds so that we don't mistakenly believe devtools is
-  // bottom docked when the footer is showing.
-  if (new_tab_footer_view_ && new_tab_footer_view_->GetVisible()) {
-    CHECK(new_tab_footer_view_separator_);
-    contents_view_bounds.set_height(contents_view_bounds.height() +
-                                    new_tab_footer_view_->height() +
-                                    new_tab_footer_view_separator_->height());
-  }
+  gfx::Rect contents_view_bounds = GetContentsViewBounds();
   const gfx::Rect& container_bounds = GetContentsBounds();
+
   // If contents_webview has the same bounds as webview_container, it either
   // means that devtools are not open or devtools are open in a separate
   // window (not docked).
@@ -358,15 +350,27 @@ void ContentsContainerView::SetCaptureContentsBorderLocation(
   }
 }
 
+gfx::Rect ContentsContainerView::GetContentsViewBounds() const {
+  gfx::Rect contents_view_bounds = contents_view_->bounds();
+  if (new_tab_footer_view_ && new_tab_footer_view_->GetVisible()) {
+    CHECK(new_tab_footer_view_separator_);
+    contents_view_bounds.set_height(contents_view_bounds.height() +
+                                    new_tab_footer_view_->height() +
+                                    new_tab_footer_view_separator_->height());
+  }
+
+  return contents_view_bounds;
+}
+
 void ContentsContainerView::CreateCaptureContentsBorder() {
   capture_contents_border_widget_ = std::make_unique<views::Widget>();
   views::Widget::InitParams params(
       views::Widget::InitParams::CLIENT_OWNS_WIDGET,
       views::Widget::InitParams::TYPE_POPUP);
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
-  views::Widget* frame = GetWidget();
-  params.parent = frame->GetNativeView();
-  params.context = frame->GetNativeWindow();
+  views::Widget* widget = GetWidget();
+  params.parent = widget->GetNativeView();
+  params.context = widget->GetNativeWindow();
   // Make the widget non-top level.
   params.child = true;
   params.name = "TabSharingContentsBorder";
@@ -514,9 +518,9 @@ views::ProposedLayout ContentsContainerView::CalculateProposedLayout(
                                      full_contents_bounds);
 
   // Actor Overlay view bounds are the same as the contents view.
-  if (actor_overlay_view_) {
+  if (actor_overlay_web_view_) {
     layouts.child_layouts.emplace_back(
-        actor_overlay_view_.get(), actor_overlay_view_->GetVisible(),
+        actor_overlay_web_view_.get(), actor_overlay_web_view_->GetVisible(),
         non_devtools_contents_bounds, size_bounds);
   }
 

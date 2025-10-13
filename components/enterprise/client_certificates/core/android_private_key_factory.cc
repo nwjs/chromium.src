@@ -5,6 +5,7 @@
 #include "components/enterprise/client_certificates/core/android_private_key_factory.h"
 
 #include <array>
+#include <cstdint>
 #include <iterator>
 #include <optional>
 #include <string_view>
@@ -17,6 +18,7 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
+#include "base/rand_util.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "components/enterprise/client_certificates/core/android_private_key.h"
@@ -29,6 +31,13 @@ namespace client_certificates {
 
 namespace {
 
+// Function to generate a random identity for the Android KeyStore.
+std::array<uint8_t, 32> GenerateRandomIdentity() {
+  std::array<uint8_t, 32> identity;
+  base::RandBytes(identity);
+  return identity;
+}
+
 static constexpr std::array<device::PublicKeyCredentialParams::CredentialInfo,
                             1>
     kEs256Allowed = {device::PublicKeyCredentialParams::CredentialInfo{
@@ -38,12 +47,6 @@ static constexpr std::array<device::PublicKeyCredentialParams::CredentialInfo,
 scoped_refptr<AndroidPrivateKey> CreateOrLoadKeyFromKeyStore(
     scoped_refptr<BrowserKeyStore> bk_key_store,
     std::vector<uint8_t> credential_id) {
-  if (!bk_key_store->GetDeviceSupportsHardwareKeys()) {
-    // StrongBox is required for this key.
-    // TODO(crbug.com/432304139): Add support for software keys.
-    return nullptr;
-  }
-
   std::unique_ptr<BrowserKey> bk =
       bk_key_store->GetOrCreateBrowserKeyForCredentialId(
           credential_id, base::ToVector(kEs256Allowed));
@@ -67,13 +70,12 @@ AndroidPrivateKeyFactory::AndroidPrivateKeyFactory() = default;
 AndroidPrivateKeyFactory::~AndroidPrivateKeyFactory() = default;
 
 void AndroidPrivateKeyFactory::CreatePrivateKey(PrivateKeyCallback callback) {
+  auto identity = GenerateRandomIdentity();
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock()},
-      base::BindOnce(CreateOrLoadKeyFromKeyStore,
-                     CreateBrowserKeyStoreInstance(),
-                     std::vector<uint8_t>(
-                         std::begin(kManagedProfileAndroidKeyStoreIdentity),
-                         std::end(kManagedProfileAndroidKeyStoreIdentity))),
+      base::BindOnce(
+          CreateOrLoadKeyFromKeyStore, CreateBrowserKeyStoreInstance(),
+          std::vector<uint8_t>(std::begin(identity), std::end(identity))),
       std::move(callback));
 }
 

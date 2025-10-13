@@ -19,7 +19,6 @@ import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.DeviceInfo;
-import org.chromium.base.Promise;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
@@ -45,7 +44,6 @@ import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.AccountUtils;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.base.CoreAccountInfo;
-import org.chromium.components.signin.identitymanager.AccountInfoServiceProvider;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -280,11 +278,14 @@ public class SyncPromoController {
         if (visibleAccount == null) {
             return true;
         }
-        final Promise<@Nullable AccountInfo> visibleAccountPromise =
-                AccountInfoServiceProvider.get().getAccountInfoByEmail(visibleAccount.getEmail());
 
-        AccountInfo accountInfo =
-                visibleAccountPromise.isFulfilled() ? visibleAccountPromise.getResult() : null;
+        final IdentityManager identityManager =
+                IdentityServicesProvider.get().getIdentityManager(mProfile);
+        final @Nullable AccountInfo accountInfo =
+                identityManager != null
+                        ? identityManager.findExtendedAccountInfoByEmailAddress(
+                                visibleAccount.getEmail())
+                        : null;
         return accountInfo != null;
     }
 
@@ -518,10 +519,11 @@ public class SyncPromoController {
                                 mBottomSheetStrings,
                                 NoAccountSigninMode.BOTTOM_SHEET,
                                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                                mHistoryOptInMode)
+                                mHistoryOptInMode,
+                                context.getString(R.string.history_sync_title),
+                                context.getString(R.string.history_sync_subtitle))
                         .build();
-        @Nullable
-        Intent intent =
+        @Nullable Intent intent =
                 mSigninAndHistorySyncActivityLauncher.createBottomSheetSigninIntentOrShowError(
                         context, mProfile, config, mAccessPoint);
         if (intent != null) {
@@ -536,10 +538,11 @@ public class SyncPromoController {
                                 mBottomSheetStrings,
                                 NoAccountSigninMode.BOTTOM_SHEET,
                                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                                mHistoryOptInMode)
+                                mHistoryOptInMode,
+                                context.getString(R.string.history_sync_title),
+                                context.getString(R.string.history_sync_subtitle))
                         .build();
-        @Nullable
-        Intent intent =
+        @Nullable Intent intent =
                 mSigninAndHistorySyncActivityLauncher.createBottomSheetSigninIntentOrShowError(
                         context, mProfile, config, mAccessPoint);
         if (intent != null) {
@@ -554,10 +557,11 @@ public class SyncPromoController {
                                 mBottomSheetStrings,
                                 NoAccountSigninMode.BOTTOM_SHEET,
                                 WithAccountSigninMode.CHOOSE_ACCOUNT_BOTTOM_SHEET,
-                                mHistoryOptInMode)
+                                mHistoryOptInMode,
+                                context.getString(R.string.history_sync_title),
+                                context.getString(R.string.history_sync_subtitle))
                         .build();
-        @Nullable
-        Intent intent =
+        @Nullable Intent intent =
                 mSigninAndHistorySyncActivityLauncher.createBottomSheetSigninIntentOrShowError(
                         context, mProfile, config, mAccessPoint);
         if (intent != null) {

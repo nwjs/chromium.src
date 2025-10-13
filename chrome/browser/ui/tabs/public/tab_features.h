@@ -25,12 +25,14 @@ class PinnedTranslateActionListener;
 class Profile;
 class PwaInstallPageActionController;
 class ReadAnythingSidePanelController;
+class RollBackModeBInfoBarController;
 class SidePanelRegistry;
 class TabResourceUsageTabHelper;
 class TabUIHelper;
 class TranslatePageActionController;
 class QwacWebContentsObserver;
 class ManagePasswordsPageActionController;
+class BookmarkBarPreloadPipelineManager;
 
 namespace autofill {
 class BubbleManager;
@@ -72,7 +74,9 @@ class ExtensionSidePanelManager;
 
 #if BUILDFLAG(ENABLE_GLIC)
 namespace glic {
+class GlicInstanceHelper;
 class GlicTabIndicatorHelper;
+class GlicSidePanelCoordinator;
 }  // namespace glic
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
@@ -112,6 +116,13 @@ class CollaborationMessagingTabData;
 namespace lens {
 class TabContextualizationController;
 }  // namespace lens
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+namespace wallet {
+class ChromeWalletablePassClient;
+}  // namespace wallet
+#endif
 
 namespace tabs {
 
@@ -244,20 +255,11 @@ class TabFeatures {
     return inactive_window_mouse_event_controller_.get();
   }
 
-  TabResourceUsageTabHelper* resource_usage_helper() {
-    return resource_usage_helper_.get();
-  }
-
   MemorySaverChipTabHelper* memory_saver_chip_helper() {
     return memory_saver_chip_helper_.get();
   }
 
   TabUIHelper* tab_ui_helper() { return tab_ui_helper_.get(); }
-
-  // Note: Temporary until there is a more uniform way to swap out features for
-  // testing.
-  TabResourceUsageTabHelper* SetResourceUsageHelperForTesting(
-      std::unique_ptr<TabResourceUsageTabHelper> resource_usage_helper);
 
   TabUIHelper* SetTabUIHelperForTesting(
       std::unique_ptr<TabUIHelper> tab_ui_helper);
@@ -277,6 +279,16 @@ class TabFeatures {
 
   AskBeforeHttpDialogController* ask_before_http_dialog_controller() {
     return ask_before_http_dialog_controller_.get();
+  }
+
+#if BUILDFLAG(ENABLE_GLIC)
+  glic::GlicSidePanelCoordinator* glic_side_panel_coordinator() {
+    return glic_side_panel_coordinator_.get();
+  }
+#endif  // BUILDFLAG(ENABLE_GLIC)
+
+  BookmarkBarPreloadPipelineManager* bookmarkbar_preload_pipeline_manager() {
+    return bookmarkbar_preload_pipeline_manager_.get();
   }
 
   // Called exactly once to initialize features.
@@ -392,7 +404,9 @@ class TabFeatures {
       collaboration_messaging_page_action_controller_;
 
 #if BUILDFLAG(ENABLE_GLIC)
+  std::unique_ptr<glic::GlicInstanceHelper> glic_instance_helper_;
   std::unique_ptr<glic::GlicTabIndicatorHelper> glic_tab_indicator_helper_;
+  std::unique_ptr<glic::GlicSidePanelCoordinator> glic_side_panel_coordinator_;
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
   std::unique_ptr<memory_saver::MemorySaverChipController>
@@ -430,6 +444,16 @@ class TabFeatures {
   std::unique_ptr<lens::TabContextualizationController>
       tab_contextualization_controller_;
 
+  std::unique_ptr<RollBackModeBInfoBarController>
+      roll_back_mode_b_infobar_controller_;
+
+  std::unique_ptr<BookmarkBarPreloadPipelineManager>
+      bookmarkbar_preload_pipeline_manager_;
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  std::unique_ptr<wallet::ChromeWalletablePassClient> walletable_pass_client_;
+#endif
   // Must be the last member.
   base::WeakPtrFactory<TabFeatures> weak_factory_{this};
 };

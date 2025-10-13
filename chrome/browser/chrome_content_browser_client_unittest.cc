@@ -94,7 +94,6 @@
 #include "net/test/test_data_directory.h"
 #include "pdf/buildflags.h"
 #include "services/network/test/test_network_context.h"
-#include "services/video_effects/public/cpp/buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
@@ -128,14 +127,6 @@
 #include "components/captive_portal/content/captive_portal_tab_helper.h"
 #endif
 
-#if BUILDFLAG(ENABLE_VIDEO_EFFECTS)
-#include "media/capture/mojom/video_effects_manager.mojom.h"
-#include "services/video_effects/public/cpp/video_effects_service_host.h"
-#include "services/video_effects/public/mojom/video_effects_processor.mojom.h"
-#include "services/video_effects/public/mojom/video_effects_service.mojom.h"
-#include "services/video_effects/test/fake_video_effects_service.h"
-#endif  // BUILDFLAG(ENABLE_VIDEO_EFFECTS)
-
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_features.h"
 #include "ash/webui/help_app_ui/url_constants.h"
@@ -159,12 +150,6 @@
 #include "google_apis/default_api_keys.h"
 #include "google_apis/google_api_keys.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-#if BUILDFLAG(IS_WIN)
-#include "base/test/mock_entropy_provider.h"
-#include "chrome/test/base/scoped_metrics_service_for_synthetic_trials.h"
-#include "ui/accessibility/accessibility_features.h"
-#endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/web_applications/web_app.h"
@@ -410,6 +395,11 @@ TEST_F(ChromeContentBrowserClientWindowTest, GetAutoPipInfo_AutoPipReason) {
       media::PictureInPictureEventsInfo::AutoPipReason::kMediaPlayback);
   EXPECT_EQ(media::PictureInPictureEventsInfo::AutoPipReason::kMediaPlayback,
             client.GetAutoPipInfo(*web_contents).auto_pip_reason);
+
+  tab_helper->set_auto_pip_trigger_reason_for_testing(
+      media::PictureInPictureEventsInfo::AutoPipReason::kBrowserInitiated);
+  EXPECT_EQ(media::PictureInPictureEventsInfo::AutoPipReason::kBrowserInitiated,
+            client.GetAutoPipInfo(*web_contents).auto_pip_reason);
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -549,48 +539,6 @@ TEST_F(ChromeContentBrowserClientWindowTest,
       browser()->profile(), GURL("https://example.com/test?q=test")));
 }
 
-TEST_F(ChromeContentBrowserClientWindowTest,
-       IsURLAccessibleByHistoryNavigation) {
-  ChromeContentBrowserClient client;
-  const GURL url1("https://a.com");
-  const GURL url2("https://b.org");
-  const GURL url3("https://c.com");
-
-  // No tabs.
-  EXPECT_FALSE(client.IsURLAccessibleByHistoryNavigation(url1));
-
-  // One tab, one entry, URL matches.
-  AddTab(browser(), url1);
-  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url1));
-
-  // One tab, one entry, URL does not match.
-  EXPECT_FALSE(client.IsURLAccessibleByHistoryNavigation(url2));
-
-  // One tab, multiple entries, URL matches the latest entry.
-  NavigateAndCommitActiveTab(url2);
-  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url2));
-
-  // One tab, multiple entries, URL matches a previous entry.
-  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url1));
-
-  // Multiple tabs, URL in one of them.
-  AddTab(browser(), url3);
-  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url1));
-  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url2));
-  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url3));
-
-  // Multiple tabs, URL not in any of them.
-  EXPECT_FALSE(
-      client.IsURLAccessibleByHistoryNavigation(GURL("https://notfound.com")));
-
-  // Multiple browser windows.
-  std::unique_ptr<Browser> new_browser(
-      CreateBrowser(profile(), Browser::TYPE_NORMAL, /*hosted_app=*/false));
-  const GURL url4("https://d.com");
-  AddTab(new_browser.get(), url4);
-  EXPECT_TRUE(client.IsURLAccessibleByHistoryNavigation(url4));
-  new_browser->tab_strip_model()->CloseAllTabs();
-}
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // NOTE: Any updates to the expectations in these tests should also be done in
@@ -662,7 +610,7 @@ class BlinkSettingsFieldTrialTest : public testing::Test {
                                     switches::kRendererProcess);
   }
 
-  void TearDown() override { variations::testing::ClearAllVariationParams(); }
+  void TearDown() override { variations::test::ClearAllVariationParams(); }
 
   void CreateFieldTrial(const char* trial_name, const char* group_name) {
     base::FieldTrialList::CreateFieldTrial(trial_name, group_name);
@@ -858,44 +806,6 @@ TEST_F(ChromeContentBrowserClientTest, HandleWebUIReverse) {
       &chrome_certificate_manager, &profile_));
 #endif
 }
-
-#if BUILDFLAG(ENABLE_VIDEO_EFFECTS)
-TEST_F(ChromeContentBrowserClientTest, BindReadonlyVideoEffectsManager) {
-  TestChromeContentBrowserClient test_content_browser_client;
-  mojo::Remote<media::mojom::ReadonlyVideoEffectsManager> video_effects_manager;
-  test_content_browser_client.BindReadonlyVideoEffectsManager(
-      "test_device_id", &profile_,
-      video_effects_manager.BindNewPipeAndPassReceiver());
-
-  base::test::TestFuture<media::mojom::VideoEffectsConfigurationPtr>
-      configuration_future;
-  video_effects_manager->GetConfiguration(configuration_future.GetCallback());
-  // The actual value isn't that important here. What matters is that getting a
-  // result means that the plumbing worked.
-  EXPECT_FALSE(configuration_future.Get().is_null());
-}
-
-TEST_F(ChromeContentBrowserClientTest, BindVideoEffectsProcessor) {
-  mojo::Remote<video_effects::mojom::VideoEffectsService> service;
-  video_effects::FakeVideoEffectsService fake_effects_service(
-      service.BindNewPipeAndPassReceiver());
-  auto service_reset =
-      video_effects::SetVideoEffectsServiceRemoteForTesting(&service);
-
-  base::test::TestFuture<void> effects_processor_future =
-      fake_effects_service.GetEffectsProcessorCreationFuture();
-
-  TestChromeContentBrowserClient test_content_browser_client;
-  mojo::Remote<video_effects::mojom::VideoEffectsProcessor>
-      video_effects_processor;
-  test_content_browser_client.BindVideoEffectsProcessor(
-      "test_device_id", &profile_,
-      video_effects_processor.BindNewPipeAndPassReceiver());
-
-  EXPECT_TRUE(effects_processor_future.Wait());
-  EXPECT_TRUE(video_effects_processor.is_connected());
-}
-#endif  // !BUILDFLAG(ENABLE_VIDEO_EFFECTS)
 
 TEST_F(ChromeContentBrowserClientTest, PreferenceRankAudioDeviceInfos) {
   blink::WebMediaDeviceInfoArray infos{
@@ -1260,7 +1170,7 @@ class CaptivePortalCheckNetworkContext final
 };
 
 class CaptivePortalCheckRenderProcessHostFactory
-    : public content::RenderProcessHostFactory {
+    : public content::MockRenderProcessHostFactory {
  public:
   CaptivePortalCheckRenderProcessHostFactory() = default;
 
@@ -1269,22 +1179,17 @@ class CaptivePortalCheckRenderProcessHostFactory
   CaptivePortalCheckRenderProcessHostFactory& operator=(
       const CaptivePortalCheckRenderProcessHostFactory&) = delete;
 
-  content::RenderProcessHost* CreateRenderProcessHost(
+  void ClearRenderProcessHosts() { processes_.clear(); }
+
+ protected:
+  std::unique_ptr<content::MockRenderProcessHost> BuildRenderProcessHost(
       content::BrowserContext* browser_context,
       content::SiteInstance* site_instance) override {
-    auto rph = std::make_unique<content::MockRenderProcessHost>(
+    return std::make_unique<content::MockRenderProcessHost>(
         browser_context,
         content::StoragePartitionConfig::CreateDefault(browser_context),
         false /* is_for_guests_only */);
-    content::RenderProcessHost* result = rph.get();
-    processes_.push_back(std::move(rph));
-    return result;
   }
-
-  void ClearRenderProcessHosts() { processes_.clear(); }
-
- private:
-  std::list<std::unique_ptr<content::MockRenderProcessHost>> processes_;
 };
 
 class ChromeContentBrowserClientCaptivePortalBrowserTest
@@ -1953,136 +1858,6 @@ TEST_F(WillComputeSiteForNavigationTest,
   // Check that the URL is not isolated.
   EXPECT_FALSE(IsOriginIsolatedByUser(url));
 }
-
-#if BUILDFLAG(IS_WIN)
-class ChromeContentBrowserClientFieldTrialTest
-    : public ChromeContentBrowserClientTest {
- protected:
-  ChromeContentBrowserClientFieldTrialTest() {
-    base::MockEntropyProvider entropy_provider(0.9);
-    trial_ = base::FieldTrialList::FactoryGetFieldTrial(
-        "UiaProviderWin", 100, "Default_1234", entropy_provider);
-  }
-
-  void SetUp() override {
-    if (features::kUiaProvider.default_state ==
-        base::FEATURE_ENABLED_BY_DEFAULT) {
-      GTEST_SKIP() << "UiaProvider is enabled by default";
-    }
-  }
-
-  ChromeContentBrowserClient& client() { return client_; }
-
- private:
-  ScopedMetricsServiceForSyntheticTrials metrics_service_{
-      TestingBrowserProcess::GetGlobal()};
-  ChromeContentBrowserClient client_;
-  scoped_refptr<base::FieldTrial> trial_;
-};
-
-TEST_F(ChromeContentBrowserClientFieldTrialTest,
-       OnUiaProviderRequestedNoStudy) {
-  client().OnUiaProviderRequested(false);
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Control"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Enabled"));
-}
-
-TEST_F(ChromeContentBrowserClientFieldTrialTest,
-       OnUiaProviderRequestedEnabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-
-  scoped_feature_list.InitFromCommandLine(
-      "UiaProvider<UiaProviderWin.Enabled_12345:k/v", {});
-  client().OnUiaProviderRequested(true);
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Control"));
-  ASSERT_TRUE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                  "Enabled"));
-}
-
-TEST_F(ChromeContentBrowserClientFieldTrialTest,
-       OnUiaProviderRequestedControl) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitFromCommandLine(
-      "UiaProvider<UiaProviderWin.Control_12345:k/v", {});
-  client().OnUiaProviderRequested(false);
-  ASSERT_TRUE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                  "Control"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Enabled"));
-}
-
-TEST_F(ChromeContentBrowserClientFieldTrialTest,
-       OnUiaProviderDisabledFromEnabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  // Start with the browser launching in the Enabled group.
-  scoped_feature_list.InitFromCommandLine(
-      "UiaProvider<UiaProviderWin.Enabled_12345:k/v", {});
-  client().OnUiaProviderRequested(true);
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Control"));
-  ASSERT_TRUE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                  "Enabled"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Rejected"));
-  // Now simulate disabling the UIA Provider.
-  client().OnUiaProviderDisabled();
-
-  // The synthetic trial should now be re-registered as "Rejected".
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Control"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Enabled"));
-  ASSERT_TRUE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                  "Rejected"));
-}
-
-TEST_F(ChromeContentBrowserClientFieldTrialTest,
-       OnUiaProviderDisabledFromControl) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  // Start with the browser launching in the Enabled group.
-  scoped_feature_list.InitFromCommandLine(
-      "UiaProvider<UiaProviderWin.Control_12345:k/v", {});
-  client().OnUiaProviderRequested(true);
-  ASSERT_TRUE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                  "Control"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Enabled"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Rejected"));
-
-  // Now simulate disabling the UIA Provider.
-  client().OnUiaProviderDisabled();
-
-  // Nothing should change, as the user was part of the control group without
-  // the UIA Provider anyway.
-  ASSERT_TRUE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                  "Control"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Enabled"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Rejected"));
-}
-
-TEST_F(ChromeContentBrowserClientFieldTrialTest, OnUiaProviderDisabledNoStudy) {
-  client().OnUiaProviderRequested(false);
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Control"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Enabled"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Rejected"));
-  client().OnUiaProviderDisabled();
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Control"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Enabled"));
-  ASSERT_FALSE(variations::IsInSyntheticTrialGroup("UiaProviderActiveSynthetic",
-                                                   "Rejected"));
-}
-#endif  // BUILDFLAG(IS_WIN)
 
 class GrantCookieAccessDueToHeuristicTest
     : public ChromeContentBrowserClientTest,

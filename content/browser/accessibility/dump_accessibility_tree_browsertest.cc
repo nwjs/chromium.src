@@ -943,17 +943,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunAriaTest(FILE_PATH_LITERAL("aria-controls-reference-target.html"));
 }
 
-// TODO(crbug.com/405117678): Re-enable this test on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_AccessibilityAriaControlsManyParagraphsBetween \
-  DISABLED_AccessibilityAriaControlsManyParagraphsBetween
-#else
-#define MAYBE_AccessibilityAriaControlsManyParagraphsBetween \
-  AccessibilityAriaControlsManyParagraphsBetween
-#endif
-
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
-                       MAYBE_AccessibilityAriaControlsManyParagraphsBetween) {
+                       AccessibilityAriaControlsManyParagraphsBetween) {
   RunAriaTest(FILE_PATH_LITERAL("aria-controls-many-paragraphs-between.html"));
 }
 
@@ -2256,6 +2247,14 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilitySelectListboxActivateOptions) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+      switches::kEnableBlinkFeatures,
+      blink::features::kSelectMobileDesktopParity.name);
+  RunHtmlTest(FILE_PATH_LITERAL("select-multiple-activate-options.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilitySlowlyBuildSelect) {
   RunHtmlTest(FILE_PATH_LITERAL("select-slowly-build.html"));
 }
@@ -2611,6 +2610,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityHTML) {
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityHTMLAttributesAndTagNames) {
   RunHtmlTest(FILE_PATH_LITERAL("html-attributes-and-tag-names.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityHtmlVsAriaAttributes) {
+  RunHtmlTest(FILE_PATH_LITERAL("html-vs-aria-attributes.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityI) {
@@ -3366,6 +3370,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("next-on-line-empty-list-item.html"));
 }
 
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityListMarkerMultiline) {
+  RunHtmlTest(FILE_PATH_LITERAL("list-marker-multiline.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityOl) {
   RunHtmlTest(FILE_PATH_LITERAL("ol.html"));
 }
@@ -3489,6 +3498,12 @@ INSTANTIATE_TEST_SUITE_P(
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithProhibitedNamesTest,
                        AccessibilityProhibitedName) {
   RunHtmlTest(FILE_PATH_LITERAL("prohibited-name.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityNameFromPopovertargetAndInterestfor) {
+  RunPopoverHintTest(
+      FILE_PATH_LITERAL("name-from-popovertarget-and-interestfor.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityPopoverApi) {
@@ -3669,6 +3684,14 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilitySelectFollowsFocusMultiselect) {
   RunHtmlTest(FILE_PATH_LITERAL("select-follows-focus-multiselect.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilitySelectListboxModes) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+      switches::kEnableBlinkFeatures,
+      blink::features::kSelectMobileDesktopParity.name);
+  RunHtmlTest(FILE_PATH_LITERAL("select-listbox-modes.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilitySpan) {
@@ -4833,6 +4856,13 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, DenyNode) {
   RunTestHarnessTest(FILE_PATH_LITERAL("deny-node.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(
+    DumpAccessibilityTreeTest,
+    AccessibilityListWithMultiLineListItemInContentEditable) {
+  RunHtmlTest(FILE_PATH_LITERAL(
+      "list-with-multi-line-list-item-in-content-editable.html"));
 }
 
 }  // namespace content

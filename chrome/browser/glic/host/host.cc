@@ -6,15 +6,18 @@
 
 #include <ranges>
 
+#include "base/containers/contains.h"
 #include "base/containers/to_vector.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/ui/actor_ui_state_manager_interface.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
+#include "chrome/browser/glic/host/context/glic_sharing_manager_provider.h"
 #include "chrome/browser/glic/host/glic.mojom-data-view.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_page_handler.h"
 #include "chrome/browser/glic/host/webui_contents_container.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "components/guest_view/browser/guest_view_base.h"
 #include "components/tabs/public/tab_interface.h"
@@ -24,30 +27,24 @@
 
 namespace glic {
 
-// A Host::Delegate which does nothing. For chrome://glic tabs.
-class HostManager::DummyHostDelegate : public Host::Delegate {
- public:
-  ~DummyHostDelegate() override = default;
-  const mojom::PanelState& GetPanelState() const override {
-    return panel_state_;
-  }
-  void Resize(const gfx::Size& size,
-              base::TimeDelta duration,
-              base::OnceClosure callback) override {
-    std::move(callback).Run();
-  }
-  void SetDraggableAreas(
-      const std::vector<gfx::Rect>& draggable_areas) override {}
-  void EnableDragResize(bool enabled) override {}
-  void Attach() override {}
-  void Detach() override {}
-  void SetMinimumWidgetSize(const gfx::Size& size) override {}
-  bool IsShowing() const override { return true; }
+const mojom::PanelState& EmptyEmbedderDelegate::GetPanelState() const {
+  return panel_state_;
+}
+bool EmptyEmbedderDelegate::IsShowing() const {
+  return true;
+}
 
- private:
-  mojom::PanelState panel_state_ =
-      mojom::PanelState(mojom::PanelState_Kind::kDetached, std::nullopt);
-};
+void EmptyEmbedderDelegate::Resize(const gfx::Size& size,
+                                   base::TimeDelta duration,
+                                   base::OnceClosure callback) {
+  std::move(callback).Run();
+}
+
+void EmptyEmbedderDelegate::SwitchConversation(
+    glic::mojom::ConversationInfoPtr info,
+    mojom::WebClientHandler::SwitchConversationCallback callback) {
+  std::move(callback).Run(std::nullopt);
+}
 
 Host::PageHandlerInfo::PageHandlerInfo() = default;
 Host::PageHandlerInfo::~PageHandlerInfo() = default;
@@ -55,17 +52,23 @@ Host::PageHandlerInfo::PageHandlerInfo(PageHandlerInfo&&) = default;
 Host::PageHandlerInfo& Host::PageHandlerInfo::operator=(PageHandlerInfo&&) =
     default;
 
-Host::Host(Profile* profile) : profile_(profile) {}
-
+// When no instance delegate or sharing manager provider is injected, we'll use
+// the keyed service.
+Host::Host(Profile* profile)
+    : profile_(profile),
+      instance_delegate_(nullptr),
+      sharing_manager_provider_(nullptr) {}
+Host::Host(Profile* profile,
+           GlicSharingManagerProvider* sharing_manager_provider,
+           InstanceDelegate* instance_delegate)
+    : profile_(profile),
+      instance_delegate_(instance_delegate),
+      sharing_manager_provider_(sharing_manager_provider) {}
 Host::~Host() = default;
 
-void Host::Initialize(Delegate* delegate) {
-  delegate_ = delegate;
-}
-
-void Host::Destroy() {
-  Shutdown();
-  delegate_ = nullptr;
+void Host::SetDelegate(EmbedderDelegate* new_delegate) {
+  CHECK(new_delegate);
+  delegate_ = new_delegate;
 }
 
 void Host::Shutdown() {
@@ -81,20 +84,30 @@ void Host::CreateContents(bool initially_hidden) {
   }
 }
 
-// TODO(crbug.com/437140901): Send the CurrentView to the panel about to open.
-void Host::PanelWillOpen(mojom::InvocationSource invocation_source) {
+Host::PanelWillOpenOptions::PanelWillOpenOptions() = default;
+Host::PanelWillOpenOptions::~PanelWillOpenOptions() = default;
+Host::PanelWillOpenOptions::PanelWillOpenOptions(PanelWillOpenOptions&&) =
+    default;
+Host::PanelWillOpenOptions& Host::PanelWillOpenOptions::operator=(
+    PanelWillOpenOptions&&) = default;
+
+void Host::PanelWillOpen(mojom::InvocationSource invocation_source,
+                         PanelWillOpenOptions options) {
   CHECK(delegate_);
   invocation_source_ = invocation_source;
   if (handler_info_ && handler_info_->web_client) {
     handler_info_->web_client->PanelWillOpen(
         mojom::PanelOpeningData::New(delegate_->GetPanelState().Clone(),
-                                     invocation_source),
+                                     invocation_source,
+                                     std::move(options.conversation_id)),
         base::BindOnce(
             &Host::PanelWillOpenComplete,
             // Unretained is safe because web client is owned by `contents_`.
-            base::Unretained(this),
-            // Unretained is safe because web_client is calling us.
-            base::Unretained(handler_info_->web_client)));
+            base::Unretained(this), handler_info_->web_client.get()));
+  } else {
+    pending_panel_open_options_ = std::move(options);
+    // TODO(crbug.com/426792593): Queue up the panel open event and send it
+    // when the web client is created.
   }
 }
 
@@ -104,6 +117,19 @@ void Host::PanelWasClosed() {
     handler_info_->web_client->PanelWasClosed(base::DoNothing());
     handler_info_->open_complete = false;
   }
+}
+
+void Host::SwitchConversation(
+    glic::mojom::ConversationInfoPtr info,
+    mojom::WebClientHandler::SwitchConversationCallback callback) {
+  delegate_->SwitchConversation(std::move(info), std::move(callback));
+}
+
+void Host::RegisterConversation(
+    glic::mojom::ConversationInfoPtr info,
+    mojom::WebClientHandler::RegisterConversationCallback callback) {
+  instance_delegate().RegisterConversation(std::move(info),
+                                           std::move(callback));
 }
 
 void Host::AddObserver(Observer* observer) {
@@ -145,6 +171,16 @@ void Host::LoginPageCommitted(GlicPageHandler* page_handler) {
 
 GlicKeyedService& Host::glic_service() {
   return *GlicKeyedService::Get(profile_);
+}
+
+GlicSharingManager& Host::sharing_manager() {
+  return sharing_manager_provider_
+             ? sharing_manager_provider_->sharing_manager()
+             : glic_service().sharing_manager();
+}
+
+Host::InstanceDelegate& Host::instance_delegate() {
+  return instance_delegate_ ? *instance_delegate_ : glic_service();
 }
 
 GlicPageHandler* Host::page_handler() const {
@@ -212,9 +248,15 @@ void Host::SetWebClient(GlicWebClientAccess* web_client) {
   CHECK(web_client);
   handler_info_->web_client = web_client;
   if (invocation_source_ && web_client) {
+    std::optional<std::string> conversation_id;
+    if (pending_panel_open_options_) {
+      conversation_id = std::move(pending_panel_open_options_->conversation_id);
+      pending_panel_open_options_.reset();
+    }
     web_client->PanelWillOpen(
         mojom::PanelOpeningData::New(delegate_->GetPanelState().Clone(),
-                                     *invocation_source_),
+                                     *invocation_source_,
+                                     std::move(conversation_id)),
         base::BindOnce(
             &Host::PanelWillOpenComplete,
             // Unretained is safe because web client is owned by `contents_`.
@@ -332,6 +374,12 @@ void Host::SendViewChangeRequest(mojom::ViewChangeRequestPtr change_request) {
   }
 }
 
+void Host::NotifyAdditionalContext(mojom::AdditionalContextPtr context) {
+  if (auto* client = GetPrimaryWebClient()) {
+    client->NotifyAdditionalContext(std::move(context));
+  }
+}
+
 void Host::OnViewChanged(GlicWebClientAccess* client,
                          mojom::CurrentView new_view) {
   if (client != GetPrimaryWebClient()) {
@@ -396,42 +444,40 @@ const mojom::PanelState& Host::GetPanelState(
   return delegate_->GetPanelState();
 }
 
-HostManager::HostManager(Profile* profile)
+HostManager::HostManager(Profile* profile,
+                         base::WeakPtr<GlicWindowController> window_controller)
     : profile_(profile),
-      primary_host_(profile),
-      dummy_host_delegate_(std::make_unique<DummyHostDelegate>()) {}
+      window_controller_(window_controller),
+      empty_embedder_delegate_(std::make_unique<EmptyEmbedderDelegate>()) {}
 
 HostManager::~HostManager() = default;
 
-void HostManager::Initialize(Host::Delegate* delegate) {
-  primary_host_.Initialize(delegate);
-}
-
-void HostManager::Destroy() {
-  primary_host_.Destroy();
-}
-
 void HostManager::Shutdown() {
-  primary_host_.Shutdown();
+  for (Host* host : GetAllHosts()) {
+    host->Shutdown();
+  }
 }
 
 void HostManager::GuestAdded(content::WebContents* guest_contents) {
   content::WebContents* top =
       guest_view::GuestViewBase::GetTopLevelWebContents(guest_contents);
 
-  if (primary_host_.webui_contents()) {
+  for (Host* host : GetPrimaryHosts()) {
+    if (!host->webui_contents()) {
+      continue;
+    }
+
     // TODO(harringtond): This looks wrong, either fix or document this.
     blink::web_pref::WebPreferences prefs(top->GetOrCreateWebPreferences());
-    prefs.default_font_size = primary_host_.webui_contents()
-                                  ->GetOrCreateWebPreferences()
-                                  .default_font_size;
+    prefs.default_font_size =
+        host->webui_contents()->GetOrCreateWebPreferences().default_font_size;
     top->SetWebPreferences(prefs);
+    return;
   }
 }
 
 std::vector<Host*> HostManager::GetAllHosts() {
-  std::vector<Host*> hosts;
-  hosts.push_back(&primary_host_);
+  std::vector<Host*> hosts = GetPrimaryHosts();
   for (std::unique_ptr<Host>& host : tab_hosts_) {
     hosts.push_back(host.get());
   }
@@ -457,29 +503,33 @@ bool HostManager::IsGlicWebUiHost(content::RenderProcessHost* process_host) {
 }
 
 Host* HostManager::WebUIPageHandlerAdded(GlicPageHandler* page_handler) {
-  if (primary_host_.webui_contents() == page_handler->webui_contents()) {
-    primary_host_.WebUIPageHandlerAdded(page_handler);
-    return &primary_host_;
+  std::vector<Host*> instance_hosts = GetPrimaryHosts();
+  auto iter = std::find_if(
+      instance_hosts.begin(), instance_hosts.end(), [page_handler](Host* h) {
+        return h->webui_contents() == page_handler->webui_contents();
+      });
+  if (iter != instance_hosts.end()) {
+    Host* host = *iter;
+    host->WebUIPageHandlerAdded(page_handler);
+    return host;
   }
 
   tab_hosts_.push_back(std::make_unique<Host>(profile_));
   Host& new_host = *tab_hosts_.back();
-  new_host.Initialize(dummy_host_delegate_.get());
+  new_host.SetDelegate(empty_embedder_delegate_.get());
   new_host.WebUIPageHandlerAdded(page_handler);
   return &new_host;
 }
 
 void HostManager::WebUIPageHandlerRemoved(GlicPageHandler* page_handler) {
+  std::vector<Host*> instance_hosts = GetPrimaryHosts();
   for (Host* host : GetAllHosts()) {
     if (host->page_handler() == page_handler) {
       host->WebUIPageHandlerRemoved(page_handler);
-      if (host != &primary_host_) {
-        auto it = std::ranges::find_if(
-            tab_hosts_,
-            [&](std::unique_ptr<Host>& h) { return h.get() == host; });
-        if (it != tab_hosts_.end()) {
-          tab_hosts_.erase(it);
-        }
+      if (base::Contains(instance_hosts, host)) {
+        std::erase_if(tab_hosts_, [host](std::unique_ptr<Host>& h) {
+          return h.get() == host;
+        });
       }
       break;
     }
@@ -494,6 +544,17 @@ Host* HostManager::FindHostForTabForTesting(tabs::TabInterface& tab) {
   }
 
   return nullptr;
+}
+
+std::vector<Host*> HostManager::GetPrimaryHosts() {
+  if (!window_controller_) {
+    return {};
+  }
+  std::vector<Host*> hosts;
+  for (GlicInstance* instance : window_controller_->GetInstances()) {
+    hosts.push_back(&instance->host());
+  }
+  return hosts;
 }
 
 }  // namespace glic

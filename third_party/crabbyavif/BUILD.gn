@@ -168,9 +168,11 @@ rust_static_library("crabbyavif") {
     "src/src/image.rs",
     "src/src/internal_utils/io.rs",
     "src/src/internal_utils/mod.rs",
+    "src/src/internal_utils/sampletransform.rs",
     "src/src/internal_utils/stream.rs",
     "src/src/lib.rs",
     "src/src/parser/exif.rs",
+    "src/src/parser/mini.rs",
     "src/src/parser/mod.rs",
     "src/src/parser/mp4box.rs",
     "src/src/parser/obu.rs",
@@ -182,6 +184,7 @@ rust_static_library("crabbyavif") {
     "src/src/reformat/rgb_impl.rs",
     "src/src/reformat/scale.rs",
     "src/src/utils/clap.rs",
+    "src/src/utils/error.rs",
     "src/src/utils/mod.rs",
     "src/src/utils/pixels.rs",
     "src/src/utils/reader/mod.rs",
@@ -194,17 +197,12 @@ rust_static_library("crabbyavif") {
     "dav1d",
     "libyuv",
     "capi",
-
-    # TODO: crbug.com/440481923 - Un-comment this once the new rust roll
-    # (http://crrev.com/c/6874449) lands and
-    # https://github.com/webmproject/CrabbyAvif/pull/654 is rolled into
-    # chromium.
-    #"disable_cfi",
+    "disable_cfi",
   ]
 
   # Required for disable_cfi feature.
   configs -= [ "//build/config/compiler:disallow_unstable_features" ]
-  rustflags = [ "-Zallow-features=no_sanitize" ]
+  rustflags = [ "-Zallow-features=sanitize" ]
 
   public_deps = [ ":header_files" ]
   deps = [

@@ -6,9 +6,10 @@
 #include "ui/display/screen.h"
 
 #include "build/build_config.h"
-#include "chrome/browser/ui/views/frame/browser_frame.h"
+#include "chrome/browser/ui/browser_window_deleter.h"
+#include "chrome/browser/ui/views/frame/browser_native_widget_factory.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/native_browser_frame_factory.h"
+#include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_window.h"
 #include "chrome/grit/branded_strings.h"
@@ -24,7 +25,6 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ui/views/frame/browser_view_ash.h"
-#include "chrome/browser/ui/views/frame/custom_tab_browser_frame.h"
 #include "chromeos/components/kiosk/kiosk_utils.h"
 #endif
 
@@ -33,13 +33,14 @@
 #endif
 
 // static
-BrowserWindow* BrowserWindow::CreateBrowserWindow(
-    std::unique_ptr<Browser> browser,
-    bool user_gesture,
-    bool in_tab_dragging) {
+std::unique_ptr<BrowserWindow, BrowserWindowDeleter>
+BrowserWindow::CreateBrowserWindow(Browser* browser,
+                                   bool user_gesture,
+                                   bool in_tab_dragging) {
 #if 0
   if (webui_browser::IsWebUIBrowserEnabled() && browser->is_type_normal()) {
-    return new WebUIBrowserWindow(std::move(browser));
+    return std::unique_ptr<BrowserWindow, BrowserWindowDeleter>(
+        new WebUIBrowserWindow(browser));
   }
 #endif
 
@@ -55,38 +56,34 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(
   bool frameless = browser->is_frameless();
   std::string position = browser->initial_position();
   BrowserView* view = nullptr;
-  BrowserFrame* browser_frame = nullptr;
 #if BUILDFLAG(IS_CHROMEOS)
-  view = new BrowserViewAsh(std::move(browser));
-  if (view->browser()->is_type_custom_tab()) {
-    browser_frame = new CustomTabBrowserFrame(view);
-  }
+  view = new BrowserViewAsh(browser);
 #else
-  view = new BrowserView(std::move(browser));
+  view = new BrowserView(browser);
 #endif
-  if (!browser_frame) {
-    browser_frame = new BrowserFrame(view, frameless);
-  }
+  auto browser_widget = std::make_unique<BrowserWidget>(view, frameless);
+  view->set_browser_widget(std::move(browser_widget));
   if (in_tab_dragging) {
-    browser_frame->SetTabDragKind(TabDragKind::kAllTabs);
+    view->browser_widget()->SetTabDragKind(TabDragKind::kAllTabs);
   }
-  bool got_saved_bounds = browser_frame->InitBrowserFrame();
+
+  bool got_saved_bounds = view->browser_widget()->InitBrowserWidget();
 
   if (position == "mouse" && !got_saved_bounds) {
-      gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
-      gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
+      gfx::Point cursor_pos(display::Screen::Get()->GetCursorScreenPoint());
+      gfx::Rect bounds = view->browser_widget()->GetWindowBoundsInScreen();
       bounds.set_origin(cursor_pos);
-      browser_frame->SetBounds(bounds);
+      view->browser_widget()->SetBounds(bounds);
   }
   if (position == "center" && !got_saved_bounds) {
-    gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
-    browser_frame->CenterWindow(bounds.size());
+    gfx::Rect bounds = view->browser_widget()->GetWindowBoundsInScreen();
+    view->browser_widget()->CenterWindow(bounds.size());
   }
 
 #if BUILDFLAG(IS_MAC)
   if (view->UsesImmersiveFullscreenMode()) {
-    // This needs to happen after BrowserFrame has been initialized. It creates
-    // a new Widget that copies the theme from BrowserFrame.
+    // This needs to happen after BrowserWidget has been initialized. It creates
+    // a new Widget that copies the theme from BrowserWidget.
     view->CreateMacOverlayView();
   }
 #endif  // IS_MAC
@@ -103,5 +100,5 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(
   }
 #endif
 
-  return view;
+  return std::unique_ptr<BrowserWindow, BrowserWindowDeleter>(view);
 }

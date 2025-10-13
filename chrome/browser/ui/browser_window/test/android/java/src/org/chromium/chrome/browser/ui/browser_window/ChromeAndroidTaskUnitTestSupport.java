@@ -13,6 +13,7 @@ import static org.mockito.Mockito.withSettings;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
+import android.graphics.Rect;
 import android.view.WindowManager;
 
 import org.chromium.build.annotations.NullMarked;
@@ -21,7 +22,10 @@ import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcherProvider;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.ui.base.ActivityWindowAndroid;
+import org.chromium.ui.insets.InsetObserver;
+import org.chromium.ui.mojom.WindowShowState;
 
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
@@ -52,6 +56,7 @@ public final class ChromeAndroidTaskUnitTestSupport {
         public final ChromeAndroidTask mChromeAndroidTask;
         public final ActivityWindowAndroidMocks mActivityWindowAndroidMocks;
         public final Profile mMockProfile;
+        public final TabModel mMockTabModel;
 
         /**
          * Mock {@link AndroidBrowserWindow.Natives}.
@@ -66,10 +71,12 @@ public final class ChromeAndroidTaskUnitTestSupport {
                 ChromeAndroidTask chromeAndroidTask,
                 ActivityWindowAndroidMocks activityWindowAndroidMocks,
                 Profile mockProfile,
+                TabModel mockTabModel,
                 AndroidBrowserWindow.@Nullable Natives mockAndroidBrowserWindowNatives) {
             mChromeAndroidTask = chromeAndroidTask;
             mActivityWindowAndroidMocks = activityWindowAndroidMocks;
             mMockProfile = mockProfile;
+            mMockTabModel = mockTabModel;
             mMockAndroidBrowserWindowNatives = mockAndroidBrowserWindowNatives;
         }
     }
@@ -118,6 +125,8 @@ public final class ChromeAndroidTaskUnitTestSupport {
             int taskId, boolean mockNatives) {
         Profile profile =
                 mockNatives ? mock(Profile.class) : ProfileManager.getLastUsedRegularProfile();
+        TabModel tabModel = mock(TabModel.class);
+        when(tabModel.getProfile()).thenReturn(profile);
 
         var activityWindowAndroidMocks = createActivityWindowAndroidMocks(taskId);
         var mockAndroidBrowserWindowNatives =
@@ -126,12 +135,13 @@ public final class ChromeAndroidTaskUnitTestSupport {
                 new ChromeAndroidTaskImpl(
                         BrowserWindowType.NORMAL,
                         activityWindowAndroidMocks.mMockActivityWindowAndroid,
-                        () -> profile);
+                        tabModel);
 
         return new ChromeAndroidTaskWithMockDeps(
                 chromeAndroidTask,
                 activityWindowAndroidMocks,
                 profile,
+                tabModel,
                 mockAndroidBrowserWindowNatives);
     }
 
@@ -154,6 +164,7 @@ public final class ChromeAndroidTaskUnitTestSupport {
         var mockActivityLifecycleDispatcher = mock(ActivityLifecycleDispatcher.class);
         var mockWindowManager = mock(WindowManager.class);
         var mockActivityManager = mock(ActivityManager.class);
+        var mockInsetObserver = mock(InsetObserver.class);
 
         when(mockActivity.getTaskId()).thenReturn(taskId);
         when(mockActivity.getWindowManager()).thenReturn(mockWindowManager);
@@ -162,6 +173,7 @@ public final class ChromeAndroidTaskUnitTestSupport {
         when(((ActivityLifecycleDispatcherProvider) mockActivity).getLifecycleDispatcher())
                 .thenReturn(mockActivityLifecycleDispatcher);
         when(mockActivityWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mockActivity));
+        when(mockActivityWindowAndroid.getInsetObserver()).thenReturn(mockInsetObserver);
 
         var mocks =
                 new ActivityWindowAndroidMocks(
@@ -181,14 +193,48 @@ public final class ChromeAndroidTaskUnitTestSupport {
      * <p>This method also sets the mock as the testing instance for {@link
      * AndroidBrowserWindowJni}.
      */
-    private static AndroidBrowserWindow.Natives createMockAndroidBrowserWindowNatives() {
+    public static AndroidBrowserWindow.Natives createMockAndroidBrowserWindowNatives() {
         var mockAndroidBrowserWindowNatives = mock(AndroidBrowserWindow.Natives.class);
         when(mockAndroidBrowserWindowNatives.create(
-                        /* caller= */ any(), /* browserWindowType= */ anyInt()))
+                        /* caller= */ any(),
+                        /* browserWindowType= */ anyInt(),
+                        /* profile= */ any()))
                 .thenReturn(FAKE_NATIVE_ANDROID_BROWSER_WINDOW_PTR);
 
         AndroidBrowserWindowJni.setInstanceForTesting(mockAndroidBrowserWindowNatives);
 
         return mockAndroidBrowserWindowNatives;
+    }
+
+    /**
+     * Creates an {@link AndroidBrowserWindowCreateParams} mock.
+     *
+     * @return The {@link AndroidBrowserWindowCreateParams} mock.
+     */
+    static AndroidBrowserWindowCreateParams createMockAndroidBrowserWindowCreateParams() {
+        return createMockAndroidBrowserWindowCreateParams(
+                BrowserWindowType.NORMAL, new Rect(), WindowShowState.DEFAULT);
+    }
+
+    /**
+     * Creates an {@link AndroidBrowserWindowCreateParams} mock.
+     *
+     * @param windowType The mock {@link BrowserWindowType} to set in the create params.
+     * @param launchBounds The launch bounds to set in the create params.
+     * @param showState The mock {@link WindowShowState} to set in the create params.
+     * @return The {@link AndroidBrowserWindowCreateParams} mock.
+     */
+    static AndroidBrowserWindowCreateParams createMockAndroidBrowserWindowCreateParams(
+            @BrowserWindowType int windowType,
+            Rect launchBounds,
+            @WindowShowState.EnumType int showState) {
+        var mockParams = mock(AndroidBrowserWindowCreateParams.class);
+        when(mockParams.getWindowType()).thenReturn(windowType);
+        Profile mockProfile = mock(Profile.class);
+        when(mockParams.getProfile()).thenReturn(mockProfile);
+        when(mockParams.getInitialBounds()).thenReturn(launchBounds);
+        when(mockParams.getInitialShowState()).thenReturn(showState);
+
+        return mockParams;
     }
 }

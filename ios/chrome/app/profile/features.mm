@@ -4,5 +4,5 @@
 
 #import "ios/chrome/app/profile/features.h"
 
-BASE_FEATURE(LogApplicationStorageSizeMetrics,
+BASE_FEATURE(kLogApplicationStorageSizeMetrics,
              base::FEATURE_DISABLED_BY_DEFAULT);

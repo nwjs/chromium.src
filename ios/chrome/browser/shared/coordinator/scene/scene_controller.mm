@@ -4,8 +4,6 @@
 
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller.h"
 
-#import <MaterialComponents/MaterialSnackbar.h>
-
 #import "base/apple/foundation_util.h"
 #import "base/feature_list.h"
 #import "base/functional/callback_helpers.h"
@@ -47,7 +45,6 @@
 #import "ios/chrome/app/application_delegate/url_opener_params.h"
 #import "ios/chrome/app/application_mode.h"
 #import "ios/chrome/app/change_profile_commands.h"
-#import "ios/chrome/app/chrome_overlay_window.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
 #import "ios/chrome/app/deferred_initialization_task_names.h"
 #import "ios/chrome/app/profile/profile_state.h"
@@ -57,9 +54,9 @@
 #import "ios/chrome/browser/app_store_rating/ui_bundled/app_store_rating_scene_agent.h"
 #import "ios/chrome/browser/app_store_rating/ui_bundled/features.h"
 #import "ios/chrome/browser/appearance/ui_bundled/appearance_customization.h"
-#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_constants.h"
-#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_coordinator.h"
-#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_coordinator_delegate.h"
+#import "ios/chrome/browser/authentication/account_menu/coordinator/account_menu_coordinator.h"
+#import "ios/chrome/browser/authentication/account_menu/coordinator/account_menu_coordinator_delegate.h"
+#import "ios/chrome/browser/authentication/account_menu/public/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_authentication_continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_load_url.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_signout_continuation.h"
@@ -167,6 +164,7 @@
 #import "ios/chrome/browser/shared/public/commands/browser_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/credential_exchange_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
@@ -179,7 +177,9 @@
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/prototypes/diamond/utils.h"
-#import "ios/chrome/browser/shared/ui/util/snackbar_util.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
+#import "ios/chrome/browser/shared/ui/chrome_overlay_window/chrome_overlay_window.h"
 #import "ios/chrome/browser/shared/ui/util/top_view_controller.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
@@ -241,13 +241,13 @@ namespace {
 // removed around February 2024. If enabled, createInitialUI will call
 // makeKeyAndVisible before mainCoordinator start. When disabled, this fix
 // resolves a flicker when starting the app in light mode
-BASE_FEATURE(MakeKeyAndVisibleBeforeMainCoordinatorStart,
+BASE_FEATURE(kMakeKeyAndVisibleBeforeMainCoordinatorStart,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Feature to control whether Search Intents (Widgets, Application
 // Shortcuts menu) forcibly open a new tab, rather than reusing an
 // existing NTP. See http://crbug.com/1363375 for details.
-BASE_FEATURE(ForceNewTabForIntentSearch, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kForceNewTabForIntentSearch, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // A rough estimate of the expected duration of a view controller transition
 // animation. It's used to temporarily disable mutally exclusive chrome
@@ -564,6 +564,10 @@ void OnListFamilyMembersResponse(
   return self;
 }
 
+- (void)dealloc {
+  CHECK(!_authServiceObserverBridge, base::NotFatalUntil::M145);
+}
+
 - (void)setProfileState:(ProfileState*)profileState {
   DCHECK(!_sceneState.profileState);
 
@@ -678,9 +682,9 @@ void OnListFamilyMembersResponse(
   }
 }
 
-- (void)handleExternalIntents {
+- (BOOL)handleExternalIntents {
   if (![self canHandleIntents]) {
-    return;
+    return NO;
   }
   UserActivityBrowserAgent* userActivityBrowserAgent =
       UserActivityBrowserAgent::FromBrowser(self.currentInterface.browser);
@@ -706,7 +710,7 @@ void OnListFamilyMembersResponse(
     WidgetContext* context = [self findContextRequiringAccountChange:contexts];
     // Perform profile switching if needed.
     if ([self changeProfileForContext:context contexts:contexts openURL:NO]) {
-      return;
+      return YES;
     }
   }
 
@@ -785,6 +789,7 @@ void OnListFamilyMembersResponse(
       [self showToastWhenOpenExternalIntentInUnexpectedMode];
     }
   }
+  return NO;
 }
 
 // Handles a tab move activity as part of an intent when launching a
@@ -1026,11 +1031,17 @@ void OnListFamilyMembersResponse(
     // always open the URL in the continuation in this scenario.
     openURL = YES;
   }
+  ChangeProfileReason reason;
+  if ([self shareExtensionURLEligibleForAccountChange:context.context.URL]) {
+    reason = ChangeProfileReason::kSwitchAccountsFromShareExtension;
+  } else {
+    reason = ChangeProfileReason::kSwitchAccountsFromWidget;
+  }
 
   [changeProfileHandler
       changeProfile:*profileName
            forScene:self.sceneState
-             reason:ChangeProfileReason::kSwitchAccountsFromWidget
+             reason:reason
        continuation:CreateChangeProfileAuthenticationContinuation(
                         context, contexts, openURL)];
   return YES;
@@ -1252,9 +1263,11 @@ void OnListFamilyMembersResponse(
       [self tryPresentSigninUpgradePromo];
     }
 
-    // TODO(crbug.com/443728200): handleExternalIntents may change profile, code
-    // below should not be executed if profile was changed.
-    [self handleExternalIntents];
+    if ([self handleExternalIntents]) {
+      // handleExternalIntents may change profile, don't execute code below if
+      // profile was changed.
+      return;
+    }
 
     if (!initializingUIInColdStart &&
         transitionedToForegroundActiveFromBackground &&
@@ -1670,10 +1683,10 @@ void OnListFamilyMembersResponse(
                                           completion:nil];
   };
 
-  MDCSnackbarMessageAction* action = [[MDCSnackbarMessageAction alloc] init];
+  SnackbarMessageAction* action = [[SnackbarMessageAction alloc] init];
   action.handler = moreAction;
   action.title = l10n_util::GetNSString(IDS_IOS_NAVIGATION_BAR_MORE_BUTTON);
-  action.accessibilityIdentifier =
+  action.accessibilityHint =
       l10n_util::GetNSString(IDS_IOS_NAVIGATION_BAR_MORE_BUTTON);
 
   NSString* text =
@@ -1681,7 +1694,7 @@ void OnListFamilyMembersResponse(
           ? l10n_util::GetNSString(IDS_IOS_SNACKBAR_MESSAGE_INCOGNITO_FORCED)
           : l10n_util::GetNSString(IDS_IOS_SNACKBAR_MESSAGE_INCOGNITO_DISABLED);
 
-  MDCSnackbarMessage* message = CreateSnackbarMessage(text);
+  SnackbarMessage* message = [[SnackbarMessage alloc] initWithTitle:text];
   message.action = action;
 
   [handler showSnackbarMessage:message
@@ -2261,14 +2274,16 @@ using UserFeedbackDataCallback =
   [self startSigninCoordinatorWithCompletion:command.completion];
 }
 
-- (void)showAccountMenuFromAccessPoint:(AccountMenuAccessPoint)accessPoint
-                                   URL:(const GURL&)url {
+- (void)showAccountMenuFromWebWithURL:(const GURL&)url {
   if (![self isTabAvailableToPresentViewController]) {
     return;
   }
-  DCHECK(!self.signinCoordinator)
-      << "self.signinCoordinator: "
-      << base::SysNSStringToUTF8([self.signinCoordinator description]);
+  if (_accountMenuCoordinator) {
+    // In case the account is already opened, no need to open a second one.
+    // It is not clear how it could occur, but it does according to
+    // crbug.com/443698000.
+    return;
+  }
   Browser* browser = self.mainInterface.browser;
   UIViewController* baseViewController = self.mainInterface.viewController;
   _accountMenuCoordinator = [[AccountMenuCoordinator alloc]
@@ -3204,6 +3219,10 @@ using UserFeedbackDataCallback =
       return ^{
         [weakSelf searchShareExtensionImageWithLens];
       };
+    case CREDENTIAL_EXCHANGE_IMPORT:
+      return ^{
+        [weakSelf importCredentials];
+      };
     default:
       return nil;
   }
@@ -3417,6 +3436,15 @@ using UserFeedbackDataCallback =
       ReadingListBrowserAgent::FromBrowser(self.currentInterface.browser);
 
   readingListBrowserAgent->BulkAddURLsToReadingListWithViewSnackbar(URLs);
+}
+
+- (void)importCredentials {
+  id<CredentialExchangeCommands> credentialExchangeCommands =
+      HandlerForProtocol(self.currentInterface.browser->GetCommandDispatcher(),
+                         CredentialExchangeCommands);
+  [credentialExchangeCommands
+      showCredentialExchangeImport:self.startupParameters
+                                       .credentialExchangeImportUUID];
 }
 
 #pragma mark - TabOpening implementation.
@@ -4056,17 +4084,21 @@ using UserFeedbackDataCallback =
 // with or without animation. Executes its signinCompletion. It’s expected to be
 // not already executed.
 - (void)stopSigninCoordinatorWithCompletionAnimated:(BOOL)animated {
-  if (!self.signinCoordinator) {
+  // We retain the coordinator until the end of the completion, while ensuring
+  // that when the completion requests `self` to stop the signin coordinator,
+  // `stop` is not called a second time.
+  SigninCoordinator* signinCoordinator = self.signinCoordinator;
+  if (!signinCoordinator) {
     return;
   }
+  self.signinCoordinator = nil;
 
-  [self.signinCoordinator stopAnimated:animated];
+  [signinCoordinator stopAnimated:animated];
   SigninCoordinatorCompletionCallback signinCompletion =
-      self.signinCoordinator.signinCompletion;
-  self.signinCoordinator.signinCompletion = nil;
+      signinCoordinator.signinCompletion;
+  signinCoordinator.signinCompletion = nil;
   CHECK(signinCompletion, base::NotFatalUntil::M142);
   signinCompletion(SigninCoordinatorResultInterrupted, nil);
-  self.signinCoordinator = nil;
 }
 
 // Starts the sign-in coordinator with a default cleanup completion.

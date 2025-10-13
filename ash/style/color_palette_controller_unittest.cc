@@ -325,7 +325,8 @@ TEST_F(ColorPaletteControllerTest, NativeTheme_DarkModeChanged) {
 
   EXPECT_EQ(1, observer.call_count());
   ASSERT_TRUE(observer.last_theme());
-  EXPECT_FALSE(observer.last_theme()->ShouldUseDarkColors());
+  EXPECT_EQ(ui::NativeTheme::PreferredColorScheme::kLight,
+            observer.last_theme()->preferred_color_scheme());
   EXPECT_EQ(kCelebiColor, observer.last_theme()->user_color().value());
   EXPECT_THAT(observer.last_theme()->scheme_variant(),
               testing::Optional(ui::ColorProviderKey::SchemeVariant::kVibrant));
@@ -617,6 +618,13 @@ class ColorPaletteControllerNotificationTest
 
 TEST_F(ColorPaletteControllerNotificationTest,
        OneNotificationOnActiveUserChange) {
+  // When the active user changes below, the `ColorPaletteController` will
+  // attempt to set the `ui::NativeTheme` to light mode. Ensure the
+  // `ui::NativeTheme` is not currently in light mode, or it will not think
+  // anything has actually changed, and elide the call to its observers.
+  ui::NativeTheme::GetInstanceForNativeUi()->set_preferred_color_scheme(
+      ui::NativeTheme::PreferredColorScheme::kDark);
+
   // A login should trigger a `ColorPaletteController` update, which in turn
   // should trigger a `ui::NativeTheme` notification.
   TestObserver observer;
@@ -624,8 +632,9 @@ TEST_F(ColorPaletteControllerNotificationTest,
       &observer);
   observation.Observe(ui::NativeTheme::GetInstanceForNativeUi());
   SimulateUserLogin(kAccountId);
-  // Called twice. Once for wallpaper update, then for active user pref change.
-  EXPECT_EQ(2, observer.call_count());
+  // Called at least twice. Once for wallpaper update, then for active user pref
+  // change.
+  EXPECT_GE(observer.call_count(), 2);
 }
 
 class ColorPaletteControllerLocalPrefTest

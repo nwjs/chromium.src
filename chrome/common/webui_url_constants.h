@@ -38,6 +38,8 @@ inline constexpr char kChromeUIAccessCodeCastHost[] = "access-code-cast";
 inline constexpr char kChromeUIAccessCodeCastURL[] =
     "chrome://access-code-cast/";
 inline constexpr char kChromeUIAccessibilityHost[] = "accessibility";
+inline constexpr char kChromeUIAccountSettingsURL[] =
+    "chrome://settings/account";
 inline constexpr char kChromeUIActivateSafetyCheckSettingsURL[] =
     "chrome://settings/safetyCheck?activateSafetyCheck";
 inline constexpr char kChromeUIActorInternalsHost[] = "actor-internals";
@@ -645,6 +647,8 @@ inline constexpr char kAllSitesSettingsSubpage[] = "content/all";
 inline constexpr char kAppearanceSubPage[] = "appearance";
 inline constexpr char kAutofillSubPage[] = "autofill";
 inline constexpr char kAutofillAiSubPage[] = "enhancedAutofill";
+inline constexpr char kAutoPictureInPictureSubPage[] =
+    "content/autoPictureInPicture";
 inline constexpr char kClearBrowserDataSubPage[] = "clearBrowserData";
 inline constexpr char kContentSettingsSubPage[] = "content";
 inline constexpr char kCookieSettingsSubPage[] = "cookies";
@@ -655,6 +659,7 @@ inline constexpr char kFileSystemSettingsSubpage[] =
     "content/filesystem/siteDetails";
 inline constexpr char kFileSystemSubpage[] = "content/filesystem";
 inline constexpr char kGlicSettingsSubpage[] = "ai/gemini";
+inline constexpr char kGoogleServicesSubpage[] = "googleServices";
 inline constexpr char kHandlerSettingsSubPage[] = "handlers";
 inline constexpr char kHistorySearchSubpage[] = "ai/historySearch";
 inline constexpr char kImportDataSubPage[] = "importData";

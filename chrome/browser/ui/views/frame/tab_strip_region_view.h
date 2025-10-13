@@ -63,10 +63,6 @@ class TabStripRegionView final : public TabStripViewInterface {
 
   views::Button* new_tab_button_for_testing() { return new_tab_button_; }
 
-  TabSearchContainer* tab_search_container_for_testing() {
-    return tab_search_container_;
-  }
-
   views::View* reserved_grab_handle_space_for_testing() {
     return reserved_grab_handle_space_;
   }
@@ -109,8 +105,12 @@ class TabStripRegionView final : public TabStripViewInterface {
   gfx::Size GetMinimumSize() const override;
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;
+  bool IsTabStripEditable() const override;
+  void SetTabStripNotEditableForTesting() const override;
+  bool IsTabStripCloseable() const override;
   bool IsAnimating() const override;
   void StopAnimating() override;
+  void UpdateLoadingAnimations(const base::TimeDelta& elapsed_time) override;
   std::optional<int> GetFocusedTabIndex() const override;
   Tab* GetTabAnchorViewAt(int tab_index) override;
   views::View* GetTabGroupAnchorView(

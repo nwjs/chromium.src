@@ -159,7 +159,6 @@
 #include "chrome/browser/ui/webui/ash/settings/pages/people/account_manager_ui_handler.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/grit/browser_resources.h"
-#include "chromeos/ash/components/account_manager/account_manager_facade_factory.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/login/auth/password_visibility_utils.h"
 #include "chromeos/ash/components/phonehub/phone_hub_manager.h"
@@ -371,6 +370,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       compose_enabled && base::FeatureList::IsEnabled(
                              compose::features::kEnableComposeProactiveNudge));
 
+#if BUILDFLAG(ENABLE_GLIC)
+  html_source->AddBoolean(
+      "showGeminiPersonalContextLink",
+      base::FeatureList::IsEnabled(features::kGlicPersonalContext));
+#endif  //  BUILDFLAG(ENABLE_GLIC)
+
 #if BUILDFLAG(IS_CHROMEOS)
   const bool download_bubble_controlled_by_pref = false;
 #else
@@ -395,6 +400,15 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
           ->GetPaymentsAutofillClient()
           ->GetPaymentsDataManager()
           .ShouldShowBnplSettings());
+
+  html_source->AddBoolean("enableBlockV8OptimizerOnUnfamiliarSites",
+                          base::FeatureList::IsEnabled(
+                              content_settings::features::
+                                  kBlockV8OptimizerOnUnfamiliarSitesSetting));
+
+  html_source->AddBoolean("enableYourSavedInfoSettingsPage",
+                          base::FeatureList::IsEnabled(
+                              autofill::features::kYourSavedInfoSettingsPage));
 
   AddSettingsPageUIHandler(std::make_unique<AboutHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ResetSettingsHandler>(profile));
@@ -643,7 +657,8 @@ void SettingsUI::InitBrowserSettingsWebUIHandlers() {
         factory->GetAccountManager(profile->GetPath().value());
     DCHECK(account_manager);
     auto* account_manager_facade =
-        ash::GetAccountManagerFacade(profile->GetPath().value());
+        ash::AccountManagerFactory::Get()->GetAccountManagerFacade(
+            profile->GetPath().value());
     DCHECK(account_manager_facade);
 
     web_ui()->AddMessageHandler(

@@ -327,8 +327,6 @@ SpeculationRule* ParseSpeculationRule(JSONObject* input,
   std::optional<mojom::blink::SpeculationTargetHint> target_hint;
 
   // If input["target_hint"] exists:
-
-  if (RuntimeEnabledFeatures::SpeculationRulesTargetHintEnabled(context)) {
     JSONValue* target_hint_value = input->Get("target_hint");
     if (target_hint_value) {
       // If input["target_hint"] is not a valid browsing context name or
@@ -347,7 +345,6 @@ SpeculationRule* ParseSpeculationRule(JSONObject* input,
       target_hint =
           SpeculationRuleSet::SpeculationTargetHintFromString(target_hint_str);
     }
-  }
 
   // Let referrerPolicy be the empty string.
   std::optional<network::mojom::ReferrerPolicy> referrer_policy;
@@ -584,6 +581,10 @@ void SpeculationRuleSet::SetError(SpeculationRuleSetErrorType error_type,
   error_message_ = error_message;
 }
 
+void SpeculationRuleSet::SetTag(String tag) {
+  tag_ = tag;
+}
+
 void SpeculationRuleSet::AddWarnings(
     base::span<const String> warning_messages) {
   warning_messages_.AppendSpan(warning_messages);
@@ -637,12 +638,9 @@ SpeculationRuleSet* SpeculationRuleSet::Parse(Source* source,
       StringBuilder builder;
       builder.Append(
           "The following keys were duplicated on one or more objects: ");
-      for (wtf_size_t i = 0; i < parse_error.duplicate_keys.size(); i++) {
-        if (i != 0) {
-          builder.Append(", ");
-        }
-        builder.Append(parse_error.duplicate_keys[i].EncodeForDebugging());
-      }
+      builder.AppendRange(
+          parse_error.duplicate_keys, ", ",
+          [](const auto& key) { return key.EncodeForDebugging(); });
       builder.Append(". All but the last value for each key are ignored.");
       duplicate_key_warning = builder.ReleaseString();
     }
@@ -778,6 +776,7 @@ SpeculationRuleSet* SpeculationRuleSet::Parse(Source* source,
       /*allow_target_hint=*/true,
       /*allow_requires_anonymous_client_ip_when_cross_origin=*/false);
 
+  result->SetTag(ruleset_tag);
   return result;
 }
 

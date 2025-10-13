@@ -278,6 +278,9 @@ ci.thin_tester(
                 ],
             ),
         ],
+        mixins = [
+            "isolate_profile_data",
+        ],
         per_test_modifications = {
             "android_browsertests": targets.mixin(
                 args = [
@@ -286,6 +289,14 @@ ci.thin_tester(
                 ],
                 swarming = targets.swarming(
                     shards = 20,
+                ),
+            ),
+            "chrome_public_test_apk_desktop": targets.mixin(
+                args = [
+                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.desktop.chrome_public_test_apk_desktop.filter",
+                ],
+                swarming = targets.swarming(
+                    shards = 3,
                 ),
             ),
             "chrome_public_unit_test_apk": targets.mixin(
@@ -428,69 +439,5 @@ ci.builder(
     ),
     contact_team_email = "clank-engprod@google.com",
     execution_timeout = 6 * time.hour,
-    siso_remote_jobs = siso.remote_jobs.DEFAULT,
-)
-
-ci.builder(
-    name = "android-desktop-arm64-binary-size-generator",
-    branch_selector = branches.selector.MAIN,
-    description_html = "Generates binary size data for android-desktop on arm64.",
-    executable = "recipe:binary_size_generator_tot",
-    gn_args = gn_args.config(
-        configs = [
-            "android_desktop",
-            "android_builder",
-            "arm64",
-            "chrome_with_codecs",
-            "remoteexec",
-            "minimal_symbols",
-            "official_optimize",
-            "stable_channel",
-            "v8_release_branch",
-        ],
-    ),
-    builderless = False,
-    cores = 32,
-    ssd = True,
-    # TODO(crbug.com/420639761): Enable gardening and tree closing when stable.
-    gardener_rotations = args.ignore_default(None),
-    tree_closing = False,
-    console_view_entry = consoles.console_view_entry(
-        category = "builder|size",
-        short_name = "arm64",
-    ),
-    contact_team_email = "clank-engprod@google.com",
-    siso_remote_jobs = siso.remote_jobs.DEFAULT,
-)
-
-ci.builder(
-    name = "android-desktop-x64-binary-size-generator",
-    branch_selector = branches.selector.MAIN,
-    description_html = "Generates binary size data for android-desktop on x64.",
-    executable = "recipe:binary_size_generator_tot",
-    gn_args = gn_args.config(
-        configs = [
-            "android_desktop",
-            "android_builder",
-            "x64",
-            "chrome_with_codecs",
-            "remoteexec",
-            "minimal_symbols",
-            "official_optimize",
-            "stable_channel",
-            "v8_release_branch",
-        ],
-    ),
-    builderless = False,
-    cores = 32,
-    ssd = True,
-    # TODO(crbug.com/420639761): Enable gardening and tree closing when stable.
-    gardener_rotations = args.ignore_default(None),
-    tree_closing = False,
-    console_view_entry = consoles.console_view_entry(
-        category = "builder|size",
-        short_name = "x64",
-    ),
-    contact_team_email = "clank-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )

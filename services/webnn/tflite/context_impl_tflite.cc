@@ -21,6 +21,8 @@ ContextImplTflite::ContextImplTflite(
     mojo::PendingAssociatedReceiver<mojom::WebNNContext> receiver,
     WebNNContextProviderImpl* context_provider,
     mojom::CreateContextOptionsPtr options,
+    mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
+    mojo::ScopedDataPipeProducerHandle read_tensor_producer,
     gpu::CommandBufferId command_buffer_id,
     std::unique_ptr<ScopedSequence> sequence,
     scoped_refptr<gpu::SchedulerTaskRunner> task_runner)
@@ -28,6 +30,8 @@ ContextImplTflite::ContextImplTflite(
                        context_provider,
                        GraphBuilderTflite::GetContextProperties(),
                        std::move(options),
+                       std::move(write_tensor_consumer),
+                       std::move(read_tensor_producer),
                        command_buffer_id,
                        std::move(sequence),
                        std::move(task_runner)) {}
@@ -35,7 +39,7 @@ ContextImplTflite::ContextImplTflite(
 ContextImplTflite::~ContextImplTflite() = default;
 
 base::WeakPtr<WebNNContextImpl> ContextImplTflite::AsWeakPtr() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
   return weak_factory_.GetWeakPtr();
 }
 
@@ -75,10 +79,10 @@ ContextImplTflite::CreateTensorImpl(
 }
 
 base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
-ContextImplTflite::CreateTensorFromMailboxImpl(
+ContextImplTflite::CreateTensorFromSharedImageImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
     mojom::TensorInfoPtr tensor_info,
-    gpu::Mailbox mailbox) {
+    std::unique_ptr<gpu::WebNNTensorRepresentation> representation) {
   return base::unexpected(
       mojom::Error::New(mojom::Error::Code::kNotSupportedError,
                         "WebGPU Interop is not supported."));

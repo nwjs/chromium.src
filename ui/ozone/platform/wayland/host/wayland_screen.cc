@@ -29,7 +29,7 @@
 #include "ui/gfx/font_render_params.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/linux/linux_ui.h"
 #include "ui/ozone/platform/wayland/host/dump_util.h"
 #include "ui/ozone/platform/wayland/host/org_kde_kwin_idle.h"
@@ -128,10 +128,7 @@ WaylandScreen::WaylandScreen(WaylandConnection* connection)
   }
 }
 
-WaylandScreen::~WaylandScreen() {
-  // Destroy the idle inhibitor early.  See https://crbug.com/433643249
-  idle_inhibitor_.reset();
-}
+WaylandScreen::~WaylandScreen() = default;
 
 void WaylandScreen::OnOutputAddedOrUpdated(
     const WaylandOutput::Metrics& metrics) {
@@ -235,7 +232,7 @@ void WaylandScreen::AddOrUpdateDisplay(const WaylandOutput::Metrics& metrics) {
   if (auto* wayland_output =
           connection_->wayland_output_manager()->GetOutput(metrics.output_id)) {
     if (auto* output = wayland_output->wp_color_management_output()) {
-      if (auto* output_color_spaces = output->display_color_spaces()) {
+      if (auto* output_color_spaces = output->GetDisplayColorSpaces()) {
         color_spaces = *output_color_spaces;
       }
     }
@@ -448,31 +445,19 @@ bool WaylandScreen::SetScreenSaverSuspended(bool suspend) {
     return false;
 
   if (suspend) {
-    // Wayland inhibits idle behaviour on certain output, and implies that a
-    // surface bound to that output should obtain the inhibitor and hold it
-    // until it no longer needs to prevent the output to go idle.
-    // We assume that the idle lock is initiated by the user, and therefore the
-    // surface that we should use is the one owned by the window that is focused
-    // currently.
-    const auto* window_manager = connection_->window_manager();
-    DCHECK(window_manager);
-    const auto* current_window = window_manager->GetCurrentFocusedWindow();
-    if (!current_window) {
-      LOG(WARNING) << "Cannot inhibit going idle when no window is focused";
-      return false;
-    }
-    DCHECK(current_window->root_surface());
-    idle_inhibitor_ = connection_->zwp_idle_inhibit_manager()->CreateInhibitor(
-        current_window->root_surface()->surface());
+    connection_->zwp_idle_inhibit_manager()->CreateInhibitor();
   } else {
-    idle_inhibitor_.reset();
+    connection_->zwp_idle_inhibit_manager()->RemoveInhibitor();
   }
 
   return true;
 }
 
 bool WaylandScreen::IsScreenSaverActive() const {
-  return idle_inhibitor_ != nullptr;
+  // idle_inhibitor prevents screen saver from engaging, but does not indicate
+  // whether screen saver is active or not. Assume not here.
+  NOTIMPLEMENTED_LOG_ONCE();
+  return false;
 }
 
 base::TimeDelta WaylandScreen::CalculateIdleTime() const {

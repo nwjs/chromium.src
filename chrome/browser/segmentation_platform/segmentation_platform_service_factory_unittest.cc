@@ -122,7 +122,8 @@ class SegmentationPlatformServiceFactoryTest : public testing::Test {
          {features::kSegmentationPlatformURLVisitResumptionRanker, {}},
          {features::kSegmentationPlatformEphemeralCardRanker, {}},
          {features::kSegmentationSurveyPage, {}},
-         {features::kSegmentationPlatformFedCmUser, {}}},
+         {features::kSegmentationPlatformFedCmUser, {}},
+         {features::kAndroidTipsNotifications, {}}},
         {});
 
     // Creating profile and initialising segmentation service.
@@ -635,7 +636,7 @@ TEST_F(SegmentationPlatformServiceFactoryTest, EphemeralHomeMdouleBackend) {
   // Each card's feature flag should be enabled by test framework for this
   // integration test.
 #if BUILDFLAG(IS_ANDROID)
-  ASSERT_EQ(1u, registry->get_all_cards_by_priority().size());
+  ASSERT_EQ(6u, registry->get_all_cards_by_priority().size());
 #else
   EXPECT_TRUE(registry->get_all_cards_by_priority().empty());
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -647,6 +648,23 @@ TEST_F(SegmentationPlatformServiceFactoryTest, EphemeralHomeMdouleBackend) {
 #if BUILDFLAG(IS_ANDROID)
   input_context->metadata_args.emplace(
       "auxiliary_search_available", processing::ProcessedValue::FromFloat(0));
+  input_context->metadata_args.emplace(
+      "is_user_signed_in", processing::ProcessedValue::FromFloat(0));
+  input_context->metadata_args.emplace(
+      "should_show_non_role_manager_default_browser_promo",
+      processing::ProcessedValue::FromFloat(0));
+  input_context->metadata_args.emplace(
+      "has_default_browser_promo_shown_in_other_surface",
+      processing::ProcessedValue::FromFloat(0));
+  input_context->metadata_args.emplace(
+      "tab_group_exists", processing::ProcessedValue::FromFloat(0));
+  input_context->metadata_args.emplace(
+      "number_of_tabs", processing::ProcessedValue::FromFloat(0));
+  input_context->metadata_args.emplace(
+      "synced_tab_group_exists", processing::ProcessedValue::FromFloat(0));
+  input_context->metadata_args.emplace(
+      "is_eligible_to_history_opt_in",
+      processing::ProcessedValue::FromFloat(0));
 #endif  // BUILDFLAG(IS_ANDROID)
 
   // No cards are added, the model fetches no results and fails.
@@ -665,6 +683,28 @@ TEST_F(SegmentationPlatformServiceFactoryTest, TestFedCmUserModel) {
       /*expected_status=*/PredictionStatus::kSucceeded,
       /*expected_labels=*/
       std::vector<std::string>(1, "FedCmUserLoud"));
+}
+
+TEST_F(SegmentationPlatformServiceFactoryTest, TestTipsNotificationsRanker) {
+  InitService();
+  PredictionOptions prediction_options;
+  prediction_options.on_demand_execution = true;
+
+  auto input_context = base::MakeRefCounted<InputContext>();
+  input_context->metadata_args.emplace(
+      kEnhancedSafeBrowsingStatus, processing::ProcessedValue::FromFloat(1));
+  input_context->metadata_args.emplace(
+      kQuickDeleteUsage, processing::ProcessedValue::FromFloat(1));
+  input_context->metadata_args.emplace(
+      kBottomOmniboxStatus, processing::ProcessedValue::FromFloat(1));
+  input_context->metadata_args.emplace(
+      kBottomOmniboxUsage, processing::ProcessedValue::FromFloat(1));
+
+  ExpectGetClassificationResult(
+      segmentation_platform::kTipsNotificationsRankerKey, prediction_options,
+      input_context,
+      /*expected_status=*/PredictionStatus::kSucceeded,
+      /*expected_labels=*/std::nullopt);
 }
 
 }  // namespace

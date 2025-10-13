@@ -21,7 +21,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/browser/web_contents/web_contents_impl.h"
-#include "content/browser/webid/federated_auth_disconnect_request.h"
+#include "content/browser/webid/disconnect_request.h"
 #include "content/browser/webid/metrics.h"
 #include "content/browser/webid/test/delegated_idp_network_request_manager.h"
 #include "content/browser/webid/test/federated_auth_request_request_token_callback_helper.h"
@@ -456,8 +456,8 @@ class TestIdpNetworkRequestManager : public MockIdpNetworkRequestManager {
       TokenResult result;
       result.error = config_.token_error;
 
-      base::OnceCallback bound_callback =
-          base::BindOnce(std::move(callback), config_.token_response, result);
+      base::OnceCallback bound_callback = base::BindOnce(
+          std::move(callback), config_.token_response, std::move(result));
       if (config_.delay_token_response) {
         delayed_callbacks_.push_back(std::move(bound_callback));
       } else {
@@ -481,9 +481,9 @@ class TestIdpNetworkRequestManager : public MockIdpNetworkRequestManager {
             ? config_.token
             : std::string();
     TokenResult result;
-    result.token = delivered_token;
-    base::OnceCallback bound_callback =
-        base::BindOnce(std::move(callback), config_.token_response, result);
+    result.token = base::Value(delivered_token);
+    base::OnceCallback bound_callback = base::BindOnce(
+        std::move(callback), config_.token_response, std::move(result));
     if (config_.delay_token_response) {
       delayed_callbacks_.push_back(std::move(bound_callback));
     } else {
@@ -1401,7 +1401,7 @@ class RequestServiceTest : public RenderViewHostImplTestHarness {
     options->config = blink::mojom::IdentityProviderConfig::New();
     options->config->config_url = GURL(kProviderUrlFull);
     federated_auth_request_impl_->disconnect_request_ =
-        FederatedAuthDisconnectRequest::Create(
+        DisconnectRequest::Create(
             std::move(network_request_manager), test_permission_delegate_.get(),
             main_test_rfh(), std::move(fedcm_metrics), std::move(options));
     federated_auth_request_impl_->disconnect_request_->callback_ =

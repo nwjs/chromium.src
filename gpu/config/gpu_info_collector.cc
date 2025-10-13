@@ -361,7 +361,8 @@ void ReportWebGPUAdapterMetrics(dawn::native::Instance* instance) {
 }
 
 void ReportWebGPUSupportMetrics(dawn::native::Instance* instance) {
-  static BASE_FEATURE(CollectWebGPUSupportMetrics,
+  static BASE_FEATURE(kCollectWebGPUSupportMetrics,
+                      "CollectWebGPUSupportMetrics",
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
                       base::FEATURE_DISABLED_BY_DEFAULT);
 #else

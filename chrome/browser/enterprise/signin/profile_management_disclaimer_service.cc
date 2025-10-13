@@ -46,17 +46,53 @@
 #include "components/signin/public/identity_manager/primary_account_change_event.h"
 #include "components/signin/public/identity_manager/tribool.h"
 
+namespace {
+
+bool CanTryPolicyRegistration(std::optional<base::Time> last_failure_time) {
+  if (!last_failure_time) {
+    return true;
+  }
+
+  return base::Time::Now() - last_failure_time.value() >
+         switches::kPolicyDisclaimerRegistrationRetryDelay.Get();
+}
+
+bool IsSigninRegistration(signin_metrics::AccessPoint access_point) {
+  return access_point != signin_metrics::AccessPoint::
+                             kEnterpriseManagementDisclaimerAtStartup &&
+         access_point != signin_metrics::AccessPoint::
+                             kEnterpriseManagementDisclaimerAfterBrowserFocus;
+}
+
+bool AllowDisclaimer(signin_metrics::AccessPoint access_point) {
+  if (base::FeatureList::IsEnabled(switches::kEnforceManagementDisclaimer)) {
+    return true;
+  }
+  return access_point != signin_metrics::AccessPoint::
+                             kEnterpriseManagementDisclaimerAtStartup &&
+         access_point != signin_metrics::AccessPoint::
+                             kEnterpriseManagementDisclaimerAfterBrowserFocus &&
+         access_point != signin_metrics::AccessPoint::
+                             kEnterpriseManagementDisclaimerAfterSignin;
+}
+
+}  // namespace
+
 ProfileManagementDisclaimerService::ProfileManagementDisclaimerService(
     Profile* profile)
-    : profile_(*profile), state_(std::make_unique<ResetableState>()) {
-  CHECK(base::FeatureList::IsEnabled(switches::kEnforceManagementDisclaimer));
-
+    : profile_(*profile),
+      state_(std::make_unique<ResetableState>()),
+      signin_prefs_(*profile->GetPrefs()) {
   scoped_identity_manager_observation_.Observe(GetIdentityManager());
   scoped_browser_list_observation_.Observe(BrowserList::GetInstance());
 
-  MaybeShowEnterpriseManagementDisclaimer(
-      GetPrimaryAccountInfo().account_id,
-      signin_metrics::AccessPoint::kEnterpriseManagementDisclaimerAtStartup);
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(&ProfileManagementDisclaimerService::
+                                    MaybeShowEnterpriseManagementDisclaimer,
+                                weak_ptr_factory_.GetWeakPtr(),
+                                GetPrimaryAccountInfo().account_id,
+                                signin_metrics::AccessPoint::
+                                    kEnterpriseManagementDisclaimerAtStartup));
 }
 
 ProfileManagementDisclaimerService::~ProfileManagementDisclaimerService() =
@@ -87,12 +123,24 @@ void ProfileManagementDisclaimerService::EnsureManagedProfileForAccount(
     base::OnceCallback<void(Profile*, bool)> callback) {
   CHECK(state_->account_id.empty() || state_->account_id == account_id);
   state_->callbacks.AddUnsafe(std::move(callback));
+  state_->cancelable = false;
   MaybeShowEnterpriseManagementDisclaimer(account_id, access_point);
 }
 
 const CoreAccountId& ProfileManagementDisclaimerService::
     GetAccountBeingConsideredForManagementIfAny() const {
   return state_->account_id;
+}
+
+bool ProfileManagementDisclaimerService::StopCurrentProcessIfPossible() {
+  if (state_->profile_creation_controller) {
+    return false;
+  }
+  if (!state_->cancelable) {
+    return false;
+  }
+  Reset();
+  return true;
 }
 
 signin::IdentityManager*
@@ -124,6 +172,18 @@ void ProfileManagementDisclaimerService::
   // We should always know the access point that triggered the profile creation.
   CHECK_NE(access_point, signin_metrics::AccessPoint::kUnknown);
 
+  if (!AllowDisclaimer(access_point)) {
+    return;
+  }
+
+  if (!state_->account_id.empty() && state_->account_id != account_id) {
+    // If the account is different from the one we are already handling, reset
+    // the state. This can happen if the account is removed and another one is
+    // added, or if the account is cleared and another account is set as primary
+    // account.
+    return;
+  }
+
   // If the management disclaimer is not enabled on primary account change,
   // reset the state and return early. This to avoid showing the disclaimer
   // after the primary account has changed when another class is handling
@@ -135,11 +195,10 @@ void ProfileManagementDisclaimerService::
   state_->access_point = access_point;
 
   // Wait for the current disclaimer to be closed.
-  if (state_->profile_creation_controller || state_->policy_fetch_tracker) {
+  if (state_->profile_creation_controller) {
     return;
   }
-  // We can only create one managed profile at a time.
-  CHECK(state_->account_id.empty() || state_->account_id == account_id);
+
   state_->account_id = account_id;
 
   // If the user has already accepted the management disclaimer, nothing to
@@ -155,6 +214,16 @@ void ProfileManagementDisclaimerService::
   // Account info is not yet available, wait for extended account info.
   if (info.IsManaged() == signin::Tribool::kUnknown) {
     state_->extended_account_info_wait_timeout.Start(
+        FROM_HERE, base::Seconds(5),
+        base::BindOnce(&ProfileManagementDisclaimerService::Reset,
+                       weak_ptr_factory_.GetWeakPtr()));
+    return;
+  }
+
+  // If there is no refresh token, we cannot register for policy updates.
+  // Wait for it to be updated.
+  if (!GetIdentityManager()->HasAccountWithRefreshToken(account_id)) {
+    state_->refresh_token_wait_timeout.Start(
         FROM_HERE, base::Seconds(5),
         base::BindOnce(&ProfileManagementDisclaimerService::Reset,
                        weak_ptr_factory_.GetWeakPtr()));
@@ -177,27 +246,76 @@ void ProfileManagementDisclaimerService::
     return;
   }
 
-  CHECK(!state_->policy_fetch_tracker && !state_->profile_creation_controller);
-  state_->policy_fetch_tracker =
-      TurnSyncOnHelperPolicyFetchTracker::CreateInstance(&profile_.get(), info);
-  state_->policy_fetch_tracker->RegisterForPolicy(
+  CHECK(!state_->profile_creation_controller);
+
+  // If the account is already registered for policy, we can check the result
+  // immediately. Otherwise, we need to register for policy updates.
+  if (!policy_fetch_tracker_by_account_id_.contains(account_id)) {
+    policy_fetch_tracker_by_account_id_[account_id] =
+        TurnSyncOnHelperPolicyFetchTracker::CreateInstance(&profile_.get(),
+                                                           info);
+  }
+
+  // If the account cannot try to register for policies because of delays
+  // between failures, we can reset the state and wait for another attempt.
+  if (!CanTryPolicyRegistration(
+          signin_prefs_.GetPolicyDisclaimerLastRegistrationFailureTime(
+              info.gaia))) {
+    OnRegisteredForPolicy(/*is_from_cached_registration_result=*/true,
+                          /*is_managed_account=*/false);
+    return;
+  }
+
+  auto& policy_fetch_tracker = policy_fetch_tracker_by_account_id_[account_id];
+  if (policy_fetch_tracker->GetPolicyRegistrationResult().has_value() &&
+      policy_fetch_tracker->GetPolicyRegistrationResult().value()) {
+    OnRegisteredForPolicy(
+        /*is_from_cached_registration_result=*/true,
+        policy_fetch_tracker->GetPolicyRegistrationResult().value());
+    return;
+  }
+
+  policy_fetch_tracker->RegisterForPolicy(
       base::BindOnce(&ProfileManagementDisclaimerService::OnRegisteredForPolicy,
-                     weak_ptr_factory_.GetWeakPtr()));
+                     weak_ptr_factory_.GetWeakPtr(),
+                     /*is_from_cached_registration_result=*/false),
+      !IsSigninRegistration(state_->access_point));
 }
 
 void ProfileManagementDisclaimerService::OnRegisteredForPolicy(
+    bool is_from_cached_registration_result,
     bool is_managed_account) {
-  if (!is_managed_account) {
+  if (!enable_management_disclaimer_) {
     Reset();
     return;
   }
+  GaiaId gaia_id = GetExtendedAccountInfo(state_->account_id).gaia;
+  // If the account has been removed in the meantime, reset the state.
+  if (gaia_id.empty()) {
+    state_->profile_to_continue_in = nullptr;
+    Reset();
+    return;
+  }
+  if (!is_managed_account) {
+    if (!is_from_cached_registration_result) {
+      signin_prefs_.SetPolicyDisclaimerLastRegistrationFailureTime(
+          gaia_id, base::Time::Now());
+    }
+    // No need to keep the tracker if the account is not managed anymore, it is
+    // already handled by the retry delay logic.
+    policy_fetch_tracker_by_account_id_.erase(state_->account_id);
+    Reset();
+    return;
+  }
+  signin_prefs_.ClearPolicyDisclaimerLastRegistrationFailureTime(gaia_id);
 
   if (profile_separation_policies_for_testing_.has_value() ||
       user_choice_for_testing_.has_value()) {
     CHECK_IS_TEST();
     state_->profile_creation_controller =
         ManagedProfileCreationController::CreateManagedProfileForTesting(
-            &profile_.get(), GetExtendedAccountInfo(state_->account_id), state_->access_point,
+            &profile_.get(), GetExtendedAccountInfo(state_->account_id),
+            state_->access_point,
             base::BindOnce(&ProfileManagementDisclaimerService::
                                OnManagedProfileCreationResult,
                            weak_ptr_factory_.GetWeakPtr()),
@@ -208,11 +326,11 @@ void ProfileManagementDisclaimerService::OnRegisteredForPolicy(
 
   state_->profile_creation_controller =
       ManagedProfileCreationController::CreateManagedProfile(
-        &profile_.get(), GetExtendedAccountInfo(state_->account_id),
-        state_->access_point,
-        base::BindOnce(&ProfileManagementDisclaimerService::
-                           OnManagedProfileCreationResult,
-                       weak_ptr_factory_.GetWeakPtr()));
+          &profile_.get(), GetExtendedAccountInfo(state_->account_id),
+          state_->access_point,
+          base::BindOnce(&ProfileManagementDisclaimerService::
+                             OnManagedProfileCreationResult,
+                         weak_ptr_factory_.GetWeakPtr()));
 }
 
 void ProfileManagementDisclaimerService::OnManagedProfileCreationResult(
@@ -223,10 +341,11 @@ void ProfileManagementDisclaimerService::OnManagedProfileCreationResult(
   }
   state_->profile_creation_required_by_policy =
       profile_creation_required_by_policy;
-  if (state_->profile_to_continue_in && state_->policy_fetch_tracker) {
-    state_->policy_fetch_tracker->SwitchToProfile(
-        state_->profile_to_continue_in.get());
-    state_->policy_fetch_tracker->FetchPolicy(
+  auto& policy_fetch_tracker =
+      policy_fetch_tracker_by_account_id_[state_->account_id];
+  if (state_->profile_to_continue_in && policy_fetch_tracker) {
+    policy_fetch_tracker->SwitchToProfile(state_->profile_to_continue_in.get());
+    policy_fetch_tracker->FetchPolicy(
         base::BindOnce(&ProfileManagementDisclaimerService::Reset,
                        weak_ptr_factory_.GetWeakPtr()));
     return;
@@ -240,8 +359,20 @@ void ProfileManagementDisclaimerService::Reset() {
 
 void ProfileManagementDisclaimerService::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event) {
+  if (event.GetEventTypeFor(signin::ConsentLevel::kSignin) ==
+          signin::PrimaryAccountChangeEvent::Type::kCleared &&
+      state_->account_id == GetPrimaryAccountInfo().account_id) {
+    state_->profile_to_continue_in = nullptr;
+    Reset();
+    return;
+  }
   if (event.GetEventTypeFor(signin::ConsentLevel::kSignin) !=
       signin::PrimaryAccountChangeEvent::Type::kSet) {
+    return;
+  }
+
+  // If we are already handling a signin, ignore this event.
+  if (!state_->account_id.empty()) {
     return;
   }
 
@@ -270,6 +401,26 @@ void ProfileManagementDisclaimerService::OnExtendedAccountInfoUpdated(
   state_->extended_account_info_wait_timeout.Stop();
   MaybeShowEnterpriseManagementDisclaimer(info.account_id,
                                           state_->access_point);
+}
+
+void ProfileManagementDisclaimerService::OnRefreshTokenUpdatedForAccount(
+    const CoreAccountInfo& account_info) {
+  if (state_->access_point == signin_metrics::AccessPoint::kUnknown) {
+    return;
+  }
+  // This would most likely happen at startup after all refresh tokens are
+  // loaded.
+  if (state_->account_id.empty() &&
+      GetPrimaryAccountInfo().account_id != account_info.account_id) {
+    return;
+  }
+  if (!state_->account_id.empty() &&
+      account_info.account_id != state_->account_id) {
+    return;
+  }
+  MaybeShowEnterpriseManagementDisclaimer(account_info.account_id,
+                                          state_->access_point);
+  state_->refresh_token_wait_timeout.Stop();
 }
 
 void ProfileManagementDisclaimerService::OnBrowserSetLastActive(

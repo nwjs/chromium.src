@@ -24,6 +24,8 @@ ContextImplOrt::ContextImplOrt(
     WebNNContextProviderImpl* context_provider,
     const EpWorkarounds& ep_workarounds,
     mojom::CreateContextOptionsPtr options,
+    mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
+    mojo::ScopedDataPipeProducerHandle write_tensor_producer,
     scoped_refptr<Environment> env,
     gpu::CommandBufferId command_buffer_id,
     std::unique_ptr<ScopedSequence> sequence,
@@ -33,6 +35,8 @@ ContextImplOrt::ContextImplOrt(
           context_provider,
           GetContextProperties(ep_workarounds.resample2d_limit_to_nchw),
           std::move(options),
+          std::move(write_tensor_consumer),
+          std::move(write_tensor_producer),
           command_buffer_id,
           std::move(sequence),
           std::move(task_runner)),
@@ -89,13 +93,13 @@ ContextProperties ContextImplOrt::GetContextProperties(
                                : Resample2DAxes::kAny,
       BatchNormalizationAxis::kChannelsFirst,
       /*tensor_byte_length_limit=*/kTensorByteLengthLimit,
-      {/*input=*/SupportedDataTypes::All(),
-       /*constant=*/SupportedDataTypes::All(),
+      {/*input=*/{SupportedDataTypes::All(), kMaxRank},
+       /*constant=*/{SupportedDataTypes::All(), kMaxRank},
        /*arg_min_max_input=*/
        {DataTypeConstraint::kAllDataTypesAtLeast8bits, kMaxNonScalarRank},
        // ONNX ArgMin/Max only supports int64 output, int32 output is supported
        // by inserting a cast operator.
-       /*arg_min_max_output=*/DataTypeConstraint::kInt32To64,
+       /*arg_min_max_output=*/{DataTypeConstraint::kInt32To64, kMaxRank},
        /*batch_normalization_input=*/
        {DataTypeConstraint::kFloat16To32, kMaxNonScalarRank},
        /*batch_normalization_mean=*/
@@ -189,6 +193,8 @@ ContextProperties ContextImplOrt::GetContextProperties(
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(3)},
        /*gru_bias=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
+       /*gru_output_sequence=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(4)},
        /*gru_cell_input=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
        /*gru_cell_bias=*/
@@ -207,6 +213,8 @@ ContextProperties ContextImplOrt::GetContextProperties(
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(3)},
        /*lstm_bias=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
+       /*lstm_output_sequence=*/
+       {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(4)},
        /*lstm_cell_input=*/
        {DataTypeConstraint::kFloat16To32, SupportedRanks::Exactly(2)},
        /*lstm_cell_bias=*/
@@ -281,7 +289,7 @@ ContextProperties ContextImplOrt::GetContextProperties(
 }
 
 base::WeakPtr<WebNNContextImpl> ContextImplOrt::AsWeakPtr() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
   return weak_factory_.GetWeakPtr();
 }
 
@@ -321,10 +329,10 @@ ContextImplOrt::CreateTensorImpl(
 }
 
 base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
-ContextImplOrt::CreateTensorFromMailboxImpl(
+ContextImplOrt::CreateTensorFromSharedImageImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
     mojom::TensorInfoPtr tensor_info,
-    gpu::Mailbox mailbox) {
+    std::unique_ptr<gpu::WebNNTensorRepresentation> representation) {
   return base::unexpected(
       mojom::Error::New(mojom::Error::Code::kNotSupportedError,
                         "WebGPU Interop is not supported."));

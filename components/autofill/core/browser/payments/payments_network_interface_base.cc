@@ -19,6 +19,7 @@
 #include "components/signin/public/identity_manager/oauth_consumer_ids.h"
 #include "components/variations/net/variations_http_headers.h"
 #include "net/base/load_flags.h"
+#include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -164,7 +165,8 @@ void PaymentsNetworkInterfaceBase::OnSimpleLoaderCompleteInternal(
     case net::HTTP_OK: {
       std::string error_code;
       std::string error_api_error_reason;
-      std::optional<base::Value> message_value = base::JSONReader::Read(data);
+      std::optional<base::Value> message_value =
+          base::JSONReader::Read(data, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
       if (message_value && message_value->is_dict()) {
         const auto* found_error_code =
             message_value->GetDict().FindStringByDottedPath("error.code");

@@ -22,6 +22,10 @@ export enum SpeechControls {
 export class ReadAnythingLogger {
   private metrics: MetricsBrowserProxy = MetricsBrowserProxyImpl.getInstance();
 
+  logEmptyState() {
+    this.metrics.recordEmptyState();
+  }
+
   logSpeechStopSource(source: number) {
     this.metrics.recordSpeechStopSource(source);
   }
@@ -101,6 +105,12 @@ export class ReadAnythingLogger {
       // </if>
       // <if expr="not is_chromeos">
       voiceType = ReadAnythingVoiceType.SYSTEM;
+
+      // When a system voice is used, log additional information to better
+      // understand the TTS engine state when the system voice is used.
+      // Extension state information cannot easily be passed to the renderer,
+      // so this logging needs to be handled within the page handler.
+      this.metrics.recordExtensionState();
       // </if>
     }
 

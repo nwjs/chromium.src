@@ -361,7 +361,8 @@ void FocusFrame(FrameTreeNode* frame) {
 }
 
 bool ConvertJSONToPoint(const std::string& str, gfx::PointF* point) {
-  std::optional<base::Value::Dict> value = base::JSONReader::ReadDict(str);
+  std::optional<base::Value::Dict> value =
+      base::JSONReader::ReadDict(str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   if (!value) {
     return false;
   }
@@ -5359,9 +5360,10 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
     std::string expected_console_message;
   } kTestCases[] = {
       {"/frame-ancestors-none.html", false,
-       "Refused to frame '" + reported_blocked_url.spec() +
-           "' because an ancestor violates the following Content Security "
-           "Policy directive: \"frame-ancestors 'none'\".\n"},
+       "Framing '" + reported_blocked_url.spec() +
+           "' violates the following Content Security "
+           "Policy directive: \"frame-ancestors 'none'\". The request has "
+           "been blocked.\n"},
       {"/x-frame-options-deny.html", true,
        "Refused to display '" + reported_blocked_url.spec() +
            "' in a frame because it set 'X-Frame-Options' to 'deny'."},
@@ -5374,7 +5376,7 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
     TitleWatcher title_watcher(shell()->web_contents(), expected_title);
 
     WebContentsConsoleObserver console_observer(shell()->web_contents());
-    console_observer.SetPattern("Refused to*");
+    console_observer.SetPattern("*'" + reported_blocked_url.spec() + "'*");
 
     // Navigate the subframe to a blocked URL.
     TestNavigationObserver load_observer(shell()->web_contents());
@@ -10989,9 +10991,9 @@ namespace {
 //
 // Reversing the order in which the commit messages are dispatched simulates a
 // busy renderer that takes a very long time to actually commit the navigation
-// to |deferred_url| after receiving FrameNavigationControl::CommitNavigation;
-// whereas there is a fast cross-site navigation taking place in the same
-// frame which starts second but finishes first.
+// to |deferred_url| after receiving DidCommitNavigation; whereas there is a
+// fast cross-site navigation taking place in the same frame which starts second
+// but finishes first.
 class CommitMessageOrderReverser : public DidCommitNavigationInterceptor {
  public:
   using DidStartDeferringCommitCallback =
@@ -12974,8 +12976,8 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   std::string double_tap_actions_json =
       base::StringPrintf(kActionsTemplate, tap_position.x(), tap_position.y(),
                          tap_position.x(), tap_position.y());
-  auto parsed_json =
-      base::JSONReader::ReadAndReturnValueWithError(double_tap_actions_json);
+  auto parsed_json = base::JSONReader::ReadAndReturnValueWithError(
+      double_tap_actions_json, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   ASSERT_TRUE(parsed_json.has_value()) << parsed_json.error().message;
   ActionsParser actions_parser(std::move(*parsed_json));
 
@@ -13660,7 +13662,7 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
 }
 
 // TODO(crbug.com/425866013): Fix and re-enable flaky test.
-#if BUILDFLAG(IS_FUCHSIA)
+#if BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_ANDROID)
 #define MAYBE_AccessWindowProxyOfCrashedFrameAfterNavigation \
   DISABLED_AccessWindowProxyOfCrashedFrameAfterNavigation
 #else
@@ -14603,17 +14605,9 @@ class SitePerProcessWithSubframeProcessReuseThresholdsTest
       public ::testing::WithParamInterface<std::string> {
  public:
   SitePerProcessWithSubframeProcessReuseThresholdsTest() {
-    size_t total_memory_limit = 8;
-    base::FieldTrialParams params = {
-        {"SubframeProcessReuseMemoryThreshold",
-         base::StringPrintf("%zu", total_memory_limit)}};
-    scoped_feature_list_.InitAndEnableFeatureWithParameters(
-        features::kSubframeProcessReuseThresholds, params);
+    RenderProcessHostImpl::SetSubframeProcessReuseThresholdForTesting(8u);
   }
   ~SitePerProcessWithSubframeProcessReuseThresholdsTest() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Verify that a subframe will only reuse an existing process if adding
@@ -14682,6 +14676,63 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessWithSubframeProcessReuseThresholdsTest,
   histograms.ExpectBucketCount(
       "BrowserRenderProcessHost.SubframeProcessReuseThreshold.TotalFrames", 2,
       1);
+}
+
+class CrossProcessSubframeRenderProcessGoneLogger
+    : public ContentBrowserTestContentBrowserClient {
+ public:
+  CrossProcessSubframeRenderProcessGoneLogger() = default;
+  ~CrossProcessSubframeRenderProcessGoneLogger() override = default;
+
+  void CrossProcessSubframeRenderProcessGone(
+      RenderFrameHost* render_frame_host) override {
+    crashed_rfhs_.push_back(render_frame_host);
+  }
+
+  const std::vector<RenderFrameHost*>& crashed_rfhs() const {
+    return crashed_rfhs_;
+  }
+
+ private:
+  std::vector<RenderFrameHost*> crashed_rfhs_;
+};
+
+// Test that when a process hosting multiple subframes dies,
+// ContentBrowserClient::SubframeProcessGone is called for each of them.
+IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
+                       CrossProcessSubframeRenderProcessGone) {
+  // Install a client that counts the number of times
+  // CrossProcessSubframeRenderProcessGone is called.
+  CrossProcessSubframeRenderProcessGoneLogger test_client;
+  web_contents()->OnWebPreferencesChanged();
+
+  GURL main_url(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b,b(c(b)))"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+
+  FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
+  FrameTreeNode* child1 = root->child_at(0);
+  FrameTreeNode* child2 = root->child_at(1);
+  FrameTreeNode* grandchild = child2->child_at(0);
+  FrameTreeNode* great_grandchild = grandchild->child_at(0);
+
+  RenderFrameHost* rfh_b1 = child1->current_frame_host();
+  RenderFrameHost* rfh_b2 = child2->current_frame_host();
+  RenderFrameHost* rfh_b3 = great_grandchild->current_frame_host();
+
+  RenderProcessHost* b_process = child1->current_frame_host()->GetProcess();
+  EXPECT_EQ(b_process, child2->current_frame_host()->GetProcess());
+  EXPECT_EQ(b_process, great_grandchild->current_frame_host()->GetProcess());
+
+  RenderProcessHostWatcher crash_observer(
+      b_process, RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+  b_process->Shutdown(0);
+  crash_observer.Wait();
+
+  EXPECT_EQ(test_client.crashed_rfhs().size(), 2u);
+  EXPECT_TRUE(base::Contains(test_client.crashed_rfhs(), rfh_b1));
+  EXPECT_TRUE(base::Contains(test_client.crashed_rfhs(), rfh_b2));
+  EXPECT_FALSE(base::Contains(test_client.crashed_rfhs(), rfh_b3));
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

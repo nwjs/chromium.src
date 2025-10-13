@@ -26,11 +26,11 @@
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
 #include "chrome/browser/ui/views/picture_in_picture/picture_in_picture_bounds_change_animation.h"
 #include "chrome/browser/ui/views/picture_in_picture/picture_in_picture_tucker.h"
-#include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/omnibox/browser/location_bar_model_impl.h"
 #include "components/vector_icons/vector_icons.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
+#include "components/webapps/isolated_web_apps/scheme.h"
 #include "content/public/browser/document_picture_in_picture_window_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_constants.h"
@@ -72,13 +72,6 @@
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "extensions/common/constants.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
-
-// Windows, Mac and CrOS do not clip child widgets to their parents, so we
-// don't have to worry about resizing quite as much.
-#if BUILDFLAG(IS_LINUX)
-#define PLATFORM_CLIPS_CHILD_WINDOWS
-#endif
-
 namespace {
 
 constexpr int kWindowIconImageSize = 16;
@@ -414,17 +407,7 @@ void PictureInPictureBrowserFrameView::ChildDialogObserverHelper::
 
   child_dialog_sizes_.insert_or_assign(child_dialog, dialog_bounds.size());
 
-  if (!child_dialog->IsModal()) {
-    // Non-modal dialogs set their bounds directly.  Expand the pip window to
-    // include them, and that's it if we're on a platform that clips child
-    // windows.  If child windows can extend past their parents, then just leave
-    // it all as is.
-#if defined(PLATFORM_CLIPS_CHILD_WINDOWS)
-    adjusted_bounds.Union(dialog_bounds);
-#else
-    return;
-#endif
-  } else {
+  if (child_dialog->IsModal()) {
     // Modal dialogs will be resized / moved to use the available space, so we
     // only need to make sure that the pip window is big enough, accounting for
     // some padding that the ModalDialogHost won't allow a dialog to use.  We
@@ -449,6 +432,19 @@ void PictureInPictureBrowserFrameView::ChildDialogObserverHelper::
     required_size.SetToMax(original_bounds.size());
 
     adjusted_bounds.set_size(required_size);
+  } else if (!child_dialog->GetIsDesktopWidget()) {
+    // Non-modal dialogs set their bounds directly.  If the child window is not
+    // a desktop widget, then it will be clipped by the parent window.  Expand
+    // the pip window to include the child dialog.
+    // ChromeOS is unique in that it does not clip non-desktop widgets to the
+    // parent window. So skip resizing the pip window on ChromeOS.
+#if !BUILDFLAG(IS_CHROMEOS)
+    adjusted_bounds.Union(dialog_bounds);
+#endif
+  } else {
+    // Non-modal dialogs that are desktop widgets set their bounds directly and
+    // are not clipped to the parent window bounds, so just leave it as is.
+    return;
   }
 
   if (adjusted_bounds == original_bounds) {
@@ -478,12 +474,6 @@ void PictureInPictureBrowserFrameView::ChildDialogObserverHelper::
     return;
   }
 
-  // If the pip window in the process of closing ignore any resizes that could
-  // occur as child dialogs are destroyed during teardown.
-  if (pip_widget_->IsClosed()) {
-    return;
-  }
-
   // If we still have another visible child dialog, continue to maintain the
   // size.
   if (child_dialog_observations_.GetSourcesCount() >
@@ -503,9 +493,9 @@ void PictureInPictureBrowserFrameView::ChildDialogObserverHelper::
 }
 
 PictureInPictureBrowserFrameView::PictureInPictureBrowserFrameView(
-    BrowserFrame* frame,
+    BrowserWidget* widget,
     BrowserView* browser_view)
-    : BrowserNonClientFrameView(frame, browser_view),
+    : BrowserFrameView(widget, browser_view),
       top_bar_color_animation_(this),
       move_camera_button_to_left_animation_(this),
       move_camera_button_to_right_animation_(gfx::MultiAnimation::Parts{
@@ -587,7 +577,7 @@ PictureInPictureBrowserFrameView::PictureInPictureBrowserFrameView(
   // important to elide.
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   if (location_bar_model_->GetURL().SchemeIs(extensions::kExtensionScheme) ||
-      location_bar_model_->GetURL().SchemeIs(chrome::kIsolatedAppScheme)) {
+      location_bar_model_->GetURL().SchemeIs(webapps::kIsolatedAppScheme)) {
     elide_behavior = gfx::ELIDE_TAIL;
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
@@ -730,7 +720,7 @@ PictureInPictureBrowserFrameView::~PictureInPictureBrowserFrameView() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// BrowserNonClientFrameView implementations:
+// BrowserFrameView implementations:
 
 gfx::Rect PictureInPictureBrowserFrameView::GetBoundsForTabStripRegion(
     const gfx::Size& tabstrip_minimum_size) const {
@@ -753,7 +743,7 @@ void PictureInPictureBrowserFrameView::ShowOverlayIfNeeded() {
 }
 
 void PictureInPictureBrowserFrameView::OnBrowserViewInitViewsComplete() {
-  BrowserNonClientFrameView::OnBrowserViewInitViewsComplete();
+  BrowserFrameView::OnBrowserViewInitViewsComplete();
 
 #if BUILDFLAG(IS_WIN)
   const gfx::Insets insets = GetClientAreaInsets(
@@ -781,26 +771,6 @@ void PictureInPictureBrowserFrameView::OnBrowserViewInitViewsComplete() {
   // directly.  In that case, the excluded margin we compute won't be used, and
   // probably the browser coordinates are already correct, but that's fine.
 
-  // Get the current display. This is needed by |ComputeOuterWindowBounds| to
-  // determine the work area dimensions and the allowed maximum window size.
-  const BrowserWindow* const browser_window =
-      browser_view()->browser()->window();
-  const gfx::NativeWindow native_window =
-      browser_window ? browser_window->GetNativeWindow() : gfx::NativeWindow();
-  const display::Screen* const screen = display::Screen::Get();
-  const gfx::Rect original_override_bounds =
-      browser_view()->browser()->override_bounds();
-  display::Display display;
-  // Use the override bounds if possible, since the NativeWindow might not be
-  // positioned properly yet.
-  if (!original_override_bounds.IsEmpty()) {
-    display =
-        screen->GetDisplayNearestPoint(original_override_bounds.top_center());
-  } else {
-    display = browser_window ? screen->GetDisplayNearestWindow(native_window)
-                             : screen->GetDisplayForNewWindows();
-  }
-
   // Compute the margin required by both the platform and the browser frame
   // (us) to provide the requested inner size.
 
@@ -823,7 +793,7 @@ void PictureInPictureBrowserFrameView::OnBrowserViewInitViewsComplete() {
   // simply be ignored and nothing will change.
   const gfx::Rect window_bounds =
       PictureInPictureWindowManager::GetInstance()->CalculateOuterWindowBounds(
-          pip_options.value(), display,
+          pip_options.value(),
           GetMinimumSize() + gfx::Size(insets.width(), insets.height()),
           excluded_margin);
 
@@ -873,7 +843,8 @@ int PictureInPictureBrowserFrameView::NonClientHitTest(
   }
 
   // Allow interacting with the web contents.
-  int frame_component = frame()->client_view()->NonClientHitTest(point);
+  int frame_component =
+      browser_widget()->client_view()->NonClientHitTest(point);
   if (frame_component != HTNOWHERE) {
     return frame_component;
   }
@@ -919,7 +890,7 @@ void PictureInPictureBrowserFrameView::OnThemeChanged() {
     view->SetIconColor(color_provider->GetColor(kColorPipWindowForeground));
   }
 
-  BrowserNonClientFrameView::OnThemeChanged();
+  BrowserFrameView::OnThemeChanged();
 }
 
 void PictureInPictureBrowserFrameView::Layout(PassKey) {
@@ -935,7 +906,7 @@ void PictureInPictureBrowserFrameView::Layout(PassKey) {
   }
 #endif
 
-  LayoutSuperclass<BrowserNonClientFrameView>(this);
+  LayoutSuperclass<BrowserFrameView>(this);
 }
 
 void PictureInPictureBrowserFrameView::AddedToWidget() {
@@ -964,8 +935,7 @@ void PictureInPictureBrowserFrameView::AddedToWidget() {
 
   // TODO(crbug.com/40279642): Don't force dark mode once we support a
   // light mode window.
-  GetWidget()->SetColorModeOverride(ui::ColorProviderKey::ColorMode::kDark,
-                                    /*background_color=*/std::nullopt);
+  GetWidget()->SetColorModeOverride(ui::ColorProviderKey::ColorMode::kDark);
 
 // Fade in animation is disabled for Document and Video Picture-in-Picture on
 // Windows. On Windows, resizable windows can not be translucent. See
@@ -1004,7 +974,7 @@ void PictureInPictureBrowserFrameView::AddedToWidget() {
   PictureInPictureWindowManager::GetInstance()->OnPictureInPictureWindowShown(
       this);
 
-  BrowserNonClientFrameView::AddedToWidget();
+  BrowserFrameView::AddedToWidget();
 }
 
 void PictureInPictureBrowserFrameView::RemovedFromWidget() {
@@ -1025,7 +995,7 @@ void PictureInPictureBrowserFrameView::RemovedFromWidget() {
       this);
   tucker_.reset();
 
-  BrowserNonClientFrameView::RemovedFromWidget();
+  BrowserFrameView::RemovedFromWidget();
 }
 
 void PictureInPictureBrowserFrameView::SetFrameBounds(const gfx::Rect& bounds) {
@@ -1033,12 +1003,13 @@ void PictureInPictureBrowserFrameView::SetFrameBounds(const gfx::Rect& bounds) {
   gfx::Rect current_bounds = GetWidget()->GetWindowBoundsInScreen();
   bool did_adjust_size = false;
 
+  auto display = display::Screen::Get()->GetDisplayNearestWindow(
+      GetWidget()->GetNativeWindow());
+
   // If the website is requesting that the window increases in size, then ensure
   // that it's not increasing beyond the site-requested maximum.
   if (bounds.size().width() > current_bounds.size().width() ||
       bounds.size().height() > current_bounds.size().height()) {
-    auto display = display::Screen::Get()->GetDisplayNearestWindow(
-        GetWidget()->GetNativeWindow());
     gfx::Size adjusted_new_size =
         PictureInPictureWindowManager::AdjustRequestedSizeIfNecessary(
             bounds.size(), display);
@@ -1048,7 +1019,11 @@ void PictureInPictureBrowserFrameView::SetFrameBounds(const gfx::Rect& bounds) {
     // and a large requested size could incidentally move the window).
     if (adjusted_new_size != bounds.size()) {
       adjusted_bounds = current_bounds;
-      adjusted_bounds.ClampToCenteredSize(adjusted_new_size);
+      adjusted_bounds.ToCenteredSize(adjusted_new_size);
+
+      // Ensure the bounds are fully within the display work area.
+      adjusted_bounds.AdjustToFit(display.work_area());
+
       did_adjust_size = true;
     }
   }
@@ -1059,7 +1034,7 @@ void PictureInPictureBrowserFrameView::SetFrameBounds(const gfx::Rect& bounds) {
   if (!base::FeatureList::IsEnabled(
           media::kDocumentPictureInPictureAnimateResize) ||
       !gfx::Animation::ShouldRenderRichAnimation() || is_tucking_forced_) {
-    BrowserNonClientFrameView::SetFrameBounds(adjusted_bounds);
+    BrowserFrameView::SetFrameBounds(adjusted_bounds);
 
     // If we're forced to tuck, then re-tuck after the size adjustment. Note
     // that we also always skip the bounds change animation when tucking is
@@ -1070,7 +1045,7 @@ void PictureInPictureBrowserFrameView::SetFrameBounds(const gfx::Rect& bounds) {
     return;
   }
   bounds_change_animation_ =
-      std::make_unique<PictureInPictureBoundsChangeAnimation>(*frame(),
+      std::make_unique<PictureInPictureBoundsChangeAnimation>(*browser_widget(),
                                                               adjusted_bounds);
   bounds_change_animation_->Start();
 }
@@ -1245,7 +1220,10 @@ void PictureInPictureBrowserFrameView::OnWidgetVisibilityChanged(
 void PictureInPictureBrowserFrameView::OnWidgetBoundsChanged(
     views::Widget* widget,
     const gfx::Rect& new_bounds) {
-  PictureInPictureWindowManager::GetInstance()->UpdateCachedBounds(new_bounds);
+  const auto pip_display = display::Screen::Get()->GetDisplayNearestWindow(
+      widget->GetNativeWindow());
+  PictureInPictureWindowManager::GetInstance()->UpdateCachedBounds(new_bounds,
+                                                                   pip_display);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

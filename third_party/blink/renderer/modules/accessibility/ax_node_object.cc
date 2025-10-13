@@ -754,7 +754,8 @@ AXObject* AXNodeObject::ActiveDescendant() const {
       // TODO(accessibility): as a simplification, just expose the active
       // descendant of a <select size=1> at all times, like we do for other
       // active descendant situations,
-      return select->PopupIsVisible() || select->IsFocusedElementInDocument()
+      return !select->IsMultiple() && (select->PopupIsVisible() ||
+                                       select->IsFocusedElementInDocument())
                  ? AXObjectCache().Get(select->OptionToBeShown())
                  : nullptr;
     }
@@ -2433,7 +2434,7 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
   }
 
   if (auto* select_element = DynamicTo<HTMLSelectElement>(*GetNode())) {
-    if (select_element->UsesMenuList() && !select_element->IsMultiple()) {
+    if (select_element->UsesMenuList()) {
       return ax::mojom::blink::Role::kComboBoxSelect;
     } else {
       return ax::mojom::blink::Role::kListBox;
@@ -2449,8 +2450,7 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
 
   if (auto* option = DynamicTo<HTMLOptionElement>(*GetNode())) {
     HTMLSelectElement* select_element = option->OwnerSelectElement();
-    if (select_element && select_element->UsesMenuList() &&
-        !select_element->IsMultiple()) {
+    if (select_element && select_element->UsesMenuList()) {
       return ax::mojom::blink::Role::kMenuListOption;
     } else {
       return ax::mojom::blink::Role::kListBoxOption;
@@ -3424,7 +3424,8 @@ int AXNodeObject::HeadingLevel() const {
   // if IsAccessibilityExposeSummaryAsHeadingEnabled(), we should expose
   // a default heading level that makes sense in the context of the document.
   // Will likely be easier to do on the browser side.
-  if (ui::IsHeading(RoleValue())) {
+  if (::features::IsAccessibilityExposeSummaryAsHeadingEnabled() &&
+      ui::IsHeading(RoleValue())) {
     return 5;
   }
 
@@ -6330,7 +6331,16 @@ void AXNodeObject::InsertChild(AXObject* child,
 }
 
 bool AXNodeObject::CanHaveChildren() const {
-  DCHECK(!IsDetached());
+  // When Detached, calling methods such as AXObjectCache can cause a crash,
+  // instead, fail gracefully here.
+  if (IsDetached()) {
+    // TODO(442619489) Identify and fix any instances where
+    // CanHaveChildren() is called on a detached object, then replace this
+    // DUMP_WILL_BE_NOTREACHED with a CHECK.
+    DUMP_WILL_BE_NOTREACHED()
+        << "Calling CanHaveChildren on a detached node is not allowed." << this;
+    return false;
+  }
 
   // A child tree has been stitched onto this node, hiding its usual subtree.
   if (AXObjectCache().GetAXObjectChildAXTreeID(AXObjectID())) {
@@ -6768,13 +6778,11 @@ String AXNodeObject::TextAlternativeFromTooltip(
   // First try for interest for, then for hint popover.
   // TODO(accessibility) Consider only using interest for.
   AXObject* popover_ax_object = nullptr;
-  if (RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-          GetElement()->GetDocument().GetExecutionContext())) {
+  if (RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled()) {
     popover_ax_object = AXObjectCache().Get(GetElement()->InterestForElement());
   }
   if (popover_ax_object) {
-    DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-        GetElement()->GetDocument().GetExecutionContext()));
+    DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
     name_from = ax::mojom::blink::NameFrom::kInterestFor;
   } else {
     auto* form_control = DynamicTo<HTMLFormControlElement>(GetElement());
@@ -7749,12 +7757,10 @@ String AXNodeObject::Description(
 
   // For form controls that act as interest for triggering elements, use
   // the target for a description if it only contains plain contents.
-  if (RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-          element->GetDocument().GetExecutionContext()) &&
+  if (RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled() &&
       name_from != ax::mojom::blink::NameFrom::kInterestFor) {
     if (Element* target = element->InterestForElement()) {
-      DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-          element->GetDocument().GetExecutionContext()));
+      DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
       description_from = ax::mojom::blink::DescriptionFrom::kInterestFor;
       if (description_sources) {
         description_sources->push_back(
@@ -8316,15 +8322,7 @@ AXObject* AXNodeObject::NextOnLine() const {
           GetListMarker(*layout_object, ParentObjectIfPresent())) {
     // A list marker should be followed by a list item on the same line.
     auto* ax_list_marker = AXObjectCache().Get(list_marker);
-    // If the list marker is ignored, it is OK to connect it to an ignored node.
-    if (ax_list_marker && ax_list_marker->IsIgnoredButIncludedInTree()) {
-      return SetNextOnLine(
-          GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(
-              ax_list_marker->NextSiblingIncludingIgnored(), true));
-    }
-    // If the list marker is not ignored, it should be connected to the next
-    // unignored sibling that is in the same line.
-    if (ax_list_marker && !ax_list_marker->IsIgnored()) {
+    if (ax_list_marker) {
       AXObject* next_sibling = ax_list_marker->UnignoredNextSiblingSlow();
       if (next_sibling) {
         return SetNextOnLine(
@@ -8420,13 +8418,20 @@ AXObject* AXNodeObject::PreviousOnLine() const {
   }
 
   AXObject* previous_sibling =
-      IsIncludedInTree() ? PreviousSiblingIncludingIgnored() : nullptr;
-  if (previous_sibling && previous_sibling->GetLayoutObject() &&
-      previous_sibling->GetLayoutObject()->IsLayoutOutsideListMarker()) {
-    // A list item should be preceded by a list marker on the same line.
-    return SetPreviousOnLine(
-        GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(previous_sibling,
-                                                              false));
+      IsIncludedInTree() ? UnignoredPreviousSiblingSlow() : nullptr;
+  if (previous_sibling && previous_sibling->GetLayoutObject()) {
+    const auto* list_marker =
+        GetListMarker(*previous_sibling->GetLayoutObject(),
+                      previous_sibling->ParentObjectIfPresent());
+    auto* ax_list_marker =
+        list_marker ? AXObjectCache().Get(list_marker) : nullptr;
+    if (ax_list_marker && ax_list_marker->GetLayoutObject() &&
+        ax_list_marker->GetLayoutObject()->IsLayoutOutsideListMarker()) {
+      // A list item should be preceded by a list marker on the same line.
+      return SetPreviousOnLine(
+          GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(ax_list_marker,
+                                                                false));
+    }
   }
 
   if (layout_object->IsLayoutOutsideListMarker() ||

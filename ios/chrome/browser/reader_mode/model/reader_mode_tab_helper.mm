@@ -4,8 +4,6 @@
 
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
 
-#import <MaterialComponents/MaterialSnackbar.h>
-
 #import "base/containers/fixed_flat_set.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/strings/string_number_conversions.h"
@@ -14,11 +12,14 @@
 #import "base/time/time.h"
 #import "components/dom_distiller/core/extraction_utils.h"
 #import "components/google/core/common/google_util.h"
+#import "components/language/core/browser/language_model_manager.h"
+#import "components/translate/core/browser/translate_download_manager.h"
 #import "components/translate/core/browser/translate_manager.h"
+#import "components/translate/core/browser/translate_prefs.h"
 #import "components/ukm/ios/ukm_url_recorder.h"
 #import "ios/chrome/browser/dom_distiller/model/offline_page_distiller_viewer.h"
-#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
+#import "ios/chrome/browser/language/model/language_model_manager_factory.h"
 #import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_content_tab_helper.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_distiller_page.h"
@@ -31,6 +32,7 @@
 #import "ios/chrome/browser/shared/model/url/url_util.h"
 #import "ios/chrome/browser/shared/public/commands/reader_mode_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_source_tab_helper.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/browser/translate/model/chrome_ios_translate_client.h"
@@ -51,11 +53,10 @@ static constexpr auto kGoogleWorkspaceBlocklist =
         {"assistant.google.com", "calendar.google.com", "docs.google.com",
          "drive.google.com", "mail.google.com", "photos.google.com"});
 
-// Helper function to generate the snackbar message.
-NSString* GenerateSnackbarMessage(bool is_distillable_page) {
-  std::string message = "\nDistillation Result: ";
-  message += (is_distillable_page ? "Distillable" : "Not Distillable");
-  return base::SysUTF8ToNSString(message);
+// Helper function to generate the snackbar message subtitle.
+NSString* GetDistillationResultString(bool is_distillable_page) {
+  return base::SysUTF8ToNSString(is_distillable_page ? "Distillable"
+                                                     : "Not Distillable");
 }
 
 // Returns the Readability heuristic result if it is available otherwise returns
@@ -79,6 +80,28 @@ bool IsTranslateEnabled(ChromeIOSTranslateClient* translate_client) {
   return translate_client && translate_client->GetTranslateManager()
                                  ->GetLanguageState()
                                  ->IsPageTranslated();
+}
+
+// Returns the source language setting for the page in scope for
+// `translate_client`.
+std::string GetSourceLanguageCode(ChromeIOSTranslateClient* translate_client) {
+  return translate::TranslateDownloadManager::GetLanguageCode(
+      translate_client->GetTranslateManager()
+          ->GetLanguageState()
+          ->source_language());
+}
+
+// Returns the target language setting for `translate_client`.
+std::string GetTargetLanguageCode(ChromeIOSTranslateClient* translate_client,
+                                  web::WebState* web_state) {
+  std::unique_ptr<translate::TranslatePrefs> translate_prefs =
+      translate_client->GetTranslatePrefs();
+  language::LanguageModel* language_model =
+      LanguageModelManagerFactory::GetForProfile(
+          ProfileIOS::FromBrowserState(web_state->GetBrowserState()))
+          ->GetPrimaryModel();
+  return translate_client->GetTranslateManager()->GetTargetLanguageForDisplay(
+      translate_prefs.get(), language_model);
 }
 
 }  // namespace
@@ -287,7 +310,8 @@ void ReaderModeTabHelper::ReaderModeContentDidLoadData(
     ReaderModeContentTabHelper* reader_mode_content_tab_helper) {
   reader_mode_web_state_content_loaded_ = true;
   for (auto& observer : observers_) {
-    observer.ReaderModeWebStateDidLoadContent(this);
+    observer.ReaderModeWebStateDidLoadContent(this,
+                                              reader_mode_web_state_.get());
   }
 
   // Apply translation to the page if it was applied on the original page.
@@ -297,7 +321,13 @@ void ReaderModeTabHelper::ReaderModeContentDidLoadData(
     if (translate_client && translate_client->GetTranslateManager()
                                 ->GetLanguageState()
                                 ->IsPageTranslated()) {
-      reader_mode_content_tab_helper->ActivateTranslateOnPage();
+      // Get the last source language as determined by the language detection
+      // JavaScript on the original page.
+      const std::string source_code = GetSourceLanguageCode(translate_client);
+      const std::string target_code =
+          GetTargetLanguageCode(translate_client, web_state_.get());
+      reader_mode_content_tab_helper->ActivateTranslateOnPage(source_code,
+                                                              target_code);
     }
   }
 
@@ -360,18 +390,6 @@ base::WeakPtr<ReaderModeTabHelper> ReaderModeTabHelper::GetWeakPtr() {
 void ReaderModeTabHelper::HandleReadabilityHeuristicResult(
     const base::Value* result) {
   HandleReaderModeHeuristicResult(GetReaderModeHeuristicResult(result));
-}
-
-void ReaderModeTabHelper::SetFullscreenController(
-    FullscreenController* fullscreen_controller) {
-  if (!reader_mode_web_state_) {
-    return;
-  }
-  ReaderModeContentTabHelper* content_tab_helper =
-      ReaderModeContentTabHelper::FromWebState(reader_mode_web_state_.get());
-  if (content_tab_helper) {
-    content_tab_helper->SetFullscreenController(fullscreen_controller);
-  }
 }
 
 void ReaderModeTabHelper::HandleReaderModeHeuristicResult(
@@ -463,9 +481,9 @@ void ReaderModeTabHelper::PageDistillationCompleted(
   if (IsReaderModeSnackbarEnabled()) {
     // Show a snackbar with the heuristic result, latency and page distillation
     // result and latency.
-    MDCSnackbarMessage* message = [MDCSnackbarMessage
-        messageWithText:GenerateSnackbarMessage(is_distillable_page)];
-    message.duration = MDCSnackbarMessageDurationMax;
+    SnackbarMessage* message =
+        [[SnackbarMessage alloc] initWithTitle:@"Distillation Result:"];
+    message.subtitle = GetDistillationResultString(is_distillable_page);
     [snackbar_handler_ showSnackbarMessage:message];
   }
 
@@ -487,7 +505,8 @@ void ReaderModeTabHelper::PageDistillationCompleted(
 
 void ReaderModeTabHelper::CreateReaderModeContent(
     ReaderModeAccessPoint access_point) {
-  metrics_helper_.RecordReaderDistillerTriggered(access_point);
+  bool is_incognito = web_state_->GetBrowserState()->IsOffTheRecord();
+  metrics_helper_.RecordReaderDistillerTriggered(access_point, is_incognito);
 
   if (!reader_mode_web_state_) {
     web::WebState::CreateParams create_params = web::WebState::CreateParams(
@@ -536,7 +555,8 @@ void ReaderModeTabHelper::DestroyReaderModeContent(
     tab_helper->SetOverridingWebViewProxy(nil);
   }
   for (auto& observer : observers_) {
-    observer.ReaderModeWebStateWillBecomeUnavailable(this, reason);
+    observer.ReaderModeWebStateWillBecomeUnavailable(
+        this, reader_mode_web_state_.get(), reason);
   }
   reader_mode_web_state_content_loaded_ = false;
 

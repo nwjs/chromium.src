@@ -24,11 +24,14 @@ IGNORED_MODULES = [
     '_stddef',
 ]
 
-# When any of the following directory names are in the path, it's treated as a toolchain directory.
+# When any of the following directory names are in the path, it's treated as a
+# sysroot directory.
 SYSROOT_DIRS = {
     'android_toolchain',
     'debian_bullseye_amd64-sysroot',
     'debian_bullseye_arm64-sysroot',
+    'debian_bullseye_armhf-sysroot',
+    'debian_bullseye_i386-sysroot',
     'fuchsia-sdk',
     'MacOSX.platform',
     'win_toolchain',
@@ -42,10 +45,12 @@ SYSROOT_PRECOMPILED_HEADERS = [
     'fcntl.h',
     'getopt.h',
     'sys/ioctl.h',
+    'syscall.h',
 ]
 
 
-def fix_graph(graph: dict[str, Header], compiler: 'Compiler'):
+def fix_graph(graph: dict[str, Header],
+              compiler: 'Compiler') -> dict[pathlib.Path, str]:
   """Applies manual augmentation of the header graph."""
 
   def add_dep(frm, to, check=True):
@@ -55,9 +60,16 @@ def fix_graph(graph: dict[str, Header], compiler: 'Compiler'):
       frm.deps.append(to)
 
   def skip_module(name):
+    found = False
     for hdr in graph.values():
-      if hdr.root_module == name:
-        hdr.textual = True
+      while True:
+        if hdr.root_module == name:
+          hdr.textual = True
+          found = True
+        if hdr.next is None:
+          break
+        hdr = hdr.next
+    assert found
 
   # We made the assumption that the deps of something we couldn't compile is
   # the intersection of the deps of all users of it.
@@ -90,6 +102,9 @@ def fix_graph(graph: dict[str, Header], compiler: 'Compiler'):
     # thus we get an error when attempting to use the symbol "echo" after
     # including *any* part of the module Darwin.
     skip_module("Darwin")
+    # This module isn't intended to be used - it's intended to catch
+    # misconfigured sysroots.
+    skip_module("_c_standard_library_obsolete")
   else:
     for header in all_headers(graph):
       if header.include_dir != IncludeDir.Sysroot:
@@ -120,12 +135,35 @@ def fix_graph(graph: dict[str, Header], compiler: 'Compiler'):
     graph['android/legacy_unistd_inlines.h'].textual = True
     graph['bits/threads_inlines.h'].textual = True
 
+    graph['asm-generic/posix_types.h'].textual = True
+    graph['asm/posix_types.h'].textual = True
+
+    # sys/syscall.h includes asm/unistd.h, which includes
+    # asm/unistd_<platform>.h, which defines some macros.
+    # It then includes bits/glibc-syscalls.h which uses said macros, so both
+    # must be non-textual.
+    for k in graph:
+      if k.startswith('asm/unistd'):
+        graph[k].textual = True
+    graph['bits/glibc-syscalls.h'].textual = True
+
   elif compiler.os == Os.Linux:
     # See https://codebrowser.dev/glibc/glibc/sysdeps/unix/sysv/linux/bits/local_lim.h.html#56
-    # if linux/limits.h is non-textual, then limits.h undefs the limits.h defined in the linux/limits.h module.
+    # if linux/limits.h is non-textual, then limits.h undefs the limits.h
+    # defined in the linux/limits.h module.
     # Thus, limits.h exports an undef.
     # if it's textual, limits.h undefs something it defined itself.
     graph['linux/limits.h'].textual = True
+
+  # Windows has multiple include directories contained with the sysroot.
+  if compiler.os == Os.Win:
+    graph['math.h'].kwargs['defines'].append('_USE_MATH_DEFINES')
+    return {
+        graph['corecrt.h'].abs.parent.parent: '$windows_kits',
+        graph['eh.h'].abs.parent: '$msvc',
+    }
+  else:
+    return {sysroot: '$sysroot'}
 
 
 def should_compile(target: Target) -> bool:

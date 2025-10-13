@@ -56,6 +56,10 @@ declare namespace chrome {
     let darkTheme: number;
     let yellowTheme: number;
     let blueTheme: number;
+    let highContrastTheme: number;
+    let lowContrastTheme: number;
+    let sepiaLightTheme: number;
+    let sepiaDarkTheme: number;
     let autoHighlighting: number;
     let wordHighlighting: number;
     let phraseHighlighting: number;
@@ -208,6 +212,11 @@ declare namespace chrome {
     // Called when the voice used for speech is changed via the webui toolbar.
     function onVoiceChange(voice: string, lang: string): void;
 
+    // Signals that a system voice was used during a speech playback session,
+    // which will be used to log the installation state of the TTS engine
+    // extension.
+    function logExtensionState(): void;
+
     // Called when the highlight granularity is changed via the webui toolbar.
     function onHighlightGranularityChanged(value: number): void;
 
@@ -217,7 +226,7 @@ declare namespace chrome {
 
     // Called when there is no text content after building the tree but we're
     // not showing the empty page either.
-    function onNoTextContent(previouslyHadContent: boolean): void;
+    function onNoTextContent(): void;
 
     // Returns the actual spacing value to use based on the given lineSpacing
     // category.
@@ -395,6 +404,9 @@ declare namespace chrome {
 
     // Log when speech stops and why.
     function logSpeechStop(source: number): void;
+
+    // Log when the empty state page is shown.
+    function logEmptyState(): void;
 
     // Returns a list of node ids and ranges (start and length) associated with
     // the index within the given text segment. The intended use is for

@@ -22,7 +22,6 @@ import org.mockito.quality.Strictness;
 
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.chrome.R;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -36,7 +35,6 @@ import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
-import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserSelectableType;
 
@@ -55,9 +53,7 @@ public class SyncPromoControllerTest {
             SyncPromoController.SYNC_ANDROID_NTP_PROMO_MAX_IMPRESSIONS;
 
     private static final AccountPickerBottomSheetStrings BOTTOM_SHEET_STRINGS =
-            new AccountPickerBottomSheetStrings.Builder(
-                            R.string.signin_account_picker_bottom_sheet_title)
-                    .build();
+            new AccountPickerBottomSheetStrings.Builder("Title").build();
 
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.LENIENT);
@@ -130,31 +126,6 @@ public class SyncPromoControllerTest {
 
     @Test
     public void shouldShowSyncPromoForNtpWhenNoAccountOnDevice() {
-        Assert.assertTrue(mSyncPromoController.canShowSyncPromo());
-    }
-
-    @Test
-    public void shouldShowPromoForNtpWhenDefaultAccountCannotShowHistoryOptInWithoutRestrictions() {
-        mAccountManagerTestRule.addAccount(TestAccounts.AADC_MINOR_ACCOUNT);
-        mAccountManagerTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
-
-        Assert.assertTrue(mSyncPromoController.canShowSyncPromo());
-    }
-
-    @Test
-    public void shouldShowPromoForNtpWhenDefaultAccountCapabilityIsNotFetched() {
-        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
-
-        Assert.assertTrue(mSyncPromoController.canShowSyncPromo());
-    }
-
-    @Test
-    public void
-            shouldShowPromoForNtpWhenSecondaryAccountCannotShowHistoryOptInWithoutRestrictions() {
-        mAccountManagerTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
-        mAccountManagerTestRule.addAccount(TestAccounts.AADC_MINOR_ACCOUNT);
-
         Assert.assertTrue(mSyncPromoController.canShowSyncPromo());
     }
 

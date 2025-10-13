@@ -20,16 +20,16 @@
 #include "third_party/blink/renderer/modules/webgpu/gpu_device.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_texture.h"
 #include "third_party/blink/renderer/modules/xr/xr_gpu_binding.h"
-#include "third_party/blink/renderer/modules/xr/xr_gpu_projection_layer.h"
+#include "third_party/blink/renderer/modules/xr/xr_gpu_drawing_context.h"
 #include "third_party/blink/renderer/modules/xr/xr_gpu_swap_chain.h"
 #include "third_party/blink/renderer/modules/xr/xr_graphics_binding.h"
 #include "third_party/blink/renderer/modules/xr/xr_projection_layer.h"
 #include "third_party/blink/renderer/modules/xr/xr_session.h"
 #include "third_party/blink/renderer/modules/xr/xr_system.h"
 #include "third_party/blink/renderer/modules/xr/xr_viewport.h"
+#include "third_party/blink/renderer/modules/xr/xr_webgl_drawing_context.h"
 #include "third_party/blink/renderer/modules/xr/xr_webgl_layer.h"
 #include "third_party/blink/renderer/modules/xr/xr_webgl_layer_client.h"
-#include "third_party/blink/renderer/modules/xr/xr_webgl_projection_layer.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/xr_frame_transport.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "ui/display/display.h"
@@ -261,8 +261,8 @@ void XRFrameProvider::ScheduleImmersiveFrame(
   frame_data_time_.StartTimer();
   // `this` is an okay TRACE ID here, since we are only allowed one immersive
   // session at a time.
-  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("xr", "RequestImmersiveFrame",
-                                    TRACE_ID_LOCAL(this));
+  TRACE_EVENT_BEGIN("xr", "RequestImmersiveFrame",
+                    perfetto::Track::FromPointer(this));
   immersive_data_provider_->GetFrameData(
       std::move(options), BindOnce(&XRFrameProvider::OnImmersiveFrameData,
                                    WrapWeakPersistent(this)));
@@ -295,8 +295,8 @@ void XRFrameProvider::ScheduleNonImmersiveFrame(
 void XRFrameProvider::OnImmersiveFrameData(
     device::mojom::blink::XRFrameDataPtr data) {
   frame_data_time_.StopTimer();
-  TRACE_EVENT_NESTABLE_ASYNC_END0("xr", "RequestImmersiveFrame",
-                                  TRACE_ID_LOCAL(this));
+  TRACE_EVENT_END("xr", /*RequestImmersiveFrame*/
+                  perfetto::Track::FromPointer(this));
   TRACE_EVENT0("gpu", "OnImmersiveFrameData");
 
   if (data.is_null()) {
@@ -342,17 +342,22 @@ void XRFrameProvider::OnImmersiveFrameData(
   // [1] https://immersive-web.github.io/webxr/#xr-animation-frame
   double high_res_now_ms = UpdateImmersiveFrameTime(window, *data);
 
+  shared_images_.clear();
+
   frame_id_ = data->render_info->frame_id;
   if (data->buffer_shared_image.has_value()) {
-    buffer_shared_image_ = gpu::ClientSharedImage::ImportUnowned(
-        std::move(data->buffer_shared_image.value()));
-    buffer_sync_token_ = data->buffer_sync_token.value();
+    shared_images_.emplace_back(XRSharedImageSource::kBaseLayer, 0,
+                                gpu::ClientSharedImage::ImportUnowned(std::move(
+                                    data->buffer_shared_image.value())),
+                                data->buffer_sync_token.value());
   }
 
   if (data->camera_image_buffer_shared_image.has_value()) {
-    camera_image_shared_image_ = gpu::ClientSharedImage::ImportUnowned(
-        std::move(data->camera_image_buffer_shared_image.value()));
-    camera_image_sync_token_ = data->camera_image_buffer_sync_token.value();
+    shared_images_.emplace_back(
+        XRSharedImageSource::kCamera, 0,
+        gpu::ClientSharedImage::ImportUnowned(
+            std::move(data->camera_image_buffer_shared_image.value())),
+        data->camera_image_buffer_sync_token.value());
   }
 
   pending_immersive_vsync_ = false;
@@ -523,21 +528,17 @@ void XRFrameProvider::ProcessScheduledFrame(
     // transition where the frame ID wasn't set yet. In that case, drawing can
     // proceed, but the result will be discarded in SubmitWebGLLayer().
     if (frame_transport_->DrawingIntoSharedBuffer() && frame_id_ >= 0) {
-      DCHECK(buffer_shared_image_);
+      DCHECK(shared_images_.size());
     }
 #endif
-
     // Run immersive_session_->OnFrame() in a posted task to ensure that
     // createAnchor promises get a chance to run - the presentation frame state
     // is already updated.
     window->GetTaskRunner(blink::TaskType::kInternalMedia)
-        ->PostTask(
-            FROM_HERE,
-            blink::BindOnce(&XRSession::OnFrame,
-                            WrapWeakPersistent(immersive_session_.Get()),
-                            high_res_now_ms, buffer_shared_image_,
-                            buffer_sync_token_, camera_image_shared_image_,
-                            camera_image_sync_token_));
+        ->PostTask(FROM_HERE,
+                   blink::BindOnce(&XRSession::OnFrame,
+                                   WrapWeakPersistent(immersive_session_.Get()),
+                                   high_res_now_ms, std::move(shared_images_)));
   } else {
     // In the process of fulfilling the frame requests for each session they are
     // extremely likely to request another frame. Work off of a separate list
@@ -598,8 +599,7 @@ void XRFrameProvider::OnPreDispatchInlineFrame(XRSession* session,
 
   // If we still have the session and don't have an immersive session, then we
   // should serve the frame.
-  session->OnFrame(timestamp, nullptr, gpu::SyncToken(), nullptr,
-                   gpu::SyncToken());
+  session->OnFrame(timestamp, Vector<XRSharedImageData>());
 }
 
 double XRFrameProvider::UpdateImmersiveFrameTime(
@@ -640,11 +640,24 @@ double XRFrameProvider::UpdateImmersiveFrameTime(
   return high_res_now_ms;
 }
 
+void XRFrameProvider::SubmitCompositionLayer(XRCompositionLayer* layer) {
+  CHECK(layer);
+  CHECK(layer->drawing_context());
+
+  if (layer->drawing_context()->GraphicsApi() ==
+      XRGraphicsBinding::Api::kWebGL) {
+    auto* drawing_context =
+        static_cast<XRWebGLDrawingContext*>(layer->drawing_context());
+    SubmitWebGLLayer(drawing_context, drawing_context->TextureWasQueried());
+  } else {
+    SubmitWebGPULayer(layer);
+  }
+}
+
 void XRFrameProvider::SubmitWebGLLayer(XRWebGLLayerClient* layer_client,
                                        bool was_changed) {
   CHECK(layer_client);
   CHECK(immersive_session_);
-
   const XRLayer* layer = layer_client->layer();
   CHECK(layer);
 
@@ -759,8 +772,7 @@ void XRFrameProvider::UpdateWebGLLayerViewports(XRWebGLLayer* layer) {
       frame_id_, left_coords, right_coords, gfx::Size(width, height));
 }
 
-void XRFrameProvider::SubmitWebGPULayer(XRGPUProjectionLayer* layer,
-                                        bool was_queried) {
+void XRFrameProvider::SubmitWebGPULayer(XRCompositionLayer* layer) {
   CHECK(layer);
   CHECK(immersive_session_);
   CHECK_EQ(layer->session(), immersive_session_);
@@ -769,11 +781,18 @@ void XRFrameProvider::SubmitWebGPULayer(XRGPUProjectionLayer* layer,
     return;
   }
 
+  // A static_cast is safe here because the drawing context type was already
+  // checked by SubmitCompositionLayer.
+  auto* drawing_context =
+      static_cast<XRGPUDrawingContext*>(layer->drawing_context());
+  CHECK(drawing_context);
+
+  bool was_queried = drawing_context->TextureWasQueried();
+
   TRACE_EVENT1("gpu", "XRFrameProvider::SubmitWebGPULayer", "frame", frame_id_);
   DVLOG(3) << __func__ << ": frame=" << frame_id_;
 
-  XRGPUBinding* webgpu_binding = static_cast<XRGPUBinding*>(layer->binding());
-  GPUDevice* device = webgpu_binding->device();
+  GPUDevice* device = drawing_context->device();
 
   if (frame_id_ < 0) {
     // There is no valid frame_id_, and the browser side is not currently

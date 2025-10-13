@@ -111,7 +111,7 @@
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/root_view.h"
 #include "ui/views/widget/widget.h"
-#include "ui/views/window/non_client_view.h"
+#include "ui/views/window/frame_view.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "ui/display/win/screen_win.h"
@@ -1872,7 +1872,12 @@ bool TabStrip::IsFocusInTabs() const {
 
 bool TabStrip::ShouldCompactLeadingEdge() const {
   return !features::HasTabSearchToolbarButton() &&
-         controller_->IsFrameButtonsRightAligned() &&
+         !controller_->GetBrowser()
+              ->window()
+              ->AsBrowserView()
+              ->browser_widget()
+              ->GetFrameView()
+              ->CaptionButtonsOnLeadingEdge() &&
          tabs::GetTabSearchTrailingTabstrip(controller_->GetProfile());
 }
 

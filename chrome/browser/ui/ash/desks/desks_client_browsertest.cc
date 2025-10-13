@@ -276,7 +276,7 @@ std::string GetTemplateJson(const base::Uuid& uuid, Profile* profile) {
       base::BindLambdaForTesting(
           [&](std::optional<DesksClient::DeskActionError> error,
               const base::Value& template_json) {
-            base::JSONWriter::Write(template_json, &template_json_result);
+            template_json_result = base::WriteJson(template_json).value_or("");
             run_loop.Quit();
             ASSERT_FALSE(error);
           }));
@@ -3097,6 +3097,11 @@ IN_PROC_BROWSER_TEST_F(SnapGroupDesksClientTest, DesksTemplates) {
   EXPECT_TRUE(new_w2->GetBoundsInScreen().ApproximatelyEqual(
       w2_bounds_before_restore,
       /*tolerance=*/ash::kSplitviewDividerShortSideLength));
+
+  // Manually break the snap group to ensure proper cleanup before teardown.
+  ash::WindowState::Get(w1)->Restore();
+  ash::WindowState::Get(w2)->Restore();
+  EXPECT_FALSE(snap_group_controller->AreWindowsInSnapGroup(w1, w2));
 }
 
 class DesksTemplatesClientArcTest : public InProcessBrowserTest {

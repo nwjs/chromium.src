@@ -18,8 +18,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType.CHROME_COLOR;
+import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType.IMAGE_FROM_DISK;
+
 import android.app.Activity;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -45,7 +50,6 @@ import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
 import org.chromium.base.LocaleUtils;
-import org.chromium.base.jank_tracker.PlaceholderJankTracker;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -60,6 +64,9 @@ import org.chromium.chrome.browser.feed.webfeed.WebFeedBridgeJni;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
 import org.chromium.chrome.browser.ntp.cards.SignInPromo;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
+import org.chromium.chrome.browser.ntp_customization.theme.BackgroundImageInfo;
+import org.chromium.chrome.browser.ntp_customization.theme.NtpBackgroundImageView;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -109,6 +116,9 @@ import java.util.function.Supplier;
 public class FeedSurfaceCoordinatorTest {
     private static final @SurfaceType int SURFACE_TYPE = SurfaceType.NEW_TAB_PAGE;
     private static final long SURFACE_CREATION_TIME_NS = 1234L;
+    @Mock private NtpBackgroundImageView mBackgroundImageView;
+    private BackgroundImageInfo mBackgroundImageInfo;
+    private Bitmap mBitmap;
 
     private static class TestLifecycleManager extends FeedSurfaceLifecycleManager {
         public TestLifecycleManager(Activity activity, FeedSurfaceCoordinator coordinator) {
@@ -270,6 +280,9 @@ public class FeedSurfaceCoordinatorTest {
 
         // Print logs to stdout.
         ShadowLog.stream = System.out;
+
+        mBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+        mBackgroundImageInfo = new BackgroundImageInfo(new Matrix(), new Matrix());
     }
 
     @After
@@ -493,6 +506,20 @@ public class FeedSurfaceCoordinatorTest {
         assertEquals(1, mCoordinator.getHeaderPosition());
     }
 
+    @Test
+    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
+    public void testSetBackground_withImageFromDisk_delegatesToView() {
+        mCoordinator.setBackgroundImageViewForTesting(mBackgroundImageView);
+        NtpCustomizationConfigManager configManager = NtpCustomizationConfigManager.getInstance();
+        configManager.setBackgroundImageTypeForTesting(CHROME_COLOR);
+
+        configManager.onBackgroundChanged(mBitmap, mBackgroundImageInfo);
+
+        // Verifies the coordinator delegates the setBackground call to the custom view.
+        verify(mBackgroundImageView)
+                .setBackground(eq(mBitmap), eq(mBackgroundImageInfo), eq(IMAGE_FROM_DISK));
+    }
+
     private boolean hasStreamBound() {
         if (mCoordinator.getMediatorForTesting().getCurrentStreamForTesting() == null) {
             return false;
@@ -510,7 +537,6 @@ public class FeedSurfaceCoordinatorTest {
                 mActivity,
                 mSnackbarManager,
                 mWindowAndroid,
-                new PlaceholderJankTracker(),
                 mSnapHelper,
                 null,
                 0,

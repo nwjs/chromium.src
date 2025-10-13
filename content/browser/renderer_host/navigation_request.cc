@@ -84,7 +84,6 @@
 #include "content/browser/renderer_host/navigation_controller_impl.h"
 #include "content/browser/renderer_host/navigation_request_info.h"
 #include "content/browser/renderer_host/navigation_state_keep_alive.h"
-#include "content/browser/renderer_host/navigation_transitions/navigation_entry_screenshot_cache.h"
 #include "content/browser/renderer_host/navigator.h"
 #include "content/browser/renderer_host/navigator_delegate.h"
 #include "content/browser/renderer_host/page_delegate.h"
@@ -145,6 +144,7 @@
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
 #include "mojo/public/cpp/system/data_pipe.h"
+#include "net/base/features.h"
 #include "net/base/filename_util.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/load_flags.h"
@@ -228,6 +228,7 @@
 #include "url/url_constants.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "content/browser/renderer_host/navigation_transitions/navigation_entry_screenshot_cache.h"
 #include "ui/android/window_android.h"
 #include "ui/android/window_android_compositor.h"
 #endif
@@ -240,6 +241,11 @@ namespace nw {
 namespace content {
 
 namespace {
+
+// Kill-switch for the fix to copy item_sequence_number and
+// document_sequence_number from a prerender navigation entry during prerender
+// activation (https://crbug.com/442618062).
+BASE_FEATURE(kPrerenderFixSequenceNumbers, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Default timeout for the READY_TO_COMMIT -> COMMIT transition. Chosen
 // initially based on the Navigation.ReadyToCommitUntilCommit UMA, and then
@@ -261,7 +267,7 @@ const char kSecSharedStorageWritableRequestHeaderKey[] =
 // Flag to control whether redirect URLs are being sanitized before sending
 // them to the renderer process as part of the navigation.
 // See https://crbug.com/40095391.
-BASE_FEATURE(SanitizeRedirectUrlsDuringNavigation,
+BASE_FEATURE(kSanitizeRedirectUrlsDuringNavigation,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<bool> kDeferSpeculativeRFHWaitUntilFinalResponse{
@@ -2242,12 +2248,14 @@ NavigationRequest::~NavigationRequest() {
     loading_mem_tracker_->Cancel();
   ResetExpectedProcess();
 
+#if BUILDFLAG(IS_ANDROID)
   if (IsInPrimaryMainFrame()) {
     if (auto* cache =
             GetNavigationController()->GetNavigationEntryScreenshotCache()) {
       cache->OnNavigationFinished(*this);
     }
   }
+#endif  // BUILDFLAG(IS_ANDROID)
 
   if (HasCommitted()) {
     CHECK(!navigation_discard_reason_.has_value());
@@ -3185,10 +3193,17 @@ void NavigationRequest::StartNavigation() {
 
   // For prerendered page activation, CommitDeferringConditions have already run
   // at the beginning of the navigation, so we won't run them again.
+  // ProcessSelectionDeferringConditions also don't need to run for prerendered
+  // page activations because those have already selected a process.
   if (!IsPrerenderedPageActivation()) {
     commit_deferrer_ = CommitDeferringConditionRunner::Create(
         *this, CommitDeferringCondition::NavigationType::kOther,
         /*candidate_prerender_frame_tree_node_id=*/std::nullopt);
+    if (base::FeatureList::IsEnabled(
+            features::kProcessSelectionDeferringConditions)) {
+      process_selection_deferrer_ =
+          ProcessSelectionDeferringConditionRunner::Create(*this);
+    }
   }
 
   navigation_visible_to_embedder_ = true;
@@ -3700,6 +3715,11 @@ void NavigationRequest::OnRequestRedirected(
     return;
   }
 
+  if (process_selection_deferrer_) {
+    // Start any process selection dependencies using the redirected URL.
+    process_selection_deferrer_->OnRequestRedirected();
+  }
+
   // Compute the SiteInstance to use for the redirect and pass its
   // RenderProcessHost if it has a process. Keep a reference if it has a
   // process, so that the SiteInstance and its associated process aren't deleted
@@ -4084,8 +4104,10 @@ bool NavigationRequest::HasCommittingOrigin(const url::Origin& origin) {
   // isolation shouldn't need to care about that case because a previous
   // instance of the origin would already have determined its isolation status
   // in that BrowsingInstance.
-  // TODO(crbug.com/40092527): Use the computed origin here just to be
-  // safe.
+  // TODO(crbug.com/40092527): Use the computed origin here just to be safe.
+  // Note, however, that if this is done, we need to be careful to still match
+  // sandboxed frame origins, which GetURL() currently accomplishes "by
+  // accident" (see https://crbug.com/446157743).
   return origin == url::Origin::Create(GetURL());
 }
 
@@ -4428,8 +4450,20 @@ void NavigationRequest::OnResponseStarted(
     SubresourceLoaderParams subresource_loader_params,
     EarlyHints early_hints) {
   receive_response_time_ = base::TimeTicks::Now();
-  TRACE_EVENT("navigation", "NavigationRequest::OnResponseStarted",
-              perfetto::Flow::FromPointer(this));
+  const int32_t http_response_code =
+      response_head->headers ? response_head->headers->response_code()
+                             : -1 /* no http_response_code */;
+  TRACE_EVENT(
+      "navigation", "NavigationRequest::OnResponseStarted",
+      perfetto::Flow::FromPointer(this), [&](perfetto::EventContext ctx) {
+        auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
+        auto* response_info = event->set_response_info();
+        if (http_response_code != -1) {
+          response_info->set_response_code(http_response_code);
+        }
+        response_info->set_was_http_cache(response_head->was_fetched_via_cache);
+      });
+
   ScopedCrashKeys crash_keys(*this);
 
   // The |loader_|'s job is finished. It must not call the NavigationRequest
@@ -4533,9 +4567,7 @@ void NavigationRequest::OnResponseStarted(
   UpdateNavigationHandleTimingsOnResponseReceived(/*is_redirect=*/false,
                                                   is_first_response);
 
-  commit_params_->http_response_code =
-      response_head_->headers ? response_head_->headers->response_code()
-                              : -1 /* no http_response_code */;
+  commit_params_->http_response_code = http_response_code;
 
   // Update fetch start timing. While NavigationRequest updates fetch start
   // timing for redirects, it's not aware of service worker interception so
@@ -4693,9 +4725,19 @@ void NavigationRequest::OnResponseStarted(
     return;
   }
 
-  SelectFrameHostForOnResponseStarted(std::move(url_loader_client_endpoints),
-                                      is_download,
-                                      std::move(subresource_loader_params));
+  if (process_selection_deferrer_) {
+    // When process selection deferral is enabled, give process selection
+    // dependencies the opportunity to defer before finalizing the selected
+    // process.
+    process_selection_deferrer_->WillSelectFinalProcess(base::BindOnce(
+        &NavigationRequest::SelectFrameHostForOnResponseStarted,
+        weak_factory_.GetWeakPtr(), std::move(url_loader_client_endpoints),
+        is_download, std::move(subresource_loader_params)));
+  } else {
+    SelectFrameHostForOnResponseStarted(std::move(url_loader_client_endpoints),
+                                        is_download,
+                                        std::move(subresource_loader_params));
+  }
 }
 
 void NavigationRequest::SelectFrameHostForOnResponseStarted(
@@ -6586,6 +6628,7 @@ void NavigationRequest::CommitNavigation() {
                                        origin_to_commit)) ||
        (base::FeatureList::IsEnabled(
             blink::features::kStickyUserActivationAcrossSameOriginNavigation) &&
+        !commit_params_->is_browser_initiated &&
         frame_tree_node_->IsMainFrame() &&
         old_frame_host->GetLastCommittedOrigin() == origin_to_commit));
 
@@ -6787,6 +6830,12 @@ void NavigationRequest::CommitNavigation() {
   if (service_worker_handle_ &&
       service_worker_handle_->service_worker_client()) {
     service_worker_handle_->service_worker_client()->SetContainerReady();
+  }
+
+  if (base::FeatureList::IsEnabled(
+          net::features::kUpdateIsMainFrameOriginRecentlyAccessed) &&
+      IsInMainFrame()) {
+    URLLoaderFactoryParamsHelper::OnMainFrameNavigation(origin_to_commit);
   }
   UpdateNavigationHandleTimingsOnCommitSent();
 
@@ -7102,8 +7151,15 @@ void NavigationRequest::UpdateNavigationHandleTimingsOnResponseReceived(
         response_head_->load_timing_internal_info->connected_callback_delay;
     navigation_handle_timing_.initialize_stream_delay =
         response_head_->load_timing_internal_info->initialize_stream_delay;
-    // Reset `load_timing_internal_info` to make sure that isn't exposed.
-    response_head_->load_timing_internal_info.reset();
+    navigation_handle_timing_.session_details = {
+        .session_source =
+            response_head_->load_timing_internal_info->session_source,
+        .advertised_alt_svc_state =
+            response_head_->load_timing_internal_info->advertised_alt_svc_state,
+        .http_network_session_quic_enabled =
+            response_head_->load_timing_internal_info
+                ->http_network_session_quic_enabled,
+    };
   }
 
   final_receive_headers_end_time_ =
@@ -8486,7 +8542,14 @@ void NavigationRequest::UpdatePrivateNetworkRequestPolicy() {
       ContentBrowserClient::PrivateNetworkRequestPolicyOverride::
           kBlockInsteadOfWarn) {
     private_network_request_policy_ =
-        OverrideBlockWithWarn(private_network_request_policy_);
+        OverrideToBlockInsteadOfWarn(private_network_request_policy_);
+  }
+
+  if (policy_override ==
+      ContentBrowserClient::PrivateNetworkRequestPolicyOverride::
+          kWarnInsteadOfBlock) {
+    private_network_request_policy_ =
+        OverrideToWarnInsteadOfBlock(private_network_request_policy_);
   }
 }
 
@@ -9106,15 +9169,27 @@ NavigationRequest::MakeDidCommitProvisionalLoadParamsForPrerenderActivation() {
   // TODO(crbug.com/40169536): Investigate when a new entry should
   // replace an old one when prerendering a page.
   params->did_create_new_entry = true;
+
+  FrameNavigationEntry* frame_entry =
+      prerender_navigation_state_->prerender_navigation_entry->GetFrameEntry(
+          frame_tree_node());
+
   // Prerendering already has a navigation entry which has correct PageState.
   // Set params->page_state accordingly to ensure that DCHECKs expecting them to
   // match are happy.
   // Note: |params| are using last commit params as a basis (via
   // TakeLastCommitParams call), which have a page state from the last commit,
   // but the page state might have been updated since the last commit.
-  params->page_state = prerender_navigation_state_->prerender_navigation_entry
-                           ->GetFrameEntry(frame_tree_node())
-                           ->page_state();
+  params->page_state = frame_entry->page_state();
+
+  if (base::FeatureList::IsEnabled(kPrerenderFixSequenceNumbers)) {
+    // These sequence numbers should also be copied from the prerendering
+    // navigation entry.
+    CHECK_NE(frame_entry->item_sequence_number(), -1);
+    CHECK_NE(frame_entry->document_sequence_number(), -1);
+    params->item_sequence_number = frame_entry->item_sequence_number();
+    params->document_sequence_number = frame_entry->document_sequence_number();
+  }
 
   // insecure_request_policy field of the replication state is set during the
   // navigation commit based on DidCommitProvisionalLoadParams. As prerendering
@@ -9212,6 +9287,10 @@ FrameTreeNodeId NavigationRequest::GetFrameTreeNodeId() {
 
 bool NavigationRequest::WasResponseCached() {
   return response() && response()->was_fetched_via_cache;
+}
+
+bool NavigationRequest::NetworkAccessed() {
+  return response() && response()->network_accessed;
 }
 
 bool NavigationRequest::HasPrefetchedAlternativeSubresourceSignedExchange() {

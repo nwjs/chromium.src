@@ -22,6 +22,7 @@
 #include "components/autofill/core/browser/studies/autofill_ablation_study.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
+#include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/version_info/channel.h"
 
@@ -124,10 +125,6 @@ PasswordManagerDelegate* AutofillClient::GetPasswordManagerDelegate(
   return nullptr;
 }
 
-OtpDelegate* AutofillClient::GetOtpDelegate() {
-  return nullptr;
-}
-
 void AutofillClient::GetAiPageContent(GetAiPageContentCallback callback) {
   std::move(callback).Run(std::nullopt);
 }
@@ -141,6 +138,11 @@ AutofillAiModelCache* AutofillClient::GetAutofillAiModelCache() {
 }
 
 AutofillAiModelExecutor* AutofillClient::GetAutofillAiModelExecutor() {
+  return nullptr;
+}
+
+optimization_guide::OptimizationGuideModelExecutor*
+AutofillClient::GetOptimizationGuideModelExecutor() {
   return nullptr;
 }
 
@@ -302,5 +304,13 @@ void AutofillClient::ShowEntitySaveOrUpdateBubble(
     EntityInstance new_entity,
     std::optional<EntityInstance> old_entity,
     EntitySaveOrUpdatePromptResultCallback save_prompt_acceptance_callback) {}
+
+OtpFieldDetector* AutofillClient::GetOtpFieldDetector() {
+  return nullptr;
+}
+
+one_time_tokens::SmsOtpBackend* AutofillClient::GetSmsOtpBackend() const {
+  return nullptr;
+}
 
 }  // namespace autofill

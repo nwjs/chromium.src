@@ -32,12 +32,10 @@ using glic::mojom::CurrentView;
 GlicActorTaskIconManager::GlicActorTaskIconManager(
     Profile* profile,
     actor::ActorKeyedService* actor_service,
-    glic::GlicWindowController& window_controller,
-    glic::Host& host)
+    glic::GlicWindowController& window_controller)
     : profile_(profile),
       actor_service_(actor_service),
-      window_controller_(window_controller),
-      host_(host) {
+      window_controller_(window_controller) {
   CHECK(actor_service);
   RegisterSubscriptions();
 }
@@ -45,9 +43,15 @@ GlicActorTaskIconManager::GlicActorTaskIconManager(
 GlicActorTaskIconManager::~GlicActorTaskIconManager() = default;
 
 void GlicActorTaskIconManager::RegisterSubscriptions() {
-  callback_subscriptions_.push_back(
-      window_controller_->RegisterFloatyStateChange(base::BindRepeating(
-          &GlicActorTaskIconManager::OnFloatyUpdate, base::Unretained(this))));
+  // Get the glic::GlicInstance associated with the task.
+  glic::GlicInstance* instance =
+      window_controller_->GetInstanceForTab(GetLastUpdatedTab());
+
+  if (instance) {
+    callback_subscriptions_.push_back(instance->RegisterStateChange(
+        base::BindRepeating(&GlicActorTaskIconManager::OnInstanceStateChange,
+                            base::Unretained(this))));
+  }
   callback_subscriptions_.push_back(
       actor::ActorKeyedService::Get(profile_)
           ->GetActorUiStateManager()
@@ -56,24 +60,31 @@ void GlicActorTaskIconManager::RegisterSubscriptions() {
               base::Unretained(this))));
 }
 
-void GlicActorTaskIconManager::OnFloatyUpdate(
-    glic::GlicWindowController::State floaty_state,
-    glic::mojom::CurrentView current_view) {
-  UpdateTaskIcon(floaty_state, current_view);
+void GlicActorTaskIconManager::OnInstanceStateChange(bool is_showing,
+                                                     CurrentView current_view) {
+  UpdateTaskIcon(is_showing, current_view);
 }
 
 void GlicActorTaskIconManager::OnActorTaskStateUpdate(actor::TaskId task_id) {
   // Reset suppression every time a new actor task state change occurs.
   suppress_task_icon_text_ = false;
   current_task_id_ = task_id;
-  UpdateTaskIcon(window_controller_->state(), host_->GetPrimaryCurrentView());
+
+  // Get the glic::GlicInstance associated with the task.
+  glic::GlicInstance* instance =
+      window_controller_->GetInstanceForTab(GetLastUpdatedTab());
+  if (!instance) {
+    return;
+  }
+
+  UpdateTaskIcon(instance->IsShowing(),
+                 instance->host().GetPrimaryCurrentView());
 }
 
 void GlicActorTaskIconManager::Shutdown() {}
 
-void GlicActorTaskIconManager::UpdateTaskIcon(
-    GlicWindowController::State floaty_state,
-    CurrentView current_view) {
+void GlicActorTaskIconManager::UpdateTaskIcon(bool is_showing,
+                                              CurrentView current_view) {
   auto active_tasks = actor_service_->GetActiveTasks();
   // TODO(crbug.com/431015299): Cache some of these values.
   auto completed_tasks = actor_service_->FindTaskIdsInInactive(
@@ -91,7 +102,7 @@ void GlicActorTaskIconManager::UpdateTaskIcon(
         .text = ActorTaskIconState::Text::kDefault,
     };
     task_icon_state_change_callback_list_.Notify(
-        floaty_state, current_view, current_actor_task_icon_state_);
+        is_showing, current_view, current_actor_task_icon_state_);
     return;
   }
 
@@ -101,8 +112,7 @@ void GlicActorTaskIconManager::UpdateTaskIcon(
   // If the text hasn't been suppressed, check if it should be suppressed.
   if (!suppress_task_icon_text_) {
     suppress_task_icon_text_ =
-        (floaty_state == GlicWindowController::State::kOpen &&
-         current_view == CurrentView::kActuation);
+        (is_showing && current_view == CurrentView::kActuation);
   }
 
   // Apply text state change.
@@ -116,7 +126,7 @@ void GlicActorTaskIconManager::UpdateTaskIcon(
         ActorTaskIconState::Text::kCompleteTasks;
   }
 
-  task_icon_state_change_callback_list_.Notify(floaty_state, current_view,
+  task_icon_state_change_callback_list_.Notify(is_showing, current_view,
                                                current_actor_task_icon_state_);
 }
 
@@ -135,7 +145,12 @@ raw_ptr<tabs::TabInterface> GlicActorTaskIconManager::GetLastUpdatedTab() {
   if (!current_task_id_ || !actor_service_->GetTask(current_task_id_)) {
     return nullptr;
   }
-  return actor_service_->GetTask(current_task_id_)->GetLastActedTab().Get();
+  actor::ActorTask* task = actor_service_->GetTask(current_task_id_);
+
+  actor::ActorTask::TabHandleSet tabs = task->GetLastActedTabs();
+
+  // TODO(crbug.com/441064175): Will need to be updated for multi-tab actuation.
+  return tabs.empty() ? nullptr : tabs.begin()->Get();
 }
 
 }  // namespace tabs

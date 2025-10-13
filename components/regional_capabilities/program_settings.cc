@@ -23,11 +23,15 @@ constexpr ProgramSettings kWaffleSettings{
         kEeaChoiceCountriesIds.begin(),
         kEeaChoiceCountriesIds.end()),
     .search_engine_list_type = SearchEngineListType::kShuffled,
+    .selection_from_settings_counts_as_choice_screen_choice = true,
     .choice_screen_eligibility_config =
         ChoiceScreenEligibilityConfig{
+            .managed_users_can_be_eligible = true,
             .should_preserve_non_prepopulated_dse = true,
             .should_preserve_imported_choice = false,
             .should_preserve_non_google_dse = true,
+            .restrict_to_associated_countries = false,
+            .restrict_surfaces_to_fre_only = false,
         },
 };
 
@@ -36,18 +40,31 @@ constexpr ProgramSettings kTaiyakiSettings{
     .associated_countries =
         base::raw_span<const country_codes::CountryId>(&kTaiyakiCountry, 1u),
     .search_engine_list_type = SearchEngineListType::kShuffled,
+    .selection_from_settings_counts_as_choice_screen_choice = false,
     .choice_screen_eligibility_config =
         ChoiceScreenEligibilityConfig{
+            .managed_users_can_be_eligible = false,
             .should_preserve_non_prepopulated_dse = false,
             .should_preserve_imported_choice = true,
             .should_preserve_non_google_dse = false,
+            .restrict_to_associated_countries = true,
+            .restrict_surfaces_to_fre_only = false,
         },
 };
+
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+constexpr ProgramSettings kTaiyakiSettingsFreOnly = []() {
+  ProgramSettings ret = kTaiyakiSettings;
+  ret.choice_screen_eligibility_config->restrict_surfaces_to_fre_only = true;
+  return ret;
+}();
+#endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 
 constexpr ProgramSettings kDefaultSettings{
     .program = Program::kDefault,
     .associated_countries = base::raw_span<const country_codes::CountryId>(),
     .search_engine_list_type = SearchEngineListType::kTopN,
+    .selection_from_settings_counts_as_choice_screen_choice = false,
     .choice_screen_eligibility_config = std::nullopt,
 };
 
@@ -112,11 +129,23 @@ const ProgramSettings& GetSettingsForProgram(Program program) {
   switch (program) {
     case Program::kTaiyaki:
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
-      if (base::FeatureList::IsEnabled(switches::kTaiyaki)) {
-        return kTaiyakiSettings;
+      if (!base::FeatureList::IsEnabled(switches::kTaiyaki)) {
+        return kNoOpTaiyakiSettings;
       }
-#endif
+
+      switch (switches::kTaiyakiChoiceScreenSurface.Get()) {
+        case switches::RegionalCapabilitiesChoiceScreenSurface::kInFreOnly:
+          return kTaiyakiSettingsFreOnly;
+        case switches::RegionalCapabilitiesChoiceScreenSurface::kAll:
+          return kTaiyakiSettings;
+      }
+      NOTREACHED() << "Unknown choice screen surface: "
+                   << static_cast<int>(
+                          switches::kTaiyakiChoiceScreenSurface.Get());
+
+#else
       return kNoOpTaiyakiSettings;
+#endif
     case Program::kWaffle:
       return kWaffleSettings;
     case Program::kDefault:

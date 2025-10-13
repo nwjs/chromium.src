@@ -30,7 +30,9 @@ import static org.chromium.ui.test.util.MockitoHelper.doCallback;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
@@ -48,7 +50,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.Token;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
-import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -147,8 +148,6 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     @Mock private TabListGroupMenuCoordinator mTabListGroupMenuCoordinator;
     @Mock private PriceWelcomeMessageController mPriceWelcomeMessageController;
 
-    private final OneshotSupplierImpl<ProfileProvider> mProfileProviderSupplier =
-            new OneshotSupplierImpl<>();
     private final ObservableSupplierImpl<TabGroupModelFilter> mTabGroupModelFilterSupplier =
             new ObservableSupplierImpl<>();
     private final ObservableSupplierImpl<Boolean> mIsVisibleSupplier =
@@ -199,7 +198,6 @@ public class TabSwitcherPaneCoordinatorUnitTest {
         when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
         when(mTabGroupModelFilter.isTabModelRestored()).thenReturn(true);
 
-        mProfileProviderSupplier.set(mProfileProvider);
         mTabGroupModelFilterSupplier.set(mTabGroupModelFilter);
         mIsVisibleSupplier.set(false);
         mIsAnimatingSupplier.set(false);
@@ -230,7 +228,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
         mCoordinator =
                 new TabSwitcherPaneCoordinator(
                         activity,
-                        mProfileProviderSupplier,
+                        mProfileProvider,
                         mTabGroupModelFilterSupplier,
                         mTabContentManager,
                         mBrowserControlsStateProvider,
@@ -265,7 +263,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
 
         mIsVisibleSupplier.set(true);
 
-        verify(mMessageManager).registerMessages(any());
+        verify(mMessageManager).registerMessageHostDelegate(any());
         verify(mMessageManager).bind(any(), any(), any(), any());
     }
 
@@ -454,14 +452,6 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     }
 
     @Test
-    @DisableFeatures({ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN})
-    public void testEdgeToEdgePadAdjuster_FeatureDisabled() {
-        mEdgeToEdgeSupplier.set(mEdgeToEdgeController);
-        var padAdjuster = mCoordinator.getEdgeToEdgePadAdjusterForTesting();
-        assertNull("Pad adjuster should be created when feature enabled.", padAdjuster);
-    }
-
-    @Test
     public void testSetTabSwitcherContentSensitivity() {
         PropertyModel containerViewModel = mCoordinator.getContainerViewModelForTesting();
         assertFalse(containerViewModel.get(IS_CONTENT_SENSITIVE));
@@ -562,5 +552,40 @@ public class TabSwitcherPaneCoordinatorUnitTest {
         reset(mPriceWelcomeMessageController);
         mIsVisibleSupplier.set(false);
         verify(mPriceWelcomeMessageController).removeObserver(any());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
+    public void testPinnedTabStrip_FeatureEnabled() {
+        assertNotNull(mCoordinator.getPinnedTabsCoordinatorForTesting());
+
+        // Verify that the container is a LinearLayout.
+        ViewGroup container = (ViewGroup) mContainerView.getChildAt(0);
+        assertTrue(container instanceof LinearLayout);
+        assertEquals(LinearLayout.VERTICAL, ((LinearLayout) container).getOrientation());
+
+        // Verify the children of the LinearLayout.
+        assertEquals(2, container.getChildCount());
+        FrameLayout pinnedTabsContainer = container.findViewById(R.id.pinned_tabs_container);
+        FrameLayout tabListContainer = container.findViewById(R.id.tab_list_container);
+        assertEquals(1, pinnedTabsContainer.getChildCount());
+        assertEquals(1, tabListContainer.getChildCount());
+        assertTrue(pinnedTabsContainer.getChildAt(0) instanceof TabListRecyclerView);
+        assertTrue(tabListContainer.getChildAt(0) instanceof TabListRecyclerView);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
+    public void testPinnedTabStrip_FeatureDisabled() {
+        assertNull(mCoordinator.getPinnedTabsCoordinatorForTesting());
+
+        // Verify that the container is a LinearLayout with the original TabListRecyclerView.
+        ViewGroup container = (ViewGroup) mContainerView.getChildAt(0);
+        assertTrue(container instanceof LinearLayout);
+        FrameLayout pinnedTabsContainer = container.findViewById(R.id.pinned_tabs_container);
+        FrameLayout tabListContainer = container.findViewById(R.id.tab_list_container);
+        assertEquals(0, pinnedTabsContainer.getChildCount());
+        assertEquals(1, tabListContainer.getChildCount());
+        assertTrue(tabListContainer.getChildAt(0) instanceof TabListRecyclerView);
     }
 }

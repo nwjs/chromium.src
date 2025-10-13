@@ -206,11 +206,15 @@ static_library("devtools") {
       "//components/language/core/browser",
       "//components/metrics/structured:structured_events",
       "//components/privacy_sandbox:tracking_protection_settings",
+      "//components/signin/public/base:signin_switches",
       "//components/viz/host",
       "//ui/shell_dialogs",
     ]
   }
 
+  if (is_mac || is_win || is_linux || is_chromeos) {
+    deps += [ "//components/webapps/isolated_web_apps:scheme" ]
+  }
   if (is_android) {
     sources += [
       "chrome_devtools_session_android.cc",
@@ -269,6 +273,9 @@ static_library("devtools") {
       "//ui/base/cursor/mojom:cursor_type",
       "//ui/views/controls/webview",
     ]
+    if (is_mac || is_win || is_linux || is_chromeos) {
+      deps += [ "//components/webapps/isolated_web_apps:scheme" ]
+    }
     if (is_chromeos) {
       deps += [
         "//ash/constants",
@@ -348,6 +355,7 @@ static_library("devtools") {
   if (!is_android) {
     deps += [
       "//chrome/app:command_ids",
+      "//chrome/browser/badging",
       "//chrome/browser/first_party_sets",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/media_router",
@@ -363,6 +371,9 @@ static_library("devtools") {
       "//components/webapps/browser",
       "//third_party/blink/public/common:headers",
       "//third_party/inspector_protocol:crdtp",
+      "//ui/display/",
+      "//ui/display/util",
+      "//ui/gfx/geometry",
     ]
     sources += [
       "protocol/autofill_handler.cc",
@@ -449,6 +460,7 @@ static_library("test_support") {
     deps += [
       ":devtools",
       "//base",
+      "//chrome/browser/ui/browser_window",
       "//content/public/browser",
       "//content/test:test_support",
       "//net",

@@ -17,11 +17,10 @@
 #include "ash/display/screen_orientation_controller_test_api.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/keyboard/ui/test/keyboard_test_util.h"
-#include "ash/multi_user/multi_user_window_manager_impl.h"
+#include "ash/multi_user/multi_user_window_manager.h"
+#include "ash/multi_user/multi_user_window_manager_observer.h"
 #include "ash/public/cpp/ash_prefs.h"
 #include "ash/public/cpp/event_rewriter_controller.h"
-#include "ash/public/cpp/multi_user_window_manager.h"
-#include "ash/public/cpp/multi_user_window_manager_observer.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/shelf_prefs.h"
 #include "ash/public/cpp/shelf_types.h"
@@ -185,9 +184,9 @@ class StuckWidgetDelegate : public views::WidgetDelegate {
   ~StuckWidgetDelegate() override = default;
 
   // Overridden from WidgetDelegate:
-  std::unique_ptr<views::NonClientFrameView> CreateNonClientFrameView(
+  std::unique_ptr<views::FrameView> CreateFrameView(
       views::Widget* widget) override {
-    return Shell::Get()->CreateDefaultNonClientFrameView(widget);
+    return Shell::Get()->CreateDefaultFrameView(widget);
   }
 
   bool OnCloseRequested(views::Widget::ClosedReason close_reason) override {
@@ -4787,7 +4786,7 @@ class DesksMultiUserTest : public NoSessionAshTestBase {
   ~DesksMultiUserTest() override = default;
 
   MultiUserWindowManager* multi_user_window_manager() {
-    return multi_user_window_manager_.get();
+    return Shell::Get()->multi_user_window_manager();
   }
   PrefService* user_1_prefs() { return user_1_prefs_; }
   PrefService* user_2_prefs() { return user_2_prefs_; }
@@ -4807,17 +4806,14 @@ class DesksMultiUserTest : public NoSessionAshTestBase {
   void TearDown() override {
     user_1_prefs_ = nullptr;
     user_2_prefs_ = nullptr;
-    multi_user_window_manager_.reset();
     NoSessionAshTestBase::TearDown();
   }
 
   void SimulateUser1Login() {
     auto account_id = SimulateUserLogin({kUser1Email}, std::nullopt,
                                         std::move(owned_user_1_prefs_));
-    multi_user_window_manager_ = MultiUserWindowManager::Create();
-    multi_user_window_manager_->SetPrimaryUser(account_id);
-    MultiUserWindowManagerImpl::Get()->SetAnimationSpeedForTest(
-        MultiUserWindowManagerImpl::ANIMATION_SPEED_DISABLED);
+    MultiUserWindowManager::Get()->SetAnimationSpeedForTest(
+        MultiUserWindowManager::ANIMATION_SPEED_DISABLED);
     GetSessionControllerClient()->SetSessionState(
         session_manager::SessionState::ACTIVE);
   }
@@ -4856,7 +4852,6 @@ class DesksMultiUserTest : public NoSessionAshTestBase {
   }
 
  private:
-  std::unique_ptr<MultiUserWindowManager> multi_user_window_manager_;
   std::unique_ptr<PrefService> owned_user_1_prefs_;
   std::unique_ptr<PrefService> owned_user_2_prefs_;
   raw_ptr<PrefService> user_1_prefs_ = nullptr;

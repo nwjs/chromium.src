@@ -27,6 +27,7 @@
 #include "build/build_config.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/autofill/core/browser/autofill_field.h"
+#include "components/autofill/core/browser/autofill_server_prediction.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
@@ -70,7 +71,6 @@
 #include "components/password_manager/core/browser/first_cct_page_load_passwords_ukm_recorder.h"
 #include "components/password_manager/core/browser/password_feature_manager.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
-#include "components/password_manager/core/browser/split_stores_and_local_upm.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN)
@@ -506,6 +506,16 @@ void HandleFailedLoginDetectionForPasswordChange(
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 }
 
+bool HasManuallyFilledPassword(const PasswordForm& form) {
+  return std::ranges::any_of(
+      form.form_data.fields(),
+      [&](const autofill::FormFieldData& field_data) -> bool {
+        return field_data.IsPasswordInputElement() &&
+               (field_data.properties_mask() &
+                (autofill::FieldPropertiesFlags::kAutofilledOnUserTrigger));
+      });
+}
+
 }  // namespace
 
 // static
@@ -559,18 +569,9 @@ void PasswordManager::RegisterProfilePrefs(
 #if BUILDFLAG(IS_ANDROID)
   registry->RegisterBooleanPref(prefs::kOfferToSavePasswordsEnabledGMS, true);
   registry->RegisterBooleanPref(prefs::kAutoSignInEnabledGMS, true);
-  RegisterLegacySplitStoresPref(registry);
   registry->RegisterStringPref(prefs::kUPMErrorUIShownTimestamp, "0");
   registry->RegisterIntegerPref(
       prefs::kPasswordGenerationBottomSheetDismissCount, 0);
-  // This pref is used to decide whether the PasswordStore can be connected to
-  // the new Android backend without migrating existing entries in the
-  // LoginDatabase. In doubt, it's best to assume that's not the case, otherwise
-  // passwords might be left behind. In practice, the default value should make
-  // little difference, the pref is always written on startup.
-  registry->RegisterBooleanPref(prefs::kEmptyProfileStoreLoginDatabase, false);
-  registry->RegisterBooleanPref(prefs::kUpmAutoExportCsvNeedsDeletion, false);
-  registry->RegisterBooleanPref(prefs::kUpmUnmigratedPasswordsExported, false);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
@@ -974,6 +975,13 @@ void PasswordManager::OnUserModifiedNonPasswordField(
 void PasswordManager::OnInformAboutUserInput(PasswordManagerDriver* driver,
                                              const FormData& form_data) {
   PasswordFormManager* manager = ProvisionallySaveForm(form_data, driver, true);
+
+  if (manager) {
+    if (const PasswordForm* form = manager->GetSubmittedForm();
+        form && HasManuallyFilledPassword(*form)) {
+      manager->OnPasswordFilledManually();
+    }
+  }
 
   auto availability =
       manager ? PasswordManagerMetricsRecorder::FormManagerAvailable::kSuccess
@@ -1690,8 +1698,7 @@ void PasswordManager::OnLoginPotentiallyFailed(
 void PasswordManager::ProcessAutofillPredictions(
     PasswordManagerDriver* driver,
     const autofill::FormData& form,
-    const base::flat_map<FieldGlobalId,
-                         autofill::AutofillType::ServerPrediction>&
+    const base::flat_map<FieldGlobalId, autofill::AutofillServerPrediction>&
         predictions) {
   // Don't do anything if Password store is not available.
   if (!client_->GetProfilePasswordStore()) {

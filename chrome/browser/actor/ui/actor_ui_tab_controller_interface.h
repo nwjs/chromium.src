@@ -5,16 +5,15 @@
 #ifndef CHROME_BROWSER_ACTOR_UI_ACTOR_UI_TAB_CONTROLLER_INTERFACE_H_
 #define CHROME_BROWSER_ACTOR_UI_ACTOR_UI_TAB_CONTROLLER_INTERFACE_H_
 
-#include "chrome/browser/actor/task_id.h"
 #include "chrome/browser/actor/ui/actor_overlay.mojom.h"
 #include "chrome/browser/actor/ui/states/actor_overlay_state.h"
 #include "chrome/browser/actor/ui/states/handoff_button_state.h"
+#include "chrome/common/actor/task_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
 namespace actor::ui {
 class HandoffButtonController;
-class ActorOverlayViewController;
 using UiResultCallback = base::OnceCallback<void(bool)>;
 
 struct UiTabState {
@@ -35,7 +34,7 @@ inline std::ostream& operator<<(std::ostream& os, UiTabState state) {
             << "}";
 }
 
-static constexpr base::TimeDelta kUpdateUiDebounceDelay =
+static constexpr base::TimeDelta kUpdateScrimBackgroundDebounceDelay =
     base::Milliseconds(150);
 
 class ActorUiTabControllerFactoryInterface {
@@ -43,8 +42,6 @@ class ActorUiTabControllerFactoryInterface {
   virtual ~ActorUiTabControllerFactoryInterface() = default;
   virtual std::unique_ptr<HandoffButtonController>
   CreateHandoffButtonController(tabs::TabInterface& tab) = 0;
-  virtual std::unique_ptr<ActorOverlayViewController>
-  CreateActorOverlayViewController(tabs::TabInterface& tab) = 0;
 };
 
 class ActorUiTabControllerInterface {
@@ -60,6 +57,9 @@ class ActorUiTabControllerInterface {
   virtual void OnUiTabStateChange(const UiTabState& ui_tab_state,
                                   UiResultCallback callback) = 0;
 
+  // Called whenever web contents are attached to this tab.
+  virtual void OnWebContentsAttached() = 0;
+
   // Sets the last active task id's state to paused. If there is no task
   // associated to the active task id, this function will do nothing.
   virtual void SetActorTaskPaused() = 0;
@@ -68,37 +68,38 @@ class ActorUiTabControllerInterface {
   // associated to the active task id, this function will do nothing.
   virtual void SetActorTaskResume() = 0;
 
-  // Tab subscriptions:
-  // Called when the tab's active state changes.
-  virtual void OnTabActiveStatusChanged(bool tab_active_status,
-                                        tabs::TabInterface* tab) = 0;
+  // Called when the hover status changes on the overlay.
+  virtual void OnOverlayHoverStatusChanged(bool is_hovering) = 0;
 
-  // Called when the hover status changes on the overlay and handoff button.
-  virtual void SetOverlayHoverStatus(bool is_hovering) = 0;
-  virtual void SetHandoffButtonHoverStatus(bool is_hovering) = 0;
+  // Called when the hover status changes on the handoff button.
+  virtual void OnHandoffButtonHoverStatusChanged() = 0;
 
   // Returns whether the tab should show the actor tab indicator.
   virtual bool ShouldShowActorTabIndicator() = 0;
 
   virtual base::WeakPtr<ActorUiTabControllerInterface> GetWeakPtr() = 0;
-  virtual void BindActorOverlay(
-      mojo::PendingRemote<mojom::ActorOverlayPage> page,
-      mojo::PendingReceiver<mojom::ActorOverlayPageHandler> receiver) = 0;
-
-  // Sets a callback to run when the controller is idle, for tests.
-  virtual void SetCallbackForTesting(base::OnceClosure callback) = 0;
 
   // Retrieves an ActorUiTabControllerInterface from the provided tab, or
   // nullptr if it does not exist.
   static ActorUiTabControllerInterface* From(tabs::TabInterface* tab);
+
   // Returns the current UiTabState.
   virtual UiTabState GetCurrentUiTabState() const = 0;
 
+  // Callbacks:
   using ActorTabIndicatorStateChangedCallback =
       base::RepeatingCallback<void(bool)>;
   virtual base::CallbackListSubscription
   RegisterActorTabIndicatorStateChangedCallback(
       ActorTabIndicatorStateChangedCallback callback) = 0;
+  using ActorOverlayStateChangeCallback =
+      base::RepeatingCallback<void(bool, ActorOverlayState)>;
+  virtual base::CallbackListSubscription RegisterActorOverlayStateChange(
+      ActorOverlayStateChangeCallback callback) = 0;
+  using ActorOverlayBackgroundChangeCallback =
+      base::RepeatingCallback<void(bool)>;
+  virtual base::CallbackListSubscription RegisterActorOverlayBackgroundChange(
+      ActorOverlayBackgroundChangeCallback callback) = 0;
 
  private:
   ::ui::ScopedUnownedUserData<ActorUiTabControllerInterface>

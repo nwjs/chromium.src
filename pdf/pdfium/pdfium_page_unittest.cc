@@ -53,8 +53,8 @@ TEST(PDFiumPageHelperTest, ToPDFiumRotation) {
 
 TEST(PDFiumPageHelperTest, ScopedUnloadPreventer) {
   // Should not DCHECK in its dtor due to ScopedUnloadPreventer usage.
-  PDFiumPage page1(/*engine=*/nullptr, 1);
-  PDFiumPage page2(/*engine=*/nullptr, 2);
+  PDFiumPage page1(/*engine=*/nullptr, 1u);
+  PDFiumPage page2(/*engine=*/nullptr, 2u);
   PDFiumPage::ScopedUnloadPreventer prevent_unload1(&page1);
   PDFiumPage::ScopedUnloadPreventer prevent_unload2(&page2);
   PDFiumPage::ScopedUnloadPreventer prevent_unload3(prevent_unload2);
@@ -147,8 +147,8 @@ constexpr struct {
 using PDFiumPageTest = PDFiumTestBase;
 
 TEST_P(PDFiumPageTest, Constructor) {
-  PDFiumPage page(/*engine=*/nullptr, 2);
-  EXPECT_EQ(page.index(), 2);
+  PDFiumPage page(/*engine=*/nullptr, 2u);
+  EXPECT_EQ(page.index(), 2u);
   EXPECT_TRUE(page.rect().IsEmpty());
   EXPECT_FALSE(page.available());
 }
@@ -486,8 +486,8 @@ TEST_P(PDFiumPageLinkTest, GetLinkTarget) {
   ASSERT_EQ(1, target.page);
 
   // Make sure the target page's size is different from the first page's. This
-  // guarantees that the in-screen coordinates are calculated based on the
-  // target page's dimension.
+  // guarantees that the screen coordinates are calculated based on the target
+  // page's dimension.
   PDFiumPage& target_page = GetPDFiumPageForTest(*engine, target.page);
   ASSERT_TRUE(target_page.available());
   ASSERT_TRUE(first_page.available());
@@ -533,7 +533,7 @@ INSTANTIATE_TEST_SUITE_P(All, PDFiumPageLinkTest, testing::Bool());
 
 using PDFiumPageImageTest = PDFiumTestBase;
 
-TEST_P(PDFiumPageImageTest, PopulateImageAltText) {
+TEST_P(PDFiumPageImageTest, ImagesWithAltText) {
   TestClient client;
   std::unique_ptr<PDFiumEngine> engine =
       InitializeEngine(&client, FILE_PATH_LITERAL("image_alt_text.pdf"));
@@ -541,8 +541,7 @@ TEST_P(PDFiumPageImageTest, PopulateImageAltText) {
   ASSERT_EQ(1, engine->GetNumberOfPages());
 
   PDFiumPage& page = GetPDFiumPageForTest(*engine, 0);
-  std::vector<AccessibilityTextRunInfo> text_runs;
-  page.PopulateTextRunTypeAndImageAltText(text_runs);
+  page.PopulateTextRunTypeAndImageAltText();
   ASSERT_EQ(3u, page.images_.size());
   EXPECT_EQ(gfx::Rect(380, 78, 67, 68), page.images_[0].bounding_rect);
   EXPECT_EQ("Image 1", page.images_[0].alt_text);
@@ -552,7 +551,7 @@ TEST_P(PDFiumPageImageTest, PopulateImageAltText) {
   EXPECT_EQ("Image 3", page.images_[2].alt_text);
 }
 
-TEST_P(PDFiumPageImageTest, ImageAltText) {
+TEST_P(PDFiumPageImageTest, TextAndImagesWithAltText) {
   TestClient client;
   std::unique_ptr<PDFiumEngine> engine =
       InitializeEngine(&client, FILE_PATH_LITERAL("text_with_image.pdf"));
@@ -560,8 +559,7 @@ TEST_P(PDFiumPageImageTest, ImageAltText) {
   ASSERT_EQ(1, engine->GetNumberOfPages());
 
   PDFiumPage& page = GetPDFiumPageForTest(*engine, 0);
-  std::vector<AccessibilityTextRunInfo> text_runs;
-  page.PopulateTextRunTypeAndImageAltText(text_runs);
+  page.PopulateTextRunTypeAndImageAltText();
   ASSERT_EQ(3u, page.images_.size());
   EXPECT_EQ(gfx::Rect(380, 78, 67, 68), page.images_[0].bounding_rect);
   EXPECT_EQ("Image 1", page.images_[0].alt_text);
@@ -605,8 +603,7 @@ TEST_P(PDFiumPageImageForOcrTest, LowResolutionImage) {
   ASSERT_EQ(1, engine->GetNumberOfPages());
 
   PDFiumPage& page = GetPDFiumPageForTest(*engine, 0);
-  std::vector<AccessibilityTextRunInfo> text_runs;
-  page.PopulateTextRunTypeAndImageAltText(text_runs);
+  page.PopulateTextRunTypeAndImageAltText();
   ASSERT_EQ(3u, page.images_.size());
 
   ASSERT_FALSE(page.images_[0].alt_text.empty());
@@ -634,8 +631,7 @@ TEST_P(PDFiumPageImageForOcrTest, HighResolutionImage) {
   ASSERT_EQ(1, engine->GetNumberOfPages());
 
   PDFiumPage& page = GetPDFiumPageForTest(*engine, 0);
-  std::vector<AccessibilityTextRunInfo> text_runs;
-  page.PopulateTextRunTypeAndImageAltText(text_runs);
+  page.PopulateTextRunTypeAndImageAltText();
   ASSERT_EQ(1u, page.images_.size());
 
   SkBitmap image_bitmap = page.GetImageForOcr(page.images_[0].page_object_index,
@@ -657,8 +653,7 @@ TEST_P(PDFiumPageImageForOcrTest, RotatedPage) {
   ASSERT_EQ(1, engine->GetNumberOfPages());
 
   PDFiumPage& page = GetPDFiumPageForTest(*engine, 0);
-  std::vector<AccessibilityTextRunInfo> text_runs;
-  page.PopulateTextRunTypeAndImageAltText(text_runs);
+  page.PopulateTextRunTypeAndImageAltText();
   ASSERT_EQ(1u, page.images_.size());
 
   SkBitmap image_bitmap = page.GetImageForOcr(page.images_[0].page_object_index,
@@ -677,8 +672,7 @@ TEST_P(PDFiumPageImageForOcrTest, NonImage) {
   ASSERT_EQ(1, engine->GetNumberOfPages());
 
   PDFiumPage& page = GetPDFiumPageForTest(*engine, 0);
-  std::vector<AccessibilityTextRunInfo> text_runs;
-  page.PopulateTextRunTypeAndImageAltText(text_runs);
+  page.PopulateTextRunTypeAndImageAltText();
   ASSERT_EQ(3u, page.images_.size());
   ASSERT_EQ(1, page.images_[0].page_object_index);
 
@@ -712,7 +706,7 @@ TEST_P(PDFiumPageTextTest, TextRunBounds) {
   constexpr int kFirstRunEndIndex = 20;
   PDFiumPage& page = GetPDFiumPageForTest(*engine, 0);
   std::optional<AccessibilityTextRunInfo> text_run_info_1 =
-      page.GetTextRunInfo(kFirstRunStartIndex);
+      page.GetTextRunInfoAt(kFirstRunStartIndex);
   ASSERT_TRUE(text_run_info_1.has_value());
 
   const auto& actual_text_run_1 = text_run_info_1.value();
@@ -747,7 +741,7 @@ TEST_P(PDFiumPageTextTest, TextRunBounds) {
   // Note: The leading spaces in second text run are accounted for in the end
   // of first text run. Hence we won't see a space leading the second text run.
   std::optional<AccessibilityTextRunInfo> text_run_info_2 =
-      page.GetTextRunInfo(kSecondRunStartIndex);
+      page.GetTextRunInfoAt(kSecondRunStartIndex);
   ASSERT_TRUE(text_run_info_2.has_value());
 
   const auto& actual_text_run_2 = text_run_info_2.value();
@@ -775,7 +769,7 @@ TEST_P(PDFiumPageTextTest, TextRunBounds) {
       text_run_bounds.Contains(page.GetCharBounds(kSecondRunEndIndex)));
 }
 
-TEST_P(PDFiumPageTextTest, GetTextRunInfo) {
+TEST_P(PDFiumPageTextTest, GetTextRunInfoAt) {
   TestClient client;
   std::unique_ptr<PDFiumEngine> engine =
       InitializeEngine(&client, FILE_PATH_LITERAL("weblinks.pdf"));
@@ -830,13 +824,13 @@ TEST_P(PDFiumPageTextTest, GetTextRunInfo) {
   // Test negative char index returns nullopt
   PDFiumPage& page = GetPDFiumPageForTest(*engine, 0);
   std::optional<AccessibilityTextRunInfo> text_run_info_result =
-      page.GetTextRunInfo(-1);
+      page.GetTextRunInfoAt(-1);
   ASSERT_FALSE(text_run_info_result.has_value());
 
   // Test valid char index returns expected text run info and expected text
   // style info
   for (const auto& expected_text_run : expected_text_runs) {
-    text_run_info_result = page.GetTextRunInfo(current_char_index);
+    text_run_info_result = page.GetTextRunInfoAt(current_char_index);
     ASSERT_TRUE(text_run_info_result.has_value());
     const auto& actual_text_run = text_run_info_result.value();
     CompareTextRuns(expected_text_run, actual_text_run);
@@ -845,7 +839,7 @@ TEST_P(PDFiumPageTextTest, GetTextRunInfo) {
 
   // Test char index outside char range returns nullopt
   EXPECT_EQ(page.GetCharCount(), current_char_index);
-  text_run_info_result = page.GetTextRunInfo(current_char_index);
+  text_run_info_result = page.GetTextRunInfoAt(current_char_index);
   ASSERT_FALSE(text_run_info_result.has_value());
 }
 
@@ -884,7 +878,7 @@ TEST_P(PDFiumPageTextTest, HighlightTextRunInfo) {
   int current_char_index = 0;
   for (const auto& expected_text_run : expected_text_runs) {
     std::optional<AccessibilityTextRunInfo> text_run_info_result =
-        page.GetTextRunInfo(current_char_index);
+        page.GetTextRunInfoAt(current_char_index);
     ASSERT_TRUE(text_run_info_result.has_value());
     const auto& actual_text_run = text_run_info_result.value();
     CompareTextRuns(expected_text_run, actual_text_run);

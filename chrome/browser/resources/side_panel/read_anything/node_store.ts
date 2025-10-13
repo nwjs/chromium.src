@@ -5,8 +5,7 @@
 import {assert} from '//resources/js/assert.js';
 
 import {getWordCount, isRectMostlyVisible} from './common.js';
-import type {ReadAloudNode} from './read_aloud/read_aloud_types.js';
-import {AxReadAloudNode} from './read_aloud/read_aloud_types.js';
+import type {AncestorNode, ReadAloudNode} from './read_aloud/read_aloud_types.js';
 
 // A two-way map where each key is unique and each value is unique. The keys are
 // DOM nodes and the values are numbers, representing AXNodeIDs.
@@ -72,6 +71,13 @@ export class NodeStore {
   private textNodesSeen_: Set<Text> = new Set();
   private countWordsTimer_?: number;
   private wordsSeenLastSavedTime_: number = Date.now();
+
+  // Key: a DOM node that's already been read aloud
+  // Value: the index offset at which this node's text begins within its parent
+  // text. For reading aloud we sometimes split up nodes so the speech sounds
+  // more natural. When that text is then selected we need to pass the correct
+  // index down the pipeline, so we store that info here.
+  private textNodeToAncestor_: Map<Node, AncestorNode> = new Map();
 
   clear() {
     this.hiddenImageNodesIds_.clear();
@@ -181,9 +187,7 @@ export class NodeStore {
   }
 
   hasAnyNode(nodes: ReadAloudNode[]): boolean {
-    return nodes.some(
-        node => node instanceof AxReadAloudNode &&
-            this.getDomNode(node.axNodeId) !== undefined);
+    return nodes.some(node => node && node.domNode() !== undefined);
   }
 
   getDomNode(axNodeId: number): Node|undefined {
@@ -221,9 +225,11 @@ export class NodeStore {
   // TODO: crbug.com/440400392- Handle hidden image node ids for read aloud
   // when non-AXNode-based read aloud nodes are used.
   areNodesAllHidden(nodes: ReadAloudNode[]): boolean {
-    return nodes.every(
-        node => node instanceof AxReadAloudNode &&
-            this.hiddenImageNodesIds_.has(node.axNodeId));
+    return nodes.every(node => {
+      const domNode = node && node.domNode();
+      const id = domNode && this.getAxId(domNode);
+      return !!id && this.hiddenImageNodesIds_.has(id);
+    });
   }
 
   addImageToFetch(nodeId: number): void {
@@ -240,6 +246,21 @@ export class NodeStore {
     }
 
     this.imageNodeIdsToFetch_.clear();
+  }
+
+  setAncestor(node: ChildNode, ancestor: ParentNode, offsetInAncestor: number) {
+    this.textNodeToAncestor_.set(node, {
+      node: ancestor,
+      offset: offsetInAncestor,
+    });
+  }
+
+  getAncestor(node: Node): AncestorNode|undefined {
+    if (this.textNodeToAncestor_.has(node)) {
+      return this.textNodeToAncestor_.get(node);
+    }
+
+    return undefined;
   }
 
   static getInstance(): NodeStore {

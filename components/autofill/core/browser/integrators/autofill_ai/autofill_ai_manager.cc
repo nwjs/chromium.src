@@ -121,8 +121,9 @@ std::vector<std::string> GetAttributeStrikeKeys(const EntityInstance& entity,
 
 }  // namespace
 
-AutofillAiManager::AutofillAiManager(AutofillClient* client,
-                                     StrikeDatabase* strike_database)
+AutofillAiManager::AutofillAiManager(
+    AutofillClient* client,
+    strike_database::StrikeDatabaseBase* strike_database)
     : client_(CHECK_DEREF(client)) {
   if (strike_database) {
     save_strike_db_by_attribute_ =
@@ -311,7 +312,7 @@ void AutofillAiManager::HandleUpdatePromptResult(
 std::vector<Suggestion> AutofillAiManager::GetSuggestions(
     const FormStructure& form,
     const FormFieldData& trigger_field) {
-  AutofillAiSuggestionGenerator suggestion_generator;
+  AutofillAiSuggestionGenerator suggestion_generator(*client_);
   std::vector<Suggestion> suggestions;
   const AutofillField* autofill_field =
       form.GetFieldById(trigger_field.global_id());
@@ -319,7 +320,7 @@ std::vector<Suggestion> AutofillAiManager::GetSuggestions(
   auto on_suggestion_data_returned =
       [&form, &autofill_field, &trigger_field, &suggestions,
        &suggestion_generator](
-          std::pair<FillingProduct,
+          std::pair<SuggestionGenerator::SuggestionDataSource,
                     std::vector<SuggestionGenerator::SuggestionData>>
               suggestion_data) {
         suggestion_generator.GenerateSuggestions(

@@ -137,6 +137,13 @@ void MediaQueryEvaluator::Trace(Visitor* visitor) const {
   visitor->Trace(media_values_);
 }
 
+const Document* MediaQueryEvaluator::GetDocument() const {
+  if (!media_values_) {
+    return nullptr;
+  }
+  return media_values_->GetDocument();
+}
+
 const String MediaQueryEvaluator::MediaType() const {
   // If a static mediaType was given by the constructor, we use it here.
   if (!media_type_.empty()) {
@@ -1706,7 +1713,8 @@ static bool FallbackMediaFeatureEval(const MediaQueryExpValue& value,
   StyleResolverState state(container->GetDocument(), *container);
   PositionTryFallback query_fallback =
       StyleBuilderConverter::ConvertSinglePositionTryFallback(
-          state, value.GetCSSValue());
+          state, value.GetCSSValue(),
+          /*allow_any_keyword_in_position_area=*/true);
   query_fallback = ToPhysicalFallback(query_fallback, media_values);
   fallback = ToPhysicalFallback(fallback, media_values);
   return fallback.Matches(query_fallback);

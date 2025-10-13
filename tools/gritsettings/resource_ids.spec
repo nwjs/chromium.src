@@ -98,6 +98,12 @@
     "includes": [2200],
     "structures": [2220],
   },
+  "chrome/browser/actor/resources/internal/browser_resources.grd": {
+    "structures": [2230],
+  },
+  "chrome/browser/actor/resources/browser_resources.grd": {
+    "structures": [2230],
+  },
   "chrome/browser/dev_ui_browser_resources.grd": {
     "includes": [2240],
   },
@@ -245,10 +251,6 @@
     "META": {"sizes": {"includes": [20],}},
     "includes": [3100],
   },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/borealis_motd/resources.grd": {
-    "META": {"sizes": {"includes": [3],}},
-    "includes": [3110],
-  },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/cloud_upload/resources.grd": {
     "META": {"sizes": {"includes": [50]}},
     "includes": [3120],
@@ -384,6 +386,10 @@
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/connectors_internals/resources.grd": {
     "META": {"sizes": {"includes": [15]}},
     "includes": [3760],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/contextual_tasks/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [3770],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/data_sharing/resources.grd": {
    "META": {"sizes": {"includes": [20]}},
@@ -800,6 +806,10 @@
     "META": {"sizes": {"includes": [45],}},
     "includes" : [5740],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/chromeos/ash/experiences/guest_os/borealis/motd/resources/resources.grd": {
+    "META": {"sizes": {"includes": [3],}},
+    "includes": [5750],
+   },
   "chromeos/ash/resources/ash_resources.grd": {
     "includes": [5780],
   },
@@ -1083,10 +1093,10 @@
   # plus_addresses_internal_strings.grd and plus_addresses_strings.grd must
   # share the same id because they define the same strings, but only one of them
   # is built depending on whether src_internal is available.
-  "components/plus_addresses/resources/internal/strings/plus_addresses_internal_strings.grd": {
+  "components/plus_addresses/core/browser/resources/internal/strings/plus_addresses_internal_strings.grd": {
     "messages": [7160],
   },
-  "components/plus_addresses/resources/strings/plus_addresses_strings.grd": {
+  "components/plus_addresses/core/browser/resources/strings/plus_addresses_strings.grd": {
     "messages": [7160],
   },
   # components/policy/resources/policy_templates.grd and

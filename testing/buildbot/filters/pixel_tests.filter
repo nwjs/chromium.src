@@ -8,15 +8,18 @@
 
 AccessCodeCastDialogBrowserTest.*
 ActorUiDomNodeGeometryBrowserTest.*
+ActorUiHandoffButtonControllerPixelTest.*
 AddNewAddressProfileTest.*
 AppInfoDialogBrowserTest.*
 AppMenuBrowserTest*.InvokeUi_*
 AskGoogleForSuggestionsDialogTest.*
 BatchUploadDialogViewPixelTest.*
+BookmarkAccountStorageMoveDialogPixelTest*
 BookmarkBubbleViewBrowserTest.*
 BookmarkEditorViewBrowserTest.*
 BookmarkEditorViewBrowserTestMoveDialog.*
 BookmarkEditorViewBrowserTestWithAccountBookmarks.*
+BrowserViewLayoutDelegateImplBrowsertest.Screenshot*
 BrowserViewScrimPixelTest.*
 BubbleFrameViewBrowserTest.*
 BubbleSignInPromoInteractiveUITest.*
@@ -79,8 +82,8 @@ LocalCardMigrationBrowserUiTest.*
 *MemorySaverFaviconTreatmentTest.*
 *MemorySaverImprovedFaviconTreatmentTest.*
 Mv2DeprecationReEnableDialogBrowserTest.*
-BookmarkAccountStorageMoveDialogPixelTest*
 NewTabPageTest.*
+NtpPromoVisualUiTest.*
 OfferNotificationBubbleViewPixelBrowserTest.*
 OutdatedUpgradeBubbleTest.*
 PageActionPixelIconsHiddenTest.*

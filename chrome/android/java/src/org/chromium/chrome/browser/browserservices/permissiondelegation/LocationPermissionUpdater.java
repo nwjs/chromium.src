@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.browser.browserservices.permissiondelegation;
 
+import static org.chromium.components.permissions.PermissionUtil.getGeolocationType;
+import static org.chromium.components.permissions.PermissionsAndroidFeatureList.sApproximateGeolocationPermission;
+
 import android.content.ComponentName;
 
 import org.chromium.base.Log;
@@ -23,8 +26,6 @@ import org.chromium.components.embedder_support.util.Origin;
 public class LocationPermissionUpdater {
     private static final String TAG = "TWALocations";
 
-    private static final @ContentSettingsType.EnumType int TYPE = ContentSettingsType.GEOLOCATION;
-
     private LocationPermissionUpdater() {}
 
     /**
@@ -33,7 +34,11 @@ public class LocationPermissionUpdater {
      * location permission to what it was before any client app was installed.
      */
     static void onClientAppUninstalled(Origin origin) {
-        InstalledWebappPermissionManager.resetStoredPermission(origin, TYPE);
+        InstalledWebappPermissionManager.resetStoredPermission(
+                origin,
+                sApproximateGeolocationPermission.isEnabled()
+                        ? ContentSettingsType.GEOLOCATION_WITH_OPTIONS
+                        : ContentSettingsType.GEOLOCATION);
     }
 
     /**
@@ -61,7 +66,7 @@ public class LocationPermissionUpdater {
                                 if (mCalled) return;
                                 mCalled = true;
                                 InstalledWebappPermissionManager.resetStoredPermission(
-                                        origin, TYPE);
+                                        origin, getGeolocationType());
                                 InstalledWebappBridge.runPermissionCallback(
                                         callback, ContentSetting.BLOCK);
                             }
@@ -72,7 +77,7 @@ public class LocationPermissionUpdater {
             Origin origin, long callback, ComponentName app, @ContentSetting int settingValue) {
         boolean enabled = settingValue == ContentSetting.ALLOW;
         InstalledWebappPermissionManager.updatePermission(
-                origin, app.getPackageName(), TYPE, settingValue);
+                origin, app.getPackageName(), getGeolocationType(), settingValue);
         Log.d(TAG, "Updating origin location permissions to: %b", enabled);
 
         InstalledWebappBridge.runPermissionCallback(callback, settingValue);

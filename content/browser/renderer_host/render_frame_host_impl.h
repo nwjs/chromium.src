@@ -181,6 +181,7 @@
 #include "third_party/blink/public/mojom/websockets/websocket_connector.mojom-forward.h"
 #include "third_party/blink/public/mojom/webtransport/web_transport_connector.mojom-forward.h"
 #include "third_party/blink/public/mojom/worker/dedicated_worker_host_factory.mojom-forward.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_action_handler_base.h"
 #include "ui/accessibility/ax_mode.h"
@@ -545,7 +546,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
       blink::mojom::LocalFrame::GetTextSurroundingSelectionCallback callback,
       int max_length) override;
   void SendInterventionReport(const std::string& id,
-                              const std::string& message) override;
+                              const std::string& message,
+                              RenderFrameHost* child_frame) override;
   WebUI* GetWebUI() override;
   void AllowBindings(BindingsPolicySet bindings) override;
   BindingsPolicySet GetEnabledBindings() override;
@@ -1540,9 +1542,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
    public:
     struct CookieChangeInfo {
       // The number of observed cookie modifications.
-      int64_t cookie_modification_count_ = 0;
-      // The number of observed HTTPOnly cookie modifications.
-      int64_t http_only_cookie_modification_count_ = 0;
+      int64_t cookie_modification_count = 0;
+      int64_t http_only_cookie_modification_count = 0;
+      // The number of observed cookie modifications that should be removed
+      // since we want to adjust the count by subtracting the number of cookie
+      // modification from the navigation itself.
+      int64_t cookie_modification_removing_count = 0;
+      int64_t http_only_cookie_modification_removing_count = 0;
     };
 
     CookieChangeListener(StoragePartition* storage_partition, GURL& url);
@@ -1562,9 +1568,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
         base::PassKey<content::NavigationRequest> navigation_request,
         uint64_t cookie_modification_count_delta,
         uint64_t http_only_cookie_modification_count_delta) {
-      cookie_change_info_.cookie_modification_count_ -=
+      cookie_change_info_.cookie_modification_removing_count +=
           cookie_modification_count_delta;
-      cookie_change_info_.http_only_cookie_modification_count_ -=
+      cookie_change_info_.http_only_cookie_modification_removing_count +=
           http_only_cookie_modification_count_delta;
     }
 
@@ -2258,7 +2264,16 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void CreateOriginTrialStateHost(
       mojo::PendingReceiver<blink::mojom::OriginTrialStateHost> receiver);
 
+  FrameTreeNode* GetPrerenderOuterMostMainFrame();
   // Prerender2:
+  // Tells PrerenderHostRegistry to cancel the prerendering of the page this
+  // frame is in when a loading error happens. When Prerender2ReuseHost is
+  // enabled, ABORT will be passed from the previous page when committing the
+  // navigation of the new page.
+  // Returns true if a prerender was canceled.
+  // Does nothing and returns false if `this` is not prerendered or the page
+  // is not yet committed for loading.
+  bool CancelPrerenderingForLoadingError(int32_t loading_error_code);
   // Tells PrerenderHostRegistry to cancel the prerendering of the page this
   // frame is in, which destroys this frame.
   // Returns true if a prerender was canceled. Does nothing and returns false if
@@ -5564,6 +5579,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   PrerenderStateChangedCallback prerender_state_callback_;
 
   base::OnceClosure on_process_before_unload_completed_for_testing_;
+
+  // Tracing track used to emit async event related to lifecycle.
+  const perfetto::NamedTrack tracing_track_;
 
   // WeakPtrFactories are the last members, to ensure they are destroyed before
   // all other fields of `this`.

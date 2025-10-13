@@ -16,6 +16,7 @@
 #include "base/timer/mock_timer.h"
 #include "base/version_info/channel.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/variations/metrics.h"
 #include "components/variations/pref_names.h"
 #include "components/variations/variations_seed_store.h"
 #include "components/variations/variations_test_utils.h"
@@ -124,14 +125,12 @@ class ExpectedFieldTrialGroupChannelsTest
 
 class ExpectedFieldTrialGroupAllChannelsTest
     : public ExpectedFieldTrialGroupChannelsTest {};
-class ExpectedFieldTrialGroupPreStableTest
+class ExpectedFieldTrialGroupCanaryDevTest
     : public ExpectedFieldTrialGroupChannelsTest {};
-class ExpectedFieldTrialGroupStableTest
-    : public SeedReaderWriterTestBase,
-      public TestWithParam<SeedFieldsPrefs> {};
-class ExpectedFieldTrialGroupUnknownTest
-    : public SeedReaderWriterTestBase,
-      public TestWithParam<SeedFieldsPrefs> {};
+class ExpectedFieldTrialGroupBetaStableUnknownTest
+    : public ExpectedFieldTrialGroupChannelsTest {};
+class ExpectedFieldTrialGroupBetaStableTest
+    : public ExpectedFieldTrialGroupChannelsTest {};
 
 INSTANTIATE_TEST_SUITE_P(
     All,
@@ -165,16 +164,15 @@ TEST_P(ExpectedFieldTrialGroupAllChannelsTest, NoEntropyProvider) {
 
 INSTANTIATE_TEST_SUITE_P(
     All,
-    ExpectedFieldTrialGroupPreStableTest,
+    ExpectedFieldTrialGroupCanaryDevTest,
     ::testing::ConvertGenerator<ExpectedFieldTrialGroupTestParams::TupleT>(
         ::testing::Combine(::testing::Values(kRegularSeedFieldsPrefs,
                                              kSafeSeedFieldsPrefs),
                            ::testing::Values(version_info::Channel::CANARY,
-                                             version_info::Channel::DEV,
-                                             version_info::Channel::BETA))));
+                                             version_info::Channel::DEV))));
 
-// If channel is pre-stable, client is assigned a group.
-TEST_P(ExpectedFieldTrialGroupPreStableTest, PreStable) {
+// If channel is canary or dev, client is assigned a group.
+TEST_P(ExpectedFieldTrialGroupCanaryDevTest, AssignedGroup) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
       GetParam().seed_fields_prefs, GetParam().channel,
@@ -183,32 +181,82 @@ TEST_P(ExpectedFieldTrialGroupPreStableTest, PreStable) {
               ::testing::AnyOf(kControlGroup, kSeedFilesGroup));
 }
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         ExpectedFieldTrialGroupStableTest,
-                         ::testing::Values(kRegularSeedFieldsPrefs,
-                                           kSafeSeedFieldsPrefs));
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ExpectedFieldTrialGroupBetaStableUnknownTest,
+    ::testing::ConvertGenerator<ExpectedFieldTrialGroupTestParams::TupleT>(
+        ::testing::Combine(::testing::Values(kRegularSeedFieldsPrefs,
+                                             kSafeSeedFieldsPrefs),
+                           ::testing::Values(version_info::Channel::BETA,
+                                             version_info::Channel::STABLE,
+                                             version_info::Channel::UNKNOWN))));
 
-// If channel is stable, trial has been registered.
-TEST_P(ExpectedFieldTrialGroupStableTest, Stable) {
+// If channel is beta, stable, or unknown, client is not assigned a group.
+TEST_P(ExpectedFieldTrialGroupBetaStableUnknownTest, NotAssignedGroup) {
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
-      GetParam(), version_info::Channel::STABLE, entropy_providers_.get(),
-      file_writer_thread_.task_runner());
-  EXPECT_TRUE(base::FieldTrialList::TrialExists(kSeedFileTrial));
+      GetParam().seed_fields_prefs, GetParam().channel,
+      entropy_providers_.get(), file_writer_thread_.task_runner());
+  EXPECT_THAT(base::FieldTrialList::FindFullName(kSeedFileTrial), IsEmpty());
 }
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         ExpectedFieldTrialGroupUnknownTest,
-                         ::testing::Values(kRegularSeedFieldsPrefs,
-                                           kSafeSeedFieldsPrefs));
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ExpectedFieldTrialGroupBetaStableTest,
+    ::testing::ConvertGenerator<ExpectedFieldTrialGroupTestParams::TupleT>(
+        ::testing::Combine(::testing::Values(kRegularSeedFieldsPrefs,
+                                             kSafeSeedFieldsPrefs),
+                           ::testing::Values(version_info::Channel::BETA,
+                                             version_info::Channel::STABLE))));
 
-// If channel is unknown, client is not assigned a group.
-TEST_P(ExpectedFieldTrialGroupUnknownTest, Unknown) {
+TEST_P(ExpectedFieldTrialGroupBetaStableTest, MigrateFromSeedFileToLocalState) {
+  // Assign client to SeedFiles group.
+  SetUpSeedFileTrial(std::string(kSeedFilesGroup));
+  // Write seed to seed file.
+  const std::string compressed_seed = CreateCompressedVariationsSeed();
+  ASSERT_TRUE(base::WriteFile(temp_seed_file_path_, compressed_seed));
+
+  // Initialize seed_reader_writer with test thread and timer.
   SeedReaderWriter seed_reader_writer(
       &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
-      GetParam(), version_info::Channel::UNKNOWN, entropy_providers_.get(),
-      file_writer_thread_.task_runner());
-  EXPECT_THAT(base::FieldTrialList::FindFullName(kSeedFileTrial), IsEmpty());
+      GetParam().seed_fields_prefs, GetParam().channel,
+      entropy_providers_.get(), file_writer_thread_.task_runner());
+  file_writer_thread_.FlushForTesting();
+
+  // Verify that the seed was written into local state.
+  std::string encoded_seed = base::Base64Encode(compressed_seed);
+  EXPECT_EQ(local_state_.GetString(GetParam().seed_fields_prefs.seed),
+            encoded_seed);
+
+  // Verify that the seed file was deleted.
+  EXPECT_FALSE(base::PathExists(temp_seed_file_path_));
+}
+
+// If no seed file exists, the seed in local state should not be overwritten.
+TEST_P(ExpectedFieldTrialGroupBetaStableTest, NoSeedFile) {
+  // Assign client to SeedFiles group.
+  SetUpSeedFileTrial(std::string(kSeedFilesGroup));
+  // No seed file.
+  ASSERT_FALSE(base::PathExists(temp_seed_file_path_));
+  // Seed in local state that shouldn't be overwritten.
+  const std::string encoded_seed =
+      base::Base64Encode(CreateCompressedVariationsSeed());
+  local_state_.SetString(GetParam().seed_fields_prefs.seed, encoded_seed);
+  ASSERT_EQ(local_state_.GetString(GetParam().seed_fields_prefs.seed),
+            encoded_seed);
+
+  // Initialize seed_reader_writer with test thread and timer.
+  SeedReaderWriter seed_reader_writer(
+      &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
+      GetParam().seed_fields_prefs, GetParam().channel,
+      entropy_providers_.get(), file_writer_thread_.task_runner());
+  file_writer_thread_.FlushForTesting();
+
+  // Verify that the seed was not overwritten.
+  EXPECT_EQ(local_state_.GetString(GetParam().seed_fields_prefs.seed),
+            encoded_seed);
+  // Verify that the seed file was not created.
+  EXPECT_FALSE(base::PathExists(temp_seed_file_path_));
 }
 
 class SeedReaderWriterGroupTest
@@ -260,13 +308,17 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, WriteSeed) {
   EXPECT_EQ(seed_file_data, compressed_seed);
 
   // Verify that the seed data is loaded correctly.
-  EXPECT_EQ(seed_reader_writer.GetSeedData().storage_format,
-            StoredSeed::StorageFormat::kCompressed);
-  EXPECT_EQ(seed_reader_writer.GetSeedData().data, compressed_seed);
-  EXPECT_EQ(seed_reader_writer.GetSeedData().signature, "signature");
-  EXPECT_EQ(seed_reader_writer.GetSeedData().milestone, 2);
-  EXPECT_EQ(seed_reader_writer.GetSeedData().seed_date, seed_date);
-  EXPECT_EQ(seed_reader_writer.GetSeedData().client_fetch_time, fetch_time);
+  std::string stored_seed_data;
+  std::string stored_signature;
+  LoadSeedResult read_seed_result = seed_reader_writer.ReadSeedDataOnStartup(
+      &stored_seed_data, &stored_signature);
+  EXPECT_EQ(read_seed_result, LoadSeedResult::kSuccess);
+  EXPECT_EQ(stored_seed_data, seed_data);
+  EXPECT_EQ(stored_signature, "signature");
+  EXPECT_EQ(seed_reader_writer.GetSeedInfo().signature, "signature");
+  EXPECT_EQ(seed_reader_writer.GetSeedInfo().milestone, 2);
+  EXPECT_EQ(seed_reader_writer.GetSeedInfo().seed_date, seed_date);
+  EXPECT_EQ(seed_reader_writer.GetSeedInfo().client_fetch_time, fetch_time);
 }
 
 // Verifies that a seed is cleared from a seed file for clients in the SeedFiles
@@ -293,11 +345,17 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ClearSeed) {
   seed_reader_writer.SetTimerForTesting(&timer_);
 
   // Verify seed was loaded correctly.
-  ASSERT_THAT(seed_reader_writer.GetSeedData().data, Not(IsEmpty()));
-  ASSERT_THAT(seed_reader_writer.GetSeedData().signature, Not(IsEmpty()));
-  ASSERT_NE(seed_reader_writer.GetSeedData().milestone, 0);
-  ASSERT_FALSE(seed_reader_writer.GetSeedData().seed_date.is_null());
-  ASSERT_THAT(seed_reader_writer.GetSeedData().session_country_code,
+  std::string stored_seed_data;
+  std::string stored_signature;
+  LoadSeedResult stored_seed = seed_reader_writer.ReadSeedDataOnStartup(
+      &stored_seed_data, &stored_signature);
+  ASSERT_EQ(stored_seed, LoadSeedResult::kSuccess);
+  ASSERT_THAT(stored_seed_data, Not(IsEmpty()));
+  ASSERT_THAT(stored_signature, Not(IsEmpty()));
+  ASSERT_THAT(seed_reader_writer.GetSeedInfo().signature, Not(IsEmpty()));
+  ASSERT_NE(seed_reader_writer.GetSeedInfo().milestone, 0);
+  ASSERT_FALSE(seed_reader_writer.GetSeedInfo().seed_date.is_null());
+  ASSERT_THAT(seed_reader_writer.GetSeedInfo().session_country_code,
               Not(IsEmpty()));
 
   // Clear seed and force write.
@@ -311,12 +369,14 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ClearSeed) {
   ASSERT_TRUE(base::ReadFileToString(temp_seed_file_path_, &seed_file_data));
   EXPECT_THAT(seed_file_data, IsEmpty());
   // Returned seed data should be empty.
-  EXPECT_THAT(seed_reader_writer.GetSeedData().data, IsEmpty());
-  EXPECT_THAT(seed_reader_writer.GetSeedData().signature, IsEmpty());
-  EXPECT_EQ(seed_reader_writer.GetSeedData().milestone, 0);
-  EXPECT_TRUE(seed_reader_writer.GetSeedData().seed_date.is_null());
+  LoadSeedResult result_after_clear = seed_reader_writer.ReadSeedDataOnStartup(
+      &stored_seed_data, &stored_signature);
+  EXPECT_EQ(result_after_clear, LoadSeedResult::kEmpty);
+  EXPECT_THAT(seed_reader_writer.GetSeedInfo().signature, IsEmpty());
+  EXPECT_EQ(seed_reader_writer.GetSeedInfo().milestone, 0);
+  EXPECT_TRUE(seed_reader_writer.GetSeedInfo().seed_date.is_null());
   // Session country code is not cleared.
-  EXPECT_THAT(seed_reader_writer.GetSeedData().session_country_code,
+  EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_country_code,
               Not(IsEmpty()));
   // Local state prefs should be cleared.
   EXPECT_THAT(local_state_.GetString(GetParam().seed_fields_prefs.seed),
@@ -345,13 +405,13 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ClearSessionCountryCode) {
       GetParam().seed_fields_prefs, GetParam().channel,
       entropy_providers_.get(), file_writer_thread_.task_runner());
 
-  ASSERT_THAT(seed_reader_writer.GetSeedData().session_country_code,
+  ASSERT_THAT(seed_reader_writer.GetSeedInfo().session_country_code,
               Not(IsEmpty()));
 
   seed_reader_writer.ClearSessionCountry();
 
   // Session country code is cleared.
-  EXPECT_THAT(seed_reader_writer.GetSeedData().session_country_code, IsEmpty());
+  EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_country_code, IsEmpty());
   // Local state pref should be cleared.
   EXPECT_THAT(
       local_state_.GetString(GetParam().seed_fields_prefs.session_country_code),
@@ -377,9 +437,11 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedFileBasedSeed) {
       entropy_providers_.get(), file_writer_thread_.task_runner());
 
   // Ensure seed data loaded from seed file.
-  ASSERT_EQ(StoredSeed::StorageFormat::kCompressed,
-            seed_reader_writer.GetSeedData().storage_format);
-  ASSERT_EQ(compressed_seed, seed_reader_writer.GetSeedData().data);
+  std::string stored_seed_data;
+  LoadSeedResult read_seed_result =
+      seed_reader_writer.ReadSeedDataOnStartup(&stored_seed_data, nullptr);
+  ASSERT_EQ(read_seed_result, LoadSeedResult::kSuccess);
+  EXPECT_EQ(stored_seed_data, CreateVariationsSeed());
   histogram_tester.ExpectUniqueSample(
       base::StrCat(
           {"Variations.SeedFileRead.",
@@ -411,9 +473,10 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadEmptySeedFile) {
       /*sample=*/1, /*expected_bucket_count=*/1);
 
   // Ensure seed data loaded from seed file.
-  ASSERT_EQ(StoredSeed::StorageFormat::kCompressed,
-            seed_reader_writer.GetSeedData().storage_format);
-  ASSERT_EQ("", seed_reader_writer.GetSeedData().data);
+  std::string stored_seed_data;
+  LoadSeedResult read_seed_result =
+      seed_reader_writer.ReadSeedDataOnStartup(&stored_seed_data, nullptr);
+  ASSERT_EQ(read_seed_result, LoadSeedResult::kEmpty);
 }
 
 // Verifies clients in SeedFiles group read seeds from local state prefs if no
@@ -441,9 +504,11 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadMissingSeedFile) {
       /*sample=*/0, /*expected_bucket_count=*/1);
 
   // Ensure seed data from local state prefs is loaded and decoded.
-  ASSERT_EQ(StoredSeed::StorageFormat::kCompressed,
-            seed_reader_writer.GetSeedData().storage_format);
-  ASSERT_EQ(compressed_seed, seed_reader_writer.GetSeedData().data);
+  std::string stored_seed_data;
+  LoadSeedResult read_result =
+      seed_reader_writer.ReadSeedDataOnStartup(&stored_seed_data, nullptr);
+  ASSERT_EQ(read_result, LoadSeedResult::kSuccess);
+  EXPECT_EQ(stored_seed_data, CreateVariationsSeed());
 }
 
 TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadMissingSeedFileEmptyLocalState) {
@@ -468,9 +533,10 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadMissingSeedFileEmptyLocalState) {
       /*sample=*/0, /*expected_bucket_count=*/1);
 
   // Ensure seed data from local state prefs is loaded and decoded.
-  EXPECT_EQ(StoredSeed::StorageFormat::kCompressed,
-            seed_reader_writer.GetSeedData().storage_format);
-  EXPECT_THAT(seed_reader_writer.GetSeedData().data, IsEmpty());
+  std::string stored_seed_data;
+  LoadSeedResult read_result =
+      seed_reader_writer.ReadSeedDataOnStartup(&stored_seed_data, nullptr);
+  EXPECT_EQ(read_result, LoadSeedResult::kEmpty);
 }
 
 TEST_P(SeedReaderWriterSeedFilesGroupTest,
@@ -499,9 +565,10 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest,
       /*sample=*/0, /*expected_bucket_count=*/1);
 
   // Ensure seed data from local state prefs is loaded and decoded.
-  EXPECT_EQ(StoredSeed::StorageFormat::kCompressed,
-            seed_reader_writer.GetSeedData().storage_format);
-  EXPECT_THAT(seed_reader_writer.GetSeedData().data, IsEmpty());
+  std::string stored_seed_data;
+  LoadSeedResult read_result =
+      seed_reader_writer.ReadSeedDataOnStartup(&stored_seed_data, nullptr);
+  EXPECT_EQ(read_result, LoadSeedResult::kEmpty);
 }
 
 TEST_P(SeedReaderWriterSeedFilesGroupTest,
@@ -527,9 +594,10 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest,
       /*sample=*/0, /*expected_bucket_count=*/1);
 
   // Ensure seed data from local state prefs is loaded and decoded.
-  EXPECT_EQ(StoredSeed::StorageFormat::kCompressed,
-            seed_reader_writer.GetSeedData().storage_format);
-  EXPECT_THAT(seed_reader_writer.GetSeedData().data, IsEmpty());
+  std::string stored_seed_data;
+  LoadSeedResult read_result =
+      seed_reader_writer.ReadSeedDataOnStartup(&stored_seed_data, nullptr);
+  EXPECT_EQ(read_result, LoadSeedResult::kEmpty);
 }
 
 TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedData) {
@@ -552,8 +620,8 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedData) {
 
   std::string read_seed_data;
   std::string base64_seed_signature;
-  LoadSeedResult result =
-      seed_reader_writer.ReadSeedData(&read_seed_data, &base64_seed_signature);
+  LoadSeedResult result = seed_reader_writer.ReadSeedDataOnStartup(
+      &read_seed_data, &base64_seed_signature);
   EXPECT_EQ(result, LoadSeedResult::kSuccess);
   EXPECT_EQ(read_seed_data, seed_data);
   EXPECT_EQ(base64_seed_signature, signature);
@@ -577,8 +645,8 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedDataCorruptGzip) {
 
   std::string seed_data;
   std::string base64_seed_signature;
-  LoadSeedResult result =
-      seed_reader_writer.ReadSeedData(&seed_data, &base64_seed_signature);
+  LoadSeedResult result = seed_reader_writer.ReadSeedDataOnStartup(
+      &seed_data, &base64_seed_signature);
   EXPECT_EQ(result, LoadSeedResult::kCorruptGzip);
 }
 
@@ -600,8 +668,8 @@ TEST_P(SeedReaderWriterSeedFilesGroupTest, ReadSeedDataExceedsSizeLimit) {
 
   std::string seed_data;
   std::string base64_seed_signature;
-  LoadSeedResult result =
-      seed_reader_writer.ReadSeedData(&seed_data, &base64_seed_signature);
+  LoadSeedResult result = seed_reader_writer.ReadSeedDataOnStartup(
+      &seed_data, &base64_seed_signature);
   EXPECT_EQ(result, LoadSeedResult::kExceedsUncompressedSizeLimit);
 }
 
@@ -708,8 +776,7 @@ INSTANTIATE_TEST_SUITE_P(
                                              kSafeSeedFieldsPrefs),
                            ::testing::Values(kSeedFilesGroup),
                            ::testing::Values(version_info::Channel::CANARY,
-                                             version_info::Channel::DEV,
-                                             version_info::Channel::BETA))));
+                                             version_info::Channel::DEV))));
 
 // Verifies clients using local state to store seeds write seeds to Local State.
 TEST_P(SeedReaderWriterLocalStateGroupsTest, WriteSeed) {
@@ -782,12 +849,15 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ClearSeed) {
   file_writer_thread_.FlushForTesting();
 
   // Returned seed data should be empty.
-  EXPECT_THAT(seed_reader_writer.GetSeedData().data, IsEmpty());
-  EXPECT_THAT(seed_reader_writer.GetSeedData().signature, IsEmpty());
-  EXPECT_EQ(seed_reader_writer.GetSeedData().milestone, 0);
-  EXPECT_TRUE(seed_reader_writer.GetSeedData().seed_date.is_null());
+  std::string stored_seed_data;
+  LoadSeedResult read_result =
+      seed_reader_writer.ReadSeedDataOnStartup(&stored_seed_data, nullptr);
+  EXPECT_EQ(read_result, LoadSeedResult::kEmpty);
+  EXPECT_THAT(seed_reader_writer.GetSeedInfo().signature, IsEmpty());
+  EXPECT_EQ(seed_reader_writer.GetSeedInfo().milestone, 0);
+  EXPECT_TRUE(seed_reader_writer.GetSeedInfo().seed_date.is_null());
   // Session country code is not cleared.
-  EXPECT_THAT(seed_reader_writer.GetSeedData().session_country_code,
+  EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_country_code,
               Not(IsEmpty()));
 
   // Verify seed cleared correctly in Local State prefs and that seed file is
@@ -828,7 +898,7 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ClearSessionCountryCode) {
   seed_reader_writer.ClearSessionCountry();
   file_writer_thread_.FlushForTesting();
 
-  EXPECT_THAT(seed_reader_writer.GetSeedData().session_country_code, IsEmpty());
+  EXPECT_THAT(seed_reader_writer.GetSeedInfo().session_country_code, IsEmpty());
   EXPECT_THAT(
       local_state_.GetString(GetParam().seed_fields_prefs.session_country_code),
       IsEmpty());
@@ -840,7 +910,6 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadLocalStateBasedSeed) {
   ASSERT_EQ(base::FieldTrialList::FindFullName(kSeedFileTrial),
             GetParam().field_trial_group);
   // Create and store seed.
-  ASSERT_TRUE(base::WriteFile(temp_seed_file_path_, "unused seed"));
   const std::string_view seed_data_field = GetParam().seed_fields_prefs.seed;
   local_state_.SetString(seed_data_field,
                          base::Base64Encode(CreateCompressedVariationsSeed()));
@@ -853,10 +922,11 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadLocalStateBasedSeed) {
       entropy_providers_.get(), file_writer_thread_.task_runner());
 
   // Ensure seed data loaded from prefs, not seed file.
-  ASSERT_EQ(StoredSeed::StorageFormat::kCompressedAndBase64Encoded,
-            seed_reader_writer.GetSeedData().storage_format);
-  ASSERT_EQ(local_state_.GetString(GetParam().seed_fields_prefs.seed),
-            seed_reader_writer.GetSeedData().data);
+  std::string stored_seed_data;
+  LoadSeedResult read_result =
+      seed_reader_writer.ReadSeedDataOnStartup(&stored_seed_data, nullptr);
+  EXPECT_EQ(read_result, LoadSeedResult::kSuccess);
+  EXPECT_EQ(stored_seed_data, CreateVariationsSeed());
   histogram_tester.ExpectTotalCount(
       base::StrCat(
           {"Variations.SeedFileRead.",
@@ -928,8 +998,8 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedData) {
 
   std::string read_seed_data;
   std::string base64_seed_signature;
-  LoadSeedResult result =
-      seed_reader_writer.ReadSeedData(&read_seed_data, &base64_seed_signature);
+  LoadSeedResult result = seed_reader_writer.ReadSeedDataOnStartup(
+      &read_seed_data, &base64_seed_signature);
   EXPECT_EQ(result, LoadSeedResult::kSuccess);
   EXPECT_EQ(read_seed_data, seed_data);
   EXPECT_EQ(base64_seed_signature, "seed signature");
@@ -951,8 +1021,8 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedDataCorruptBase64) {
 
   std::string seed_data;
   std::string base64_seed_signature;
-  LoadSeedResult result =
-      seed_reader_writer.ReadSeedData(&seed_data, &base64_seed_signature);
+  LoadSeedResult result = seed_reader_writer.ReadSeedDataOnStartup(
+      &seed_data, &base64_seed_signature);
   EXPECT_EQ(result, LoadSeedResult::kCorruptBase64);
 }
 
@@ -977,8 +1047,8 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedDataCorruptGzip) {
 
   std::string seed_data;
   std::string base64_seed_signature;
-  LoadSeedResult result =
-      seed_reader_writer.ReadSeedData(&seed_data, &base64_seed_signature);
+  LoadSeedResult result = seed_reader_writer.ReadSeedDataOnStartup(
+      &seed_data, &base64_seed_signature);
   EXPECT_EQ(result, LoadSeedResult::kCorruptGzip);
 }
 
@@ -1000,8 +1070,8 @@ TEST_P(SeedReaderWriterLocalStateGroupsTest, ReadSeedDataExceedsSizeLimit) {
 
   std::string seed_data;
   std::string base64_seed_signature;
-  LoadSeedResult result =
-      seed_reader_writer.ReadSeedData(&seed_data, &base64_seed_signature);
+  LoadSeedResult result = seed_reader_writer.ReadSeedDataOnStartup(
+      &seed_data, &base64_seed_signature);
   EXPECT_EQ(result, LoadSeedResult::kExceedsUncompressedSizeLimit);
 }
 
@@ -1126,7 +1196,9 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::Combine(::testing::Values(kRegularSeedFieldsPrefs,
                                              kSafeSeedFieldsPrefs),
                            ::testing::Values(kNoGroup),
-                           ::testing::Values(version_info::Channel::UNKNOWN))));
+                           ::testing::Values(version_info::Channel::UNKNOWN,
+                                             version_info::Channel::STABLE,
+                                             version_info::Channel::BETA))));
 
 INSTANTIATE_TEST_SUITE_P(
     ControlAndDefaultGroup,
@@ -1171,12 +1243,11 @@ TEST_P(SeedReaderWriterAllGroupsTest, ReadSeedDataEmptySeedData) {
       .seed_data = "",
       .signature = "ignored signature",
   });
-  ASSERT_THAT(seed_reader_writer.GetSeedData().data, IsEmpty());
 
   std::string seed_data;
   std::string base64_seed_signature;
-  LoadSeedResult result =
-      seed_reader_writer.ReadSeedData(&seed_data, &base64_seed_signature);
+  LoadSeedResult result = seed_reader_writer.ReadSeedDataOnStartup(
+      &seed_data, &base64_seed_signature);
   EXPECT_EQ(result, LoadSeedResult::kEmpty);
 }
 
@@ -1198,10 +1269,171 @@ TEST_P(SeedReaderWriterAllGroupsTest, ReadSeedDataSentinel) {
 
   std::string seed_data;
   std::string base64_seed_signature;
-  LoadSeedResult result =
-      seed_reader_writer.ReadSeedData(&seed_data, &base64_seed_signature);
+  LoadSeedResult result = seed_reader_writer.ReadSeedDataOnStartup(
+      &seed_data, &base64_seed_signature);
   EXPECT_EQ(result, LoadSeedResult::kSuccess);
   EXPECT_EQ(seed_data, kIdenticalToSafeSeedSentinel);
+}
+
+TEST_P(SeedReaderWriterSeedFilesGroupTest,
+       ReadSeedDataAfterAllowToPurgeSeedDataFromMemory) {
+  ASSERT_EQ(base::FieldTrialList::FindFullName(kSeedFileTrial),
+            GetParam().field_trial_group);
+  // Initialize seed_reader_writer with test thread and timer.
+  SeedReaderWriter seed_reader_writer(
+      &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
+      GetParam().seed_fields_prefs, GetParam().channel,
+      entropy_providers_.get(), file_writer_thread_.task_runner());
+  seed_reader_writer.SetTimerForTesting(&timer_);
+
+  std::string seed_data = CreateVariationsSeed();
+  std::string signature = "seed signature";
+  // Store a seed
+  ASSERT_EQ(seed_reader_writer.StoreValidatedSeedInfo(ValidatedSeedInfo{
+                .seed_data = seed_data,
+                .signature = signature,
+            }),
+            StoreSeedResult::kSuccess);
+  // Fire the timer to write the seed data to disk.
+  timer_.Fire();
+  file_writer_thread_.FlushForTesting();
+  base::RunLoop().RunUntilIdle();
+  ASSERT_TRUE(seed_reader_writer.stored_seed_data_for_testing().has_value());
+
+  {
+    base::RunLoop run_loop;
+    SeedReaderWriter::ReadSeedDataResult read_result;
+    auto lambda_cb = base::BindLambdaForTesting(
+        [&read_result, &run_loop](SeedReaderWriter::ReadSeedDataResult result) {
+          read_result = std::move(result);
+          run_loop.Quit();
+        });
+    seed_reader_writer.ReadSeedData(lambda_cb);
+    run_loop.Run();
+    ASSERT_EQ(read_result.result, LoadSeedResult::kSuccess);
+    ASSERT_EQ(read_result.seed_data, seed_data);
+    ASSERT_EQ(read_result.signature, signature);
+    ASSERT_EQ(seed_reader_writer.stored_seed_data_for_testing(),
+              Gzip(seed_data));
+  }
+
+  // Remove the seed data from memory.
+  seed_reader_writer.AllowToPurgeSeedDataFromMemory();
+  ASSERT_FALSE(seed_reader_writer.stored_seed_data_for_testing().has_value());
+
+  {
+    // Read the seed data.
+    base::RunLoop run_loop;
+    SeedReaderWriter::ReadSeedDataResult read_result;
+    auto lambda_cb = base::BindLambdaForTesting(
+        [&read_result, &run_loop](SeedReaderWriter::ReadSeedDataResult result) {
+          read_result = std::move(result);
+          run_loop.Quit();
+        });
+    seed_reader_writer.ReadSeedData(lambda_cb);
+    run_loop.Run();
+    EXPECT_EQ(read_result.result, LoadSeedResult::kSuccess);
+    EXPECT_EQ(read_result.seed_data, seed_data);
+    EXPECT_EQ(read_result.signature, signature);
+    EXPECT_FALSE(seed_reader_writer.stored_seed_data_for_testing().has_value());
+  }
+}
+
+TEST_P(SeedReaderWriterSeedFilesGroupTest,
+       WriteSeedDataAfterAllowToPurgeSeedDataFromMemory) {
+  ASSERT_EQ(base::FieldTrialList::FindFullName(kSeedFileTrial),
+            GetParam().field_trial_group);
+  // Initialize seed_reader_writer with test thread and timer.
+  SeedReaderWriter seed_reader_writer(
+      &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
+      GetParam().seed_fields_prefs, GetParam().channel,
+      entropy_providers_.get(), file_writer_thread_.task_runner());
+  seed_reader_writer.SetTimerForTesting(&timer_);
+
+  // Remove the seed data from memory.
+  seed_reader_writer.AllowToPurgeSeedDataFromMemory();
+
+  // Store a seed.
+  std::string seed_data = CreateVariationsSeed();
+  std::string signature = "seed signature";
+  auto result = seed_reader_writer.StoreValidatedSeedInfo(ValidatedSeedInfo{
+      .seed_data = seed_data,
+      .signature = signature,
+  });
+  EXPECT_EQ(result, StoreSeedResult::kSuccess);
+  timer_.Fire();
+  file_writer_thread_.FlushForTesting();
+  base::RunLoop().RunUntilIdle();
+  ASSERT_FALSE(seed_reader_writer.stored_seed_data_for_testing().has_value());
+
+  base::RunLoop run_loop;
+  SeedReaderWriter::ReadSeedDataResult read_result;
+  auto lambda_cb = base::BindLambdaForTesting(
+      [&read_result, &run_loop](SeedReaderWriter::ReadSeedDataResult result) {
+        read_result = std::move(result);
+        run_loop.Quit();
+      });
+  seed_reader_writer.ReadSeedData(lambda_cb);
+  run_loop.Run();
+  ASSERT_EQ(read_result.result, LoadSeedResult::kSuccess);
+  ASSERT_EQ(read_result.seed_data, seed_data);
+  ASSERT_EQ(read_result.signature, signature);
+  EXPECT_FALSE(seed_reader_writer.stored_seed_data_for_testing().has_value());
+}
+
+TEST_P(SeedReaderWriterSeedFilesGroupTest,
+       EmptySeedIsKeptInMemoryAfterAllowToPurgeSeedDataFromMemory) {
+  ASSERT_EQ(base::FieldTrialList::FindFullName(kSeedFileTrial),
+            GetParam().field_trial_group);
+  // Initialize seed_reader_writer with test thread and timer.
+  SeedReaderWriter seed_reader_writer(
+      &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
+      GetParam().seed_fields_prefs, GetParam().channel,
+      entropy_providers_.get(), file_writer_thread_.task_runner());
+  seed_reader_writer.SetTimerForTesting(&timer_);
+
+  seed_reader_writer.AllowToPurgeSeedDataFromMemory();
+  // Store a seed.
+  std::string signature = "seed signature";
+  auto result = seed_reader_writer.StoreValidatedSeedInfo(ValidatedSeedInfo{
+      .seed_data = "",
+      .signature = signature,
+  });
+  ASSERT_EQ(result, StoreSeedResult::kSuccess);
+  timer_.Fire();
+  file_writer_thread_.FlushForTesting();
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_TRUE(seed_reader_writer.stored_seed_data_for_testing().has_value());
+  EXPECT_EQ(seed_reader_writer.stored_seed_data_for_testing().value(), "");
+}
+
+TEST_P(SeedReaderWriterSeedFilesGroupTest,
+       SentinelIsKeptInMemoryAfterAllowToPurgeSeedDataFromMemory) {
+  ASSERT_EQ(base::FieldTrialList::FindFullName(kSeedFileTrial),
+            GetParam().field_trial_group);
+  // Initialize seed_reader_writer with test thread and timer.
+  SeedReaderWriter seed_reader_writer(
+      &local_state_, /*seed_file_dir=*/temp_dir_.GetPath(), kSeedFilename,
+      GetParam().seed_fields_prefs, GetParam().channel,
+      entropy_providers_.get(), file_writer_thread_.task_runner());
+  seed_reader_writer.SetTimerForTesting(&timer_);
+
+  seed_reader_writer.AllowToPurgeSeedDataFromMemory();
+  // Store a seed.
+  std::string signature = "seed signature";
+  auto result = seed_reader_writer.StoreValidatedSeedInfo(ValidatedSeedInfo{
+      .seed_data = kIdenticalToSafeSeedSentinel,
+      .signature = signature,
+  });
+  ASSERT_EQ(result, StoreSeedResult::kSuccess);
+  timer_.Fire();
+  file_writer_thread_.FlushForTesting();
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_TRUE(seed_reader_writer.stored_seed_data_for_testing().has_value());
+  EXPECT_EQ(seed_reader_writer.stored_seed_data_for_testing().value(),
+            kIdenticalToSafeSeedSentinel);
 }
 
 }  // namespace

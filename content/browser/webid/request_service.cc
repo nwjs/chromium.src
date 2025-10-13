@@ -28,8 +28,8 @@
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
+#include "content/browser/webid/disconnect_request.h"
 #include "content/browser/webid/fake_identity_request_dialog_controller.h"
-#include "content/browser/webid/federated_auth_disconnect_request.h"
 #include "content/browser/webid/flags.h"
 #include "content/browser/webid/identity_registry.h"
 #include "content/browser/webid/idp_network_request_manager.h"
@@ -49,6 +49,7 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/page_visibility_state.h"
+#include "mojo/public/cpp/base/values_mojom_traits.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/blink/public/common/webid/login_status_account.h"
 #include "third_party/blink/public/common/webid/login_status_options.h"
@@ -173,7 +174,7 @@ RequestService::~RequestService() {
   // naturally.
   user_info_requests_.clear();
 
-  // Calls |FederatedAuthDisconnectRequest|'s destructor to complete the
+  // Calls |DisconnectRequest|'s destructor to complete the
   // revocation request. This is needed because otherwise some resources like
   // `fedcm_metrics_` may no longer be usable when the destructor get invoked
   // naturally.
@@ -300,7 +301,7 @@ void RequestService::RequestToken(
         base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
             FROM_HERE,
             base::BindOnce(std::move(callback), RequestTokenStatus::kError,
-                           std::nullopt, "",
+                           std::nullopt, std::nullopt,
                            /*error=*/nullptr,
                            /*is_auto_selected=*/false),
             delay);
@@ -315,11 +316,12 @@ void RequestService::RequestToken(
     // the lifecycle state for further investigation.
     RenderFrameHostImpl* host_impl =
         static_cast<RenderFrameHostImpl*>(&render_frame_host());
-    RecordLifecycleStateFailureReason(
 
+    RecordLifecycleStateFailureReason(
         LifecycleStateImplLifecycleStateImplToFedCmLifecycleStateFailureReason(
             host_impl->lifecycle_state()));
-    std::move(callback).Run(RequestTokenStatus::kError, std::nullopt, "",
+    std::move(callback).Run(RequestTokenStatus::kError, std::nullopt,
+                            std::nullopt,
                             /*error=*/nullptr,
                             /*is_auto_selected=*/false);
     return;
@@ -343,7 +345,7 @@ void RequestService::RequestToken(
       HandlePendingRequestAndCancelNewRequest(
           old_idp_order, idp_get_params_ptrs, requirement)) {
     std::move(callback).Run(RequestTokenStatus::kErrorTooManyRequests,
-                            std::nullopt, "", /*error=*/nullptr,
+                            std::nullopt, std::nullopt, /*error=*/nullptr,
                             /*is_auto_selected=*/false);
     return;
   }
@@ -372,8 +374,8 @@ void RequestService::RequestToken(
 
         bool has_nonce_in_params = false;
         if (idp_ptr->params_json) {
-          std::optional<base::Value> params =
-              base::JSONReader::Read(*idp_ptr->params_json);
+          std::optional<base::Value> params = base::JSONReader::Read(
+              *idp_ptr->params_json, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
           if (params && params->is_dict()) {
             if (params->GetDict().contains("nonce")) {
               has_nonce_in_params = true;
@@ -542,7 +544,7 @@ void RequestService::RequestToken(
     auto get_info_it = token_request_get_infos_.find(idp_config_url);
     CHECK(get_info_it != token_request_get_infos_.end());
     if (!request_dialog_controller_->ShowLoadingDialog(
-            CreateRpData(),
+            CreateRpData(/*client_metadata_received=*/false),
             FormatOriginForDisplay(url::Origin::Create(idp_config_url)),
             get_info_it->second.rp_context, rp_mode_,
             base::BindOnce(&RequestService::OnDialogDismissed,
@@ -786,7 +788,7 @@ void RequestService::CompleteDisconnectRequest(
     blink::mojom::DisconnectStatus status) {
   // `disconnect_request_` may be null here if the completion is invoked from
   // the RequestService destructor, which destroys
-  // `disconnect_request_`. The FederatedAuthDisconnectRequest destructor would
+  // `disconnect_request_`. The DisconnectRequest destructor would
   // trigger the callback.
   if (!disconnect_request_ &&
       status == blink::mojom::DisconnectStatus::kSuccess) {
@@ -1148,16 +1150,16 @@ void RequestService::MaybeShowAccountsDialog() {
     OnAccountSelected(accounts_[0]->identity_provider->idp_metadata.config_url,
                       accounts_[0]->id, /*is_sign_in=*/true);
     if (!request_dialog_controller_->ShowVerifyingDialog(
-            CreateRpData(), auto_reauthn_idp, accounts_[0], SignInMode::kAuto,
-            rp_mode_,
+            CreateRpData(/*client_metadata_received=*/true), auto_reauthn_idp,
+            accounts_[0], SignInMode::kAuto, rp_mode_,
             base::BindOnce(&RequestService::OnAccountsDisplayed,
                            weak_ptr_factory_.GetWeakPtr()))) {
       return;
     }
   } else {
     if (!request_dialog_controller_->ShowAccountsDialog(
-            CreateRpData(), idp_data_for_display_, accounts_, rp_mode_,
-            new_accounts_,
+            CreateRpData(/*client_metadata_received=*/true),
+            idp_data_for_display_, accounts_, rp_mode_, new_accounts_,
             base::BindOnce(&RequestService::OnAccountSelected,
                            weak_ptr_factory_.GetWeakPtr()),
             base::BindRepeating(&RequestService::LoginToIdP,
@@ -1237,7 +1239,8 @@ void RequestService::NotifyAutofillSuggestionAccepted(
   // necessary in the dialog controller. We should probably be able to create
   // the internal state on demand in case it isn't available.
   if (!request_dialog_controller_->ShowLoadingDialog(
-          CreateRpData(), FormatOriginForDisplay(url::Origin::Create(idp)),
+          CreateRpData(/*client_metadata_received=*/true),
+          FormatOriginForDisplay(url::Origin::Create(idp)),
           get_info_it->second.rp_context, blink::mojom::RpMode::kActive,
           base::BindOnce(&RequestService::OnDialogDismissed,
                          weak_ptr_factory_.GetWeakPtr()))) {
@@ -1258,8 +1261,8 @@ void RequestService::NotifyAutofillSuggestionAccepted(
   // probably refactor the API to support this use case, rather than overload
   // an unintended use.
   if (!request_dialog_controller_->ShowAccountsDialog(
-          CreateRpData(), idp_data_for_display_, {},
-          blink::mojom::RpMode::kActive, selected,
+          CreateRpData(/*client_metadata_received=*/true),
+          idp_data_for_display_, {}, blink::mojom::RpMode::kActive, selected,
           base::BindOnce(&RequestService::OnAccountSelected,
                          weak_ptr_factory_.GetWeakPtr()),
           base::BindRepeating(&RequestService::LoginToIdP,
@@ -1344,8 +1347,9 @@ void RequestService::ShowSingleIdpFailureDialog() {
                    !idp_info->metadata.requested_label.empty();
 
   if (!request_dialog_controller_->ShowFailureDialog(
-          CreateRpData(), FormatOriginForDisplay(idp_origin),
-          idp_info->rp_context, rp_mode_, idp_info->metadata,
+          CreateRpData(/*client_metadata_received=*/true),
+          FormatOriginForDisplay(idp_origin), idp_info->rp_context, rp_mode_,
+          idp_info->metadata,
           base::BindOnce(&RequestService::OnDismissFailureDialog,
                          weak_ptr_factory_.GetWeakPtr()),
           base::BindRepeating(&RequestService::LoginToIdP,
@@ -1670,7 +1674,7 @@ void RequestService::ShowErrorDialog(
 
   // TODO(crbug.com/40282657): Refactor IdentityCredentialTokenError
   if (!request_dialog_controller_->ShowErrorDialog(
-          CreateRpData(),
+          CreateRpData(/*client_metadata_received=*/true),
           FormatOriginForDisplay(url::Origin::Create(idp_config_url)),
           idp_infos_[idp_config_url]->rp_context, rp_mode_,
           idp_infos_[idp_config_url]->metadata, token_error,
@@ -1691,8 +1695,8 @@ void RequestService::ShowErrorDialog(
 void RequestService::OnTokenResponseReceived(
     IdentityProviderRequestOptionsPtr idp,
     IdpNetworkRequestManager::FetchStatus status,
-    IdpNetworkRequestManager::TokenResult result) {
-  CHECK(result.token.empty() || !result.error);
+    IdpNetworkRequestManager::TokenResult&& result) {
+  CHECK(result.token.has_value() || result.error.has_value());
 
   verifying_dialog_result_ = identity_selection_type_ == kExplicit
                                  ? VerifyingDialogResult::kSuccessExplicit
@@ -1708,8 +1712,8 @@ void RequestService::OnTokenResponseReceived(
                            idp->config->config_url, status, result.error)
           : base::BindOnce(&RequestService::CompleteTokenRequest,
                            weak_ptr_factory_.GetWeakPtr(),
-                           idp->config->config_url, status, result.token,
-                           result.error,
+                           idp->config->config_url, status,
+                           std::move(result.token), result.error,
                            /*should_delay_callback=*/false);
 
   // When fetching id tokens we show a "Verify" sheet to users in case fetching
@@ -1755,7 +1759,7 @@ void RequestService::MarkUserAsSignedIn(const GURL& idp_config_url,
 void RequestService::CompleteTokenRequest(
     const GURL& idp_config_url,
     IdpNetworkRequestManager::FetchStatus status,
-    std::optional<std::string> token,
+    std::optional<base::Value> token,
     std::optional<TokenError> token_error,
     bool should_delay_callback) {
   DCHECK(!start_time_.is_null());
@@ -1799,13 +1803,21 @@ void RequestService::CompleteTokenRequest(
   DCHECK(provider);
 
   if (provider->format && *provider->format == blink::mojom::Format::kSdJwt) {
-    federated_sdjwt_handler_->ProcessSdJwt(token.value());
-    return;
+    if (token->is_string()) {
+      federated_sdjwt_handler_->ProcessSdJwt(token->GetString());
+      return;
+    } else {
+      CompleteRequestWithError(FederatedAuthRequestResult::kError,
+                               TokenStatus::kIdTokenInvalidResponse,
+                               /*should_delay_callback=*/false);
+      return;
+    }
   }
 
   CompleteRequest(FederatedAuthRequestResult::kSuccess,
                   TokenStatus::kSuccessUsingTokenInHttpResponse,
-                  /*token_error=*/std::nullopt, idp_config_url, token.value(),
+                  /*token_error=*/std::nullopt, idp_config_url,
+                  std::move(*token),
                   /*should_delay_callback=*/false);
 }
 
@@ -1815,7 +1827,7 @@ void RequestService::CompleteRequestWithError(
     bool should_delay_callback) {
   CompleteRequest(result, token_status, token_error_,
                   /*selected_idp_config_url=*/std::nullopt,
-                  /*token=*/"", should_delay_callback);
+                  /*token_data=*/std::nullopt, should_delay_callback);
 }
 
 void RequestService::CompleteRequest(
@@ -1823,9 +1835,10 @@ void RequestService::CompleteRequest(
     std::optional<RequestIdTokenStatus> token_status,
     std::optional<TokenError> token_error,
     const std::optional<GURL>& selected_idp_config_url,
-    const std::string& id_token,
+    std::optional<base::Value> token_data,
     bool should_delay_callback) {
-  DCHECK(result == FederatedAuthRequestResult::kSuccess || id_token.empty());
+  DCHECK(result == FederatedAuthRequestResult::kSuccess ||
+         !token_data.has_value());
 
   if (accounts_dialog_shown_time_.has_value()) {
     fedcm_metrics_->RecordAccountsDialogShownDuration(
@@ -1943,8 +1956,8 @@ void RequestService::CompleteRequest(
     RequestTokenStatus status =
         FederatedAuthRequestResultToRequestTokenStatus(result);
     std::move(auth_request_token_callback_)
-        .Run(status, selected_idp_config_url, id_token, std::move(error),
-             is_auto_selected);
+        .Run(status, selected_idp_config_url, std::move(token_data),
+             std::move(error), is_auto_selected);
     auth_request_token_callback_.Reset();
 
     TRACE_EVENT_END("content.fedcm", perfetto_track_);
@@ -2170,8 +2183,8 @@ bool RequestService::OnResolve(GURL idp_config_url,
 
   CompleteRequest(FederatedAuthRequestResult::kSuccess,
                   TokenStatus::kSuccessUsingIdentityProviderResolve,
-                  /*token_error=*/std::nullopt, idp_config_url, token,
-                  /*should_delay_callback=*/false);
+                  /*token_error=*/std::nullopt, idp_config_url,
+                  base::Value(token), /*should_delay_callback=*/false);
   // TODO(crbug.com/40262526): handle the corner cases where CompleteRequest
   // can't actually fulfill the request.
   return true;
@@ -2521,11 +2534,10 @@ void RequestService::Disconnect(
 
   auto network_manager = CreateNetworkManager();
 
-  disconnect_request_ = FederatedAuthDisconnectRequest::Create(
+  disconnect_request_ = DisconnectRequest::Create(
       std::move(network_manager), permission_delegate_, &render_frame_host(),
       std::move(disconnect_metrics), std::move(options));
-  FederatedAuthDisconnectRequest* disconnect_request_ptr =
-      disconnect_request_.get();
+  DisconnectRequest* disconnect_request_ptr = disconnect_request_.get();
 
   disconnect_request_ptr->SetCallbackAndStart(
       base::BindOnce(&RequestService::CompleteDisconnectRequest,
@@ -2695,11 +2707,12 @@ bool RequestService::HandlePendingRequestAndCancelNewRequest(
   return false;
 }
 
-RelyingPartyData RequestService::CreateRpData() const {
+RelyingPartyData RequestService::CreateRpData(
+    bool client_metadata_received) const {
   // We want to show the iframe origin if any IDP requests it.
   bool show_iframe_origin = false;
   for (const auto& entry : idp_infos_) {
-    if (!entry.second->client_matches_top_frame_origin.value_or(true)) {
+    if (entry.second->client_is_third_party_to_top_frame_origin) {
       show_iframe_origin = true;
       break;
     }
@@ -2708,9 +2721,15 @@ RelyingPartyData RequestService::CreateRpData() const {
   if (show_iframe_origin) {
     iframe_origin = base::UTF8ToUTF16(FormatOriginForDisplay(origin()));
   }
+  bool display_strings_may_change = false;
+  if (IsIframeOriginEnabled()) {
+    display_strings_may_change =
+        !client_metadata_received &&
+        !net::SchemefulSite::IsSameSite(origin(), GetEmbeddingOrigin());
+  }
   return RelyingPartyData(
       base::UTF8ToUTF16(GetTopFrameOriginForDisplay(GetEmbeddingOrigin())),
-      iframe_origin);
+      iframe_origin, display_strings_may_change);
 }
 
 }  // namespace content::webid

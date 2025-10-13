@@ -1026,7 +1026,8 @@ bool OnDeterminingFilenameWillDispatchCallback(
     const Extension* extension,
     const base::Value::Dict* listener_filter,
     std::optional<base::Value::List>& event_args_out,
-    mojom::EventFilteringInfoPtr& event_filtering_info_out) {
+    mojom::EventFilteringInfoPtr& event_filtering_info_out,
+    bool* dispatch_separate_event_out) {
   *any_determiners = true;
   base::Time installed =
       GetLastUpdateTime(ExtensionPrefs::Get(browser_context), extension->id());
@@ -1288,7 +1289,9 @@ ExtensionFunction::ResponseAction DownloadsResumeFunction::Run() {
       browser_context(), include_incognito_information(), params->download_id);
   std::string error;
   if (InvalidId(download_item, &error) ||
-      Fault(download_item->IsPaused() && !download_item->CanResume(),
+      Fault(download_item->GetState() == DownloadItem::CANCELLED ||
+                (download_item->GetState() == DownloadItem::INTERRUPTED &&
+                 !download_item->CanResume()),
             download_extension_errors::kNotResumable, &error)) {
     return RespondNow(Error(std::move(error)));
   }

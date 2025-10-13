@@ -20,8 +20,7 @@
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_integrity_block.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_signature_verifier.h"
-#include "components/webapps/isolated_web_apps/error/unusable_swbn_file_error.h"
-#include "components/webapps/isolated_web_apps/reading/signed_web_bundle_reader.h"
+#include "components/webapps/isolated_web_apps/bundle_operations/bundle_operations.h"
 #include "components/webapps/isolated_web_apps/types/iwa_origin.h"
 #include "components/webapps/isolated_web_apps/types/source.h"
 #include "content/public/browser/browser_context.h"
@@ -33,30 +32,11 @@ namespace web_app {
 
 namespace {
 base::expected<IsolatedWebAppUrlInfo, std::string> MakeIsolatedWebAppUrlInfo(
-    base::expected<web_package::SignedWebBundleId, UnusableSwbnFileError>
-        bundle_id) {
-  return bundle_id
-      .transform([](const web_package::SignedWebBundleId& id) {
-        return IsolatedWebAppUrlInfo::CreateFromSignedWebBundleId(id);
-      })
-      .transform_error([](const UnusableSwbnFileError& error) {
-        return "Failed to read the integrity block of the signed web bundle: " +
-               error.message();
-      });
+    base::expected<web_package::SignedWebBundleId, std::string> bundle_id) {
+  return bundle_id.transform([](const web_package::SignedWebBundleId& id) {
+    return IsolatedWebAppUrlInfo::CreateFromSignedWebBundleId(id);
+  });
 }
-
-void GetSignedWebBundleIdByPath(
-    const base::FilePath& path,
-    base::OnceCallback<void(base::expected<IsolatedWebAppUrlInfo, std::string>)>
-        url_info_ready_callback) {
-  UnsecureSignedWebBundleIdReader::WebBundleIdCallback id_read_callback =
-      base::BindOnce(&MakeIsolatedWebAppUrlInfo)
-          .Then(std::move(url_info_ready_callback));
-
-  UnsecureSignedWebBundleIdReader::GetWebBundleId(path,
-                                                  std::move(id_read_callback));
-}
-
 }  // namespace
 
 // static
@@ -80,7 +60,9 @@ void IsolatedWebAppUrlInfo::CreateFromIsolatedWebAppSource(
   std::visit(
       absl::Overload{
           [&](const IwaSourceBundle& bundle) {
-            GetSignedWebBundleIdByPath(bundle.path(), std::move(callback));
+            ReadSignedWebBundleIdInsecurely(
+                bundle.path(), base::BindOnce(&MakeIsolatedWebAppUrlInfo)
+                                   .Then(std::move(callback)));
           },
           [&](const IwaSourceProxy& proxy) {
             const web_package::SignedWebBundleId bundle_id = [&] {
@@ -124,11 +106,7 @@ const web_package::SignedWebBundleId& IsolatedWebAppUrlInfo::web_bundle_id()
 
 content::StoragePartitionConfig IsolatedWebAppUrlInfo::storage_partition_config(
     content::BrowserContext* browser_context) const {
-  DCHECK(browser_context != nullptr);
-  return content::StoragePartitionConfig::Create(browser_context,
-                                                 partition_domain(),
-                                                 /*partition_name=*/"",
-                                                 /*in_memory=*/false);
+  return iwa_origin_.storage_partition_config(browser_context);
 }
 
 content::StoragePartitionConfig
@@ -136,16 +114,12 @@ IsolatedWebAppUrlInfo::GetStoragePartitionConfigForControlledFrame(
     content::BrowserContext* browser_context,
     const std::string& partition_name,
     bool in_memory) const {
-  DCHECK(browser_context);
-  DCHECK(!partition_name.empty() || in_memory);
-  return content::StoragePartitionConfig::Create(
-      browser_context, partition_domain(), partition_name, in_memory);
-}
-
-std::string IsolatedWebAppUrlInfo::partition_domain() const {
-  // We add a prefix to `partition_domain` to distinguish from other users of
-  // storage partitions.
-  return "i" + base::Base64Encode(crypto::SHA256HashString(app_id_));
+  CHECK(!partition_name.empty() || in_memory);
+  return iwa_origin_.storage_partition_config(
+      browser_context, IwaOrigin::StoragePartitionConfigOptions{
+                           .partition_name = partition_name,
+                           .in_memory = in_memory,
+                       });
 }
 
 }  // namespace web_app

@@ -25,7 +25,7 @@ namespace gpu {
 
 namespace {
 // Kill switch for allowing using core ES3 format types for half float format.
-BASE_FEATURE(AllowEs3F16CoreTypeForGlSi, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kAllowEs3F16CoreTypeForGlSi, base::FEATURE_ENABLED_BY_DEFAULT);
 
 std::optional<viz::SharedImageFormat> GetFallbackFormatIfNotSupported(
     viz::SharedImageFormat plane_format,

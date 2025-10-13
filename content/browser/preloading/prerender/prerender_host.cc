@@ -35,6 +35,7 @@
 #include "content/browser/renderer_host/navigation_controller_impl.h"
 #include "content/browser/renderer_host/navigation_entry_restore_context_impl.h"
 #include "content/browser/renderer_host/navigation_request.h"
+#include "content/browser/renderer_host/page_impl.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_context.h"
@@ -44,6 +45,7 @@
 #include "content/public/common/referrer.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_request_headers.h"
+#include "services/network/public/mojom/supports_loading_mode.mojom.h"
 #include "third_party/blink/public/common/client_hints/enabled_client_hints.h"
 #include "third_party/blink/public/common/navigation/preloading_headers.h"
 #include "url/origin.h"
@@ -88,7 +90,7 @@ namespace {
 // The fact that the 2nd SiteInstance attempts to reuse the same
 // RenderProcessHost as the 1st SiteInstance is what makes it important to
 // carefully choose the RenderProcessHost for the 1st SiteInstance.
-BASE_FEATURE(CreatePrerenderSiteInstanceWithURL,
+BASE_FEATURE(kCreatePrerenderSiteInstanceWithURL,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 base::OnceCallback<void(FrameTreeNodeId)>& GetHostCreationCallback() {
@@ -583,7 +585,8 @@ bool PrerenderHost::StartPrerendering() {
   load_url_params.referrer = attributes_.referrer;
 
   load_url_params.override_user_agent =
-      web_contents_->GetDelegate()->ShouldOverrideUserAgentForPrerender2();
+      web_contents_->GetDelegate()->ShouldOverrideUserAgentForPrerender2(
+          attributes_.prerendering_url);
 
   // TODO(https://crbug.com/1406149, https://crbug.com/1378921): Set
   // `override_user_agent` for Android. This field is determined on the Java
@@ -678,14 +681,24 @@ void PrerenderHost::ReadyToCommitNavigation(
     return;
   }
 
+  bool has_no_vary_search_with_parse_error_header = false;
   if (navigation_request->response() &&
-      navigation_request->response()->parsed_headers &&
-      navigation_request->response()
-          ->parsed_headers->no_vary_search_with_parse_error) {
-    MaybeSetNoVarySearch(
-        *navigation_request->response()
-             ->parsed_headers->no_vary_search_with_parse_error);
-  } else {
+      navigation_request->response()->parsed_headers) {
+    const network::mojom::ParsedHeadersPtr& parsed_headers =
+        navigation_request->response()->parsed_headers;
+    if (parsed_headers->no_vary_search_with_parse_error) {
+      has_no_vary_search_with_parse_error_header = true;
+      MaybeSetNoVarySearch(*parsed_headers->no_vary_search_with_parse_error);
+    }
+
+    if (base::FeatureList::IsEnabled(features::kPrerender2CrossOriginIframes) &&
+        base::Contains(
+            parsed_headers->supports_loading_mode,
+            network::mojom::LoadingMode::kPrerenderCrossOriginFrames)) {
+      allow_cross_origin_subframe_navigation_ = true;
+    }
+  }
+  if (!has_no_vary_search_with_parse_error_header) {
     CHECK(!no_vary_search_.has_value());
     CHECK(!no_vary_search_parse_error_.has_value());
   }
@@ -715,7 +728,7 @@ void PrerenderHost::DidFinishNavigation(NavigationHandle* navigation_handle) {
     return;
   }
 
-  if (PreloadServingMetrics::IsEnabled()) {
+  if (PreloadServingMetricsCapsule::IsFeatureEnabled()) {
     // If `DidFinishNavigation()` is called multiple times, ignore
     // `PreloadServingMetrics` of that navigation and keep the first one.
     if (!prerender_initial_preload_serving_metrics_) {
@@ -811,6 +824,14 @@ std::unique_ptr<StoredPage> PrerenderHost::Activate(
   // duration of current_frame_host being null.
   std::unique_ptr<StoredPage> page =
       GetFrameTree()->root()->render_manager()->TakePrerenderedPage();
+  CHECK(page);
+  if (allow_cross_origin_subframe_navigation_) {
+    CHECK(
+        base::FeatureList::IsEnabled(features::kPrerender2CrossOriginIframes));
+    page->render_frame_host()
+        ->GetPage()
+        .NotifyCrossOriginSubframePrerenderIsAllowed();
+  }
 
   NavigationEntryRestoreContextImpl context;
   std::unique_ptr<NavigationEntryImpl> nav_entry =
@@ -893,7 +914,7 @@ std::unique_ptr<StoredPage> PrerenderHost::Activate(
 
   // Associate `PreloadServingMetrics` of prerender initial navigation to ones
   // of activation.
-  if (PreloadServingMetrics::IsEnabled()) {
+  if (PreloadServingMetricsCapsule::IsFeatureEnabled()) {
     auto& activation_preload_serving_metrics_holder =
         *PreloadServingMetricsHolder::GetOrCreateForNavigationHandle(
             navigation_request);
@@ -1007,7 +1028,7 @@ bool PrerenderHost::AreInitialPrerenderNavigationParamsCompatibleWithNavigation(
 // The flag below is provided in case the workaround had a bug. Use the flag to
 // revert back to the previous behavior.
 // TODO(crbug.com/399478939): Remove the workaround and this flag.
-BASE_FEATURE(PrerenderActivationMismatchWebViewWorkaround,
+BASE_FEATURE(kPrerenderActivationMismatchWebViewWorkaround,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
@@ -1814,7 +1835,7 @@ void PrerenderHost::NotifyReused() {
 
 void PrerenderHost::OnWillBeCancelled(
     const PrerenderCancellationReason& reason) {
-  if (!PreloadServingMetrics::IsEnabled()) {
+  if (!PreloadServingMetricsCapsule::IsFeatureEnabled()) {
     return;
   }
 
@@ -1872,6 +1893,27 @@ void PrerenderHost::OnWillBeCancelled(
     prerender_initial_preload_serving_metrics_
         ->RecordMetricsForPrerenderInitialNavigationFailed();
   }
+}
+
+bool PrerenderHost::IsInitiatorOverridingUserAgent() {
+  // The initiator FrameTreeNode can be unavailable in browser-initiated
+  // prerender. In such cases, we use the primary main frame of the initiator
+  // `WebContents` as a workaround.
+  // TODO(crbug.com/445992576): Support prerender in new tab by looking into
+  // `should_override_user_agent_in_new_tab_` in `WebContentsImpl`.
+  NavigationEntry* last_entry = nullptr;
+  if (initiator_frame_tree_node_id()) {
+    last_entry = FrameTreeNode::GloballyFindByID(initiator_frame_tree_node_id())
+                     ->frame_tree()
+                     .controller()
+                     .GetLastCommittedEntry();
+  } else if (initiator_web_contents()) {
+    last_entry = initiator_web_contents()
+                     ->GetPrimaryMainFrame()
+                     ->GetController()
+                     .GetLastCommittedEntry();
+  }
+  return last_entry && last_entry->GetIsOverridingUserAgent();
 }
 
 base::WeakPtr<PrerenderHost> PrerenderHost::GetWeakPtr() {

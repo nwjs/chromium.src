@@ -63,6 +63,12 @@
 #include "ui/base/resource/resource_scale_factor.h"
 #include "url/url_constants.h"
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+#include "components/webapps/isolated_web_apps/scheme.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
+
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #include <fcntl.h>
 #include "sandbox/linux/services/credentials.h"
@@ -195,8 +201,13 @@ static const char* const kChromeStandardURLSchemes[] = {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
     extensions::kExtensionScheme,
 #endif
-    chrome::kIsolatedAppScheme,   chrome::kChromeNativeScheme,
-    chrome::kChromeSearchScheme,  dom_distiller::kDomDistillerScheme,
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+    webapps::kIsolatedAppScheme,
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
+    chrome::kChromeNativeScheme,        chrome::kChromeSearchScheme,
+    dom_distiller::kDomDistillerScheme,
 #if BUILDFLAG(IS_ANDROID)
     content::kAndroidAppScheme,
 #endif
@@ -214,7 +225,11 @@ void ChromeContentClient::AddAdditionalSchemes(Schemes* schemes) {
   schemes->extension_schemes.push_back(extensions::kExtensionScheme);
 #endif
 
-  schemes->isolated_app_schemes.push_back(chrome::kIsolatedAppScheme);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  schemes->isolated_app_schemes.push_back(webapps::kIsolatedAppScheme);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   schemes->savable_schemes.push_back(extensions::kExtensionScheme);
@@ -259,10 +274,14 @@ void ChromeContentClient::AddAdditionalSchemes(Schemes* schemes) {
       url::kWebcalScheme, chrome::kChromeOSDefaultWebcalHandler);
 #endif
 
-  schemes->secure_schemes.push_back(chrome::kIsolatedAppScheme);
-  schemes->cors_enabled_schemes.push_back(chrome::kIsolatedAppScheme);
-  schemes->service_worker_schemes.push_back(chrome::kIsolatedAppScheme);
-  url::AddWebStorageScheme(chrome::kIsolatedAppScheme);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  schemes->secure_schemes.push_back(webapps::kIsolatedAppScheme);
+  schemes->cors_enabled_schemes.push_back(webapps::kIsolatedAppScheme);
+  schemes->service_worker_schemes.push_back(webapps::kIsolatedAppScheme);
+  url::AddWebStorageScheme(webapps::kIsolatedAppScheme);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_CHROMEOS)
   schemes->local_schemes.push_back(content::kExternalFileScheme);

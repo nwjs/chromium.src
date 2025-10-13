@@ -114,6 +114,10 @@ class MEDIA_EXPORT API_AVAILABLE(macos(14.2)) CatapAudioInputStream
   // Configure the sample rate of the aggregate device according to `params_`.
   bool ConfigureSampleRateOfAggregateDevice();
 
+  // Returns the sample rate of the aggregate device. Returns nullopt if the
+  // sample rate could not be retrieved.
+  std::optional<double> GetSampleRateOfAggregateDevice();
+
   // Configure the frames per buffer of the aggregate device according to
   // `params_`.
   bool ConfigureFramesPerBufferOfAggregateDevice();
@@ -183,6 +187,16 @@ class MEDIA_EXPORT API_AVAILABLE(macos(14.2)) CatapAudioInputStream
   // the capture is running, and then accessed from the main sequence once the
   // capture has stopped.
   bool recovered_from_missing_host_time_ = false;
+
+  // Total number of callbacks with a channel count mismatch. Incremented from
+  // the capture thread. Used to report statistics of callbacks with channel
+  // count mismatch when the capture has stopped.
+  int total_callbacks_with_channel_count_mismatch_ = 0;
+
+  // Total number of callbacks with a frames mismatch. Incremented from the
+  // capture thread. Used to report statistics of callbacks with frames mismatch
+  // when the capture has stopped.
+  int total_callbacks_with_frames_mismatch_ = 0;
 
   // Callback to send log messages to the client.
   AudioManager::LogCallback log_callback_ GUARDED_BY_CONTEXT(sequence_checker_);

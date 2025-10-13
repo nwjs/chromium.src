@@ -28,7 +28,6 @@ import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsDropdow
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.WindowAndroid;
-import org.chromium.ui.display.DisplayUtil;
 
 import java.util.function.Supplier;
 
@@ -284,7 +283,25 @@ class OmniboxSuggestionsDropdownEmbedderImpl
                             - systemBars.top
                             - systemBars.bottom;
         } else {
-            windowHeight = DisplayUtil.dpToPx(mWindowAndroid.getDisplay(), mWindowHeightDp);
+            // Compute the exact keyboard height to ensure the suggestions are always fully
+            // visible, including the bottom toolbar case.
+            var rootInsets = contentView.getRootWindowInsets();
+            var rootView = contentView.getRootView();
+
+            if (rootView != null && rootInsets != null) {
+                WindowInsetsCompat windowInsetsCompat =
+                        WindowInsetsCompat.toWindowInsetsCompat(rootInsets, rootView);
+                keyboardHeight =
+                        Math.max(
+                                0,
+                                windowInsetsCompat.getInsets(WindowInsetsCompat.Type.ime()).bottom
+                                        - windowInsetsCompat.getInsets(
+                                                        WindowInsetsCompat.Type.tappableElement())
+                                                .bottom);
+            }
+
+            // TODO(crbug.com/446742684): Improve positioning logic calculations
+            windowHeight = mWindowAndroid.getDisplay().getDisplayHeight();
         }
 
         int paddingBottom = 0;

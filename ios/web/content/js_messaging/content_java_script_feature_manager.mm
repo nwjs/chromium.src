@@ -19,7 +19,7 @@ namespace web {
 
 namespace {
 
-BASE_FEATURE(ContentEnableInjectedFeatureScripts,
+BASE_FEATURE(kContentEnableInjectedFeatureScripts,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 std::u16string MakeInjectableIntoMainFrameOnly(const std::u16string& script) {

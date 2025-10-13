@@ -22,13 +22,12 @@
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_features.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
+#include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_browsertest_base.h"
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_clipboard_utils.h"
 #include "chrome/browser/enterprise/identifiers/profile_id_service_factory.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/cloud_binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
@@ -48,7 +47,6 @@
 #include "chrome/browser/enterprise/connectors/test/fake_content_analysis_sdk_manager.h"  // nogncheck
 #endif
 
-using extensions::SafeBrowsingPrivateEventRouter;
 using safe_browsing::BinaryUploadService;
 using safe_browsing::CloudBinaryUploadService;
 using ::testing::_;
@@ -414,10 +412,11 @@ class ContentAnalysisDelegateBrowserTest
     use_proto_format()
         ? scoped_feature_list_.InitWithFeatures(
               /*enabled_features=*/
-              {policy::kUploadRealtimeReportingEventsUsingProto},
+              {policy::kUploadRealtimeReportingEventsUsingProto,
+               kDlpScanPastedImages},
               /*disabled_features=*/{})
         : scoped_feature_list_.InitWithFeatures(
-              /*enabled_features=*/{},
+              /*enabled_features=*/{kDlpScanPastedImages},
               /*disabled_features=*/{
                   policy::kUploadRealtimeReportingEventsUsingProto});
   }
@@ -885,10 +884,14 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest, Texts) {
     chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule_1;
     triggered_rule_1.set_rule_id(1);
     triggered_rule_1.set_rule_name("resource rule 1");
+    triggered_rule_1.set_action(
+        chrome::cros::reporting::proto::TriggeredRuleInfo::REPORT_ONLY);
     *expected_event.add_triggered_rule_info() = triggered_rule_1;
     chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule_2;
     triggered_rule_2.set_rule_id(3);
     triggered_rule_2.set_rule_name("resource rule 2");
+    triggered_rule_2.set_action(
+        chrome::cros::reporting::proto::TriggeredRuleInfo::BLOCK);
     *expected_event.add_triggered_rule_info() = triggered_rule_2;
 
     ::chrome::cros::reporting::proto::UrlInfo referrers;
@@ -1025,10 +1028,14 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest,
     chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule_1;
     triggered_rule_1.set_rule_id(1);
     triggered_rule_1.set_rule_name("resource rule 1");
+    triggered_rule_1.set_action(
+        chrome::cros::reporting::proto::TriggeredRuleInfo::REPORT_ONLY);
     *expected_event.add_triggered_rule_info() = triggered_rule_1;
     chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule_2;
     triggered_rule_2.set_rule_id(3);
     triggered_rule_2.set_rule_name("resource rule 2");
+    triggered_rule_2.set_action(
+        chrome::cros::reporting::proto::TriggeredRuleInfo::BLOCK);
     *expected_event.add_triggered_rule_info() = triggered_rule_2;
 
     ::chrome::cros::reporting::proto::UrlInfo referrers;
@@ -1167,10 +1174,10 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest, AllowTextAndImage) {
   run_loop.Run();
   EXPECT_TRUE(called);
 
-  // There should have been 1 request for text, 1 for authentication of the
-  // scanning request.
-  ASSERT_EQ(FakeBinaryUploadServiceStorage()->requests_count(), 2);
-  ASSERT_EQ(FakeBinaryUploadServiceStorage()->ack_count(), 1);
+  // There should have been 1 request for authentication, 1 for the text, and 1
+  // for the image.
+  ASSERT_EQ(FakeBinaryUploadServiceStorage()->requests_count(), 3);
+  ASSERT_EQ(FakeBinaryUploadServiceStorage()->ack_count(), 2);
 
   // Ensure the ContentAnalysisDelegate is destroyed before the end of the test.
   content_analysis_run_loop.Run();
@@ -1241,6 +1248,8 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest,
     chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule;
     triggered_rule.set_rule_id(1);
     triggered_rule.set_rule_name("resource rule 1");
+    triggered_rule.set_action(
+        chrome::cros::reporting::proto::TriggeredRuleInfo::BLOCK);
     *expected_event.add_triggered_rule_info() = triggered_rule;
 
     ::chrome::cros::reporting::proto::UrlInfo referrers;
@@ -1306,10 +1315,10 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest,
   run_loop.Run();
   EXPECT_TRUE(called);
 
-  // There should have been 1 request for text, 1 for authentication of the
-  // scanning request.
-  ASSERT_EQ(FakeBinaryUploadServiceStorage()->requests_count(), 2);
-  ASSERT_EQ(FakeBinaryUploadServiceStorage()->ack_count(), 1);
+  // There should have been 1 request for authentication, 1 for the text, and 1
+  // for the image.
+  ASSERT_EQ(FakeBinaryUploadServiceStorage()->requests_count(), 3);
+  ASSERT_EQ(FakeBinaryUploadServiceStorage()->ack_count(), 2);
 
   // Ensure the ContentAnalysisDelegate is destroyed before the end of the test.
   content_analysis_run_loop.Run();
@@ -1381,6 +1390,8 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest,
     chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule;
     triggered_rule.set_rule_id(1);
     triggered_rule.set_rule_name("resource rule 1");
+    triggered_rule.set_action(
+        chrome::cros::reporting::proto::TriggeredRuleInfo::BLOCK);
     *expected_event.add_triggered_rule_info() = triggered_rule;
 
     ::chrome::cros::reporting::proto::UrlInfo referrers;
@@ -1446,10 +1457,10 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBrowserTest,
   run_loop.Run();
   EXPECT_TRUE(called);
 
-  // There should have been 1 request for text, 1 for authentication of the
-  // scanning request.
-  ASSERT_EQ(FakeBinaryUploadServiceStorage()->requests_count(), 2);
-  ASSERT_EQ(FakeBinaryUploadServiceStorage()->ack_count(), 1);
+  // There should have been 1 request for authentication, 1 for the text, and 1
+  // for the image.
+  ASSERT_EQ(FakeBinaryUploadServiceStorage()->requests_count(), 3);
+  ASSERT_EQ(FakeBinaryUploadServiceStorage()->ack_count(), 2);
 
   // Ensure the ContentAnalysisDelegate is destroyed before the end of the test.
   content_analysis_run_loop.Run();
@@ -1609,10 +1620,11 @@ class ContentAnalysisDelegateBlockingSettingBrowserTest
     use_proto_format()
         ? scoped_feature_list_.InitWithFeatures(
               /*enabled_features=*/
-              {policy::kUploadRealtimeReportingEventsUsingProto},
+              {policy::kUploadRealtimeReportingEventsUsingProto,
+               kDlpScanPastedImages},
               /*disabled_features=*/{})
         : scoped_feature_list_.InitWithFeatures(
-              /*enabled_features=*/{},
+              /*enabled_features=*/{kDlpScanPastedImages},
               /*disabled_features=*/{
                   policy::kUploadRealtimeReportingEventsUsingProto});
   }
@@ -2202,6 +2214,8 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
 
     chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule;
     triggered_rule.set_rule_name("some_dlp_rule");
+    triggered_rule.set_action(
+        chrome::cros::reporting::proto::TriggeredRuleInfo::BLOCK);
     *expected_data_event.add_triggered_rule_info() = triggered_rule;
 
     *expected_data_event.add_referrers() = referrers;
@@ -2352,6 +2366,8 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisDelegateBlockingSettingBrowserTest,
     chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule;
     triggered_rule.set_rule_id(1);
     triggered_rule.set_rule_name("resource rule 1");
+    triggered_rule.set_action(
+        chrome::cros::reporting::proto::TriggeredRuleInfo::BLOCK);
     *expected_event.add_triggered_rule_info() = triggered_rule;
 
     ::chrome::cros::reporting::proto::UrlInfo referrers;

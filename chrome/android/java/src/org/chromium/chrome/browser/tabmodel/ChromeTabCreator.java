@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.tabmodel;
 
+import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
@@ -171,8 +172,10 @@ public class ChromeTabCreator extends TabCreator
         }
     }
 
-    private Profile getProfile() {
-        return ProfileProvider.getOrCreateProfile(mProfileProviderSupplier.get(), mIncognito);
+    @Override
+    protected Profile getProfile() {
+        return ProfileProvider.getOrCreateProfile(
+                assertNonNull(mProfileProviderSupplier.get()), mIncognito);
     }
 
     /**

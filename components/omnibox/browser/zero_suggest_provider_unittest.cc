@@ -39,6 +39,7 @@
 #include "components/variations/entropy_provider.h"
 #include "components/variations/scoped_variations_ids_provider.h"
 #include "components/variations/variations_associated_data.h"
+#include "net/http/http_response_headers.h"
 #include "net/http/http_util.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -267,7 +268,7 @@ class ZeroSuggestProviderTest : public testing::Test,
 
   base::test::SingleThreadTaskEnvironment task_environment_;
   std::unique_ptr<base::test::ScopedFeatureList> scoped_feature_list_;
-  variations::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
+  variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
       variations::VariationsIdsProvider::Mode::kUseSignedInState};
   std::unique_ptr<FakeAutocompleteProviderClient> client_;
   scoped_refptr<ZeroSuggestProvider> provider_;

@@ -20,6 +20,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.os.Build;
 import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.Window;
@@ -42,14 +43,16 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.shadows.ShadowPackageManager;
+import org.robolectric.util.ReflectionHelpers;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.SysUtils;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
-import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -58,6 +61,7 @@ import org.chromium.chrome.browser.tab.RequestDesktopUtilsUnitTest.ShadowDisplay
 import org.chromium.chrome.browser.tab.RequestDesktopUtilsUnitTest.ShadowDisplayUtil;
 import org.chromium.chrome.browser.tab.RequestDesktopUtilsUnitTest.ShadowSysUtils;
 import org.chromium.chrome.browser.tab.RequestDesktopUtilsUnitTest.ShadowTabUtils;
+import org.chromium.chrome.test.OverrideContextWrapperTestRule;
 import org.chromium.components.browser_ui.site_settings.SingleCategorySettingsConstants;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
@@ -140,15 +144,25 @@ public class RequestDesktopUtilsUnitTest {
 
     @Implements(TabUtils.class)
     static class ShadowTabUtils {
-        private static boolean sIsGlobalSetting;
+        private static boolean sIsContentSettingGlobal;
+        private static boolean sIsContentSettingDesktop;
 
-        public static void setIsGlobalSetting(Boolean isGlobalSetting) {
-            sIsGlobalSetting = isGlobalSetting;
+        public static void setIsContentSettingGlobal(Boolean isContentSettingGlobal) {
+            sIsContentSettingGlobal = isContentSettingGlobal;
+        }
+
+        public static void setIsContentSettingDesktop(boolean isContentSettingDesktop) {
+            sIsContentSettingDesktop = isContentSettingDesktop;
         }
 
         @Implementation
         public static boolean isRequestDesktopSiteContentSettingsGlobal(Profile profile, GURL url) {
-            return sIsGlobalSetting;
+            return sIsContentSettingGlobal;
+        }
+
+        @Implementation
+        public static boolean readRequestDesktopSiteContentSettings(Profile profile, GURL url) {
+            return sIsContentSettingDesktop;
         }
     }
 
@@ -180,7 +194,6 @@ public class RequestDesktopUtilsUnitTest {
     @Mock private DisplayMetrics mDisplayMetrics;
     @Mock private Profile mProfile;
     @Mock private Tracker mTracker;
-    @Mock private ObservableSupplier<Tab> mCurrentTabSupplier;
     @Mock private DisplayAndroid mDisplayAndroid;
     @Mock private Display mDisplay;
     @Mock private UserPrefs.Natives mUserPrefsJni;
@@ -273,7 +286,8 @@ public class RequestDesktopUtilsUnitTest {
                         })
                 .when(mPrefService)
                 .setBoolean(eq(DESKTOP_SITE_WINDOW_SETTING_ENABLED), anyBoolean());
-        ShadowTabUtils.setIsGlobalSetting(true);
+        ShadowTabUtils.setIsContentSettingGlobal(true);
+        ShadowTabUtils.setIsContentSettingDesktop(false);
         when(mActivity.getWindow()).thenReturn(mWindow);
         when(mWindow.getAttributes()).thenReturn(mLayoutParams);
         mLayoutParams.width = -1;
@@ -776,7 +790,7 @@ public class RequestDesktopUtilsUnitTest {
     @Test
     public void testShouldApplyWindowSetting_isNotGlobalSetting() {
         mWindowSetting = true;
-        ShadowTabUtils.setIsGlobalSetting(false);
+        ShadowTabUtils.setIsContentSettingGlobal(false);
         boolean shouldApplyWindowSetting =
                 RequestDesktopUtils.shouldApplyWindowSetting(mProfile, mGoogleUrl, mActivity);
         Assert.assertFalse(
@@ -788,7 +802,7 @@ public class RequestDesktopUtilsUnitTest {
     @Test
     public void testShouldApplyWindowSetting_windowAttributesWidthValid() {
         mWindowSetting = true;
-        ShadowTabUtils.setIsGlobalSetting(true);
+        ShadowTabUtils.setIsContentSettingGlobal(true);
         mLayoutParams.width = 800;
         boolean shouldApplyWindowSetting =
                 RequestDesktopUtils.shouldApplyWindowSetting(mProfile, mGoogleUrl, mActivity);
@@ -809,7 +823,7 @@ public class RequestDesktopUtilsUnitTest {
     @Test
     public void testShouldApplyWindowSetting_windowAttributesWidthInvalid() {
         mWindowSetting = true;
-        ShadowTabUtils.setIsGlobalSetting(true);
+        ShadowTabUtils.setIsContentSettingGlobal(true);
         mDisplayMetrics.density = 2.0f;
         mDisplayMetrics.widthPixels = 1600;
         boolean shouldApplyWindowSetting =
@@ -881,6 +895,97 @@ public class RequestDesktopUtilsUnitTest {
         mIsDefaultValuePreference = true;
         RequestDesktopUtils.maybeDefaultEnableWindowSetting(mActivity, mProfile);
         Assert.assertTrue("Desktop site window setting should be default enabled", mWindowSetting);
+    }
+
+    @Test
+    public void testShouldOverrideDesktopSite_contentSettingOn() {
+        ShadowTabUtils.setIsContentSettingDesktop(true);
+        boolean shouldOverride =
+                RequestDesktopUtils.shouldOverrideDesktopSite(mProfile, mGoogleUrl, mActivity);
+        Assert.assertTrue("Desktop site should be overridden.", shouldOverride);
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.DESKTOP_UA_ON_CONNECTED_DISPLAY
+                    + ":ext_display_desktop_ua_oem_allowlist/samsung")
+    public void testShouldOverrideDesktopSite_onEligibleExternalDisplay() {
+        when(mDisplay.getDisplayId()).thenReturn(/*non built-in display*/ 2);
+        String originalManufacturer = Build.MANUFACTURER;
+        try {
+            ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", "samsung");
+            boolean shouldOverride =
+                    RequestDesktopUtils.shouldOverrideDesktopSite(mProfile, mGoogleUrl, mActivity);
+            Assert.assertTrue("Desktop site should be overridden.", shouldOverride);
+        } finally {
+            ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", originalManufacturer);
+            RequestDesktopUtils.sDesktopUAAllowedOnExternalDisplayForOem = null;
+        }
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.DESKTOP_UA_ON_CONNECTED_DISPLAY
+                    + ":ext_display_desktop_ua_oem_allowlist/samsung")
+    public void
+            testShouldOverrideDesktopSite_onEligibleExternalDisplay_userPreviouslyUpdatedSetting() {
+        when(mDisplay.getDisplayId()).thenReturn(/*non built-in display*/ 2);
+        String originalManufacturer = Build.MANUFACTURER;
+        try {
+            ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", "samsung");
+            mSharedPreferencesManager.writeBoolean(
+                    SingleCategorySettingsConstants
+                            .USER_ENABLED_DESKTOP_SITE_GLOBAL_SETTING_PREFERENCE_KEY,
+                    true);
+            boolean shouldOverride =
+                    RequestDesktopUtils.shouldOverrideDesktopSite(mProfile, mGoogleUrl, mActivity);
+            Assert.assertFalse("Desktop site should not be overridden.", shouldOverride);
+        } finally {
+            ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", originalManufacturer);
+            RequestDesktopUtils.sDesktopUAAllowedOnExternalDisplayForOem = null;
+        }
+    }
+
+    @Test
+    public void testShouldOverrideDesktopSite_defaultDisplay_shouldNotOverride() {
+        when(mDisplay.getDisplayId()).thenReturn(Display.DEFAULT_DISPLAY);
+        boolean shouldOverride =
+                RequestDesktopUtils.shouldOverrideDesktopSite(mProfile, mGoogleUrl, mActivity);
+        Assert.assertFalse("Desktop site should not be overridden.", shouldOverride);
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.DESKTOP_UA_ON_CONNECTED_DISPLAY
+                    + ":ext_display_desktop_ua_oem_allowlist/samsung")
+    public void testShouldOverrideDesktopSite_OEMNotAllowlisted_shouldNotOverride() {
+        when(mDisplay.getDisplayId()).thenReturn(/*non built-in display*/ 2);
+        String originalManufacturer = Build.MANUFACTURER;
+        try {
+            ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", "something_else");
+            boolean shouldOverride =
+                    RequestDesktopUtils.shouldOverrideDesktopSite(mProfile, mGoogleUrl, mActivity);
+            Assert.assertFalse("Desktop site should not be overridden.", shouldOverride);
+        } finally {
+            ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", originalManufacturer);
+            RequestDesktopUtils.sDesktopUAAllowedOnExternalDisplayForOem = null;
+        }
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DESKTOP_UA_ON_CONNECTED_DISPLAY)
+    public void testShouldOverrideDesktopSite_OEMAllowlistNotSet_shouldNotOverride() {
+        when(mDisplay.getDisplayId()).thenReturn(/*non built-in display*/ 2);
+        String originalManufacturer = Build.MANUFACTURER;
+        try {
+            ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", "samsung");
+            boolean shouldOverride =
+                    RequestDesktopUtils.shouldOverrideDesktopSite(mProfile, mGoogleUrl, mActivity);
+            Assert.assertFalse("Desktop site should not be overridden.", shouldOverride);
+        } finally {
+            ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", originalManufacturer);
+            RequestDesktopUtils.sDesktopUAAllowedOnExternalDisplayForOem = null;
+        }
     }
 
     private Tab createTab() {

@@ -67,6 +67,8 @@ public class ListMenuItemProperties {
             new WritableObjectPropertyKey<>();
     public static final WritableObjectPropertyKey<View.@Nullable OnHoverListener> HOVER_LISTENER =
             new WritableObjectPropertyKey<>();
+    public static final WritableBooleanPropertyKey IS_HIGHLIGHTED =
+            new WritableBooleanPropertyKey();
     public static final WritableObjectPropertyKey<@Nullable Intent> INTENT =
             new WritableObjectPropertyKey<>();
     public static final WritableBooleanPropertyKey ENABLED = new WritableBooleanPropertyKey();
@@ -79,6 +81,9 @@ public class ListMenuItemProperties {
             new ReadableBooleanPropertyKey();
 
     public static final WritableObjectPropertyKey<View.OnKeyListener> KEY_LISTENER =
+            new WritableObjectPropertyKey<>();
+
+    public static final WritableObjectPropertyKey<View.OnTouchListener> TOUCH_LISTENER =
             new WritableObjectPropertyKey<>();
 
     public static final PropertyKey[] ALL_KEYS = {
@@ -95,12 +100,14 @@ public class ListMenuItemProperties {
         MENU_ITEM_ID,
         CLICK_LISTENER,
         HOVER_LISTENER,
+        IS_HIGHLIGHTED,
         INTENT,
         ENABLED,
         ICON_TINT_COLOR_STATE_LIST_ID,
         TEXT_APPEARANCE_ID,
         IS_TEXT_ELLIPSIZED_AT_END,
         KEEP_START_ICON_SPACING_WHEN_HIDDEN,
-        KEY_LISTENER
+        KEY_LISTENER,
+        TOUCH_LISTENER
     };
 }

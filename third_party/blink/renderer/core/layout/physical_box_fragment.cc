@@ -594,6 +594,17 @@ const PhysicalBoxFragment* PhysicalBoxFragment::PostLayout() const {
   return post_layout;
 }
 
+void PhysicalBoxFragment::SetChildrenInvalid() const {
+  if (!children_valid_) {
+    return;
+  }
+
+  for (const PhysicalFragmentLink& child : Children()) {
+    const_cast<PhysicalFragmentLink&>(child).fragment = nullptr;
+  }
+  children_valid_ = false;
+}
+
 PhysicalRect PhysicalBoxFragment::SelfInkOverflowRect() const {
   if (!CanUseFragmentsForInkOverflow()) [[unlikely]] {
     const auto* owner_box = DynamicTo<LayoutBox>(GetLayoutObject());
@@ -1083,7 +1094,7 @@ PhysicalRect PhysicalBoxFragment::ComputeSelfInkOverflow() const {
         LayoutUnit(MaxGapDecorationsWidth(style.ColumnRuleWidth()));
     LayoutUnit block_thickness =
         LayoutUnit(MaxGapDecorationsWidth(style.RowRuleWidth()));
-    PhysicalRect rect = gap_geometry->ComputeInkOverflowForGaps(
+    PhysicalRect rect = gap_geometry->ComputeInkOverflowForGapsOptimized(
         Style().GetWritingDirection(), Size(), inline_thickness,
         block_thickness);
     ink_overflow.Unite(rect);

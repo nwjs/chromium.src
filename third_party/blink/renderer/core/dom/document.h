@@ -51,6 +51,7 @@
 #include "third_party/blink/public/common/metrics/document_update_reason.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/css/preferred_contrast.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/page/page.mojom-blink-forward.h"
@@ -236,6 +237,7 @@ class ResizeObserver;
 class Resource;
 class ResourceFetcher;
 class RootScrollerController;
+class RouteMap;
 class SVGDocumentExtensions;
 class SVGUseElement;
 class ScriptElementBase;
@@ -693,7 +695,12 @@ class CORE_EXPORT Document : public ContainerNode,
     return *style_engine_.Get();
   }
 
+  void UpdateForcedColors();
+  bool InForcedColorsMode() const;
+  bool InDarkMode();
+
   mojom::blink::PreferredColorScheme GetPreferredColorScheme() const;
+  mojom::blink::PreferredContrast GetPreferredContrast() const;
 
   void ScheduleUseShadowTreeUpdate(SVGUseElement&);
   void UnscheduleUseShadowTreeUpdate(SVGUseElement&);
@@ -1442,6 +1449,9 @@ class CORE_EXPORT Document : public ContainerNode,
   V8HTMLOrSVGScriptElement* currentScriptForBinding() const;
   void PushCurrentScript(ScriptElementBase*);
   void PopCurrentScript(ScriptElementBase*);
+  bool IsCurrentScriptStackEmpty() const {
+    return current_script_stack_.empty();
+  }
 
   void SetTransformSource(std::unique_ptr<TransformSource>);
   TransformSource* GetTransformSource() const {
@@ -1718,12 +1728,18 @@ class CORE_EXPORT Document : public ContainerNode,
     return all_open_dialogs_;
   }
 
+  HeapLinkedHashSet<Member<Element>>& ElementsWithInterest() {
+    return elements_with_interest_;
+  }
+
   // https://crbug.com/1453291
   // The DOM Parts API:
   // https://github.com/WICG/webcomponents/blob/gh-pages/proposals/DOM-Parts.md.
   DocumentPartRoot& getPartRoot();
   DocumentPartRoot& EnsureDocumentPartRoot();
   bool DOMPartsInUse() const { return document_part_root_ != nullptr; }
+
+  RouteMap* routeMap();
 
   // A non-null template_document_host_ implies that |this| was created by
   // EnsureTemplateDocument().
@@ -1981,10 +1997,6 @@ class CORE_EXPORT Document : public ContainerNode,
   bool IsAnimatedPropertyCounted(CSSPropertyID property) const;
   void ClearUseCounterForTesting(mojom::WebFeature);
   void ClearWebDXFeatureCounterForTesting(mojom::blink::WebDXFeature);
-
-  void UpdateForcedColors();
-  bool InForcedColorsMode() const;
-  bool InDarkMode();
 
   const ui::ColorProvider* GetColorProviderForPainting(
       mojom::blink::ColorScheme color_scheme) const;
@@ -2913,6 +2925,10 @@ class CORE_EXPORT Document : public ContainerNode,
 
   // The ordered list of currently-open dialogs, in order they were opened.
   HeapLinkedHashSet<Member<HTMLDialogElement>> all_open_dialogs_;
+
+  // The ordered list of elements that currently have interest (via
+  // `interestfor`), in the order they were opened.
+  HeapLinkedHashSet<Member<Element>> elements_with_interest_;
 
   Member<DocumentPartRoot> document_part_root_;
 

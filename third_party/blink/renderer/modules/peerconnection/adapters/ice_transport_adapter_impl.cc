@@ -88,14 +88,21 @@ void IceTransportAdapterImpl::SetupIceTransportChannel() {
       this, [this](webrtc::IceTransportInternal* transport) {
         OnGatheringStateChanged(transport);
       });
-  ice_transport_channel()->SignalCandidateGathered.connect(
-      this, &IceTransportAdapterImpl::OnCandidateGathered);
-  ice_transport_channel()->SignalIceTransportStateChanged.connect(
-      this, &IceTransportAdapterImpl::OnStateChanged);
+  ice_transport_channel()->SubscribeCandidateGathered(
+      [this](webrtc::IceTransportInternal* transport,
+             const webrtc::Candidate& candidate) {
+        OnCandidateGathered(transport, candidate);
+      });
+  ice_transport_channel()->SubscribeIceTransportStateChanged(
+      [this](webrtc::IceTransportInternal* transport) {
+        OnStateChanged(transport);
+      });
   ice_transport_channel()->SignalNetworkRouteChanged.connect(
       this, &IceTransportAdapterImpl::OnNetworkRouteChanged);
-  ice_transport_channel()->SignalRoleConflict.connect(
-      this, &IceTransportAdapterImpl::OnRoleConflict);
+  ice_transport_channel()->SubscribeRoleConflict(
+      [this](webrtc::IceTransportInternal* transport) {
+        OnRoleConflict(transport);
+      });
 }
 
 void IceTransportAdapterImpl::OnGatheringStateChanged(

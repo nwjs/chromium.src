@@ -25,6 +25,8 @@
 #include "extensions/common/switches.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
+
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/web_contents.h"
 

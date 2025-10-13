@@ -159,6 +159,7 @@
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-blink.h"
 #include "ui/base/mojom/menu_source_type.mojom-blink-forward.h"
 #include "ui/base/mojom/window_show_state.mojom-blink.h"
@@ -630,7 +631,7 @@ void WebFrameWidgetImpl::DragTargetDrop(const WebDragData& web_drag_data,
   DragData drag_data(current_drag_data_.Get(),
                      ViewportToRootFrame(point_in_viewport), screen_point,
                      operations_allowed_, web_drag_data.ForceDefaultAction());
-  GetPage()->GetDragController().PerformDrag(
+  GetPage()->GetDragController().PerformDrop(
       &drag_data, *local_root_->GetFrame(), drag_operation_);
   // Drops that initiated in the browser get reported via `DragSourceEndedAt`.
   if (!GetPage()->GetDragController().did_initiate_drag()) {
@@ -1055,8 +1056,8 @@ void WebFrameWidgetImpl::HandleMouseDown(LocalFrame& local_root,
         html_element->IsPluginElement()) {
       mouse_capture_element_ = To<HTMLPlugInElement>(hit_node);
       SetMouseCapture(true);
-      TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("input", "capturing mouse",
-                                        TRACE_ID_LOCAL(this));
+      TRACE_EVENT_BEGIN("input", "capturing mouse",
+                        perfetto::Track::FromPointer(this));
     }
   }
 
@@ -1568,13 +1569,6 @@ void WebFrameWidgetImpl::RequestDecode(const cc::DrawImage& image,
   }
 }
 
-bool WebFrameWidgetImpl::SpeculativeDecodeRequestInFlight() const {
-  if (auto* layer_tree_host = widget_base_->LayerTreeHost()) {
-    return layer_tree_host->SpeculativeDecodeRequestInFlight();
-  }
-  return false;
-}
-
 void WebFrameWidgetImpl::Trace(Visitor* visitor) const {
   visitor->Trace(local_root_);
   visitor->Trace(current_drag_data_);
@@ -1993,10 +1987,8 @@ void WebFrameWidgetImpl::ApplyVisualPropertiesSizing(
           visual_properties.browser_controls_params);
     }
 
-#if !BUILDFLAG(IS_ANDROID)
     LocalRootImpl()->GetFrame()->UpdateWindowControlsOverlay(
         visual_properties.window_controls_overlay_rect);
-#endif
 
   } else {
     // Widgets in a WebView's frame tree without a local main frame
@@ -2300,7 +2292,8 @@ void WebFrameWidgetImpl::ApplyViewportIntersection(
 }
 
 void WebFrameWidgetImpl::EnableDeviceEmulation(
-    const DeviceEmulationParams& parameters) {
+    const DeviceEmulationParams& parameters,
+    const mojom::blink::DeviceEmulationCacheBehavior cache_behavior) {
   // Device Emaulation is only supported for the main frame.
   DCHECK(ForMainFrame());
   if (!widget_base_ || widget_base_->WillBeDestroyed()) {
@@ -2314,7 +2307,7 @@ void WebFrameWidgetImpl::EnableDeviceEmulation(
         widget_base_->VisibleViewportSize(), widget_base_->WidgetScreenRect(),
         widget_base_->WindowScreenRect());
   }
-  device_emulator_->ChangeEmulationParams(parameters);
+  device_emulator_->ChangeEmulationParams(parameters, cache_behavior);
 }
 
 void WebFrameWidgetImpl::DisableDeviceEmulation() {
@@ -3244,8 +3237,7 @@ void WebFrameWidgetImpl::RequestMouseLock(
 }
 
 void WebFrameWidgetImpl::MouseCaptureLost() {
-  TRACE_EVENT_NESTABLE_ASYNC_END0("input", "capturing mouse",
-                                  TRACE_ID_LOCAL(this));
+  TRACE_EVENT_END("input", perfetto::Track::FromPointer(this));
   mouse_capture_element_ = nullptr;
 }
 
@@ -3975,10 +3967,7 @@ bool WebFrameWidgetImpl::IsProvisional() {
 
 cc::ElementId WebFrameWidgetImpl::GetScrollableContainerIdAt(
     const gfx::PointF& point) {
-  gfx::PointF hit_test_point = point;
-  LocalFrameView* view = LocalRootImpl()->GetFrameView();
-  hit_test_point.Scale(1 / view->InputEventsScaleFactor());
-  return HitTestResultForRootFramePos(hit_test_point).GetScrollableContainer();
+  return HitTestResultAt(point).GetScrollableContainerId();
 }
 
 bool WebFrameWidgetImpl::ShouldHandleImeEvents() {
@@ -4719,9 +4708,10 @@ bool WebFrameWidgetImpl::AutoResizeMode() {
 
 void WebFrameWidgetImpl::SetScreenMetricsEmulationParameters(
     bool enabled,
-    const DeviceEmulationParams& params) {
+    const DeviceEmulationParams& params,
+    const mojom::blink::DeviceEmulationCacheBehavior& cache_behavior) {
   if (enabled)
-    View()->ActivateDevToolsTransform(params);
+    View()->ActivateDevToolsTransform(params, cache_behavior);
   else
     View()->DeactivateDevToolsTransform();
 }
@@ -5096,7 +5086,10 @@ const viz::FrameSinkId& WebFrameWidgetImpl::GetFrameSinkId() {
 }
 
 WebHitTestResult WebFrameWidgetImpl::HitTestResultAt(const gfx::PointF& point) {
-  return CoreHitTestResultAt(point);
+  gfx::PointF hit_test_point = point;
+  hit_test_point.Scale(
+      1 / GetPage()->GetChromeClient().InputEventsScaleForEmulation());
+  return CoreHitTestResultAt(hit_test_point);
 }
 
 void WebFrameWidgetImpl::SetZoomLevelForTesting(double zoom_level) {

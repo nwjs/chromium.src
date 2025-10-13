@@ -594,8 +594,8 @@ std::optional<TemplateURLData> KeywordTable::GetKeywordDataFromStatement(
   data.enforced_by_policy = s.ColumnBool(25);
   data.featured_by_policy = s.ColumnBool(26);
 
-  std::optional<base::Value> value(
-      base::JSONReader::Read(s.ColumnStringView(15)));
+  std::optional<base::Value> value(base::JSONReader::Read(
+      s.ColumnStringView(15), base::JSON_PARSE_CHROMIUM_EXTENSIONS));
   if (value && value->is_list()) {
     for (const base::Value& alternate_url : value->GetList()) {
       if (alternate_url.is_string()) {
@@ -662,8 +662,8 @@ void KeywordTable::BindURLToStatement(const TemplateURLData& data,
   for (const auto& alternate_url : data.alternate_urls) {
     alternate_urls_value.Append(alternate_url);
   }
-  std::string alternate_urls;
-  base::JSONWriter::Write(alternate_urls_value, &alternate_urls);
+  std::string alternate_urls =
+      base::WriteJson(alternate_urls_value).value_or("");
 
   s->BindInt64(id_column, data.id);
   s->BindString16(starting_column, data.short_name());

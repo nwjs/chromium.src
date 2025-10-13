@@ -21,28 +21,15 @@ namespace {
 using base::android::AttachCurrentThread;
 using base::android::JavaParamRef;
 
-// Helper to get the Profile from the Java side.
-Profile* GetProfileFromJava(
-    JNIEnv* env,
-    const JavaParamRef<jobject>& java_android_browser_window) {
-  base::android::ScopedJavaLocalRef<jobject> j_profile =
-      Java_AndroidBrowserWindow_getProfile(env, java_android_browser_window);
-  CHECK(!j_profile.is_null())
-      << "AndroidBrowserWindow is for desktop Android, which assumes that the "
-         "associated profile will never be null for the lifetime of the "
-         "window. See documentation of BrowserWindowInterface::GetProfile() "
-         "for details.";
-  return Profile::FromJavaObject(j_profile);
-}
-
 }  // namespace
 
 // Implements Java |AndroidBrowserWindow.Natives#create|.
 static jlong JNI_AndroidBrowserWindow_Create(
     JNIEnv* env,
     const JavaParamRef<jobject>& caller,
-    jint browser_window_type) {
-  Profile* profile = GetProfileFromJava(env, caller);
+    jint browser_window_type,
+    const JavaParamRef<jobject>& j_profile) {
+  Profile* profile = Profile::FromJavaObject(j_profile);
   return reinterpret_cast<intptr_t>(new AndroidBrowserWindow(
       env, caller,
       static_cast<BrowserWindowInterface::Type>(browser_window_type), profile));
@@ -68,6 +55,10 @@ void AndroidBrowserWindow::Destroy(JNIEnv* env) {
   delete this;
 }
 
+jint AndroidBrowserWindow::GetSessionIdForTesting(JNIEnv* env) const {
+  return GetSessionID().id();
+}
+
 ui::UnownedUserDataHost& AndroidBrowserWindow::GetUnownedUserDataHost() {
   return unowned_user_data_host_;
 }
@@ -83,21 +74,19 @@ ui::BaseWindow* AndroidBrowserWindow::GetWindow() {
           AttachCurrentThread(), java_android_browser_window_));
 }
 
+const ui::BaseWindow* AndroidBrowserWindow::GetWindow() const {
+  return reinterpret_cast<ui::BaseWindow*>(
+      Java_AndroidBrowserWindow_getOrCreateNativeBaseWindowPtr(
+          AttachCurrentThread(), java_android_browser_window_));
+}
+
 Profile* AndroidBrowserWindow::GetProfile() {
   return const_cast<Profile*>(
       static_cast<const AndroidBrowserWindow*>(this)->GetProfile());
 }
 
 const Profile* AndroidBrowserWindow::GetProfile() const {
-  JNIEnv* env = AttachCurrentThread();
-  Profile* current_profile_ptr =
-      GetProfileFromJava(env, java_android_browser_window_);
-  Profile* cached_profile_ptr = &profile_.get();
-  CHECK(cached_profile_ptr == current_profile_ptr)
-      << "AndroidBrowserWindow is for desktop Android, which assumes a single "
-         "Profile for a given window. See documentation of "
-         "BrowserWindowInterface::GetProfile() for details.";
-  return cached_profile_ptr;
+  return &profile_.get();
 }
 
 const SessionID& AndroidBrowserWindow::GetSessionID() const {

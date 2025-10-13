@@ -1281,19 +1281,10 @@ inline constexpr char kFloatingSsoDomainBlocklist[] =
 inline constexpr char kFloatingSsoDomainBlocklistExceptions[] =
     "floating_sso_domain_blocklist_exceptions";
 
-// Boolean pref specifying if the the Floating SSO Service is enabled. The
-// service restores the user's web service authentication state by moving
-// cookies from the previous device onto another, on ChromeOS.
-inline constexpr char kFloatingSsoEnabled[] = "floating_sso_enabled";
-
 // Boolean pref that determine whether session cookies will be included or not
 // when user switches between ChromeOS devices.
 inline constexpr char kFloatingSsoSessionCookiesIncluded[] =
     "floating_sso_session_cookies_included";
-
-// Boolean pref that determines whether signing in on a new ChromeOS device
-// automatically signs the user out of their previous session.
-inline constexpr char kAutoSignOutEnabled[] = "auto_sign_out_enabled";
 
 // This boolean controls whether the first window shown on first run should be
 // unconditionally maximized, overriding the heuristic that normally chooses the
@@ -1484,21 +1475,14 @@ inline constexpr char kAccessibilityMainNodeAnnotationsEnabled[] =
 
 // Pref indicating the page colors option the user wants. Page colors is an
 // accessibility feature that simulates forced colors mode at the browser level.
-inline constexpr char kPageColors[] = "settings.a11y.page_colors";
+inline constexpr char kRequestedPageColors[] =
+    "settings.a11y.requested_page_colors";
 
 // Boolean Pref that indicates whether the user wants to enable page colors only
 // when the OS is in an Increased Contrast mode such as High Contrast on Windows
 // or Increased Contrast on Mac.
 inline constexpr char kApplyPageColorsOnlyOnIncreasedContrast[] =
     "settings.a11y.apply_page_colors_only_on_increased_contrast";
-
-#if BUILDFLAG(IS_WIN)
-// Boolean that indicates what the default page colors state should be. When
-// true, page colors will be 'High Contrast' when OS High Contrast is turned on,
-// otherwise page colors will remain 'Off'.
-inline constexpr char kIsDefaultPageColorsOnHighContrast[] =
-    "settings.a11y.is_default_page_colors_on_high_contrast";
-#endif  // BUILDFLAG(IS_WIN)
 
 // List pref containing site urls where forced colors should not be applied.
 inline constexpr char kPageColorsBlockList[] =
@@ -2129,6 +2113,14 @@ inline constexpr char kPinInfoBarTimesShown[] =
     "browser.pin_infobar_times_shown";
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+// How many times the session restore infobar has been shown.
+inline constexpr char kSessionRestoreInfoBarTimesShown[] =
+    "browser.session_restore_infobar_times_shown";
+
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
 // A collection of position, size, and other data relating to the browser
 // window to restore on startup.
 inline constexpr char kBrowserWindowPlacement[] = "browser.window_placement";
@@ -2493,6 +2485,14 @@ inline constexpr char kDevToolsAdbKey[] = "devtools.adb_key";
 // Defines administrator-set availability of developer tools.
 inline constexpr char kDevToolsAvailability[] = "devtools.availability";
 
+// List of developer tools availability allowlist.
+inline constexpr char kDeveloperToolsAvailabilityAllowlist[] =
+    "devtools.availability_allowlist";
+
+// List of developer tools availability blocklist.
+inline constexpr char kDeveloperToolsAvailabilityBlocklist[] =
+    "devtools.availability_blocklist";
+
 // This is a timestamp, milliseconds after epoch, of when devtools was last
 // opened.
 inline constexpr char kDevToolsLastOpenTimestamp[] =
@@ -2558,6 +2558,9 @@ inline constexpr char kDevToolsSyncedPreferencesSyncDisabled[] =
     "devtools.synced_preferences_sync_disabled";
 
 inline constexpr char kDevToolsGenAiSettings[] = "devtools.gen_ai_settings";
+
+inline constexpr char kDevToolsGoogleDeveloperProgramProfileAvailability[] =
+    "devtools.google_developer_program_profile_availability";
 
 #if !BUILDFLAG(IS_ANDROID)
 // Tracks the number of times the dice signin promo has been shown in the user
@@ -2853,6 +2856,15 @@ inline constexpr char kPostQuantumKeyAgreementEnabled[] =
 inline constexpr char kDevicePostQuantumKeyAgreementEnabled[] =
     "ssl.device_post_quantum_enabled";
 #endif
+
+// String identifying the compliance regime, if any, that must be adhered to for
+// key exchange in TLS.
+inline constexpr char kPreferSlowKexAlgorithms[] =
+    "ssl.compliance.key_exchange";
+
+// String identifying the compliance regime, if any, that must be adhered to for
+// key exchange in TLS.
+inline constexpr char kPreferSlowCiphers[] = "ssl.compliance.cipher";
 
 // Boolean that specifies whether TLS 1.3 Early Data is enabled.
 inline constexpr char kTLS13EarlyDataEnabled[] = "ssl.tls13_early_data_enabled";
@@ -3613,10 +3625,6 @@ inline constexpr char kWebShareVisitedTargets[] =
     "profile.web_share.visited_targets";
 
 #if BUILDFLAG(IS_WIN)
-// A boolean value, controlling whether Chrome renderer processes have the CIG
-// mitigation enabled.
-inline constexpr char kRendererCodeIntegrityEnabled[] =
-    "renderer_code_integrity_enabled";
 
 inline constexpr char kRestrictCoreSharingOnRenderer[] =
     "restrict_core_sharing_on_renderer";
@@ -3901,7 +3909,6 @@ inline constexpr char kAdbSideloadingPowerwashOnNextRebootNotificationShown[] =
     "adb_sideloading_powerwash_on_next_reboot_notification_shown";
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
 // Boolean pref that indicates whether caret browsing is currently enabled.
 inline constexpr char kCaretBrowsingEnabled[] =
     "settings.a11y.caretbrowsing.enabled";
@@ -3912,7 +3919,6 @@ inline constexpr char kCaretBrowsingEnabled[] =
 // is toggled silently by the keyboard shortcut.
 inline constexpr char kShowCaretBrowsingDialog[] =
     "settings.a11y.caretbrowsing.show_dialog";
-#endif
 
 #if BUILDFLAG(IS_CHROMEOS)
 // String enum pref determining what should happen when a user who authenticates
@@ -4269,6 +4275,11 @@ inline constexpr char kClearWindowNameForNewBrowsingContextGroup[] =
 // on regardless of defaults.
 inline constexpr char kManagedLocalNetworkAccessRestrictionsEnabled[] =
     "managed_local_network_access_restrictions_enabled";
+
+// Boolean indicating whether Local Network Access restrictions should be
+// temporarily opted out of.
+inline constexpr char kManagedLocalNetworkAccessRestrictionsTemporaryOptOut[] =
+    "managed_local_network_access_restrictions_temporary_opt_out";
 
 // Boolean that specifies whether SpeculationRules prefetch can be sent to
 // ServiceWorker-controlled URLs.

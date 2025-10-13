@@ -12,6 +12,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -23,19 +24,23 @@ import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneShotCallback;
 import org.chromium.base.task.AsyncTask;
-import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.navattach.AttachmentDetailsFetcher.AttachmentDetails;
 import org.chromium.chrome.browser.omnibox.navattach.NavigationAttachmentsRecyclerViewAdapter.NavigationAttachmentItemType;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.MVCListAdapter;
+import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.permissions.AndroidPermissionDelegate;
+import org.chromium.url.GURL;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
@@ -52,7 +57,10 @@ class NavigationAttachmentsMediator {
     private final NavigationAttachmentsPopup mPopup;
     private final ModelList mModelList;
     private final Drawable mFallbackDrawable;
-    private ComposeBoxQueryControllerBridge mComposeBoxQueryControllerBridge;
+    private final ObservableSupplierImpl<@NavigationFulfillmentType Integer>
+            mNavigationFulfillmentTypeSupplier;
+    private @Nullable ComposeBoxQueryControllerBridge mComposeBoxQueryControllerBridge;
+    private boolean mAiModeSessionActive;
 
     NavigationAttachmentsMediator(
             Context context,
@@ -60,7 +68,9 @@ class NavigationAttachmentsMediator {
             PropertyModel model,
             NavigationAttachmentsViewHolder viewHolder,
             ModelList modelList,
-            ObservableSupplier<Profile> profileObservableSupplier) {
+            ObservableSupplier<Profile> profileObservableSupplier,
+            ObservableSupplierImpl<@NavigationFulfillmentType Integer>
+                    navigationFulfillmentTypeSupplier) {
         mContext = context;
         mWindowAndroid = windowAndroid;
         mPermissionDelegate = windowAndroid;
@@ -69,6 +79,7 @@ class NavigationAttachmentsMediator {
         mModelList = modelList;
         mFallbackDrawable =
                 AppCompatResources.getDrawable(mContext, R.drawable.ic_attach_file_24dp);
+        mNavigationFulfillmentTypeSupplier = navigationFulfillmentTypeSupplier;
 
         mModel.set(
                 NavigationAttachmentsProperties.BUTTON_ADD_CLICKED, this::onToggleAttachmentsPopup);
@@ -77,41 +88,89 @@ class NavigationAttachmentsMediator {
                 NavigationAttachmentsProperties.POPUP_GALLERY_CLICKED, this::onImagePickerClicked);
         mModel.set(NavigationAttachmentsProperties.POPUP_FILE_CLICKED, this::onFilePickerClicked);
         mModel.set(
+                NavigationAttachmentsProperties.POPUP_CLIPBOARD_CLICKED, this::onClipboardClicked);
+        mModel.set(
                 NavigationAttachmentsProperties.ON_USE_AI_MODE_CHANGED, this::onUseAiModeChanged);
         new OneShotCallback<>(profileObservableSupplier, this::initializeBridge);
     }
 
+    /** Clean up resources used by this class. */
     void destroy() {
         if (mComposeBoxQueryControllerBridge != null) {
             mComposeBoxQueryControllerBridge.destroy();
         }
     }
 
-    @Initializer
     @VisibleForTesting
     void initializeBridge(Profile profile) {
         mComposeBoxQueryControllerBridge = new ComposeBoxQueryControllerBridge(profile);
     }
 
+    /**
+     * Called when the user toggles the AI mode.
+     *
+     * @param enabled Whether the AI mode is enabled.
+     */
     void onUseAiModeChanged(boolean enabled) {
-        if (!enabled) {
+        if (mComposeBoxQueryControllerBridge == null) return;
+        if (mAiModeSessionActive == enabled) return;
+
+        mAiModeSessionActive = enabled;
+        mNavigationFulfillmentTypeSupplier.set(
+                enabled ? NavigationFulfillmentType.AI_MODE : NavigationFulfillmentType.DEFAULT);
+        mModel.set(NavigationAttachmentsProperties.AI_MODE_ENABLED, enabled);
+        mModel.set(NavigationAttachmentsProperties.ATTACHMENTS_VISIBLE, enabled);
+        if (enabled) {
+            mComposeBoxQueryControllerBridge.notifySessionStarted();
+        } else {
+            mComposeBoxQueryControllerBridge.notifySessionAbandoned();
             mModelList.clear();
-            mModel.set(NavigationAttachmentsProperties.ATTACHMENTS_VISIBLE, false);
         }
     }
 
-    /** Called when the URL focus changes. */
-    void onUrlFocusChange(boolean hasFocus) {
-        mModel.set(NavigationAttachmentsProperties.TOOLBAR_VISIBLE, hasFocus);
-        if (!hasFocus) {
-            mPopup.dismiss();
+    /**
+     * Show or hide the navigation attachments toolbar.
+     *
+     * @param visible Whether the toolbar should be visible.
+     */
+    void setToolbarVisible(boolean visible) {
+        // Don't toggle visibility until we have a bridge to talk to.
+        if (mComposeBoxQueryControllerBridge == null) return;
+        // Don't take an action if the state isn't really changing.
+        if (mModel.get(NavigationAttachmentsProperties.TOOLBAR_VISIBLE) == visible) return;
+
+        mModel.set(NavigationAttachmentsProperties.TOOLBAR_VISIBLE, visible);
+        if (!visible) {
+            onUseAiModeChanged(false);
         }
     }
 
-    private void onToggleAttachmentsPopup() {
+    /**
+     * @return An {@link ObservableSupplier} that notifies observers when the navigation fulfillment
+     *     type changes.
+     */
+    ObservableSupplier<@NavigationFulfillmentType Integer> getNavigationFulfillmentTypeSupplier() {
+        return mNavigationFulfillmentTypeSupplier;
+    }
+
+    /**
+     * @param queryText The query text to be used for the AIM URL.
+     * @return The URL for the AIM service.
+     */
+    GURL getAimUrl(String queryText) {
+        assert mComposeBoxQueryControllerBridge != null;
+        if (mComposeBoxQueryControllerBridge == null) return GURL.emptyGURL();
+        return mComposeBoxQueryControllerBridge.getAimUrl(queryText);
+    }
+
+    @VisibleForTesting
+    void onToggleAttachmentsPopup() {
         if (mPopup.isShowing()) {
             mPopup.dismiss();
         } else {
+            mModel.set(
+                    NavigationAttachmentsProperties.POPUP_CLIPBOARD_BUTTON_VISIBLE,
+                    Clipboard.getInstance().hasImage());
             mPopup.show();
         }
     }
@@ -226,15 +285,49 @@ class NavigationAttachmentsMediator {
     }
 
     @VisibleForTesting
+    void onClipboardClicked() {
+        mPopup.dismiss();
+        new AsyncTask<byte[]>() {
+            @Override
+            protected byte[] doInBackground() {
+                byte[] png = Clipboard.getInstance().getPng();
+                return png == null ? new byte[0] : png;
+            }
+
+            @Override
+            protected void onPostExecute(byte[] pngBytes) {
+                if (pngBytes == null || pngBytes.length == 0) return;
+
+                Bitmap bitmap = BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.length);
+                if (bitmap == null) return;
+
+                AttachmentDetails attachmentDetails =
+                        new AttachmentDetails(
+                                NavigationAttachmentItemType.ATTACHMENT_IMAGE,
+                                new BitmapDrawable(mContext.getResources(), bitmap),
+                                "",
+                                "image/png",
+                                pngBytes);
+                addAttachment(attachmentDetails);
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+    @VisibleForTesting
     void fetchAttachmentDetails(
             Uri uri, Callback<AttachmentDetailsFetcher.AttachmentDetails> callback) {
         new AttachmentDetailsFetcher(mContext, mContext.getContentResolver(), uri, callback)
                 .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
+    /**
+     * Add an attachment to the navigation attachments toolbar.
+     *
+     * @param attachmentDetails The details of the attachment to add.
+     */
     /* package */ void addAttachment(AttachmentDetailsFetcher.AttachmentDetails attachmentDetails) {
-        uploadAttachment(attachmentDetails);
-        mModel.set(NavigationAttachmentsProperties.ATTACHMENTS_VISIBLE, true);
+        String token = uploadAttachment(attachmentDetails);
+        onUseAiModeChanged(true);
 
         PropertyModel model =
                 new PropertyModel.Builder(NavigationAttachmentItemProperties.ALL_KEYS)
@@ -248,11 +341,31 @@ class NavigationAttachmentsMediator {
                                 NavigationAttachmentItemProperties.DESCRIPTION,
                                 attachmentDetails.mimeType)
                         .build();
-        mModelList.add(new MVCListAdapter.ListItem(attachmentDetails.itemType, model));
+
+        var listItem = new MVCListAdapter.ListItem(attachmentDetails.itemType, model);
+        model.set(
+                NavigationAttachmentItemProperties.ON_REMOVE,
+                () -> removeAttachment(listItem, token));
+        mModelList.add(listItem);
     }
 
-    private void uploadAttachment(AttachmentDetails attachmentDetails) {
-        mComposeBoxQueryControllerBridge.addFile(
+    /**
+     * Remove an attachment from the navigation attachments toolbar.
+     *
+     * @param token The token of the attachment to remove.
+     */
+    public void removeAttachment(ListItem item, String token) {
+        mModelList.remove(item);
+        assert mComposeBoxQueryControllerBridge != null;
+        if (mComposeBoxQueryControllerBridge == null) return;
+        mComposeBoxQueryControllerBridge.removeAttachment(token);
+    }
+
+    private String uploadAttachment(AttachmentDetails attachmentDetails) {
+        assert mComposeBoxQueryControllerBridge != null;
+        if (mComposeBoxQueryControllerBridge == null) return "";
+
+        return mComposeBoxQueryControllerBridge.addFile(
                 attachmentDetails.title, attachmentDetails.mimeType, attachmentDetails.data);
     }
 

@@ -882,8 +882,8 @@ bool CaptionBubble::ShouldShowCloseButton() const {
   return false;
 }
 
-std::unique_ptr<views::NonClientFrameView>
-CaptionBubble::CreateNonClientFrameView(views::Widget* widget) {
+std::unique_ptr<views::FrameView> CaptionBubble::CreateFrameView(
+    views::Widget* widget) {
   std::vector<raw_ptr<views::View, VectorExperimental>> buttons = GetButtons();
   if (IsTranslateHeaderEnabled()) {
     caption_bubble_event_observer_ =
@@ -1402,8 +1402,7 @@ void CaptionBubble::SetBackgroundColor() {
   }
 
   views::BubbleDialogDelegateView::SetBackgroundColor(background_color);
-  GetWidget()->SetColorModeOverride(ui::ColorProviderKey::ColorMode::kDark,
-                                    /*background_color=*/std::nullopt);
+  GetWidget()->SetColorModeOverride(ui::ColorProviderKey::ColorMode::kDark);
 }
 
 void CaptionBubble::OnLanguageChanged(const std::string& display_language) {

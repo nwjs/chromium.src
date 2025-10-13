@@ -13,12 +13,23 @@
 #import "ios/chrome/browser/download/ui/download_list/download_list_grouping_util.h"
 #import "ios/chrome/browser/download/ui/download_list/download_list_item.h"
 #import "ios/chrome/browser/download/ui/download_list/download_list_mutator.h"
-#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_cell.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_header_footer_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/image_content_configuration.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
+#import "ios/chrome/browser/shared/ui/table_view/table_view_illustrated_empty_view.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_model.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
+
+namespace {
+
+/// Size for the file icon image in the download list cells.
+constexpr CGFloat kFileIconImageSize = 44.0;
+
+}  // namespace
 
 // Diffable data source types using DownloadListGroupItem for section
 // identifiers.
@@ -34,18 +45,7 @@ typedef NSDiffableDataSourceSnapshot<DownloadListGroupItem*, DownloadListItem*>
 - (void)viewDidLoad {
   [super viewDidLoad];
 
-  // TODO(crbug.com/440222083): For all translatable strings, a separate commit
-  // will handle them later. This requires contributors with @google.com
-  // accounts to upload screenshots to Google Cloud Storage and provide the
-  // corresponding .sha1 files. (https://g.co/chrome/translation)
-  /*
-  <message name="IDS_IOS_DOWNLOAD_LIST_TITLE"
-    desc="Title for the Downloads list [iOS only]"
-    meaning="Title for the Downloads list [Length: 29em] [iOS only]">
-          Downloads
-  </message>
-  */
-  // self.title = l10n_util::GetNSString(IDS_IOS_DOWNLOAD_LIST_TITLE);
+  self.title = l10n_util::GetNSString(IDS_IOS_DOWNLOAD_LIST_TITLE);
 
   // Configure navigation bar.
   self.navigationController.navigationBar.prefersLargeTitles = YES;
@@ -56,7 +56,7 @@ typedef NSDiffableDataSourceSnapshot<DownloadListGroupItem*, DownloadListItem*>
   self.navigationItem.rightBarButtonItem = closeButton;
 
   // Configure table view.
-  RegisterTableViewCell<TableViewDetailIconCell>(self.tableView);
+  [TableViewCellContentConfiguration registerCellForTableView:self.tableView];
   RegisterTableViewHeaderFooter<TableViewTextHeaderFooterView>(self.tableView);
   [self configureDiffableDataSource];
 
@@ -88,18 +88,22 @@ typedef NSDiffableDataSourceSnapshot<DownloadListGroupItem*, DownloadListItem*>
 /// path.
 - (UITableViewCell*)cellForItem:(DownloadListItem*)item
                     atIndexPath:(NSIndexPath*)indexPath {
-  TableViewDetailIconCell* cell =
-      DequeueTableViewCell<TableViewDetailIconCell>(self.tableView);
-  cell.textLabel.text = item.fileName;
-  NSString* detailText = item.detailText;
-  [cell setDetailText:detailText];
-  if (detailText.length > 0) {
-    cell.textLayoutConstraintAxis = UILayoutConstraintAxisVertical;
-  }
-  [cell setIconImage:item.fileTypeIcon
-            tintColor:nil
-      backgroundColor:nil
-         cornerRadius:0];
+  ImageContentConfiguration* imageConfiguration =
+      [[ImageContentConfiguration alloc] init];
+  imageConfiguration.image = item.fileTypeIcon;
+  imageConfiguration.imageSize =
+      CGSizeMake(kFileIconImageSize, kFileIconImageSize);
+
+  TableViewCellContentConfiguration* configuration =
+      [[TableViewCellContentConfiguration alloc] init];
+  configuration.title = item.fileName;
+  configuration.subtitle = item.detailText;
+  configuration.leadingConfiguration = imageConfiguration;
+
+  TableViewCell* cell =
+      [TableViewCellContentConfiguration dequeueTableViewCell:self.tableView];
+  cell.contentConfiguration = configuration;
+
   return cell;
 }
 
@@ -113,6 +117,70 @@ typedef NSDiffableDataSourceSnapshot<DownloadListGroupItem*, DownloadListItem*>
 - (void)tableView:(UITableView*)tableView
     performPrimaryActionForRowAtIndexPath:(NSIndexPath*)indexPath {
   // TODO(crbug.com/440222083): Implement download primary action handling.
+}
+
+- (UIContextMenuConfiguration*)tableView:(UITableView*)tableView
+    contextMenuConfigurationForRowAtIndexPath:(NSIndexPath*)indexPath
+                                        point:(CGPoint)point {
+  DownloadListItem* item =
+      [_diffableDataSource itemIdentifierForIndexPath:indexPath];
+
+  // Downloads with no available actions do not support context menu.
+  if (item.availableActions == DownloadListItemActionNone) {
+    return nil;
+  }
+
+  __weak __typeof(self) weakSelf = self;
+
+  UIContextMenuActionProvider actionProvider =
+      ^(NSArray<UIMenuElement*>* suggestedActions) {
+        if (!weakSelf) {
+          return [UIMenu menuWithTitle:@"" children:@[]];
+        }
+
+        return [weakSelf createMenuForDownloadItem:item];
+      };
+
+  return
+      [UIContextMenuConfiguration configurationWithIdentifier:nil
+                                              previewProvider:nil
+                                               actionProvider:actionProvider];
+}
+
+- (UIMenu*)createMenuForDownloadItem:(DownloadListItem*)item {
+  NSMutableArray<UIMenuElement*>* actions = [[NSMutableArray alloc] init];
+  __weak __typeof(self) weakSelf = self;
+  DownloadListItemAction availableActions = item.availableActions;
+
+  // Check if "Open in Files App" action is available.
+  if (availableActions & DownloadListItemActionOpenInFiles) {
+    UIAction* openInFilesAction = [UIAction
+        actionWithTitle:l10n_util::GetNSString(
+                            IDS_IOS_OPEN_IN_FILES_APP_ACTION_TITLE)
+                  image:DefaultSymbolWithPointSize(kOpenImageActionSymbol,
+                                                   kSymbolActionPointSize)
+             identifier:nil
+                handler:^(UIAction* action) {
+                  [weakSelf.actionDelegate openDownloadInFiles:item];
+                }];
+    [actions addObject:openInFilesAction];
+  }
+
+  // Check if Delete action is available.
+  if (availableActions & DownloadListItemActionDelete) {
+    UIAction* deleteAction = [UIAction
+        actionWithTitle:l10n_util::GetNSString(IDS_IOS_DELETE_ACTION_TITLE)
+                  image:DefaultSymbolWithPointSize(kTrashSymbol,
+                                                   kSymbolActionPointSize)
+             identifier:nil
+                handler:^(UIAction* action) {
+                  [weakSelf.mutator deleteDownloadItem:item];
+                }];
+    deleteAction.attributes = UIMenuElementAttributesDestructive;
+    [actions addObject:deleteAction];
+  }
+
+  return [UIMenu menuWithTitle:@"" children:actions];
 }
 
 - (UIView*)tableView:(UITableView*)tableView
@@ -174,13 +242,26 @@ typedef NSDiffableDataSourceSnapshot<DownloadListGroupItem*, DownloadListItem*>
 
 - (void)setEmptyState:(BOOL)empty {
   if (empty) {
-    // Empty downloads: show small title.
+    // Empty downloads: show small title and empty view.
     self.navigationItem.largeTitleDisplayMode =
         UINavigationItemLargeTitleDisplayModeNever;
+    if (!self.tableView.backgroundView) {
+      UIImage* emptyImage = [UIImage imageNamed:@"download_list_empty"];
+      TableViewIllustratedEmptyView* emptyView =
+          [[TableViewIllustratedEmptyView alloc]
+              initWithFrame:self.view.bounds
+                      image:emptyImage
+                      title:l10n_util::GetNSString(
+                                IDS_IOS_DOWNLOAD_LIST_NO_ENTRIES_TITLE)
+                   subtitle:l10n_util::GetNSString(
+                                IDS_IOS_DOWNLOAD_LIST_NO_ENTRIES_MESSAGE)];
+      self.tableView.backgroundView = emptyView;
+    }
   } else {
-    // Non-empty downloads: show large title initially.
+    // Non-empty downloads: show large title initially and hide empty view.
     self.navigationItem.largeTitleDisplayMode =
         UINavigationItemLargeTitleDisplayModeAlways;
+    self.tableView.backgroundView = nil;
   }
 }
 

@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_context_menu_interaction_handler.h"
 
+#import "base/containers/contains.h"
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/commerce/core/commerce_feature_list.h"
@@ -40,10 +41,8 @@ BOOL AllowsLongPressForModuleType(ContentSuggestionsModuleType type) {
     case ContentSuggestionsModuleType::kTipsWithProductImage:
     case ContentSuggestionsModuleType::kTips:
     case ContentSuggestionsModuleType::kMostVisited:
-      return YES;
     case ContentSuggestionsModuleType::kShopCard:
-      return commerce::kShopCardVariation.Get() == commerce::kShopCardArm1 ||
-             commerce::kShopCardVariation.Get() == commerce::kShopCardArm2;
+      return YES;
     default:
       return NO;
   }
@@ -56,7 +55,8 @@ NSString* GetContextMenuTitleForType(ContentSuggestionsModuleType type,
     case ContentSuggestionsModuleType::kTabResumption: {
       TabResumptionItem* tabResumptionItemConfig =
           static_cast<TabResumptionItem*>(config);
-      if ((commerce::kShopCardVariation.Get() == commerce::kShopCardArm3 ||
+      if ((base::Contains(commerce::kShopCardVariation.Get(),
+                          commerce::kShopCardArm3) ||
            commerce::kShopCardVariation.Get() == commerce::kShopCardArm4) &&
           tabResumptionItemConfig.shopCardData) {
         if (tabResumptionItemConfig.shopCardData.shopCardItemType ==
@@ -92,15 +92,8 @@ NSString* GetContextMenuTitleForType(ContentSuggestionsModuleType type,
       return l10n_util::GetNSString(
           IDS_IOS_CONTENT_SUGGESTIONS_MOST_VISITED_MODULE_CONTEXT_MENU_DESCRIPTION);
     case ContentSuggestionsModuleType::kShopCard:
-      if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm1) {
-        return l10n_util::GetNSString(
-            IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_PRICE_TRACKING_CONTEXT_MENU_TITLE);
-      } else if (commerce::kShopCardVariation.Get() ==
-                 commerce::kShopCardArm2) {
-        return l10n_util::GetNSString(
-            IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_REVIEWS_CONTEXT_MENU_TITLE);
-      }
-      return @"";
+      return l10n_util::GetNSString(
+          IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_PRICE_TRACKING_CONTEXT_MENU_TITLE);
     default:
       NOTREACHED();
   }
@@ -152,15 +145,8 @@ NSString* GetContextMenuHideDescriptionForType(
       return l10n_util::GetNSString(
           IDS_IOS_CONTENT_SUGGESTIONS_MOST_VISITED_MODULE_HIDE_CARD);
     case ContentSuggestionsModuleType::kShopCard:
-      if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm1) {
-        return l10n_util::GetNSString(
-            IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_PRICE_TRACKING_HIDE);
-      } else if (commerce::kShopCardVariation.Get() ==
-                 commerce::kShopCardArm2) {
-        return l10n_util::GetNSString(
-            IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_REVIEWS_HIDE_ALT);
-      }
-      return @"";
+      return l10n_util::GetNSString(
+          IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_PRICE_TRACKING_HIDE);
     default:
       NOTREACHED();
   }

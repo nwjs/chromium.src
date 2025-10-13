@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.omnibox;
 
+import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.animation.Animator;
@@ -60,6 +61,7 @@ import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator.SelectionState;
 import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
+import org.chromium.chrome.browser.omnibox.navattach.NavigationFulfillmentType;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
@@ -222,7 +224,9 @@ class LocationBarMediator
     private final @Nullable ObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
     private @Nullable SearchEngineUtils mSearchEngineUtils;
     private @Nullable AddToHomescreenCoordinator mAddToHomescreenCoordinatorForTesting;
-    private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
+    private final Supplier<@Nullable ModalDialogManager> mModalDialogManagerSupplier;
+    private final ObservableSupplier<@NavigationFulfillmentType Integer>
+            mNavigationFulfillmentTypeSupplier;
 
     /*package */ LocationBarMediator(
             Context context,
@@ -242,7 +246,9 @@ class LocationBarMediator
             OmniboxSuggestionsDropdownEmbedderImpl dropdownEmbedder,
             @Nullable ObservableSupplier<TabModelSelector> tabModelSelectorSupplier,
             @Nullable BrowserControlsStateProvider browserControlsStateProvider,
-            Supplier<ModalDialogManager> modalDialogManagerSupplier) {
+            Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
+            ObservableSupplier<@NavigationFulfillmentType Integer>
+                    navigationFulfillmentTypeSupplier) {
         mContext = context;
         mLocationBarLayout = locationBarLayout;
         mLocationBarDataProvider = locationBarDataProvider;
@@ -266,6 +272,9 @@ class LocationBarMediator
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
+        mNavigationFulfillmentTypeSupplier = navigationFulfillmentTypeSupplier;
+        mNavigationFulfillmentTypeSupplier.addObserver(
+                mCallbackController.makeCancelable((v) -> updateButtonVisibility()));
         AppBannerManager.addObserver(this);
     }
 
@@ -370,9 +379,11 @@ class LocationBarMediator
         mTemplateUrlServiceSupplier.onAvailable(
                 mCallbackController.makeCancelable(
                         (templateUrlService) -> {
+                            Profile profile = mProfileSupplier.get();
+                            assert profile != null;
                             templateUrlService.addObserver(this);
                             GeolocationHeader.primeLocationForGeoHeaderIfEnabled(
-                                    mProfileSupplier.get(), mTemplateUrlServiceSupplier.get());
+                                    profile, templateUrlService);
                         }));
 
         mLocationBarLayout.onFinishNativeInitialization();
@@ -774,8 +785,9 @@ class LocationBarMediator
     void composeplateButtonClicked(View view) {
         TabModelSelector tabModelSelector =
                 mTabModelSelectorSupplier == null ? null : mTabModelSelectorSupplier.get();
-        if (!mNativeInitialized || mLocationBarDataProvider == null || tabModelSelector == null)
+        if (!mNativeInitialized || mLocationBarDataProvider == null || tabModelSelector == null) {
             return;
+        }
 
         Tab tab = tabModelSelector.getCurrentTab();
         TemplateUrlService templateUrlService = mTemplateUrlServiceSupplier.get();
@@ -803,7 +815,10 @@ class LocationBarMediator
         if (webContents == null) return null;
 
         return new AddToHomescreenCoordinator(
-                webContents, mContext, mWindowAndroid, mModalDialogManagerSupplier.get());
+                webContents,
+                mContext,
+                mWindowAndroid,
+                assertNonNull(mModalDialogManagerSupplier.get()));
     }
 
     /* package */ void installButtonClicked(View view) {
@@ -1325,6 +1340,10 @@ class LocationBarMediator
 
     @VisibleForTesting
     boolean shouldShowMicButton() {
+        if (mNavigationFulfillmentTypeSupplier.get() != NavigationFulfillmentType.DEFAULT) {
+            return false;
+        }
+
         if (shouldShowDeleteButton()) return false;
         if (!mNativeInitialized
                 || mVoiceRecognitionHandler == null
@@ -1347,6 +1366,10 @@ class LocationBarMediator
 
     @VisibleForTesting
     boolean shouldShowLensButton() {
+        if (mNavigationFulfillmentTypeSupplier.get() != NavigationFulfillmentType.DEFAULT) {
+            return false;
+        }
+
         if (shouldShowDeleteButton()) return false;
 
         // When this method is called on UI inflation, return false as the native is not ready.
@@ -1619,8 +1642,9 @@ class LocationBarMediator
     public void performSearchQuery(String query, List<String> searchParams) {
         if (TextUtils.isEmpty(query)) return;
 
-        String queryUrl =
-                mTemplateUrlServiceSupplier.get().getUrlForSearchQuery(query, searchParams);
+        TemplateUrlService templateUrlService = mTemplateUrlServiceSupplier.get();
+        assert templateUrlService != null;
+        String queryUrl = templateUrlService.getUrlForSearchQuery(query, searchParams);
 
         if (!TextUtils.isEmpty(queryUrl)) {
             loadUrl(
@@ -1905,6 +1929,11 @@ class LocationBarMediator
         DefaultBrowserPromoUtils.getInstance()
                 .maybeShowDefaultBrowserPromoMessages(
                         mContext, mWindowAndroid, mProfileSupplier.get());
+    }
+
+    public ObservableSupplier<@NavigationFulfillmentType Integer>
+            getNavigationFulfillmentTypeSupplier() {
+        return mNavigationFulfillmentTypeSupplier;
     }
 
     @Override

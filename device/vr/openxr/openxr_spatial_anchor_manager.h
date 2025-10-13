@@ -20,6 +20,7 @@ namespace device {
 
 class OpenXrExtensionHelper;
 class OpenXrSpatialFrameworkManager;
+class OpenXrSpatialPlaneManager;
 
 // Delegate class for OpenXrSpatialFrameworkManager responsible for integration
 // with the XR_EXT_SPATIAL_ANCHOR extension (aka the "Anchors" feature).
@@ -34,6 +35,7 @@ class OpenXrSpatialAnchorManager : public OpenXrAnchorManager {
   OpenXrSpatialAnchorManager(
       const OpenXrExtensionHelper& extension_helper,
       const OpenXrSpatialFrameworkManager& spatial_framework_manager,
+      OpenXrSpatialPlaneManager* plane_manager,
       XrSpace mojo_space);
   ~OpenXrSpatialAnchorManager() override;
 
@@ -49,11 +51,15 @@ class OpenXrSpatialAnchorManager : public OpenXrAnchorManager {
   // OpenXrAnchorManager
   AnchorId CreateAnchor(XrPosef pose,
                         XrSpace space,
-                        XrTime predicted_display_time) override;
+                        XrTime predicted_display_time,
+                        std::optional<PlaneId> plane_id) override;
   void DetachAnchor(AnchorId anchor_id) override;
   std::optional<XrLocation> GetXrLocationFromAnchor(
       AnchorId anchor_id,
       const gfx::Transform& anchor_id_from_new_anchor) const override;
+  std::optional<XrLocation> GetXrLocationFromPlane(
+      PlaneId plane_id,
+      const gfx::Transform& plane_id_from_new_anchor) const override;
   mojom::XRAnchorsDataPtr GetCurrentAnchorsData(
       XrTime predicted_display_time) override;
 
@@ -65,6 +71,7 @@ class OpenXrSpatialAnchorManager : public OpenXrAnchorManager {
 
   const raw_ref<const OpenXrExtensionHelper> extension_helper_;
   const raw_ref<const OpenXrSpatialFrameworkManager> spatial_framework_manager_;
+  const raw_ptr<OpenXrSpatialPlaneManager> plane_manager_;
   XrSpace mojo_space_;
 
   AnchorId::Generator anchor_id_generator_;

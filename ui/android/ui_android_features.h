@@ -27,9 +27,9 @@ UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidUseCorrectDisplayWorkArea);
 // browser window bounds in Blink.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidUseCorrectWindowBounds);
 
-// TODO(crbug.com/401215712): Clean up the flag after making sure tha the Window
-// Management Web API works well.
-UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidWindowManagementWebApi);
+// Enables usage of the display topology API to obtain information about all
+// displays.
+UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidUseDisplayTopology);
 
 // Enables using occlusion information from Android to save CPU and memory.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidWindowOcclusion);

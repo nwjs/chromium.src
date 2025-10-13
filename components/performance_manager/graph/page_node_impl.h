@@ -119,7 +119,7 @@ class PageNodeImpl
 
   // Returns a Perfetto track that can record trace events for the page. This
   // function can be called from any thread.
-  const perfetto::NamedTrack& tracing_track() const { return tracing_track_; }
+  const perfetto::NamedTrack& tracing_track() const { return *tracing_track_; }
 
   void SetType(PageType type);
   void SetIsFocused(bool is_focused);
@@ -197,6 +197,7 @@ class PageNodeImpl
 
   // Functions meant to be called by a FrameNodeImpl:
   void AddFrame(base::PassKey<FrameNodeImpl>, FrameNodeImpl* frame_node);
+  void TraceFrame(base::PassKey<FrameNodeImpl>, FrameNodeImpl* frame_node);
   void RemoveFrame(base::PassKey<FrameNodeImpl>, FrameNodeImpl* frame_node);
 
   // Function meant to be called by FrozenFrameAggregator.
@@ -268,7 +269,8 @@ class PageNodeImpl
   const PageToken page_token_;
 
   // Perfetto track that can record trace events for the page.
-  const perfetto::NamedTrack tracing_track_;
+  const base::trace_event::TrackRegistration<perfetto::NamedTrack>
+      tracing_track_;
   const perfetto::NamedTrack loading_track_;
 
   // The main frame nodes of this page. There can be more than one main frame

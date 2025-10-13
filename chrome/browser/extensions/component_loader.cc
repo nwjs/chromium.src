@@ -47,6 +47,7 @@
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/pref_names.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
@@ -84,6 +85,8 @@
 #include "chrome/browser/defaults.h"
 #endif
 
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
+
 using content::BrowserThread;
 
 namespace extensions {
@@ -91,9 +94,7 @@ namespace extensions {
 namespace {
 
 #if BUILDFLAG(ENABLE_HANGOUT_SERVICES_EXTENSION)
-BASE_FEATURE(kHangoutsExtensionV3,
-             "HangoutsExtensionV3",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kHangoutsExtensionV3, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_HANGOUT_SERVICES_EXTENSION)
 
 bool g_enable_background_extensions_during_testing = false;
@@ -225,8 +226,8 @@ void ComponentLoader::LoadAll() {
 
 std::optional<base::Value::Dict> ComponentLoader::ParseManifest(
     std::string_view manifest_contents) const {
-  std::optional<base::Value::Dict> manifest =
-      base::JSONReader::ReadDict(manifest_contents);
+  std::optional<base::Value::Dict> manifest = base::JSONReader::ReadDict(
+      manifest_contents, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   if (!manifest) {
     LOG(ERROR) << "Failed to parse extension manifest: " << manifest_contents;
     return std::nullopt;

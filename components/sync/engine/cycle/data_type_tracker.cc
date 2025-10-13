@@ -103,13 +103,15 @@ base::TimeDelta GetDefaultLocalChangeNudgeDelay(DataType data_type) {
     case OS_PRIORITY_PREFERENCES:
     case WORKSPACE_DESK:
     case NIGORI:
-    case POWER_BOOKMARK:
     case WEBAUTHN_CREDENTIAL:
     case PLUS_ADDRESS:
     case PLUS_ADDRESS_SETTING:
     case AUTOFILL_VALUABLE:
+    case ACCOUNT_SETTING:
     case SHARED_TAB_GROUP_ACCOUNT_DATA:
     case SHARED_COMMENT:
+    case AI_THREAD:
+    case CONTEXTUAL_TASK:
       return kMediumLocalChangeNudgeDelay;
     case UNSPECIFIED:
       NOTREACHED();
@@ -169,7 +171,6 @@ bool CanGetCommitsFromExtensions(DataType data_type) {
     case WORKSPACE_DESK:
     case NIGORI:
     case SAVED_TAB_GROUP:
-    case POWER_BOOKMARK:
     case INCOMING_PASSWORD_SHARING_INVITATION:
     case OUTGOING_PASSWORD_SHARING_INVITATION:
     case SHARED_TAB_GROUP_DATA:
@@ -179,8 +180,11 @@ bool CanGetCommitsFromExtensions(DataType data_type) {
     case PRODUCT_COMPARISON:
     case COOKIES:
     case AUTOFILL_VALUABLE:
+    case ACCOUNT_SETTING:
     case SHARED_TAB_GROUP_ACCOUNT_DATA:
     case SHARED_COMMENT:
+    case AI_THREAD:
+    case CONTEXTUAL_TASK:
       return false;
     case UNSPECIFIED:
       NOTREACHED();

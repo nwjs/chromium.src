@@ -186,8 +186,7 @@ class RTCRtpSenderImpl::RTCRtpSenderInternal
       webrtc::scoped_refptr<webrtc::PeerConnectionInterface>
           native_peer_connection,
       scoped_refptr<blink::WebRtcMediaStreamTrackAdapterMap> track_map,
-      RtpSenderState state,
-      bool require_encoded_insertable_streams)
+      RtpSenderState state)
       : native_peer_connection_(std::move(native_peer_connection)),
         track_map_(std::move(track_map)),
         main_task_runner_(state.main_task_runner()),
@@ -199,14 +198,14 @@ class RTCRtpSenderImpl::RTCRtpSenderInternal
     if (webrtc_sender_->media_type() == webrtc::MediaType::AUDIO) {
       encoded_audio_transformer_ =
           std::make_unique<RTCEncodedAudioStreamTransformer>(main_task_runner_);
-      webrtc_sender_->SetEncoderToPacketizerFrameTransformer(
+      webrtc_sender_->SetFrameTransformer(
           encoded_audio_transformer_->Delegate());
     } else {
       CHECK(webrtc_sender_->media_type() == webrtc::MediaType::VIDEO);
       encoded_video_transformer_ =
           std::make_unique<RTCEncodedVideoStreamTransformer>(
               main_task_runner_, /*metronome=*/nullptr);
-      webrtc_sender_->SetEncoderToPacketizerFrameTransformer(
+      webrtc_sender_->SetFrameTransformer(
           encoded_video_transformer_->Delegate());
     }
   }
@@ -449,13 +448,11 @@ RTCRtpSenderImpl::RTCRtpSenderImpl(
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface>
         native_peer_connection,
     scoped_refptr<blink::WebRtcMediaStreamTrackAdapterMap> track_map,
-    RtpSenderState state,
-    bool require_encoded_insertable_streams)
+    RtpSenderState state)
     : internal_(base::MakeRefCounted<RTCRtpSenderInternal>(
           std::move(native_peer_connection),
           std::move(track_map),
-          std::move(state),
-          require_encoded_insertable_streams)) {}
+          std::move(state))) {}
 
 RTCRtpSenderImpl::RTCRtpSenderImpl(const RTCRtpSenderImpl& other)
     : internal_(other.internal_) {}

@@ -38,13 +38,13 @@
 
 namespace content {
 
-class FederatedAuthDisconnectRequest;
 class FederatedIdentityAutoReauthnPermissionContextDelegate;
 class FederatedIdentityPermissionContextDelegate;
 class RenderFrameHost;
 
 namespace webid {
 
+class DisconnectRequest;
 class UserInfoRequest;
 
 using blink::mojom::IdentityProviderGetParametersPtr;
@@ -283,7 +283,7 @@ class CONTENT_EXPORT RequestService
                        std::optional<RequestIdTokenStatus> token_status,
                        std::optional<TokenError> token_error,
                        const std::optional<GURL>& selected_idp_config_url,
-                       const std::string& token,
+                       std::optional<base::Value> token_data,
                        bool should_delay_callback);
 
  private:
@@ -350,13 +350,13 @@ class CONTENT_EXPORT RequestService
       IdentityRequestDialogController::DismissReason dismiss_reason);
   void CompleteTokenRequest(const GURL& idp_config_url,
                             IdpNetworkRequestManager::FetchStatus status,
-                            std::optional<std::string> token,
+                            std::optional<base::Value> token,
                             std::optional<TokenError> token_error,
                             bool should_delay_callback);
   void OnTokenResponseReceived(
       blink::mojom::IdentityProviderRequestOptionsPtr idp,
       IdpNetworkRequestManager::FetchStatus status,
-      IdpNetworkRequestManager::TokenResult result);
+      IdpNetworkRequestManager::TokenResult&& result);
   void OnContinueOnResponseReceived(
       blink::mojom::IdentityProviderRequestOptionsPtr idp,
       IdpNetworkRequestManager::FetchStatus status,
@@ -449,7 +449,9 @@ class CONTENT_EXPORT RequestService
 
   RpMode GetRpMode() const { return rp_mode_; }
 
-  RelyingPartyData CreateRpData() const;
+  // If the client metadata has not been received yet the UI may not be able to
+  // show a correct title, so we need to indicate that in the RelyingPartyData.
+  RelyingPartyData CreateRpData(bool client_metadata_received) const;
 
   std::unique_ptr<IdpNetworkRequestManager> network_manager_;
   std::unique_ptr<IdentityRequestDialogController> request_dialog_controller_;
@@ -536,7 +538,7 @@ class CONTENT_EXPORT RequestService
   base::flat_set<std::unique_ptr<UserInfoRequest>> user_info_requests_;
 
   // Pending disconnect request.
-  std::unique_ptr<FederatedAuthDisconnectRequest> disconnect_request_;
+  std::unique_ptr<DisconnectRequest> disconnect_request_;
 
   // TODO(crbug.com/40238075): Refactor these member variables introduced
   // through the multi IDP prototype implementation to make them less confusing.

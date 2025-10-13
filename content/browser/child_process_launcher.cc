@@ -94,12 +94,16 @@ ChildProcessLauncherFileData::~ChildProcessLauncherFileData() = default;
 bool ChildProcessLauncher::Client::CanUseWarmUpConnection() {
   return true;
 }
+
+bool ChildProcessLauncher::Client::HasSpareRendererPriority() {
+  return false;
+}
 #endif
 
 ChildProcessLauncher::ChildProcessLauncher(
     std::unique_ptr<SandboxedProcessLauncherDelegate> delegate,
     std::unique_ptr<base::CommandLine> command_line,
-    int child_process_id,
+    ChildProcessId child_process_id,
     Client* client,
     mojo::OutgoingInvitation mojo_invitation,
     const mojo::ProcessErrorCallback& process_error_callback,
@@ -133,7 +137,7 @@ ChildProcessLauncher::ChildProcessLauncher(
       child_process_id, std::move(command_line), std::move(delegate),
       weak_factory_.GetWeakPtr(), terminate_on_shutdown,
 #if BUILDFLAG(IS_ANDROID)
-      client_->CanUseWarmUpConnection(),
+      client_->CanUseWarmUpConnection(), client_->HasSpareRendererPriority(),
 #endif
       std::move(mojo_invitation), process_error_callback, std::move(file_data),
       std::move(histogram_memory_region),

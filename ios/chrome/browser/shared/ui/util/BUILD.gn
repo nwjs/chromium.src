@@ -78,20 +78,6 @@ source_set("util") {
   ]
 }
 
-source_set("snackbar_util") {
-  sources = [
-    "snackbar_util.h",
-    "snackbar_util.mm",
-  ]
-  deps = [
-    "//base",
-    "//ios/chrome/app:tests_hook",
-    "//ios/chrome/browser/shared/ui/util/identity_snackbar",
-    "//ios/third_party/material_components_ios",
-  ]
-  frameworks = [ "UIKit.framework" ]
-}
-
 source_set("util_bridge") {
   sources = [
     "uikit_ui_util_bridge.h",
@@ -181,7 +167,6 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//ios/chrome/browser/shared/public/features",
-    "//ios/third_party/material_components_ios",
     "//testing/gtest",
     "//third_party/ocmock",
     "//ui/base",
@@ -219,6 +204,7 @@ source_set("eg2_tests") {
   testonly = true
   sources = [ "omnibox_util_egtest.mm" ]
   deps = [
+    "//components/omnibox/browser:pref_names",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/test/earl_grey:eg_test_support+eg2",
     "//ios/testing/earl_grey:eg_test_support+eg2",

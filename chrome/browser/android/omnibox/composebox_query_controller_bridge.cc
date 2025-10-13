@@ -4,17 +4,24 @@
 
 #include "chrome/browser/android/omnibox/composebox_query_controller_bridge.h"
 
+#include <utility>
+
 #include "base/android/jni_bytebuffer.h"
 #include "base/containers/span.h"
+#include "base/time/time.h"
 #include "base/unguessable_token.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/android/omnibox/jni_headers/ComposeBoxQueryControllerBridge_jni.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
 #include "chrome/common/channel_info.h"
 #include "components/lens/contextual_input.h"
 #include "components/lens/lens_bitmap_processing.h"
+#include "url/android/gurl_android.h"
+#include "url/gurl.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "chrome/browser/ui/android/omnibox/jni_headers/ComposeBoxQueryControllerBridge_jni.h"
 
 static jlong JNI_ComposeBoxQueryControllerBridge_Init(JNIEnv* env,
                                                       Profile* profile) {
@@ -50,7 +57,8 @@ void ComposeboxQueryControllerBridge::NotifySessionAbandoned(JNIEnv* env) {
   query_controller_->NotifySessionAbandoned();
 }
 
-void ComposeboxQueryControllerBridge::AddFile(
+base::android::ScopedJavaLocalRef<jobject>
+ComposeboxQueryControllerBridge::AddFile(
     JNIEnv* env,
     std::string& file_name,
     std::string& file_type,
@@ -86,6 +94,23 @@ void ComposeboxQueryControllerBridge::AddFile(
       lens::ContextualInput(std::move(file_data_vector), mime_type));
   query_controller_->StartFileUploadFlow(file_token, std::move(input_data),
                                          std::move(image_options));
+
+  return base::android::ConvertUTF8ToJavaString(env, file_token.ToString());
+}
+
+GURL ComposeboxQueryControllerBridge::GetAimUrl(JNIEnv* env,
+                                                std::string& query_text) {
+  return query_controller_->CreateAimUrl(query_text, base::Time::Now());
+}
+
+void ComposeboxQueryControllerBridge::RemoveAttachment(
+    JNIEnv* env,
+    const std::string& token) {
+  std::optional<base::UnguessableToken> unguessable_token =
+      base::UnguessableToken::DeserializeFromString(token);
+  if (unguessable_token.has_value()) {
+    query_controller_->DeleteFile(unguessable_token.value());
+  }
 }
 
 void ComposeboxQueryControllerBridge::OnFileUploadStatusChanged(

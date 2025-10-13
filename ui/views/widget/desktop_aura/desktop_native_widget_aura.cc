@@ -721,9 +721,8 @@ void DesktopNativeWidgetAura::ReparentNativeViewImpl(
                  : gfx::kNullAcceleratedWidget);
 }
 
-std::unique_ptr<NonClientFrameView>
-DesktopNativeWidgetAura::CreateNonClientFrameView() {
-  return desktop_window_tree_host_->CreateNonClientFrameView();
+std::unique_ptr<FrameView> DesktopNativeWidgetAura::CreateFrameView() {
+  return desktop_window_tree_host_->CreateFrameView();
 }
 
 bool DesktopNativeWidgetAura::ShouldUseNativeFrame() const {
@@ -870,10 +869,8 @@ void DesktopNativeWidgetAura::InitModalType(ui::mojom::ModalType modal_type) {
   desktop_window_tree_host_->InitModalType(modal_type);
 }
 
-void DesktopNativeWidgetAura::OnWidgetThemeChanged(
-    ui::ColorProviderKey::ColorMode color_mode,
-    std::optional<SkColor> background_color) {
-  desktop_window_tree_host_->OnWidgetThemeChanged(color_mode, background_color);
+void DesktopNativeWidgetAura::SetBackgroundColor(SkColor background_color) {
+  desktop_window_tree_host_->SetBackgroundColor(background_color);
 }
 
 gfx::Rect DesktopNativeWidgetAura::GetWindowBoundsInScreen() const {

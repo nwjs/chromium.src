@@ -2,6 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+"""Binary declarations
+
+Binaries can be referenced by tests and define the label of the compile target
+to be built as well as various aspects that the infrastructure needs to know in
+order to run the binary.
+"""
+
 load("@chromium-luci//targets.star", "targets")
 
 targets.binaries.console_test_launcher(
@@ -53,7 +60,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_egl_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -61,7 +68,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_gles2_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -69,7 +76,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_gles31_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -77,7 +84,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_gles3_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -85,7 +92,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_khr_gles2_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -93,7 +100,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_khr_gles3_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -101,7 +108,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_khr_gles31_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -109,7 +116,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_gles3_rotate180_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -117,7 +124,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_gles3_rotate270_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -125,7 +132,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_gles3_rotate90_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -133,7 +140,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_gles31_rotate180_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -141,7 +148,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_gles31_rotate270_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -149,7 +156,7 @@ targets.binaries.windowed_test_launcher(
     label = "//third_party/angle/src/tests:angle_deqp_gles31_rotate90_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "deqp",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -363,6 +370,7 @@ targets.binaries.windowed_test_launcher(
     args = [
         "--disable-extensions",
     ],
+    module_scheme = "gtest",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -555,6 +563,7 @@ targets.binaries.console_test_launcher(
 targets.binaries.generated_script(
     name = "chrome_private_code_test",
     label = "//chrome:chrome_private_code_test",
+    module_scheme = "single",
 )
 
 targets.binaries.console_test_launcher(
@@ -626,6 +635,7 @@ targets.binaries.generated_script(
             "--upload-skia-json",
         ],
     ),
+    module_scheme = "single",
 )
 
 targets.binaries.script(
@@ -644,6 +654,7 @@ targets.binaries.script(
     resultdb = targets.resultdb(
         enable = True,
     ),
+    module_scheme = "pyunit",
 )
 
 targets.binaries.script(
@@ -661,6 +672,7 @@ targets.binaries.script(
     resultdb = targets.resultdb(
         enable = True,
     ),
+    module_scheme = "pyunit",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -711,6 +723,7 @@ targets.binaries.script(
     script = "//chrome/test/chromedriver/log_replay/client_replay_unittest.py",
     # All references have been moved to starlark
     skip_usage_check = True,
+    module_scheme = "single",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -749,6 +762,7 @@ targets.binaries.script(
             "--smoke-test-mode",
         ],
     ),
+    module_scheme = "single",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -782,6 +796,7 @@ targets.binaries.script(
             "--smoke-test-mode",
         ],
     ),
+    module_scheme = "flat",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -795,6 +810,7 @@ targets.binaries.script(
     label = "//build/fuchsia/test:component_storage_test",
     script = "//build/fuchsia/test/component_storage_test.py",
     skip_usage_check = True,
+    module_scheme = "single",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -953,6 +969,7 @@ targets.binaries.generated_script(
         "--fileserver",
         "--luci-chromium",
     ],
+    module_scheme = "single",
 )
 
 targets.binaries.console_test_launcher(
@@ -989,6 +1006,7 @@ targets.binaries.script(
             "--smoke-test-mode",
         ],
     ),
+    module_scheme = "single",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -1194,6 +1212,7 @@ targets.binaries.generated_script(
             "--upload-skia-json",
         ],
     ),
+    module_scheme = "flat",
 )
 
 targets.binaries.console_test_launcher(
@@ -1529,12 +1548,6 @@ targets.binaries.console_test_launcher(
 )
 
 targets.binaries.console_test_launcher(
-    name = "libcups_unittests",
-    label = "//chrome/services/cups_proxy:libcups_unittests",
-    module_scheme = "gtest",
-)
-
-targets.binaries.console_test_launcher(
     name = "libjingle_xmpp_unittests",
     label = "//third_party/libjingle_xmpp:libjingle_xmpp_unittests",
     module_scheme = "gtest",
@@ -1563,6 +1576,7 @@ targets.binaries.generated_script(
     label = "//chrome/installer/mac:mac_signing_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
+    module_scheme = "pyunit",
 )
 
 targets.binaries.generated_script(
@@ -1623,6 +1637,7 @@ targets.binaries.script(
         "../../chrome/test/mini_installer/run_mini_installer_tests.py",
         "--output-dir=${ISOLATED_OUTDIR}",
     ],
+    module_scheme = "flat",
 )
 
 targets.binaries.console_test_launcher(
@@ -1672,7 +1687,7 @@ targets.binaries.console_test_launcher(
     label = "//chrome/android:monochrome_public_bundle_smoke_test",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "junit",
 )
 
 targets.binaries.script(
@@ -1757,6 +1772,7 @@ targets.binaries.generated_script(
     label = "//build/rust/tests:build_rust_tests",
     # All references have been moved to starlark
     skip_usage_check = True,
+    module_scheme = "flat",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -1809,6 +1825,14 @@ targets.binaries.generated_script(
 )
 
 targets.binaries.generated_script(
+    name = "ondevice_model_benchmark_tests",
+    label = "//components/optimization_guide/internal/testing:ondevice_model_benchmark_tests",
+    args = [
+        "--benchmark_binary_dir=./",
+    ],
+)
+
+targets.binaries.generated_script(
     name = "opt_target_coverage_test",
     label = "//components/optimization_guide/internal/testing:opt_target_coverage_test",
 )
@@ -1828,6 +1852,14 @@ targets.binaries.generated_script(
         ],
     ),
     module_scheme = "webtest",
+)
+
+targets.binaries.generated_script(
+    name = "one_time_tokens_junit_tests",
+    label = "//components/one_time_tokens/android/backend/sms:one_time_tokens_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
+    module_scheme = "junit",
 )
 
 targets.binaries.console_test_launcher(
@@ -1926,6 +1958,7 @@ targets.binaries.generated_script(
             "--smoke-test-mode",
         ],
     ),
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
@@ -1946,6 +1979,7 @@ targets.binaries.script(
         "../../content/test/gpu/run_telemetry_benchmark_fuchsia.py",
         "--per-test-logs-dir",
     ],
+    module_scheme = "single",
 )
 
 targets.binaries.script(
@@ -2001,6 +2035,7 @@ targets.binaries.generated_script(
     label = "//build/private_code_test:private_code_failure_test",
     # All references have been moved to starlark
     skip_usage_check = True,
+    module_scheme = "single",
 )
 
 targets.binaries.console_test_launcher(
@@ -2214,11 +2249,13 @@ targets.binaries.generated_script(
 targets.binaries.generated_script(
     name = "telemetry_gpu_integration_test",
     label = "//chrome/test:telemetry_gpu_integration_test",
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
     name = "telemetry_gpu_integration_test_android_chrome",
     label = "//chrome/test:telemetry_gpu_integration_test_android_chrome",
+    module_scheme = "flat",
 )
 
 targets.binaries.script(
@@ -2230,6 +2267,7 @@ targets.binaries.script(
     args = [
         "../../content/test/gpu/run_gpu_integration_test.py",
     ],
+    module_scheme = "flat",
 )
 
 targets.binaries.script(
@@ -2243,6 +2281,7 @@ targets.binaries.script(
         "--logs-dir",
         "${ISOLATED_OUTDIR}",
     ],
+    module_scheme = "flat",
 )
 
 targets.binaries.script(
@@ -2256,6 +2295,7 @@ targets.binaries.script(
     resultdb = targets.resultdb(
         enable = True,
     ),
+    module_scheme = "flat",
 )
 
 # This isolate is used by
@@ -2272,6 +2312,7 @@ targets.binaries.script(
 targets.binaries.generated_script(
     name = "telemetry_perf_unittests",
     label = "//chrome/test:telemetry_perf_unittests",
+    module_scheme = "pyunit",
 )
 
 targets.binaries.generated_script(
@@ -2279,6 +2320,7 @@ targets.binaries.generated_script(
     label = "//chrome/test:telemetry_perf_unittests_android_chrome",
     # All references have been moved to starlark
     skip_usage_check = True,
+    module_scheme = "pyunit",
 )
 
 targets.binaries.generated_script(
@@ -2286,11 +2328,13 @@ targets.binaries.generated_script(
     label = "//chrome/test:telemetry_perf_unittests_android_monochrome",
     # All references have been moved to starlark
     skip_usage_check = True,
+    module_scheme = "pyunit",
 )
 
 targets.binaries.generated_script(
     name = "telemetry_unittests",
     label = "//chrome/test:telemetry_unittests",
+    module_scheme = "pyunit",
 )
 
 targets.binaries.console_test_launcher(
@@ -2309,6 +2353,7 @@ targets.binaries.generated_script(
     resultdb = targets.resultdb(
         enable = True,
     ),
+    module_scheme = "single",
 )
 
 targets.binaries.console_test_launcher(
@@ -2355,7 +2400,7 @@ targets.binaries.console_test_launcher(
     label = "//chrome/android:trichrome_chrome_bundle_smoke_test",
     # All references have been moved to starlark
     skip_usage_check = True,
-    module_scheme = "gtest",
+    module_scheme = "junit",
 )
 
 targets.binaries.console_test_launcher(
@@ -2485,6 +2530,7 @@ targets.binaries.console_test_launcher(
 targets.binaries.generated_script(
     name = "variations_desktop_smoke_tests",
     label = "//chrome/test/variations:variations_desktop_smoke_tests",
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
@@ -2522,6 +2568,7 @@ targets.binaries.script(
             "--smoke-test-mode",
         ],
     ),
+    module_scheme = "single",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -2579,6 +2626,7 @@ targets.binaries.script(
             "--upload-skia-json",
         ],
     ),
+    module_scheme = "flat",
 )
 
 targets.binaries.script(
@@ -2858,6 +2906,7 @@ targets.binaries.generated_script(
     resultdb = targets.resultdb(
         enable = True,
     ),
+    module_scheme = "single",
 )
 
 targets.binaries.console_test_launcher(

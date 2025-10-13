@@ -27,6 +27,7 @@
 #include "base/types/expected.h"
 #include "build/build_config.h"
 #include "components/affiliations/core/browser/fake_affiliation_service.h"
+#include "components/autofill/core/browser/autofill_server_prediction.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/crowdsourcing/randomized_encoder.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -94,39 +95,38 @@
 #include "components/os_crypt/sync/os_crypt_mocker.h"
 #endif
 
-using ServerPrediction = autofill::AutofillType::ServerPrediction;
-using autofill::FieldGlobalId;
-using autofill::FieldRendererId;
-using autofill::FieldType;
-using autofill::FormData;
-using autofill::FormFieldData;
-using autofill::FormRendererId;
-using autofill::NO_SERVER_DATA;
-using autofill::NOT_USERNAME;
-using autofill::PasswordFormFillData;
-using autofill::SINGLE_USERNAME;
+using ::autofill::FieldGlobalId;
+using ::autofill::FieldRendererId;
+using ::autofill::FieldType;
+using ::autofill::FormData;
+using ::autofill::FormFieldData;
+using ::autofill::FormRendererId;
+using ::autofill::NO_SERVER_DATA;
+using ::autofill::NOT_USERNAME;
+using ::autofill::PasswordFormFillData;
+using ::autofill::SINGLE_USERNAME;
 using ::autofill::test::CreateFieldPrediction;
-using base::ASCIIToUTF16;
-using base::Feature;
-using base::TestMockTimeTaskRunner;
-using base::test::FeatureRef;
-using testing::_;
-using testing::AllOf;
-using testing::AnyNumber;
-using testing::ByMove;
-using testing::ElementsAre;
-using testing::Field;
-using testing::IsEmpty;
-using testing::IsNull;
-using testing::Mock;
-using testing::NotNull;
-using testing::Pair;
-using testing::Return;
-using testing::ReturnRef;
-using testing::SaveArg;
-using testing::SizeIs;
-using testing::UnorderedElementsAre;
-using testing::WithArg;
+using ::base::ASCIIToUTF16;
+using ::base::Feature;
+using ::base::TestMockTimeTaskRunner;
+using ::base::test::FeatureRef;
+using ::testing::_;
+using ::testing::AllOf;
+using ::testing::AnyNumber;
+using ::testing::ByMove;
+using ::testing::ElementsAre;
+using ::testing::Field;
+using ::testing::IsEmpty;
+using ::testing::IsNull;
+using ::testing::Mock;
+using ::testing::NotNull;
+using ::testing::Pair;
+using ::testing::Return;
+using ::testing::ReturnRef;
+using ::testing::SaveArg;
+using ::testing::SizeIs;
+using ::testing::UnorderedElementsAre;
+using ::testing::WithArg;
 
 namespace password_manager {
 
@@ -148,6 +148,14 @@ MATCHER_P(FormIgnoreDate, expected, "") {
 
 MATCHER_P(HasUsernameValue, expected_username, "") {
   return arg.username_value == expected_username;
+}
+
+MATCHER_P(HasDateLastFilled, expected, "") {
+  return arg.date_last_filled == expected;
+}
+
+MATCHER_P(HasDateLastUsed, expected, "") {
+  return arg.date_last_used == expected;
 }
 
 class FakeNetworkContext : public network::TestNetworkContext {
@@ -439,9 +447,7 @@ class PasswordManagerTestBase : public testing::Test {
         std::make_unique<testing::NiceMock<MockAffiliatedMatchHelper>>(
             &fake_affiliation_service_);
     mock_match_helper_ = owning_mock_match_helper.get();
-    store_->Init(
-        /*prefs=*/nullptr,
-        /*affiliated_match_helper=*/std::move(owning_mock_match_helper));
+    store_->Init(std::move(owning_mock_match_helper));
 
     ON_CALL(client_, GetProfilePasswordStore())
         .WillByDefault(Return(store_.get()));
@@ -449,8 +455,7 @@ class PasswordManagerTestBase : public testing::Test {
     if (ShouldEnableAccountStorage()) {
       account_store_ =
           base::MakeRefCounted<TestPasswordStore>(IsAccountStore(true));
-      account_store_->Init(/*prefs=*/nullptr,
-                           /*affiliated_match_helper=*/nullptr);
+      account_store_->Init(/*affiliated_match_helper=*/nullptr);
 
       ON_CALL(client_, GetAccountPasswordStore())
           .WillByDefault(Return(account_store_.get()));
@@ -1054,19 +1059,6 @@ TEST_P(PasswordManagerTest, EditingGeneratedPasswordOnIOS) {
 
   const scoped_refptr<autofill::FieldDataManager> field_data_manager =
       base::MakeRefCounted<autofill::FieldDataManager>();
-
-  // Test when the user is changing the generated password, presaved credential
-  // is updated.
-  generated_password += u"1";
-  manager()->UpdateStateOnUserInput(&driver_, *field_data_manager,
-                                    form_data.renderer_id(), generation_element,
-                                    generated_password);
-  task_environment_.RunUntilIdle();
-  EXPECT_THAT(store_->stored_passwords(),
-              ElementsAre(Pair(
-                  GetSignonRealm(form_data.url()),
-                  ElementsAre(FormUsernamePasswordAre(
-                      form_data.fields()[0].value(), generated_password)))));
 
   // Test when the user is changing the username, presaved credential is
   // updated.
@@ -1701,7 +1693,7 @@ TEST_P(PasswordManagerTest, FormSubmitWhenPasswordsCannotBeSaved) {
   // Test that a plain form submit doesn't result in offering to save passwords.
   auto store = base::MakeRefCounted<PasswordStore>(
       std::make_unique<FailingPasswordStoreBackend>());
-  store->Init(/*prefs=*/nullptr, /*affiliated_match_helper=*/nullptr);
+  store->Init(/*affiliated_match_helper=*/nullptr);
   ON_CALL(client_, GetProfilePasswordStore())
       .WillByDefault(Return(store.get()));
 
@@ -1734,7 +1726,7 @@ TEST_P(PasswordManagerTest,
   // Test that a plain form submit doesn't result in offering to save passwords.
   auto store = base::MakeRefCounted<PasswordStore>(
       std::make_unique<FailingPasswordStoreBackend>());
-  store->Init(/*prefs=*/nullptr, /*affiliated_match_helper=*/nullptr);
+  store->Init(/*affiliated_match_helper=*/nullptr);
   PasswordForm form(MakeSimpleForm());
   form.password_value = u"old_password";
   store->AddLogin(form);
@@ -2060,7 +2052,7 @@ TEST_P(PasswordManagerTest, BrokenPasswordStorePreventsMutingCredentials) {
   manager()->set_leak_factory(std::move(mock_factory));
   auto store = base::MakeRefCounted<PasswordStore>(
       std::make_unique<FailingPasswordStoreBackend>());
-  store->Init(/*prefs=*/nullptr, /*affiliated_match_helper=*/nullptr);
+  store->Init(/*affiliated_match_helper=*/nullptr);
   ON_CALL(client_, GetProfilePasswordStore())
       .WillByDefault(Return(store.get()));
 
@@ -6852,6 +6844,59 @@ TEST_P(PasswordManagerTest,
 
   // Check that a form manager was not created.
   ASSERT_TRUE(manager()->form_managers().empty());
+}
+
+TEST_P(PasswordManagerTest, DateLastFilledIsUpdated) {
+  base::test::ScopedFeatureList feature_list{
+      password_manager::features::kPasswordDateLastFilled};
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled).WillRepeatedly(Return(true));
+
+  // Simulate a user-triggered fill for a stored login. This should update the
+  // `date_last_filled` timestamp on the saved form prior to form submission.
+  const PasswordForm saved_match(MakeSavedForm());
+  store_->AddLogin(saved_match);
+
+  const PasswordForm form(MakeSimpleForm());
+  FormData observed = form.form_data;
+  manager()->OnPasswordFormsParsed(&driver_, {observed});
+  manager()->OnPasswordFormsRendered(&driver_, {observed});
+  task_environment_.RunUntilIdle();
+
+  // Advance the clock to make the expected timestamp different from epoch.
+  task_environment_.AdvanceClock(base::Days(1));
+  auto expected_last_filled = base::Time::Now();
+
+  // Simulate user-triggered password filling.
+  test_api(observed).field(1).set_properties_mask(
+      autofill::FieldPropertiesFlags::kAutofilledOnUserTrigger);
+  manager()->OnInformAboutUserInput(&driver_, observed);
+  task_environment_.RunUntilIdle();
+
+  PasswordForm expected_form = form;
+  EXPECT_THAT(store_->stored_passwords(),
+              ElementsAre(Pair(expected_form.signon_realm,
+                               ElementsAre(AllOf(
+                                   FormMatches(expected_form),
+                                   HasDateLastFilled(expected_last_filled))))));
+
+  // Simulate form submission and wait for navigation to complete. We expect
+  // `date_last_used` to be updated now, and `date_last_filled` to remain the
+  // same.
+  task_environment_.AdvanceClock(base::Seconds(1));
+  auto expected_date_last_used = base::Time::Now();
+
+  OnPasswordFormSubmitted(observed);
+  manager()->DidNavigateMainFrame(true);
+  manager()->OnPasswordFormsParsed(&driver_, {});
+  manager()->OnPasswordFormsRendered(&driver_, {});
+  task_environment_.RunUntilIdle();
+
+  EXPECT_THAT(store_->stored_passwords(),
+              ElementsAre(Pair(expected_form.signon_realm,
+                               ElementsAre(AllOf(
+                                   FormMatches(expected_form),
+                                   HasDateLastUsed(expected_date_last_used),
+                                   HasDateLastFilled(expected_last_filled))))));
 }
 
 INSTANTIATE_TEST_SUITE_P(, PasswordManagerTest, ::testing::Bool());

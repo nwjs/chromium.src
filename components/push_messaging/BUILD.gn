@@ -4,6 +4,8 @@
 
 static_library("push_messaging") {
   sources = [
+    "app_identifier.cc",
+    "app_identifier.h",
     "push_messaging_constants.cc",
     "push_messaging_constants.h",
     "push_messaging_features.cc",
@@ -14,6 +16,31 @@ static_library("push_messaging") {
   deps = [
     "//base",
     "//third_party/blink/public/common",
+    "//url",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "app_identifier_test_support.cc",
+    "app_identifier_test_support.h",
+  ]
+  deps = [
+    ":push_messaging",
+    "//testing/gtest",
+    "//url",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "app_identifier_unittest.cc" ]
+  deps = [
+    ":push_messaging",
+    ":test_support",
+    "//base/test:test_support",
+    "//testing/gtest",
     "//url",
   ]
 }

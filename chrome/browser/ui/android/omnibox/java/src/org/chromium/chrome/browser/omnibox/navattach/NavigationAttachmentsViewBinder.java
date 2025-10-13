@@ -20,6 +20,9 @@ class NavigationAttachmentsViewBinder {
             PropertyModel model, NavigationAttachmentsViewHolder view, PropertyKey propertyKey) {
         if (propertyKey == NavigationAttachmentsProperties.ADAPTER) {
             view.attachmentsView.setAdapter(model.get(NavigationAttachmentsProperties.ADAPTER));
+        } else if (propertyKey == NavigationAttachmentsProperties.AI_MODE_ENABLED) {
+            view.navigationType.setChecked(
+                    model.get(NavigationAttachmentsProperties.AI_MODE_ENABLED));
         } else if (propertyKey == NavigationAttachmentsProperties.ATTACHMENTS_VISIBLE) {
             boolean visible = model.get(NavigationAttachmentsProperties.ATTACHMENTS_VISIBLE);
             view.attachmentsView.setVisibility(visible ? View.VISIBLE : View.GONE);
@@ -38,12 +41,20 @@ class NavigationAttachmentsViewBinder {
         } else if (propertyKey == NavigationAttachmentsProperties.POPUP_CAMERA_CLICKED) {
             view.popup.mCameraButton.setOnClickListener(
                     v -> model.get(NavigationAttachmentsProperties.POPUP_CAMERA_CLICKED).run());
-        } else if (propertyKey == NavigationAttachmentsProperties.POPUP_GALLERY_CLICKED) {
-            view.popup.mGalleryButton.setOnClickListener(
-                    v -> model.get(NavigationAttachmentsProperties.POPUP_GALLERY_CLICKED).run());
+        } else if (propertyKey == NavigationAttachmentsProperties.POPUP_CLIPBOARD_BUTTON_VISIBLE) {
+            view.popup.mClipboardButton.setVisibility(
+                    model.get(NavigationAttachmentsProperties.POPUP_CLIPBOARD_BUTTON_VISIBLE)
+                            ? View.VISIBLE
+                            : View.GONE);
+        } else if (propertyKey == NavigationAttachmentsProperties.POPUP_CLIPBOARD_CLICKED) {
+            view.popup.mClipboardButton.setOnClickListener(
+                    v -> model.get(NavigationAttachmentsProperties.POPUP_CLIPBOARD_CLICKED).run());
         } else if (propertyKey == NavigationAttachmentsProperties.POPUP_FILE_CLICKED) {
             view.popup.mFileButton.setOnClickListener(
                     v -> model.get(NavigationAttachmentsProperties.POPUP_FILE_CLICKED).run());
+        } else if (propertyKey == NavigationAttachmentsProperties.POPUP_GALLERY_CLICKED) {
+            view.popup.mGalleryButton.setOnClickListener(
+                    v -> model.get(NavigationAttachmentsProperties.POPUP_GALLERY_CLICKED).run());
         } else if (propertyKey == NavigationAttachmentsProperties.TOOLBAR_VISIBLE) {
             view.navigationToolbar.setVisibility(
                     model.get(NavigationAttachmentsProperties.TOOLBAR_VISIBLE)

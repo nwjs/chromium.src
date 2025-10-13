@@ -110,6 +110,7 @@
 #include "third_party/blink/renderer/core/dom/mutation_observer_interest_group.h"
 #include "third_party/blink/renderer/core/dom/mutation_record.h"
 #include "third_party/blink/renderer/core/dom/named_node_map.h"
+#include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/dom/node_cloning_data.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
 #include "third_party/blink/renderer/core/dom/popover_data.h"
@@ -225,6 +226,7 @@
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/speculation_rules/document_speculation_rules.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
+#include "third_party/blink/renderer/core/style/style_interest_delay.h"
 #include "third_party/blink/renderer/core/svg/svg_a_element.h"
 #include "third_party/blink/renderer/core/svg/svg_animated_href.h"
 #include "third_party/blink/renderer/core/svg/svg_element.h"
@@ -1561,8 +1563,7 @@ InterestInvokerTargetData& Element::EnsureInterestInvokerTargetData() {
   return EnsureElementRareData().EnsureInterestInvokerTargetData();
 }
 InterestInvokerTargetData* Element::GetInterestInvokerTargetData() const {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-      GetDocument().GetExecutionContext()));
+  CHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
   if (const ElementRareDataVector* data = GetElementRareData()) {
     return data->GetInterestInvokerTargetData();
   }
@@ -1636,25 +1637,74 @@ HTMLElement* Element::GetOpenPopoverTarget() const {
   return popover;
 }
 
-bool Element::InterestGained(Element& target, InterestState new_state) {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-      GetDocument().GetExecutionContext()));
-  CHECK(IsInTreeScope());
-  CHECK(GetDocument().IsActive());
-  CHECK_NE(new_state, InterestState::kNoInterest);
-  Event* interest_event =
-      InterestEvent::Create(event_type_names::kInterest, this);
-  target.DispatchEvent(*interest_event);
+namespace {
+bool ShouldContinueWithInterest(Element& invoker,
+                                Element* target,
+                                Element::InterestState new_state) {
+  // Check pre-conditions. This function is called from posted tasks, so things
+  // may have changed since invoker and target were passed.
+  if (!target || !invoker.IsInTreeScope() ||
+      !invoker.GetDocument().IsActive() ||
+      invoker.InterestForElement() != target ||
+      (new_state == Element::InterestState::kNoInterest &&
+       target->SourceInterestInvoker() != invoker)) {
+    return false;
+  }
+  return true;
+}
+}  // namespace
+
+bool Element::InterestGained(Element* target) {
+  CHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
+
+  if (!ShouldContinueWithInterest(*this, target,
+                                  InterestState::kFullInterest)) {
+    return false;
+  }
+
+  if (Element* existing_invoker = target->SourceInterestInvoker()) {
+    // We're gaining interest, but the target already has an active interest
+    // invoker. There are two cases:
+    //  1. This is the same invoker. An example case is that the gain
+    //     interest delay is short, but the lose interest delay is long, and
+    //     we just de-hovered and then re-hovered the invoker. In this case,
+    //     we can just cancel any interest lost event and move on.
+    //  2. This is a different invoker. An example is that again, the lose
+    //     interest delay is long, and we've hovered a different invoker for
+    //     the same target. In this case, we need to immediately lose
+    //     interest from the old invoker before gaining it via the new one.
+    if (existing_invoker == this) {
+      // Case 1.
+      auto* invoker_data = GetInvokerData();
+      CHECK(!invoker_data->HasInterestGainedTask());
+      invoker_data->CancelInterestLostTask();
+      return false;
+    } else {
+      // Case 2.
+      if (!existing_invoker->InterestLost(target)) {
+        return false;
+      }
+      // Event handlers might have changed things around, so re-check.
+      if (!ShouldContinueWithInterest(*this, target,
+                                      InterestState::kFullInterest)) {
+        return false;
+      }
+    }
+  }
+
+  Event* interest_event = InterestEvent::Create(event_type_names::kInterest,
+                                                this, Event::Cancelable::kYes);
+  target->DispatchEvent(*interest_event);
   if (interest_event->defaultPrevented()) {
     return false;
   }
 
   // This is now the target's interest invoker
-  CHECK(!target.SourceInterestInvoker());
-  target.EnsureElementRareData()
+  CHECK(!target->SourceInterestInvoker());
+  target->EnsureElementRareData()
       .EnsureInterestInvokerTargetData()
       .setInterestInvoker(this);
-  ChangeInterestState(&target, new_state);
+  ChangeInterestState(target, InterestState::kFullInterest);
 
   // If the target is a popover, invoke it.
   if (auto* popover = DynamicTo<HTMLElement>(target);
@@ -1669,56 +1719,74 @@ bool Element::InterestGained(Element& target, InterestState new_state) {
   return true;
 }
 
-bool Element::InterestLost(Element& target) {
-  CHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-      GetDocument().GetExecutionContext()));
-  CHECK(IsInTreeScope());
-  CHECK(GetDocument().IsActive());
+bool Element::InterestLost(Element* target,
+                           InterestLostCancelable cancelable,
+                           InterestLostPopoverBehavior behavior) {
+  CHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
+
+  if (!ShouldContinueWithInterest(*this, target, InterestState::kNoInterest)) {
+    return false;
+  }
+
   Event* lose_interest_event =
-      InterestEvent::Create(event_type_names::kLoseinterest, this);
-  target.DispatchEvent(*lose_interest_event);
+      InterestEvent::Create(event_type_names::kLoseinterest, this,
+                            cancelable == InterestLostCancelable::kCancelable
+                                ? Event::Cancelable::kYes
+                                : Event::Cancelable::kNo);
+  target->DispatchEvent(*lose_interest_event);
   if (lose_interest_event->defaultPrevented()) {
     return false;
   }
 
   // If the target still thinks this invoker is its invoker, remove it.
-  if (auto* targets_invoker = target.SourceInterestInvoker();
+  if (auto* targets_invoker = target->SourceInterestInvoker();
       targets_invoker && targets_invoker == this) {
-    ChangeInterestState(&target, InterestState::kNoInterest);
+    ChangeInterestState(target, InterestState::kNoInterest);
   }
 
   // If the target is a popover, hide it.
-  if (auto* popover = DynamicTo<HTMLElement>(target);
-      popover && popover->PopoverType() != PopoverValueType::kNone) {
-    if (popover->IsPopoverReady(PopoverTriggerAction::kHide,
-                                /*exception_state=*/nullptr,
-                                /*include_event_handler_text=*/true,
-                                &GetDocument())) {
-      popover->HidePopoverInternal(
-          /*invoker=*/this, HidePopoverFocusBehavior::kFocusPreviousElement,
-          HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions,
-          /*exception_state=*/nullptr);
+  if (behavior == InterestLostPopoverBehavior::kClosePopovers) {
+    if (auto* popover = DynamicTo<HTMLElement>(target);
+        popover && popover->PopoverType() != PopoverValueType::kNone) {
+      if (popover->IsPopoverReady(PopoverTriggerAction::kHide,
+                                  /*exception_state=*/nullptr,
+                                  /*include_event_handler_text=*/true,
+                                  &GetDocument())) {
+        popover->HidePopoverInternal(
+            /*invoker=*/this, HidePopoverFocusBehavior::kFocusPreviousElement,
+            HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions,
+            /*exception_state=*/nullptr);
+      }
     }
   }
   return true;
 }
 
-void Element::DefaultEventHandler(Event& event) {
-  if (RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-          GetDocument().GetExecutionContext()) &&
-      (InterestForElement() || SourceInterestInvoker() ||
-       GetInterestState() != InterestState::kNoInterest)) [[unlikely]] {
-    // Handle new `interestfor` activation via mouse, keyboard, or long-
-    // press.
-    String type = event.type();
-    if (auto* mouse_event = DynamicTo<MouseEvent>(event);
-        mouse_event && !mouse_event->FromTouch()) {
-      if (type == event_type_names::kMouseover) {
-        HandleInterestForHoverOrFocus(InterestSource::kHover);
-      } else if (type == event_type_names::kMouseout) {
-        HandleInterestForHoverOrFocus(InterestSource::kDeHover);
+void Element::HandlePointerEventsForInterestFor(
+    const AtomicString& event_type) {
+  if (!RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled()) {
+    return;
+  }
+  for (Element* element = this; element; element = element->parentElement()) {
+    if (element->InterestForElement() || element->SourceInterestInvoker() ||
+        element->GetInterestState() != InterestState::kNoInterest)
+        [[unlikely]] {
+      if (event_type == event_type_names::kPointerover) {
+        element->HandleInterestForHoverOrFocus(InterestSource::kHover);
+      } else {
+        CHECK_EQ(event_type, event_type_names::kPointerout);
+        element->HandleInterestForHoverOrFocus(InterestSource::kDeHover);
       }
     }
+  }
+}
+
+void Element::DefaultEventHandler(Event& event) {
+  if (RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled() &&
+      (InterestForElement() || SourceInterestInvoker() ||
+       GetInterestState() != InterestState::kNoInterest)) [[unlikely]] {
+    // Handle new `interestfor` activation via keyboard or long-press.
+    String type = event.type();
     if (auto* focus_event = DynamicTo<FocusEvent>(event);
         focus_event &&
         (!focus_event->sourceCapabilities() ||
@@ -1753,26 +1821,7 @@ void Element::DefaultEventHandler(Event& event) {
       // built-in delay. Just show interest immediately in this case. This
       // follows the same path used by context-menu activations on link
       // elements.
-      // TODO(crbug.com/364669918): Touchscreen / long-press still needs a
-      // unit test.
       ShowInterestNow();
-    }
-
-    if (auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
-        keyboard_event && event.type() == event_type_names::kKeydown &&
-        GetInterestState() != InterestState::kNoInterest) {
-      // Handle `interestfor` "activation" hotkey, and ESC key to lose
-      // interest.
-      const int modifiers =
-          keyboard_event->GetModifiers() & blink::WebInputEvent::kKeyModifiers;
-      auto* target = GetInvokerData()->ActiveInterestTarget();
-      DCHECK_EQ(InterestForElement(), target);
-      if (keyboard_event->key() == keywords::kEscape && !modifiers) {
-        if (GainOrLoseInterest(this, target, InterestState::kNoInterest)) {
-          event.SetDefaultHandled();
-          return;
-        }
-      }
     }
   }
   ContainerNode::DefaultEventHandler(event);
@@ -1949,8 +1998,10 @@ ScriptPromise<IDLUndefined> Element::scrollIntoView(
   switch (arg->GetContentType()) {
     case V8UnionBooleanOrScrollIntoViewOptions::ContentType::kBoolean:
       options = ScrollIntoViewOptions::Create();
-      options->setBlock(arg->GetAsBoolean() ? "start" : "end");
-      options->setInlinePosition("nearest");
+      options->setBlock(arg->GetAsBoolean()
+                            ? V8ScrollLogicalPosition::Enum::kStart
+                            : V8ScrollLogicalPosition::Enum::kEnd);
+      options->setInlinePosition(V8ScrollLogicalPosition::Enum::kNearest);
       break;
     case V8UnionBooleanOrScrollIntoViewOptions::ContentType::
         kScrollIntoViewOptions:
@@ -2553,6 +2604,7 @@ void Element::setScrollLeft(double new_left) {
     }
     scrollable_area->SetScrollOffset(end_offset,
                                      mojom::blink::ScrollType::kProgrammatic,
+                                     cc::ScrollSourceType::kAbsoluteScroll,
                                      mojom::blink::ScrollBehavior::kAuto);
   }
 }
@@ -2611,6 +2663,7 @@ void Element::setScrollTop(double new_top) {
 
     scrollable_area->SetScrollOffset(end_offset,
                                      mojom::blink::ScrollType::kProgrammatic,
+                                     cc::ScrollSourceType::kAbsoluteScroll,
                                      mojom::blink::ScrollBehavior::kAuto);
   }
 }
@@ -2797,8 +2850,9 @@ bool Element::ScrollLayoutBoxBy(const ScrollToOptions* scroll_to_options) {
   new_position =
       scrollable_area->GetSnapPositionAndSetTarget(*strategy).value_or(
           new_position);
-  return scrollable_area->ScrollToAbsolutePosition(new_position,
-                                                   scroll_behavior);
+  return scrollable_area->ScrollToAbsolutePosition(
+      new_position, scroll_behavior, mojom::blink::ScrollType::kProgrammatic,
+      cc::ScrollSourceType::kRelativeScroll);
 }
 
 bool Element::ScrollLayoutBoxTo(const ScrollToOptions* scroll_to_options) {
@@ -2865,7 +2919,8 @@ bool Element::ScrollLayoutBoxTo(const ScrollToOptions* scroll_to_options) {
   }
 
   return scrollable_area->SetScrollOffset(
-      new_offset, mojom::blink::ScrollType::kProgrammatic, scroll_behavior);
+      new_offset, mojom::blink::ScrollType::kProgrammatic,
+      cc::ScrollSourceType::kAbsoluteScroll, scroll_behavior);
 }
 
 bool Element::ScrollFrameBy(const ScrollToOptions* scroll_to_options) {
@@ -2903,7 +2958,8 @@ bool Element::ScrollFrameBy(const ScrollToOptions* scroll_to_options) {
       viewport->GetSnapPositionAndSetTarget(*strategy).value_or(new_position);
   return viewport->SetScrollOffset(
       viewport->ScrollPositionToOffset(new_position),
-      mojom::blink::ScrollType::kProgrammatic, scroll_behavior);
+      mojom::blink::ScrollType::kProgrammatic,
+      cc::ScrollSourceType::kRelativeScroll, scroll_behavior);
 }
 
 bool Element::ScrollFrameTo(const ScrollToOptions* scroll_to_options) {
@@ -2942,7 +2998,8 @@ bool Element::ScrollFrameTo(const ScrollToOptions* scroll_to_options) {
       viewport->GetSnapPositionAndSetTarget(*strategy).value_or(new_position);
   new_offset = viewport->ScrollPositionToOffset(new_position);
   return viewport->SetScrollOffset(
-      new_offset, mojom::blink::ScrollType::kProgrammatic, scroll_behavior);
+      new_offset, mojom::blink::ScrollType::kProgrammatic,
+      cc::ScrollSourceType::kAbsoluteScroll, scroll_behavior);
 }
 
 gfx::Rect Element::BoundsInWidget() const {
@@ -3549,8 +3606,7 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
   } else if (IsElementReflectionAttribute(name)) {
     SynchronizeContentAttributeAndElementReference(name);
     if (name == html_names::kInterestforAttr &&
-        RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-            GetDocument().GetExecutionContext())) {
+        RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled()) {
       UseCounter::Count(GetDocument(), WebFeature::kInterestFor);
       if (!params.old_value.IsNull()) {
         // We are changing the value of the `interestfor` attribute, so
@@ -3915,6 +3971,14 @@ void Element::MovedFrom(ContainerNode& old_parent) {
   }
 }
 
+void Element::SetIsCanvasOrInCanvasSubtree(bool value) {
+  if (value == IsCanvasOrInCanvasSubtree()) {
+    return;
+  }
+  SetElementFlag(ElementFlags::kIsCanvasOrInCanvasSubtree, value);
+  DidChangeIsCanvasOrInCanvasSubtree();
+}
+
 void Element::RemovedFrom(ContainerNode& insertion_point) {
   bool was_in_document = insertion_point.isConnected();
 
@@ -3963,16 +4027,14 @@ void Element::RemovedFrom(ContainerNode& insertion_point) {
       // The element being removed is an interest invoker - move it to the
       // no-interest state and cancel any pending interest tasks.
       if (invoker_data->GetInterestState() != InterestState::kNoInterest) {
-        DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-            document.GetExecutionContext()));
+        DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
         ChangeInterestState(invoker_data->ActiveInterestTarget(),
                             InterestState::kNoInterest);
       }
     }
     if (InterestInvokerTargetData* target_data =
             data->GetInterestInvokerTargetData()) [[unlikely]] {
-      DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-          document.GetExecutionContext()));
+      DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
       if (Element* invoker = target_data->interestInvoker();
           invoker &&
           invoker->GetInterestState() != InterestState::kNoInterest &&
@@ -4001,7 +4063,7 @@ void Element::RemovedFrom(ContainerNode& insertion_point) {
     document.RemoveFromTopLayerImmediately(this);
   }
 
-  ClearElementFlag(ElementFlags::kIsCanvasOrInCanvasSubtree);
+  SetIsCanvasOrInCanvasSubtree(false);
 
   if (ElementRareDataVector* data = GetElementRareData()) {
     data->ClearFocusgroupFlags();
@@ -4170,7 +4232,7 @@ void Element::AttachLayoutTree(AttachContext& context) {
   }
 
   AttachSucceedingPseudoElements(children_context);
-  AttachTransitionPseudo();
+  AttachTransitionPseudoElements(children_context);
 
   if (!IsPseudoElement() && layout_object) {
     context.counters_context.LeaveObject(*layout_object);
@@ -4232,9 +4294,6 @@ void Element::DetachLayoutTree(bool performing_reattach) {
   // https://crbug.com/939769
   if (ChildNeedsReattachLayoutTree() || GetComputedStyle() ||
       (!performing_reattach && IsUserActionElement())) {
-    if (performing_reattach) {
-      DetachTransitionPseudo();
-    }
     if (ShadowRoot* shadow_root = GetShadowRoot()) {
       shadow_root->DetachLayoutTree(performing_reattach);
       Node::DetachLayoutTree(performing_reattach);
@@ -4246,6 +4305,7 @@ void Element::DetachLayoutTree(bool performing_reattach) {
   }
 
   DetachSucceedingPseudoElements(performing_reattach);
+  DetachTransitionPseudoElements(performing_reattach);
 
   if (!performing_reattach) {
     UpdateCallbackSelectors(GetComputedStyle(), nullptr);
@@ -4266,52 +4326,6 @@ void Element::DetachLayoutTree(bool performing_reattach) {
   if (context) {
     context->DetachLayoutTree();
   }
-}
-
-void Element::DetachTransitionPseudo() {
-  if (!RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()) {
-    return;
-  }
-
-  auto* transition_pseudo = GetPseudoElement(kPseudoIdViewTransition);
-  if (!transition_pseudo || IsDocumentElement()) {
-    return;
-  }
-
-  auto* scope_layout_object = GetLayoutObject();
-  auto* pseudo_layout_object = transition_pseudo->GetLayoutObject();
-  if (!scope_layout_object || !pseudo_layout_object) {
-    return;
-  }
-
-  // Disconnect the pseudo's layout object from the scope's layout object.
-  // This is done so that when the scope runs LayoutObject::Destroy, it does
-  // not recurse into the pseudo tree. Instead the pseudo holds on to its
-  // layout tree until it is reattached in AttachTransitionPseudo.
-  scope_layout_object->RemoveChild(pseudo_layout_object);
-}
-
-void Element::AttachTransitionPseudo() {
-  if (!RuntimeEnabledFeatures::ScopedViewTransitionsEnabled()) {
-    return;
-  }
-
-  auto* transition_pseudo = GetPseudoElement(kPseudoIdViewTransition);
-  if (!transition_pseudo || IsDocumentElement()) {
-    return;
-  }
-
-  auto* scope_layout_object = GetLayoutObject();
-  auto* pseudo_layout_object = transition_pseudo->GetLayoutObject();
-  if (!scope_layout_object || !pseudo_layout_object) {
-    return;
-  }
-
-  // Reconnect the existing pseudo layout object to the scope parent.
-  // Note: this method only handles the scenario of the scope being reattached
-  // after acquiring transition pseudos. Construction of the transition pseudo
-  // layout objects is handled in RebuildTransitionPseudoLayoutTree.
-  scope_layout_object->AddChild(pseudo_layout_object);
 }
 
 void Element::ReattachLayoutTreeChildren(base::PassKey<StyleEngine>) {
@@ -4413,6 +4427,14 @@ const ComputedStyle* Element::StyleForLayoutObject(
     if (!style) {
       DCHECK(IsPseudoElement());
       return nullptr;
+    }
+
+    // This sets the flag on the element when starting style are detected. There
+    // is no reliable way to detect whether starting styles no longer affect an
+    // element, so this flag is "sticky".
+    if (!AffectedByStartingStyles()) {
+      SetAffectedByStartingStyles();
+      probe::UpdateAffectedByStartingStylesFlag(this, /*override_flag=*/true);
     }
   }
 
@@ -4800,10 +4822,8 @@ void Element::RecalcStyle(const StyleRecalcChange change,
       UpdateFirstLetterPseudoElement(StyleUpdatePhase::kRecalc,
                                      child_recalc_context);
     }
-    // RecalcTransitionPseudoTreeStyle generally manages the transition pseudo
-    // tree, but it won't be called after the transition is finished, so we need
-    // to clean up here.
-    ClearTransitionPseudoTreeIfNeeded(child_change);
+
+    UpdateTransitionPseudoElements(child_change, child_recalc_context);
   }
 
   ClearChildNeedsStyleRecalc();
@@ -5012,6 +5032,11 @@ StyleRecalcChange Element::RecalcOwnStyle(
 
   ComputedStyle::Difference diff =
       ComputedStyle::ComputeDifference(old_style, new_style);
+  if (ViewTransitionUtils::GetTransition(*this)) {
+    // Even if the computed style is an exact match, we must trigger pseudo-
+    // element traversal to properly populate the pseudo-element's subtree.
+    diff = std::max(diff, ComputedStyle::Difference::kPseudoElementStyle);
+  }
 
   if (old_style && old_style->IsEnsuredInDisplayNone()) {
     // Make sure we traverse children for clearing ensured computed styles
@@ -5148,12 +5173,23 @@ StyleRecalcChange Element::RecalcOwnStyle(
     NotifyIfMatchedDocumentRulesSelectorsChanged(old_style, new_style);
   }
 
-  if (auto* context = GetDisplayLockContext()) {
-    // Combine the change from the display lock context. If the context is
-    // locked and is preventing child update, we'll store this style recalc
-    // change again from Element::RecalcStyle.
-    child_change =
-        child_change.Combine(context->TakeBlockedStyleRecalcChange());
+  // We do not allow locked content to resume recalc when computing styles for
+  // anchored fallback positions during layout.
+  //
+  // An anchored element with content-visibility:hidden may have stored a
+  // StyleRecalcChange for a blocked style update that forces a layout tree
+  // re-attachment. Re-attaching the box of an element being laid out would
+  // cause a crash. The stored StyleRecalcChange for the blocked style update
+  // would still be stored in the DisplayLockContext and considered for the next
+  // normal style recalc pass.
+  if (style_recalc_context.anchor_evaluator == nullptr) {
+    if (DisplayLockContext* context = GetDisplayLockContext()) {
+      // Combine the change from the display lock context. If the context is
+      // locked and is preventing child update, we'll store this style recalc
+      // change again from Element::RecalcStyle.
+      child_change =
+          child_change.Combine(context->TakeBlockedStyleRecalcChange());
+    }
   }
 
   if (new_style) {
@@ -5180,6 +5216,13 @@ StyleRecalcChange Element::RecalcOwnStyle(
         child_change = evaluator->ApplyScrollStateAndStyleChanges(
             child_change, *old_style, *new_style,
             diff != ComputedStyle::Difference::kEqual);
+      }
+    }
+    if (IsPseudoElement() && new_style->MayUseImplicitAnchor()) {
+      UseCounter::Count(GetDocument(),
+                        WebFeature::kCSSPseudoElementUsesImplicitAnchor);
+      if (RuntimeEnabledFeatures::OriginatingElementIsImplicitAnchorEnabled()) {
+        parentElement()->SetMayBeImplicitAnchor();
       }
     }
   }
@@ -5264,14 +5307,6 @@ StyleRecalcChange Element::RecalcOwnStyle(
       apply_changes = LayoutObject::ApplyStyleChanges::kYes;
     }
     layout_object->SetStyle(layout_style, apply_changes);
-  }
-
-  if (RuntimeEnabledFeatures::ScopedViewTransitionsEnabled() &&
-      !IsDocumentElement() && ViewTransitionUtils::GetTransition(*this)) {
-    // TODO(kevers): Retrieve vector of VT names from the view transition.
-    // TODO(kevers): Determine if it is safe to remove the call from StyleEngine
-    // for the document element here.
-    RecalcTransitionPseudoTreeStyle({});
   }
 
   return child_change;
@@ -5360,6 +5395,7 @@ void Element::RebuildLayoutTree(WhitespaceAttacher& whitespace_attacher) {
     } else {
       child_attacher = &whitespace_attacher;
     }
+    RebuildTransitionLayoutTree(*child_attacher);
     RebuildPseudoElementLayoutTree(kPseudoIdAfter, *child_attacher);
     RebuildPseudoElementLayoutTree(kPseudoIdPickerIcon, *child_attacher);
     RebuildPseudoElementLayoutTree(kPseudoIdInterestHint, *child_attacher);
@@ -5444,6 +5480,44 @@ void Element::RebuildFirstLetterLayoutTree() {
       element->RebuildLayoutTree(whitespace_attacher);
     }
   }
+}
+
+void Element::RebuildTransitionLayoutTree(
+    WhitespaceAttacher& whitespace_attacher) {
+  auto rebuild_pseudo_tree =
+      [&whitespace_attacher](PseudoElement* pseudo_element) {
+        pseudo_element->RebuildLayoutTree(whitespace_attacher);
+      };
+  ViewTransitionUtils::ForEachTransitionPseudo(
+      *this, rebuild_pseudo_tree, ViewTransitionUtils::Filter::kDirectChildren);
+}
+
+void Element::AttachTransitionPseudoElements(AttachContext& context) {
+  // For a document transition, the LayoutObject for the ::view-transition
+  // pseudo-element is wrapped by the anonymous LayoutViewTransitionRoot,
+  // which represents the snapshot containing block.
+  //
+  // The LayoutViewTransitionRoot is a child of the LayoutView, and will be
+  // injected by LayoutView::AddChild.
+  // See LayoutTreeBuilderTraversal::ParentLayoutObject.
+  AttachContext children_context(context);
+  if (context.parent && context.parent->IsDocumentElement()) {
+    children_context.parent = GetDocument().GetLayoutView();
+  }
+
+  auto attach_pseudo = [&](PseudoElement* pseudo_element) {
+    pseudo_element->AttachLayoutTree(children_context);
+  };
+  ViewTransitionUtils::ForEachTransitionPseudo(
+      *this, attach_pseudo, ViewTransitionUtils::Filter::kDirectChildren);
+}
+
+void Element::DetachTransitionPseudoElements(bool performing_reattach) {
+  auto detach_pseudo = [&](PseudoElement* pseudo_element) {
+    pseudo_element->DetachLayoutTree(performing_reattach);
+  };
+  ViewTransitionUtils::ForEachTransitionPseudo(
+      *this, detach_pseudo, ViewTransitionUtils::Filter::kDirectChildren);
 }
 
 void Element::HandleSubtreeModifications() {
@@ -6688,7 +6762,8 @@ ShadowRoot* Element::attachShadow(const ShadowRootInit* shadow_root_init_dict,
                               ? FocusDelegation::kDelegateFocus
                               : FocusDelegation::kNone;
   auto slot_assignment = (shadow_root_init_dict->hasSlotAssignment() &&
-                          shadow_root_init_dict->slotAssignment() == "manual")
+                          shadow_root_init_dict->slotAssignment() ==
+                              V8SlotAssignmentMode::Enum::kManual)
                              ? SlotAssignmentMode::kManual
                              : SlotAssignmentMode::kNamed;
   auto reference_target =
@@ -6697,7 +6772,8 @@ ShadowRoot* Element::attachShadow(const ShadowRootInit* shadow_root_init_dict,
           : g_null_atom;
 
   // 1. Let registry be this's custom element registry.
-  // 2. If init["customElementRegistry"] is not null, then set registry to it.
+  // 2. If init["customElementRegistry"] is not null
+  // 2-1. Set registry to init["customElementRegistry"].
   bool scoped_registry =
       RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
       shadow_root_init_dict->hasCustomElementRegistry() &&
@@ -6705,6 +6781,16 @@ ShadowRoot* Element::attachShadow(const ShadowRootInit* shadow_root_init_dict,
   auto* registry = scoped_registry
                        ? shadow_root_init_dict->customElementRegistry()
                        : customElementRegistry();
+  // 2-2. If registry's "is scoped" is false and registry is not this's node
+  // document's custom element registry, then throw a "NotSupportedError"
+  // DOMException.
+  if (registry && registry->IsGlobalRegistry() &&
+      registry != GetDocument().customElementRegistry()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kNotSupportedError,
+        "The registry provided is a global registry from another document");
+    return nullptr;
+  }
 
   ShadowRootMode mode;
   if (const char* error_message = ErrorMessageForAttachShadow(
@@ -7781,22 +7867,35 @@ bool Element::IsKeyboardFocusableScroller(
 }
 
 void Element::ShowInterestNow() {
-  DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-      GetDocument().GetExecutionContext()));
-  Element* target = InterestForElement();
-  if (!target) {
-    return;
-  }
-  GainOrLoseInterest(this, target, InterestState::kFullInterest);
+  DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
+  InterestGained(InterestForElement());
 }
 
-void Element::LoseInterestNow() {
-  DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-      GetDocument().GetExecutionContext()));
+void Element::LoseInterestNow(InterestLostCancelable cancelable,
+                              InterestLostPopoverBehavior behavior) {
+  DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
   Element* target = InterestForElement();
   DCHECK_EQ(GetInvokerData()->ActiveInterestTarget(), target);
   DCHECK_EQ(GetInterestState(), InterestState::kFullInterest);
-  GainOrLoseInterest(this, target, InterestState::kNoInterest);
+  InterestLost(target, cancelable, behavior);
+}
+
+// static
+void Element::LoseInterestInAllElements(Document& document) {
+  // Make a copy, in case events change the list.
+  HeapLinkedHashSet<Member<Element>> elements = document.ElementsWithInterest();
+  // For each element source in document's active interest sources set, in
+  // reverse order:
+  for (auto& element : base::Reversed(elements)) {
+    if (auto* target = element->InterestForElement()) {
+      // 1. Lose interest in source given source's active interest target.
+      element->InterestLost(target, InterestLostCancelable::kNotCancelable);
+      // 2. If document is not fully active, then return.
+      if (!document.IsActive()) {
+        return;
+      }
+    }
+  }
 }
 
 bool Element::IsKeyboardFocusableSlow(UpdateBehavior update_behavior) const {
@@ -8174,6 +8273,17 @@ bool Element::AffectedBySubjectHas() const {
   return false;
 }
 
+void Element::SetAffectedByStartingStyles() {
+  EnsureElementRareData().SetAffectedByStartingStyles();
+}
+
+bool Element::AffectedByStartingStyles() const {
+  if (const ElementRareDataVector* data = GetElementRareData()) {
+    return data->AffectedByStartingStyles();
+  }
+  return false;
+}
+
 void Element::SetAffectedBySubjectHas() {
   EnsureElementRareData().SetAffectedBySubjectHas();
 }
@@ -8379,12 +8489,20 @@ void Element::SetInnerHTMLInternal(
   if (html.empty() && !HasNonInBodyInsertionMode()) {
     setTextContent(html);
   } else {
+    // Use null registry to create fragment if the context element is a
+    // template element as the container of the document fragment will be a
+    // document fragment without browsing context.
+    auto* template_element = DynamicTo<HTMLTemplateElement>(*this);
+    CustomElementRegistry* registry = GetDocument().customElementRegistry();
+    if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
+      registry = template_element ? nullptr : customElementRegistry();
+    }
     if (DocumentFragment* fragment = CreateFragmentForInnerOuterHTML(
             html, this, kAllowScriptingContent, parse_declarative_shadows,
-            force_html, exception_state)) {
+            force_html, registry, exception_state)) {
       ContainerNode* container = this;
       bool swap_dom_parts{false};
-      if (auto* template_element = DynamicTo<HTMLTemplateElement>(*this)) {
+      if (template_element) {
         container = template_element->content();
         swap_dom_parts =
             RuntimeEnabledFeatures::DOMPartsAPIEnabled() &&
@@ -8443,10 +8561,13 @@ void Element::SetOuterHTMLWithoutTrustedTypes(const String& html,
   Node* prev = previousSibling();
   Node* next = nextSibling();
 
-  DocumentFragment* fragment =
-      CreateFragmentForInnerOuterHTML(html, parent, kAllowScriptingContent,
-                                      ParseDeclarativeShadowRoots::kDontParse,
-                                      ForceHtml::kDontForce, exception_state);
+  DocumentFragment* fragment = CreateFragmentForInnerOuterHTML(
+      html, parent, kAllowScriptingContent,
+      ParseDeclarativeShadowRoots::kDontParse, ForceHtml::kDontForce,
+      RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()
+          ? customElementRegistry()
+          : GetDocument().customElementRegistry(),
+      exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -8697,6 +8818,9 @@ void Element::InsertAdjacentHTMLWithoutTrustedTypes(
   DocumentFragment* fragment = CreateFragmentForInnerOuterHTML(
       markup, context_element, kAllowScriptingContent,
       ParseDeclarativeShadowRoots::kDontParse, ForceHtml::kDontForce,
+      RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()
+          ? customElementRegistry()
+          : GetDocument().customElementRegistry(),
       exception_state);
   if (!fragment) {
     return;
@@ -9540,6 +9664,13 @@ PseudoElement* Element::CreatePseudoElementIfNeeded(
   }
 
   pseudo_element->SetComputedStyle(pseudo_style);
+  if (pseudo_style->MayUseImplicitAnchor()) {
+    UseCounter::Count(GetDocument(),
+                      WebFeature::kCSSPseudoElementUsesImplicitAnchor);
+    if (RuntimeEnabledFeatures::OriginatingElementIsImplicitAnchorEnabled()) {
+      SetMayBeImplicitAnchor();
+    }
+  }
 
   probe::PseudoElementCreated(pseudo_element);
 
@@ -9638,7 +9769,7 @@ Element* Element::GetStyledPseudoElement(
   }
 
   // This traverses the pseudo-element hierarchy generated in
-  // RecalcTransitionPseudoTreeStyle to query nested ::view-transition-group
+  // UpdateTransitionPseudoElements to query nested ::view-transition-group
   // ::view-transition-image-pair and
   // ::view-transition-{old,new} pseudo-elements.
   auto* transition_pseudo = GetPseudoElement(kPseudoIdViewTransition);
@@ -9686,10 +9817,6 @@ bool Element::PseudoElementStylesAffectCounters() const {
 
   if (rare_data->PseudoElementStylesAffectCounters()) {
     return true;
-  }
-
-  if (!style->HasAnyPseudoElementStyles()) {
-    return false;
   }
 
   for (PseudoElement* pseudo_element : rare_data->GetPseudoElements()) {
@@ -11280,7 +11407,10 @@ void Element::ChangeInterestState(Element* target, InterestState new_state) {
     return;
   }
   InvokerData* invoker_data = &EnsureElementRareData().EnsureInvokerData();
+  auto& document = GetDocument();
   if (new_state == InterestState::kNoInterest) {
+    DCHECK(document.ElementsWithInterest().Contains(this));
+    document.ElementsWithInterest().erase(this);
     invoker_data->SetInterestState(InterestState::kNoInterest);
     invoker_data->SetActiveInterestTarget(nullptr);
     if (target) {
@@ -11290,6 +11420,8 @@ void Element::ChangeInterestState(Element* target, InterestState new_state) {
     invoker_data->CancelInterestLostTask();
     invoker_data->CancelInterestGainedTask();
   } else {
+    DCHECK(!document.ElementsWithInterest().Contains(this));
+    document.ElementsWithInterest().insert(this);
     invoker_data->SetInterestState(new_state);
     invoker_data->SetActiveInterestTarget(target);
   }
@@ -11299,64 +11431,7 @@ void Element::ChangeInterestState(Element* target, InterestState new_state) {
   }
 }
 
-// static
-bool Element::GainOrLoseInterest(Element* invoker,
-                                 Element* target,
-                                 InterestState new_state) {
-  // Check pre-conditions. This function is called from posted tasks, so things
-  // may have changed since invoker and target were passed.
-  if (!invoker || !target || !invoker->IsInTreeScope() ||
-      !invoker->GetDocument().IsActive() ||
-      invoker->InterestForElement() != target ||
-      (new_state == InterestState::kNoInterest &&
-       target->SourceInterestInvoker() != invoker)) {
-    return false;
-  }
-
-  // We've reached the point where interest has officially been
-  // gained or lost. Fire the event and run any default actions.
-  switch (new_state) {
-    case InterestState::kFullInterest:
-      if (Element* existing_invoker = target->SourceInterestInvoker()) {
-        // We're gaining interest, but the target already has an active interest
-        // invoker. There are two cases:
-        //  1. This is the same invoker. An example case is that the gain
-        //     interest delay is short, but the lose interest delay is long, and
-        //     we just de-hovered and then re-hovered the invoker. In this case,
-        //     we can just cancel any interest lost event and move on.
-        //  2. This is a different invoker. An example is that again, the lose
-        //     interest delay is long, and we've hovered a different invoker for
-        //     the same target. In this case, we need to immediately lose
-        //     interest from the old invoker before gaining it via the new one.
-        if (existing_invoker == invoker) {
-          // Case 1.
-          auto* invoker_data = invoker->GetInvokerData();
-          CHECK(!invoker_data->HasInterestGainedTask());
-          invoker_data->CancelInterestLostTask();
-          return false;
-        } else {
-          // Case 2.
-          if (!existing_invoker->GainOrLoseInterest(
-                  existing_invoker, target, InterestState::kNoInterest)) {
-            return false;
-          }
-          // Event handlers might have changed things around, so re-check.
-          if (!invoker || !target || !invoker->IsInTreeScope() ||
-              !invoker->GetDocument().IsActive() ||
-              invoker->InterestForElement() != target) {
-            return false;
-          }
-        }
-      }
-      return invoker->InterestGained(*target, new_state);
-
-    case InterestState::kNoInterest:
-      return invoker->InterestLost(*target);
-  }
-}
-
-void Element::ScheduleInterestGainedTask(InterestState new_state) {
-  CHECK_NE(new_state, InterestState::kNoInterest);
+void Element::ScheduleInterestGainedTask() {
   // This should be called on an interest invoker only.
   auto* target = InterestForElement();
   CHECK(target);
@@ -11365,7 +11440,10 @@ void Element::ScheduleInterestGainedTask(InterestState new_state) {
   if (!style) {
     return;
   }
-  float show_delay_seconds = style->InterestShowDelay();
+  StyleInterestDelay show_delay = style->InterestDelayStart();
+  float show_delay_seconds = show_delay.IsNormal()
+                                 ? kDefaultInterestDelayStartSeconds
+                                 : show_delay.DelaySeconds();
   // If the value is infinite or NaN, don't schedule showing interest.
   if (!std::isfinite(show_delay_seconds)) {
     return;
@@ -11379,10 +11457,12 @@ void Element::ScheduleInterestGainedTask(InterestState new_state) {
       *GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI),
       FROM_HERE,
       BindOnce(
-          [](Element* invoker, Element* target, InterestState new_state) {
-            GainOrLoseInterest(invoker, target, new_state);
+          [](Element* invoker, Element* target) {
+            if (invoker) {
+              invoker->InterestGained(target);
+            }
           },
-          WrapWeakPersistent(this), WrapWeakPersistent(target), new_state),
+          WrapWeakPersistent(this), WrapWeakPersistent(target)),
       base::Seconds(show_delay_seconds)));
 }
 
@@ -11392,7 +11472,11 @@ void Element::ScheduleInterestLostTask() {
   if (!style) {
     return;
   }
-  float hide_delay_seconds = style->InterestHideDelay();
+
+  StyleInterestDelay hide_delay = style->InterestDelayEnd();
+  float hide_delay_seconds = hide_delay.IsNormal()
+                                 ? kDefaultInterestDelayEndSeconds
+                                 : hide_delay.DelaySeconds();
   // If the value is infinite or NaN, don't schedule losing interest.
   if (!std::isfinite(hide_delay_seconds)) {
     return;
@@ -11407,16 +11491,39 @@ void Element::ScheduleInterestLostTask() {
       FROM_HERE,
       BindOnce(
           [](Element* invoker, Element* target) {
-            GainOrLoseInterest(invoker, target, InterestState::kNoInterest);
+            if (invoker) {
+              invoker->InterestLost(target);
+            }
           },
           WrapWeakPersistent(this),
           WrapWeakPersistent(invoker_data.ActiveInterestTarget())),
       base::Seconds(hide_delay_seconds)));
 }
 
-Element* Element::SourceInterestInvoker() const {
+Element* Element::InterestForElement() const {
   if (!RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
           GetDocument().GetExecutionContext())) {
+    return nullptr;
+  }
+  Element* target =
+      GetElementAttributeResolvingReferenceTarget(html_names::kInterestforAttr);
+  if (!target) {
+    return nullptr;
+  }
+  // An interest invoker relationship isn't valid if the source or target
+  // element aren't in a TreeScope.
+  if (!IsInTreeScope() || !target->IsInTreeScope()) {
+    return nullptr;
+  }
+  // Check element-specific preconditions.
+  if (!IsValidInterestInvoker(*target)) {
+    return nullptr;
+  }
+  return target;
+}
+
+Element* Element::SourceInterestInvoker() const {
+  if (!RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled()) {
     return nullptr;
   }
   InterestInvokerTargetData* target_data = GetInterestInvokerTargetData();
@@ -11438,8 +11545,7 @@ Element* Element::SourceInterestInvoker() const {
 }
 
 Element::InterestState Element::GetInterestState() {
-  if (!RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-          GetDocument().GetExecutionContext())) {
+  if (!RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled()) {
     return InterestState::kNoInterest;
   }
   auto* invoker_data = GetInvokerData();
@@ -11448,6 +11554,32 @@ Element::InterestState Element::GetInterestState() {
   }
   return invoker_data->GetInterestState();
 }
+
+namespace {
+
+void AllSourceInterestInvokersRecursive(
+    Element& target,
+    HeapLinkedHashSet<Member<Element>>& sources) {
+  DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
+  if (Element* upstream = target.SourceInterestInvoker();
+      upstream && !sources.Contains(upstream)) {
+    DCHECK_NE(&target, upstream);
+    sources.insert(upstream);
+    AllSourceInterestInvokersRecursive(*upstream, sources);
+  }
+  if (Element* parent = target.parentElement();
+      parent && !sources.Contains(parent)) {
+    AllSourceInterestInvokersRecursive(*parent, sources);
+  }
+}
+
+HeapLinkedHashSet<Member<Element>> AllSourceInterestInvokers(Element& target) {
+  HeapLinkedHashSet<Member<Element>> sources;
+  AllSourceInterestInvokersRecursive(target, sources);
+  return sources;
+}
+
+}  // namespace
 
 // Mechanics of `interestfor` invokers ("interest invokers"):
 //  - It is possible for there to be nested DOM elements that both have the
@@ -11466,8 +11598,7 @@ Element::InterestState Element::GetInterestState() {
 //    notified, this function must walk the ancestors manually.
 void Element::HandleInterestForHoverOrFocus(InterestSource source,
                                             bool recursive_call) {
-  DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
-      GetDocument().GetExecutionContext()));
+  DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
   if (!IsInTreeScope() || !GetDocument().IsActive()) {
     return;
   }
@@ -11495,8 +11626,8 @@ void Element::HandleInterestForHoverOrFocus(InterestSource source,
     if (invoker_data) [[unlikely]] {
       invoker_data->CancelInterestLostTask();
     }
-    if (upstream_invoker) [[unlikely]] {
-      upstream_data->CancelInterestLostTask();
+    for (Member<Element> upstream : AllSourceInterestInvokers(*this)) {
+      upstream->GetInvokerData()->CancelInterestLostTask();
     }
     if (auto* target = InterestForElement();
         target && (!invoker_data || invoker_data->GetInterestState() ==
@@ -11504,7 +11635,7 @@ void Element::HandleInterestForHoverOrFocus(InterestSource source,
         [[unlikely]] {
       // This is an interest invoker that doesn't already have interest, and was
       // just hovered or focused. Schedule an InterestGained task.
-      ScheduleInterestGainedTask(InterestState::kFullInterest);
+      ScheduleInterestGainedTask();
     }
   } else {
     DCHECK(source == InterestSource::kDeHover ||
@@ -11518,7 +11649,7 @@ void Element::HandleInterestForHoverOrFocus(InterestSource source,
         ScheduleInterestLostTask();
       }
     }
-    if (upstream_invoker) [[unlikely]] {
+    for (Member<Element> upstream : AllSourceInterestInvokers(*this)) {
       // This is the target of an interest invoker, which was just de-hovered or
       // blurred. There are two possibilities:
       // 1. The upstream invoker is either not an ancestor of this target
@@ -11530,9 +11661,9 @@ void Element::HandleInterestForHoverOrFocus(InterestSource source,
       //    and back into a descendant of the invoker. In this case, since
       //    SetFocused() will never be called on the actual invoker, we should
       //    be careful not to schedule the interestlost task.
-      upstream_invoker->GetInvokerData()->CancelInterestGainedTask();
-      if (source == InterestSource::kBlur || !upstream_invoker->IsHovered()) {
-        upstream_invoker->ScheduleInterestLostTask();
+      upstream->GetInvokerData()->CancelInterestGainedTask();
+      if (source == InterestSource::kBlur || !upstream->IsHovered()) {
+        upstream->ScheduleInterestLostTask();
       }
     }
   }
@@ -11610,154 +11741,148 @@ void Element::InvalidateStyleAttribute(
       html_names::kStyleAttr, *this);
 }
 
-void Element::RecalcTransitionPseudoTreeStyle(
-    const Vector<AtomicString>& view_transition_names) {
-  DCHECK(RuntimeEnabledFeatures::ScopedViewTransitionsEnabled() ||
-         this == GetDocument().documentElement());
-  DisplayLockStyleScope display_lock_style_scope(this);
-  if (!display_lock_style_scope.ShouldUpdateChildStyle()) {
-    return;
-  }
-
-  PseudoElement* old_transition_pseudo =
-      GetPseudoElement(kPseudoIdViewTransition);
+void Element::UpdateTransitionPseudoElements(
+    const StyleRecalcChange style_recalc_change,
+    const StyleRecalcContext& style_recalc_context) {
   const auto* transition = ViewTransitionUtils::GetTransition(*this);
 
-  if (!transition && !old_transition_pseudo) {
+  if (!IsPseudoElement()) {
+    PseudoElement* old_transition_pseudo =
+        GetPseudoElement(kPseudoIdViewTransition);
+    if (old_transition_pseudo &&
+        (!transition ||
+         !transition->IsGeneratingPseudo(
+             To<ViewTransitionPseudoElementBase>(*old_transition_pseudo)))) {
+      ClearPseudoElement(kPseudoIdViewTransition);
+      // If the transition still exists, it is no longer bound to the style
+      // tracker as it is finished.
+      transition = nullptr;
+    }
+
+    if (!transition) {
+      return;
+    }
+
+    bool had_transition_pseudo = !!GetPseudoElement(kPseudoIdViewTransition);
+    PseudoElement* transition_pseudo =
+        UpdatePseudoElement(kPseudoIdViewTransition, style_recalc_change,
+                            style_recalc_context, g_null_atom);
+    if (transition_pseudo && !had_transition_pseudo) {
+      transition_pseudo->UpdateTransitionPseudoElements(style_recalc_change,
+                                                        style_recalc_context);
+    }
     return;
   }
 
-  if (transition && old_transition_pseudo &&
-      !transition->IsGeneratingPseudo(
-          To<ViewTransitionPseudoElementBase>(*old_transition_pseudo))) {
-    ClearPseudoElement(kPseudoIdViewTransition);
-    old_transition_pseudo = nullptr;
-  }
-
-  const StyleRecalcChange style_recalc_change;
-  const StyleRecalcContext style_recalc_context =
-      StyleRecalcContext::FromInclusiveAncestors(
-          *GetDocument().documentElement());
-
-  PseudoElement* transition_pseudo =
-      UpdatePseudoElement(kPseudoIdViewTransition, style_recalc_change,
-                          style_recalc_context, g_null_atom);
-  if (!transition_pseudo) {
+  if (!IsTransitionPseudoElement(GetPseudoId())) {
     return;
   }
 
-  for (const auto& view_transition_name : view_transition_names) {
-    // If the container (::view-transition-group(name)) is already created
-    // for the implementation purposes of capturing the old state, we need
-    // to check if it needs to be reparented to its containing group.
-    bool container_already_created_in_view_transition_pseudo =
-        !!transition_pseudo->GetPseudoElement(
-            PseudoId::kPseudoIdViewTransitionGroup, view_transition_name);
-    PseudoElement* parent =
-        To<ViewTransitionTransitionElement>(transition_pseudo)
-            ->FindViewTransitionGroupPseudoElementParent(view_transition_name);
-    if (container_already_created_in_view_transition_pseudo &&
-        parent != transition_pseudo) {
-      transition_pseudo->ClearPseudoElement(
-          PseudoId::kPseudoIdViewTransitionGroup, view_transition_name);
-    }
+  ViewTransitionPseudoElementBase* transition_pseudo =
+      To<ViewTransitionPseudoElementBase>(this);
 
-    // If the parent is not a ::view-transition element, we need a
-    // ::view-transition-group-children container.
-    if (parent && parent != transition_pseudo) {
-      bool needs_reattach = parent->NeedsReattachLayoutTree();
-      parent = parent->UpdatePseudoElement(
-          kPseudoIdViewTransitionGroupChildren, style_recalc_change,
-          style_recalc_context, parent->view_transition_name());
-      if (!parent) {
-        continue;
-      }
-      if (needs_reattach) {
-        parent->SetNeedsReattachLayoutTree();
-      }
-    } else {
-      parent = transition_pseudo;
-    }
-
-    PseudoElement* container_pseudo = parent->UpdatePseudoElement(
-        kPseudoIdViewTransitionGroup, style_recalc_change, style_recalc_context,
-        view_transition_name);
-
-    if (!container_pseudo) {
-      continue;
-    }
-
-    // Nested pseudo-elements don't keep pointers to their children, only their
-    // parents (i.e. firstChild() in a  ::view-transition is nullptr but
-    // parentNode of ::view-transition-group is ::view-transition). However,
-    // the layout tree is reattached by descending the DOM tree by child
-    // pointers so if any pseudo needs a reattach we have to explicitly mark
-    // all descendant pseudos as needing a reattach explicitly.
-    // TODO(crbug.com/1455139): Implement tree traversal for nested pseudos.
-    if (transition_pseudo->NeedsReattachLayoutTree()) {
-      container_pseudo->SetNeedsReattachLayoutTree();
-    }
-
-    PseudoElement* wrapper_pseudo = container_pseudo->UpdatePseudoElement(
-        kPseudoIdViewTransitionImagePair, style_recalc_change,
-        style_recalc_context, view_transition_name);
-    if (!wrapper_pseudo) {
-      continue;
-    }
-    if (container_pseudo->NeedsReattachLayoutTree()) {
-      wrapper_pseudo->SetNeedsReattachLayoutTree();
-    }
-
-    PseudoElement* old_pseudo = wrapper_pseudo->UpdatePseudoElement(
-        kPseudoIdViewTransitionOld, style_recalc_change, style_recalc_context,
-        view_transition_name);
-    PseudoElement* new_pseudo = wrapper_pseudo->UpdatePseudoElement(
-        kPseudoIdViewTransitionNew, style_recalc_change, style_recalc_context,
-        view_transition_name);
-
-    if (wrapper_pseudo->NeedsReattachLayoutTree()) {
-      if (old_pseudo) {
-        old_pseudo->SetNeedsReattachLayoutTree();
-      }
-      if (new_pseudo) {
-        new_pseudo->SetNeedsReattachLayoutTree();
-      }
-    }
-
-    container_pseudo->ClearChildNeedsStyleRecalc();
-    wrapper_pseudo->ClearChildNeedsStyleRecalc();
-  }
-
-  // Regular pseudo update doesn't clear child style, since there are
-  // (typically) no children / dirty child style. However, here we do need to
-  // clear the child dirty bit.
-  transition_pseudo->ClearChildNeedsStyleRecalc();
-}
-
-void Element::ClearTransitionPseudoTreeIfNeeded(
-    const StyleRecalcChange change) {
-  PseudoElement* element =
-      GetPseudoElement(kPseudoIdViewTransition, g_null_atom);
-  if (element && change.ShouldUpdatePseudoElement(*element) &&
-      !ViewTransitionUtils::GetTransition(*this)) {
-    ClearPseudoElement(kPseudoIdViewTransition, g_null_atom);
-  }
-}
-
-void Element::RebuildTransitionPseudoLayoutTree(
-    const Vector<AtomicString>& view_transition_names) {
-  const bool has_transition = !!ViewTransitionUtils::GetTransition(*this);
-  if (!has_transition) {
-    DCHECK(!GetPseudoElement(kPseudoIdViewTransition));
+  if (!transition || !transition->IsGeneratingPseudo(*transition_pseudo)) {
     return;
   }
 
-  WhitespaceAttacher whitespace_attacher;
-  auto rebuild_pseudo_tree =
-      [&whitespace_attacher](PseudoElement* pseudo_element) {
-        pseudo_element->RebuildLayoutTree(whitespace_attacher);
-      };
-  ViewTransitionUtils::ForEachTransitionPseudo(*this, rebuild_pseudo_tree);
+  switch (GetPseudoId()) {
+    case kPseudoIdViewTransition: {
+      for (const AtomicString& name :
+           transition_pseudo->GetViewTransitionNames()) {
+        bool had_group = !!GetPseudoElement(kPseudoIdViewTransitionGroup, name);
+        const AtomicString& containing_group_name =
+            transition_pseudo->GetContainingGroupName(name);
+        if (containing_group_name == g_null_atom) {
+          PseudoElement* group = UpdatePseudoElement(
+              kPseudoIdViewTransitionGroup, style_recalc_change,
+              style_recalc_context, name);
+          if (group && !had_group) {
+            group->UpdateTransitionPseudoElements(style_recalc_change,
+                                                  style_recalc_context);
+          }
+        } else if (had_group) {
+          // During the initial capture phase, the view-transition names are in
+          // a flat list. The second capture (post DOM update) will contain the
+          // nested hierarchy.
+          ClearPseudoElement(kPseudoIdViewTransitionGroup, name);
+        }
+      }
+      break;
+    }
+
+    case kPseudoIdViewTransitionGroupChildren: {
+      for (const AtomicString& name :
+           transition_pseudo->GetViewTransitionNames()) {
+        if (transition_pseudo->GetContainingGroupName(name) ==
+            transition_pseudo->view_transition_name()) {
+          bool had_group =
+              !!GetPseudoElement(kPseudoIdViewTransitionGroup, name);
+          PseudoElement* group = UpdatePseudoElement(
+              kPseudoIdViewTransitionGroup, style_recalc_change,
+              style_recalc_context, name);
+          if (group && !had_group) {
+            group->UpdateTransitionPseudoElements(style_recalc_change,
+                                                  style_recalc_context);
+          }
+        }
+      }
+      break;
+    }
+
+    case kPseudoIdViewTransitionGroup: {
+      const AtomicString& group_name =
+          transition_pseudo->view_transition_name();
+      bool had_image_pair =
+          GetPseudoElement(kPseudoIdViewTransitionImagePair, group_name);
+      PseudoElement* image_pair = UpdatePseudoElement(
+          kPseudoIdViewTransitionImagePair, style_recalc_change,
+          style_recalc_context, group_name);
+      if (image_pair && !had_image_pair) {
+        image_pair->UpdateTransitionPseudoElements(style_recalc_change,
+                                                   style_recalc_context);
+      }
+      bool has_nested_groups = false;
+      for (const AtomicString& name :
+           transition_pseudo->GetViewTransitionNames()) {
+        if (transition_pseudo->GetContainingGroupName(name) == group_name) {
+          has_nested_groups = true;
+          break;
+        }
+      }
+      // Update view-transition-group-children if existing, but do not create
+      // otherwise. Creation is handled above when navigating over the view-
+      // transition names.
+      if (has_nested_groups) {
+        bool had_group_children =
+            GetPseudoElement(kPseudoIdViewTransitionGroupChildren, group_name);
+        PseudoElement* group_children = UpdatePseudoElement(
+            kPseudoIdViewTransitionGroupChildren, style_recalc_change,
+            style_recalc_context, group_name);
+        if (group_children && !had_group_children) {
+          group_children->UpdateTransitionPseudoElements(style_recalc_change,
+                                                         style_recalc_context);
+        }
+      }
+      break;
+    }
+
+    case kPseudoIdViewTransitionImagePair: {
+      const AtomicString& group_name =
+          transition_pseudo->view_transition_name();
+      UpdatePseudoElement(kPseudoIdViewTransitionOld, style_recalc_change,
+                          style_recalc_context, group_name);
+      UpdatePseudoElement(kPseudoIdViewTransitionNew, style_recalc_change,
+                          style_recalc_context, group_name);
+      break;
+    }
+
+    case kPseudoIdViewTransitionOld:
+    case kPseudoIdViewTransitionNew:
+      break;
+
+    default:
+      NOTREACHED();
+  }
 }
 
 bool Element::IsInertRoot() const {
@@ -12328,10 +12453,10 @@ ScrollMarkerGroupData* Element::GetScrollTargetGroupContainerData() const {
   return nullptr;
 }
 
-void Element::IncrementImplicitlyAnchoredElementCount() {
-  bool had_implicitly_anchored_element = HasImplicitlyAnchoredElement();
-  EnsureElementRareData().IncrementImplicitlyAnchoredElementCount();
-  if (!had_implicitly_anchored_element && GetLayoutObject()) {
+void Element::SetMayBeImplicitAnchor() {
+  bool was_implicit_anchor = MayBeImplicitAnchor();
+  EnsureElementRareData().SetMayBeImplicitAnchor();
+  if (!was_implicit_anchor && GetLayoutObject()) {
     // Invalidate layout to populate itself into Physical/LogicalAnchorQuery.
     GetLayoutObject()->SetNeedsLayoutAndFullPaintInvalidation(
         layout_invalidation_reason::kAnchorPositioning);
@@ -12339,14 +12464,9 @@ void Element::IncrementImplicitlyAnchoredElementCount() {
   }
 }
 
-void Element::DecrementImplicitlyAnchoredElementCount() {
-  DCHECK(GetElementRareData());
-  GetElementRareData()->DecrementImplicitlyAnchoredElementCount();
-}
-
-bool Element::HasImplicitlyAnchoredElement() const {
+bool Element::MayBeImplicitAnchor() const {
   if (const ElementRareDataVector* data = GetElementRareData()) {
-    return data->HasImplicitlyAnchoredElement();
+    return data->MayBeImplicitAnchor();
   }
   return false;
 }
@@ -12388,6 +12508,10 @@ Element* Element::ImplicitAnchorElement() const {
       case kPseudoIdScrollButtonInlineStart:
       case kPseudoIdScrollButtonInlineEnd:
       case kPseudoIdScrollButtonBlockEnd:
+        if (RuntimeEnabledFeatures::
+                OriginatingElementIsImplicitAnchorEnabled()) {
+          return parentElement();
+        }
         return pseudo_element->UltimateOriginatingElement()
             .ImplicitAnchorElement();
       default:

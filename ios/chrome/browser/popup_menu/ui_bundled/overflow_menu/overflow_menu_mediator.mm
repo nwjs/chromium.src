@@ -37,7 +37,7 @@
 #import "ios/chrome/browser/bubble/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/commerce/model/push_notification/push_notification_feature.h"
 #import "ios/chrome/browser/default_browser/model/default_browser_interest_signals.h"
-#import "ios/chrome/browser/find_in_page/model/abstract_find_tab_helper.h"
+#import "ios/chrome/browser/find_in_page/model/find_tab_helper.h"
 #import "ios/chrome/browser/follow/model/follow_browser_agent.h"
 #import "ios/chrome/browser/follow/model/follow_menu_updater.h"
 #import "ios/chrome/browser/follow/model/follow_tab_helper.h"
@@ -261,6 +261,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 @property(nonatomic, strong) OverflowMenuAction* setTabReminderAction;
 
 @property(nonatomic, strong) OverflowMenuAction* askBWGAction;
+
+@property(nonatomic, strong) OverflowMenuAction* hideToolbarsAction;
 
 @end
 
@@ -711,6 +713,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     self.AIPrototypeAction = [self openAIPrototypeAction];
   }
 
+  if (base::FeatureList::IsEnabled(kHideToolbarsInOverflowMenu)) {
+    self.hideToolbarsAction = [self collapseToolbars];
+  }
+
   if ([self isGeminiAvailable]) {
     self.askBWGAction = [self openAskBWGAction];
   }
@@ -760,6 +766,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 }
 
 - (OverflowMenuAction*)toggleReaderModeAction {
+  base::RecordAction(UserMetricsAction("MobileMenuReaderMode"));
+
   BOOL isReaderModeActive = [self isReaderModeActive];
   int nameID = isReaderModeActive ? IDS_IOS_TOOLS_MENU_HIDE_READER_MODE
                                   : IDS_IOS_TOOLS_MENU_READER_MODE;
@@ -878,6 +886,22 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
                                      handler:^{
                                        [weakSelf startAskBWG];
                                      }];
+}
+
+- (OverflowMenuAction*)collapseToolbars {
+  __weak __typeof(self) weakSelf = self;
+  return [self
+      createOverflowMenuActionWithName:l10n_util::GetNSString(
+                                           IDS_IOS_OVERFLOW_MENU_HIDE_TOOLBARS)
+                            actionType:overflow_menu::ActionType::HideToolbars
+                            symbolName:kExpandSymbol
+                          systemSymbol:YES
+                      monochromeSymbol:NO
+                       accessibilityID:kToolsMenuHideToolbars
+                          hideItemText:nil
+                               handler:^{
+                                 [weakSelf startCollapseToolbars];
+                               }];
 }
 
 - (OverflowMenuAction*)newReadLaterAction {
@@ -1520,6 +1544,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
   if ([self isGeminiAvailable]) {
     self.askBWGAction.enabled = !_webState->IsLoading();
   }
+
+  if (base::FeatureList::IsEnabled(kHideToolbarsInOverflowMenu)) {
+    self.hideToolbarsAction.enabled = YES;
+  }
 }
 
 // Updates the order of the items in each section or group.
@@ -1626,7 +1654,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     return NO;
   }
 
-  auto* helper = GetConcreteFindTabHelperFromWebState(self.webState);
+  FindTabHelper* helper = FindTabHelper::FromWebState(self.webState);
   return (helper && helper->CurrentPageSupportsFindInPage() &&
           !helper->IsFindUIActive());
 }
@@ -2167,6 +2195,9 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
   if (IsReaderModeAvailable()) {
     actions.push_back(overflow_menu::ActionType::ReaderMode);
   }
+  if (base::FeatureList::IsEnabled(kHideToolbarsInOverflowMenu)) {
+    actions.push_back(overflow_menu::ActionType::HideToolbars);
+  }
 
   return actions;
 }
@@ -2244,6 +2275,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
       return self.readerModeAction;
     case overflow_menu::ActionType::AskBWG:
       return self.askBWGAction;
+    case overflow_menu::ActionType::HideToolbars:
+      return self.hideToolbarsAction;
   }
 }
 
@@ -2290,6 +2323,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
       return [self toggleReaderModeAction];
     case overflow_menu::ActionType::AskBWG:
       return [self openAskBWGAction];
+    case overflow_menu::ActionType::HideToolbars:
+      return [self hideToolbarsAction];
   }
 }
 
@@ -2514,6 +2549,11 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 - (void)startAskBWG {
   [self dismissMenu];
   [self.BWGHandler startBWGFlowWithEntryPoint:bwg::EntryPoint::OverflowMenu];
+}
+
+- (void)startCollapseToolbars {
+  [self dismissMenu];
+  [self.browserCoordinatorHandler forceFullscreenMode];
 }
 
 // Opens the "Set a reminder" screen for the user's current tab.

@@ -150,12 +150,6 @@ class EventRouter : public KeyedService,
                              base::Value::List event_args,
                              mojom::EventFilteringInfoPtr info);
 
-  // Returns false when the event is scoped to a context and the listening
-  // extension does not have access to events from that context.
-  static bool CanDispatchEventToBrowserContext(content::BrowserContext* context,
-                                               const Extension* extension,
-                                               const Event& event);
-
   static void BindForRenderer(
       int process_id,
       mojo::PendingAssociatedReceiver<mojom::EventRouter> receiver);
@@ -460,8 +454,7 @@ class EventRouter : public KeyedService,
                               content::RenderProcessHost* process,
                               int64_t service_worker_version_id,
                               int worker_thread_id,
-                              const Event& event,
-                              const base::Value::Dict* listener_filter,
+                              std::unique_ptr<Event> event,
                               bool did_enqueue);
 
   // Adds a filter to an event.
@@ -490,6 +483,7 @@ class EventRouter : public KeyedService,
                                const std::string& event_name,
                                base::TimeTicks dispatch_start_time,
                                int64_t service_worker_version_id,
+                               int worker_thread_id,
                                EventDispatchSource dispatch_source,
                                bool lazy_background_active_on_dispatch,
                                events::HistogramValue histogram_value);
@@ -573,6 +567,8 @@ struct EventTarget {
   int render_process_id;
   int64_t service_worker_version_id;
   int worker_thread_id;
+
+  auto operator<=>(const EventTarget& rhs) const = default;
 };
 
 struct Event {
@@ -584,7 +580,8 @@ struct Event {
       const Extension*,
       const base::Value::Dict*,
       std::optional<base::Value::List>& event_args_out,
-      mojom::EventFilteringInfoPtr& event_filtering_info_out)>;
+      mojom::EventFilteringInfoPtr& event_filtering_info_out,
+      bool* dispatch_separate_event_out)>;
 
   using DidDispatchCallback = base::RepeatingCallback<void(const EventTarget&)>;
 
@@ -636,6 +633,14 @@ struct Event {
   // provide modified `Event::event_args`, `Event::filter_info` depending on the
   // extension and profile.
   //
+  // If supplied, the `dispatch_separate_event_out` arg controls de-duplication
+  // for this event. If set to true (the default unless explicitly changed), the
+  // event is dispatched at most once per unique active listener context. If
+  // false, the event is dispatched to all matching listeners, even within the
+  // same context. NOTE: If `will_dispatch_callback` modifies event args or
+  // filter info based on the specific listener filter, this should be set to
+  // false.
+  //
   // NOTE: the Extension argument to this may be NULL because it's possible for
   // this event to be dispatched to non-extension processes, like WebUI.
   WillDispatchCallback will_dispatch_callback;
@@ -677,6 +682,13 @@ struct Event {
         base::TimeTicks dispatch_start_time = base::TimeTicks{});
 
   ~Event();
+
+  // Creates a copy of this event, selectively choosing whether to also copy the
+  // event arguments and filtering info.
+  // If `copy_event_args` or `copy_filter_info` are false, the respective
+  // members will be initialized to empty values.
+  std::unique_ptr<Event> CopySelectively(bool copy_event_args,
+                                         bool copy_filter_info) const;
 
   // Makes a deep copy of this instance.
   std::unique_ptr<Event> DeepCopy() const;

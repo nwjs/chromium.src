@@ -26,6 +26,7 @@
 #include "base/version.h"
 #include "base/version_info/version_info.h"
 #include "components/country_codes/country_codes.h"
+#include "components/policy/core/common/management/management_service.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/policy/policy_constants.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -37,7 +38,10 @@
 #include "components/regional_capabilities/regional_capabilities_metrics.h"
 #include "components/regional_capabilities/regional_capabilities_service.h"
 #include "components/regional_capabilities/regional_capabilities_utils.h"
+#include "components/search_engines/choice_made_location.h"
+#include "components/search_engines/search_engine_choice/buildflags.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_metrics_service_accessor.h"
+#include "components/search_engines/search_engine_choice/search_engine_choice_switches.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/search_engines_pref_names.h"
@@ -45,6 +49,8 @@
 #include "components/search_engines/template_url_prepopulate_data.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/signin/public/identity_manager/account_info.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/version_info/version_info.h"
 
 #if !BUILDFLAG(IS_FUCHSIA)
@@ -56,8 +62,7 @@ using ::country_codes::CountryId;
 namespace search_engines {
 namespace {
 
-#if !(BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA) || \
-      BUILDFLAG(CHROME_FOR_TESTING))
+#if BUILDFLAG(CHOICE_SCREEN_IN_CHROME)
 // The choice screen should be shown if the `DefaultSearchProviderEnabled`
 // policy is not set, or set to true and the
 // `DefaultSearchProviderSearchURL` policy is not set.
@@ -142,7 +147,8 @@ bool ShouldRepromptFromFeatureParams(
   }
 
   std::optional<base::Value::Dict> reprompt_params_json =
-      base::JSONReader::ReadDict(reprompt_params);
+      base::JSONReader::ReadDict(reprompt_params,
+                                 base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   // Not a valid JSON.
   if (!reprompt_params_json) {
     base::UmaHistogramEnumeration(kSearchEngineChoiceRepromptHistogram,
@@ -262,6 +268,10 @@ regional_capabilities::FunnelStage ToFunnelStage(
     case SearchEngineChoiceScreenConditions::kAppStartedByExternalIntent:
     case SearchEngineChoiceScreenConditions::kAlreadyBeingShown:
     case SearchEngineChoiceScreenConditions::kUsingPersistedGuestSessionChoice:
+    case SearchEngineChoiceScreenConditions::kIncompatibleCurrentLocation:
+    case SearchEngineChoiceScreenConditions::kAccountNotEligible:
+    case SearchEngineChoiceScreenConditions::kIneligibleSurface:
+    case SearchEngineChoiceScreenConditions::kManaged:
       return regional_capabilities::FunnelStage::kNotEligible;
   }
   NOTREACHED();
@@ -317,6 +327,55 @@ bool IsChoiceImported(const ChoiceCompletionMetadata& completion_metadata,
   return false;
 }
 
+bool ManagementStatusEligibleForChoiceScreen(
+    const regional_capabilities::ChoiceScreenEligibilityConfig& config,
+    policy::ManagementService& platform_management_service) {
+  if (!base::FeatureList::IsEnabled(
+          switches::kChoiceScreenEligibilityCheckManagementStatus)) {
+    return true;
+  }
+
+  if (config.managed_users_can_be_eligible) {
+    return true;
+  }
+
+  return !platform_management_service.IsManaged();
+}
+
+// Checks account properties against the eligibility config to determine if the
+// account can make a choice.
+bool AccountCanMakeChoiceScreenChoice(
+    const regional_capabilities::ChoiceScreenEligibilityConfig& config,
+    const signin::IdentityManager& identity_manager) {
+  if (!base::FeatureList::IsEnabled(
+          switches::kChoiceScreenEligibilityCheckAccountCapabilities)) {
+    return true;
+  }
+
+#if BUILDFLAG(CHOICE_SCREEN_IN_CHROME)
+  if (config.managed_users_can_be_eligible) {
+    return true;
+  }
+
+  const auto core_account_info =
+      identity_manager.GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
+  const AccountInfo account_info =
+      identity_manager.FindExtendedAccountInfo(core_account_info);
+
+  // Treat accounts with signin::Tribool::kUnknown (this covers signed-out
+  // users, and signed-in users where the capability is not known yet) as able
+  // to make a choice.
+  return account_info.capabilities
+             .can_make_chrome_search_engine_choice_screen_choice() !=
+         signin::Tribool::kFalse;
+#else
+  // TODO(crbug.com/444651029): Refactor this class and the tests to not build
+  // on Android.
+  CHECK_IS_TEST();
+  return true;
+#endif  // BUILDFLAG(CHOICE_SCREEN_IN_CHROME)
+}
+
 }  // namespace
 
 // -- SearchEngineChoiceService::Client ---------------------------------------
@@ -344,12 +403,16 @@ SearchEngineChoiceService::SearchEngineChoiceService(
     PrefService& profile_prefs,
     PrefService* local_state,
     regional_capabilities::RegionalCapabilitiesService& regional_capabilities,
-    TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver)
+    TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver,
+    signin::IdentityManager& identity_manager,
+    policy::ManagementService& platform_management_service)
     : client_(std::move(client)),
       profile_prefs_(profile_prefs),
       local_state_(local_state),
       regional_capabilities_service_(regional_capabilities),
-      prepopulate_data_resolver_(prepopulate_data_resolver) {}
+      prepopulate_data_resolver_(prepopulate_data_resolver),
+      identity_manager_(identity_manager),
+      platform_management_service_(platform_management_service) {}
 
 SearchEngineChoiceService::~SearchEngineChoiceService() = default;
 
@@ -383,8 +446,7 @@ SearchEngineChoiceScreenConditions
 SearchEngineChoiceService::GetStaticChoiceScreenConditions(
     const policy::PolicyService& policy_service,
     const TemplateURLService& template_url_service) const {
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA) || \
-    BUILDFLAG(CHROME_FOR_TESTING)
+#if !BUILDFLAG(CHOICE_SCREEN_IN_CHROME)
   return SearchEngineChoiceScreenConditions::kUnsupportedBrowserType;
 #else
   base::CommandLine* const command_line =
@@ -404,6 +466,10 @@ SearchEngineChoiceService::GetStaticChoiceScreenConditions(
     return SearchEngineChoiceScreenConditions::kAlreadyCompleted;
   }
 
+  if (status == ChoiceStatus::kManaged) {
+    return SearchEngineChoiceScreenConditions::kManaged;
+  }
+
   // Initially exclude users with this type of override. Consult b/302675777 for
   // next steps.
   if (profile_prefs_->HasPrefPath(prefs::kSearchProviderOverrides)) {
@@ -415,6 +481,15 @@ SearchEngineChoiceService::GetStaticChoiceScreenConditions(
     return SearchEngineChoiceScreenConditions::kControlledByPolicy;
   }
 
+  if (!regional_capabilities_service_
+           ->IsChoiceScreenCompatibleWithCurrentLocation()) {
+    return SearchEngineChoiceScreenConditions::kIncompatibleCurrentLocation;
+  }
+
+  if (status == ChoiceStatus::kAccountNotEligible) {
+    return SearchEngineChoiceScreenConditions::kAccountNotEligible;
+  }
+
   return SearchEngineChoiceScreenConditions::kEligible;
 #endif
 }
@@ -422,8 +497,7 @@ SearchEngineChoiceService::GetStaticChoiceScreenConditions(
 SearchEngineChoiceScreenConditions
 SearchEngineChoiceService::GetDynamicChoiceScreenConditions(
     const TemplateURLService& template_url_service) const {
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA) || \
-    BUILDFLAG(CHROME_FOR_TESTING)
+#if !BUILDFLAG(CHOICE_SCREEN_IN_CHROME)
   return SearchEngineChoiceScreenConditions::kUnsupportedBrowserType;
 #else
   switch (EvaluateSearchProviderChoice(template_url_service)) {
@@ -453,6 +527,10 @@ SearchEngineChoiceService::GetDynamicChoiceScreenConditions(
     case ChoiceStatus::kNotMade:
     case ChoiceStatus::kFromRestoredDevice:
       return SearchEngineChoiceScreenConditions::kEligible;
+    case ChoiceStatus::kAccountNotEligible:
+      return SearchEngineChoiceScreenConditions::kAccountNotEligible;
+    case ChoiceStatus::kManaged:
+      return SearchEngineChoiceScreenConditions::kManaged;
   }
   NOTREACHED();
 #endif
@@ -478,6 +556,20 @@ void SearchEngineChoiceService::RecordProfileLoadEligibility(
 void SearchEngineChoiceService::RecordLegacyStaticEligibility(
     SearchEngineChoiceScreenConditions condition) {
   RecordLegacyStaticEligibilityInternal(*client_.get(), condition);
+}
+
+bool SearchEngineChoiceService::IsSurfaceEligible(
+    bool is_first_run_experience_surface) const {
+  if (!regional_capabilities_service_->GetChoiceScreenEligibilityConfig()
+           .has_value()) {
+    return false;
+  }
+
+  // Either the surface is FRE so the choice screen should be presented anyway,
+  // or the restriction to FRE is not requested.
+  return is_first_run_experience_surface ||
+         !regional_capabilities_service_->GetChoiceScreenEligibilityConfig()
+              ->restrict_surfaces_to_fre_only;
 }
 #endif  // BUILDFLAG(IS_IOS)
 
@@ -581,6 +673,16 @@ void SearchEngineChoiceService::RecordChoiceMade(
   }
 
   if (!regional_capabilities_service_->IsInSearchEngineChoiceScreenRegion()) {
+    return;
+  }
+
+  if ((choice_location == ChoiceMadeLocation::kSearchSettings ||
+       choice_location == ChoiceMadeLocation::kSearchEngineSettings) &&
+      !regional_capabilities_service_
+           ->ShouldRecordSearchEngineChoicesMadeFromSettings()) {
+    regional_capabilities::RecordProgramSpecificExclusion(
+        regional_capabilities::ProgramSpecificExclusion::
+            kNotRecordingChoiceFromSettings);
     return;
   }
 
@@ -823,7 +925,19 @@ SearchEngineChoiceService::EvaluateSearchProviderChoice(
 
   // -- Stage 3: Optional program-controlled DSP checks
 
-  // 3.1: Is it a non-prepopulated entry, that had to be explicitly user-added?
+  // 3.1: Check eligibility based on management status.
+  if (!ManagementStatusEligibleForChoiceScreen(eligibility_config,
+                                               *platform_management_service_)) {
+    return ChoiceStatus::kManaged;
+  }
+
+  // 3.2: Check eligibility based on account type.
+  if (!AccountCanMakeChoiceScreenChoice(eligibility_config,
+                                        *identity_manager_)) {
+    return ChoiceStatus::kAccountNotEligible;
+  }
+
+  // 3.3: Is it a non-prepopulated entry, that had to be explicitly user-added?
 
   if (eligibility_config.should_preserve_non_prepopulated_dse) {
     if (!template_url_service.IsPrepopulatedOrDefaultProviderByPolicy(
@@ -840,19 +954,25 @@ SearchEngineChoiceService::EvaluateSearchProviderChoice(
     }
   }
 
-  // 3.2: Was the choice made on a different device?
+  // 3.4: Was the choice made on a different device?
 
   if (renewal_reasons.Has(ChoiceRenewalReason::kOutdated)) {
     return ChoiceStatus::kFromRestoredDevice;
   }
 
-  // 3.3: Is the current DSP non-Google?
+  // 3.5: Is the current DSP non-Google?
 
   if (eligibility_config.should_preserve_non_google_dse) {
     if (default_search_provider->GetEngineType(
             template_url_service.search_terms_data()) != SEARCH_ENGINE_GOOGLE) {
       return ChoiceStatus::kCurrentIsNonGooglePrepopulated;
     }
+  }
+
+  if (renewal_reasons.Has(ChoiceRenewalReason::kIncompatibleProgram)) {
+    regional_capabilities::RecordProgramSpecificExclusion(
+        regional_capabilities::ProgramSpecificExclusion::
+            kNotPreservingChoiceFromOtherProgram);
   }
 
   // We don't have a good way for now to distinguish explicit Google selections

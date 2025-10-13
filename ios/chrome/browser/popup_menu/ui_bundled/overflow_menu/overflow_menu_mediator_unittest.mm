@@ -176,9 +176,9 @@ class OverflowMenuMediatorTest : public PlatformTest {
                               ios::BookmarkModelFactory::GetDefaultFactory());
     builder.AddTestingFactory(
         IOSChromeProfilePasswordStoreFactory::GetInstance(),
-        base::BindRepeating(&password_manager::BuildPasswordStoreInterface<
-                            web::BrowserState,
-                            password_manager::MockPasswordStoreInterface>));
+        base::BindOnce(
+            &password_manager::BuildPasswordStoreInterface<
+                ProfileIOS, password_manager::MockPasswordStoreInterface>));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetFactoryWithDelegate(
@@ -474,7 +474,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
   std::unique_ptr<ReadingListModel> reading_list_model_;
   std::unique_ptr<TestingPrefServiceSimple> profilePrefs_;
   std::unique_ptr<TestingPrefServiceSimple> localStatePrefs_;
-  raw_ptr<web::FakeWebState> web_state_;
+  raw_ptr<web::FakeWebState, DanglingUntriaged> web_state_;
   std::unique_ptr<web::NavigationItem> navigation_item_;
   UIViewController* baseViewController_;
   translate::LanguageDetectionModel language_detection_model_;

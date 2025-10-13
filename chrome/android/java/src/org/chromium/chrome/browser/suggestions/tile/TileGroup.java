@@ -30,7 +30,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
 
 /** The model and controller for a group of site suggestion tiles. */
@@ -50,7 +49,7 @@ public class TileGroup implements MostVisitedSites.Observer {
         public @Nullable List<SiteSuggestion> siteSuggestions;
 
         /** List of tasks to run after tiles are reloaded and re-rendered. */
-        public final LinkedList<Runnable> taskToRunAfterTileReload = new LinkedList<>();
+        public final List<Runnable> taskToRunAfterTileReload = new ArrayList<>();
     }
 
     /**
@@ -149,9 +148,6 @@ public class TileGroup implements MostVisitedSites.Observer {
          * @param newPos The new position of the selected tile that was moved.
          */
         void onCustomTileReorder(int newPos);
-
-        /** Called on Custom Tile add, pin, unpin, unpin-undo, update. */
-        void onCustomTileNonReorderChange();
     }
 
     /**
@@ -179,7 +175,8 @@ public class TileGroup implements MostVisitedSites.Observer {
             extends View.OnClickListener,
                     View.OnKeyListener,
                     View.OnLongClickListener,
-                    View.OnTouchListener {
+                    View.OnTouchListener,
+                    View.OnGenericMotionListener {
         /**
          * Set a runnable for click events on the tile. This is primarily used to track interaction
          * with the tile used by feature engagement purposes.
@@ -632,7 +629,7 @@ public class TileGroup implements MostVisitedSites.Observer {
     }
 
     private class CustomTileModificationDelegateImpl implements CustomTileModificationDelegate {
-        public CustomTileModificationDelegateImpl() {}
+        CustomTileModificationDelegateImpl() {}
 
         // CustomTileModificationDelegate implementation.
         @Override
@@ -701,11 +698,6 @@ public class TileGroup implements MostVisitedSites.Observer {
             if (tile != null) {
                 mObserver.onCustomTileCreation(tile);
             }
-            mObserver.onCustomTileNonReorderChange();
-        }
-
-        private void handleCustomTileDelete() {
-            mObserver.onCustomTileNonReorderChange();
         }
 
         private boolean addCustomLinkAndUpdateOnSuccess(
@@ -719,7 +711,7 @@ public class TileGroup implements MostVisitedSites.Observer {
             mPendingChanges.taskToRunAfterTileReload.add(onSuccessCallback);
             boolean success = mTileGroupDelegate.addCustomLink(name, url, pos);
             if (!success) {
-                mPendingChanges.taskToRunAfterTileReload.removeLastOccurrence(onSuccessCallback);
+                mPendingChanges.taskToRunAfterTileReload.remove(onSuccessCallback);
             }
             return success;
         }
@@ -735,15 +727,13 @@ public class TileGroup implements MostVisitedSites.Observer {
             mPendingChanges.taskToRunAfterTileReload.add(onSuccessCallback);
             boolean success = mTileGroupDelegate.assignCustomLink(keyUrl, name, url);
             if (!success) {
-                mPendingChanges.taskToRunAfterTileReload.removeLastOccurrence(onSuccessCallback);
+                mPendingChanges.taskToRunAfterTileReload.remove(onSuccessCallback);
             }
             return success;
         }
 
         private void deleteCustomLinkAndUpdateOnSuccess(Tile tile) {
             // On success, onSiteSuggestionsAvailable() triggers.
-            Runnable onSuccessCallback = this::handleCustomTileDelete;
-            mPendingChanges.taskToRunAfterTileReload.add(onSuccessCallback);
             boolean success = mTileGroupDelegate.deleteCustomLink(tile.getUrl());
             if (success) {
                 mTileGroupDelegate.showTileUnpinSnackbar(
@@ -752,8 +742,6 @@ public class TileGroup implements MostVisitedSites.Observer {
                             addCustomLinkAndUpdateOnSuccess(
                                     tile.getTitle(), tile.getUrl(), tile.getIndex());
                         });
-            } else {
-                mPendingChanges.taskToRunAfterTileReload.removeLastOccurrence(onSuccessCallback);
             }
         }
 
@@ -768,14 +756,14 @@ public class TileGroup implements MostVisitedSites.Observer {
             mPendingChanges.taskToRunAfterTileReload.add(newOnSuccessCallback);
             boolean success = mTileGroupDelegate.reorderCustomLink(url, newPos);
             if (!success) {
-                mPendingChanges.taskToRunAfterTileReload.removeLastOccurrence(newOnSuccessCallback);
+                mPendingChanges.taskToRunAfterTileReload.remove(newOnSuccessCallback);
             }
             return success;
         }
     }
 
     private class OfflineModelObserver extends SuggestionsOfflineModelObserver<Tile> {
-        public OfflineModelObserver(OfflinePageBridge bridge) {
+        OfflineModelObserver(OfflinePageBridge bridge) {
             super(bridge);
         }
 

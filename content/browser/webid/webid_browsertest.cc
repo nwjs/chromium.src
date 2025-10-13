@@ -553,6 +553,59 @@ IN_PROC_BROWSER_TEST_F(WebIdBrowserTest, FailsOnHTTP) {
   ASSERT_TRUE(console_observer.Wait());
 }
 
+// Verify that passing a non-string token in the ID assertion response results
+// in an error when the flexible token formats feature is disabled.
+IN_PROC_BROWSER_TEST_F(WebIdBrowserTest, NonStringTokenRejected) {
+  IdpTestServer::ConfigDetails config_details = BuildValidConfigDetails();
+
+  config_details.id_assertion_endpoint_url = "/non_string_token_endpoint.php";
+
+  // Add a servlet to serve a response with a non-string token.
+  config_details.servlets["/non_string_token_endpoint.php"] =
+      base::BindRepeating(
+          [](const HttpRequest& request) -> std::unique_ptr<HttpResponse> {
+            auto response = std::make_unique<BasicHttpResponse>();
+            response->set_code(net::HTTP_OK);
+            response->set_content_type(kTestContentType);
+            response->AddCustomHeader("Access-Control-Allow-Origin", "*");
+            response->AddCustomHeader("Access-Control-Allow-Credentials",
+                                      "true");
+
+            // Return a JSON response with a non-string token (object instead of
+            // string)
+            response->set_content(R"({
+                "token": {
+                  "type": "jwt",
+                  "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+                }
+              })");
+            return std::move(response);
+          });
+
+  idp_server()->SetConfigResponseDetails(config_details);
+
+  std::string script = R"(
+        (async () => {
+          var x = (await navigator.credentials.get({
+            identity: {
+              providers: [{
+                configURL: ')" +
+                       BaseIdpUrl() + R"(',
+                clientId: 'client_id_1',
+              }]
+            }
+          }));
+          return x.token;
+        }) ()
+    )";
+
+  // Expect an error when non-string token is returned without flexible formats
+  // enabled
+  std::string expected_error =
+      "IdentityCredentialError: Error retrieving a token.";
+  EXPECT_EQ(expected_error, ExtractJsError(EvalJs(shell(), script)));
+}
+
 // Verify that an IdP can register itself.
 IN_PROC_BROWSER_TEST_F(WebIdIdPRegistryBrowserTest, RegisterIdP) {
   GURL configURL = GURL(BaseIdpUrl());
@@ -1318,7 +1371,8 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
                        NavigatorCredentialsApi) {
   base::Value kIdentityProviderResponse =
       base::JSONReader::Read(
-          R"({"vp_token": "token data" , "presentation_submission":"bar"})")
+          R"({"vp_token": "token data" , "presentation_submission":"bar"})",
+          base::JSON_PARSE_CHROMIUM_EXTENSIONS)
           .value();
 
   idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
@@ -1368,7 +1422,9 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
           test_browser_client_->GetDigitalIdentityProviderForTests());
 
   base::Value kResponse =
-      base::JSONReader::Read(R"({"token":"test-mdoc"})").value();
+      base::JSONReader::Read(R"({"token":"test-mdoc"})",
+                             base::JSON_PARSE_CHROMIUM_EXTENSIONS)
+          .value();
 
   EXPECT_CALL(*digital_identity_provider, Get)
       .WillOnce(WithArg<3>(
@@ -1422,7 +1478,9 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
           [](DigitalIdentityProvider::DigitalIdentityCallback callback) {
             std::move(callback).Run(DigitalCredential(
                 "openid4vp",
-                base::JSONReader::Read(R"({"token":"test-mdoc"})").value()));
+                base::JSONReader::Read(R"({"token":"test-mdoc"})",
+                                       base::JSON_PARSE_CHROMIUM_EXTENSIONS)
+                    .value()));
           }));
 
   RunDigitalIdentityValidRequest(shell());
@@ -1922,7 +1980,8 @@ class WebIdDelegationBrowserTest : public WebIdBrowserTest {
           EXPECT_TRUE(net::GetValueForKeyInQuery(query_url, "holder_key",
                                                  &holder_key_json));
 
-          auto holder_key_value = base::JSONReader::ReadDict(holder_key_json);
+          auto holder_key_value = base::JSONReader::ReadDict(
+              holder_key_json, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
           EXPECT_TRUE(holder_key_value);
           auto holder_key = sdjwt::Jwk::From(*holder_key_value);
           EXPECT_TRUE(holder_key);

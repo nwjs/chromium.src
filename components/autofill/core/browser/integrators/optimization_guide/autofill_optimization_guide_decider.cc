@@ -206,25 +206,31 @@ void AddOptimizationTypesForBnplIssuers(
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   auto bnpl_issuer_allowlist_can_be_loaded =
       [&bnpl_issuers](BnplIssuer::IssuerId issuer_id) {
-        return base::Contains(bnpl_issuers, issuer_id,
-                              &BnplIssuer::issuer_id) &&
-               base::FeatureList::IsEnabled(
-                   features::kAutofillEnableAmountExtractionAllowlist);
+        return base::Contains(bnpl_issuers, issuer_id, &BnplIssuer::issuer_id);
       };
 
   if (bnpl_issuer_allowlist_can_be_loaded(BnplIssuer::IssuerId::kBnplAffirm)) {
     optimization_types.insert(
-        optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_AFFIRM);
+        base::FeatureList::IsEnabled(
+            features::kAutofillPreferBuyNowPayLaterBlocklists)
+            ? optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_AFFIRM
+            : optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_AFFIRM);
   }
 
   if (bnpl_issuer_allowlist_can_be_loaded(BnplIssuer::IssuerId::kBnplZip)) {
     optimization_types.insert(
-        optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_ZIP);
+        base::FeatureList::IsEnabled(
+            features::kAutofillPreferBuyNowPayLaterBlocklists)
+            ? optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_ZIP
+            : optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_ZIP);
   }
 
   if (bnpl_issuer_allowlist_can_be_loaded(BnplIssuer::IssuerId::kBnplKlarna)) {
     optimization_types.insert(
-        optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_KLARNA);
+        base::FeatureList::IsEnabled(
+            features::kAutofillPreferBuyNowPayLaterBlocklists)
+            ? optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_KLARNA
+            : optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_KLARNA);
   }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
@@ -458,26 +464,32 @@ bool AutofillOptimizationGuideDecider::IsUrlEligibleForBnplIssuer(
                                           /*optimization_metadata=*/nullptr) ==
            optimization_guide::OptimizationGuideDecision::kTrue;
   };
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableAmountExtractionAllowlist)) {
-    switch (issuer_id) {
-      case BnplIssuer::IssuerId::kBnplAffirm:
-        return can_apply_optimization(
-            optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_AFFIRM);
-      case BnplIssuer::IssuerId::kBnplZip:
-        return can_apply_optimization(
-            optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_ZIP);
-      // TODO(crbug.com/408268581): Handle Afterpay issuer enum value when
-      // adding Afterpay to the BNPL flow.
-      case BnplIssuer::IssuerId::kBnplAfterpay:
-        NOTREACHED();
-      case BnplIssuer::IssuerId::kBnplKlarna:
-        return can_apply_optimization(
-            optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_KLARNA);
-    }
-    NOTREACHED();
+
+  switch (issuer_id) {
+    case BnplIssuer::IssuerId::kBnplAffirm:
+      return can_apply_optimization(
+          base::FeatureList::IsEnabled(
+              features::kAutofillPreferBuyNowPayLaterBlocklists)
+              ? optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_AFFIRM
+              : optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_AFFIRM);
+    case BnplIssuer::IssuerId::kBnplZip:
+      return can_apply_optimization(
+          base::FeatureList::IsEnabled(
+              features::kAutofillPreferBuyNowPayLaterBlocklists)
+              ? optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_ZIP
+              : optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_ZIP);
+    // TODO(crbug.com/408268581): Handle Afterpay issuer enum value when
+    // adding Afterpay to the BNPL flow.
+    case BnplIssuer::IssuerId::kBnplAfterpay:
+      NOTREACHED();
+    case BnplIssuer::IssuerId::kBnplKlarna:
+      return can_apply_optimization(
+          base::FeatureList::IsEnabled(
+              features::kAutofillPreferBuyNowPayLaterBlocklists)
+              ? optimization_guide::proto::BUY_NOW_PAY_LATER_BLOCKLIST_KLARNA
+              : optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_KLARNA);
   }
-  return false;
+  NOTREACHED();
 }
 
 }  // namespace autofill

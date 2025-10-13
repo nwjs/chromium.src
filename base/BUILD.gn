@@ -258,6 +258,8 @@ component("base") {
     "containers/to_value_list.h",
     "containers/to_vector.h",
     "containers/unique_ptr_adapters.h",
+    "containers/variant_map.cc",
+    "containers/variant_map.h",
     "containers/vector_buffer.h",
     "critical_closure.h",
     "dcheck_is_on.h",
@@ -1187,8 +1189,6 @@ component("base") {
       "android/important_file_writer_android.cc",
       "android/input_hint_checker.cc",
       "android/input_hint_checker.h",
-      "android/jank_metric_uma_recorder.cc",
-      "android/jank_metric_uma_recorder.h",
       "android/java_handler_thread.cc",
       "android/java_handler_thread.h",
       "android/java_heap_dump_generator.cc",
@@ -1282,7 +1282,6 @@ component("base") {
       ":content_uri_utils_jni",
       ":features_jni",
       ":file_utils_jni",
-      ":jank_tracker_jni",
       ":jni_android_jni",
       ":memory_jni",
       ":metrics_jni",
@@ -1291,8 +1290,8 @@ component("base") {
       ":sys_utils_jni",
       ":tasks_jni",
       ":virtual_document_path_jni",
+      "//base/android/linker:ashmem",
       "//base/version_info/android:version_constants_bridge_jni",
-      "//third_party/ashmem",
       "//third_party/cpu_features:ndk_compat",
     ]
 
@@ -1836,6 +1835,7 @@ component("base") {
       "win/dark_mode_support.h",
       "win/default_apps_util.cc",
       "win/default_apps_util.h",
+      "win/delayload_helpers.h",
       "win/elevation_util.cc",
       "win/elevation_util.h",
       "win/embedded_i18n/language_selector.cc",
@@ -3326,7 +3326,7 @@ source_set("path_service_unittest") {
 }
 
 if (is_win) {
-  # Used by win_util_unittest.cc to test delayload helpers.
+  # Used by win/delayload_helpers_unittest.cc to test delayload helpers.
   config("delayload_esent_dll") {
     ldflags = [ "/DELAYLOAD:esent.dll" ]
   }
@@ -3386,6 +3386,7 @@ test("base_unittests") {
     "containers/to_value_list_unittest.cc",
     "containers/to_vector_unittest.cc",
     "containers/unique_ptr_adapters_unittest.cc",
+    "containers/variant_map_unittest.cc",
     "containers/vector_buffer_unittest.cc",
     "cpu_unittest.cc",
     "debug/alias_unittest.cc",
@@ -3646,6 +3647,7 @@ test("base_unittests") {
     "test/memory/dangling_ptr_instrumentation.cc",
     "test/memory/dangling_ptr_instrumentation.h",
     "test/metrics/action_suffix_reader_unittest.cc",
+    "test/metrics/action_variants_reader_unittest.cc",
     "test/metrics/histogram_enum_reader_unittest.cc",
     "test/metrics/histogram_tester_unittest.cc",
     "test/metrics/histogram_variants_reader_unittest.cc",
@@ -3871,6 +3873,7 @@ test("base_unittests") {
       "win/com_init_check_hook_unittest.cc",
       "win/com_init_util_unittest.cc",
       "win/dark_mode_support_unittest.cc",
+      "win/delayload_helpers_unittest.cc",
       "win/dispatch_stub.cc",
       "win/dispatch_stub.h",
       "win/dllmain.cc",
@@ -4011,7 +4014,6 @@ test("base_unittests") {
       "android/application_status_listener_unittest.cc",
       "android/child_process_unittest.cc",
       "android/content_uri_utils_unittest.cc",
-      "android/jank_metric_uma_recorder_unittest.cc",
       "android/java_handler_thread_unittest.cc",
       "android/jni_android_unittest.cc",
       "android/jni_array_unittest.cc",
@@ -4042,6 +4044,7 @@ test("base_unittests") {
       "test/launcher/test_results_tracker_unittest.cc",
     ]
     deps += [
+      "//base/android/linker:ashmem",
       ":base_unittest_support_java",
       ":base_unittest_support_jni",
       "//base/test:test_support_java",
@@ -4592,6 +4595,7 @@ if (is_android) {
     deps = [
       ":base_java",
       ":build_info_java",
+      ":flagged_apis_java",
       "//base/version_info/android:version_constants_java",
       "//third_party/android_deps:com_google_code_findbugs_jsr305_java",
       "//third_party/androidx:androidx_annotation_annotation_experimental_java",
@@ -4609,10 +4613,13 @@ if (is_android) {
       "android/java/src/org/chromium/base/process_launcher/ChildProcessService.java",
       "android/java/src/org/chromium/base/process_launcher/ChildProcessServiceDelegate.java",
       "android/java/src/org/chromium/base/process_launcher/ChildServiceConnection.java",
+      "android/java/src/org/chromium/base/process_launcher/ChildServiceConnectionController.java",
       "android/java/src/org/chromium/base/process_launcher/ChildServiceConnectionDelegate.java",
       "android/java/src/org/chromium/base/process_launcher/ChildServiceConnectionFactory.java",
       "android/java/src/org/chromium/base/process_launcher/ChildServiceConnectionImpl.java",
+      "android/java/src/org/chromium/base/process_launcher/LegacyChildServiceConnectionController.java",
       "android/java/src/org/chromium/base/process_launcher/RebindServiceConnection.java",
+      "android/java/src/org/chromium/base/process_launcher/RebindingChildServiceConnectionController.java",
     ]
   }
 
@@ -4661,7 +4668,6 @@ if (is_android) {
       "android/java/src/org/chromium/base/PathService.java",
       "android/java/src/org/chromium/base/PostNativeFlag.java",
       "android/java/src/org/chromium/base/PowerMonitor.java",
-      "android/java/src/org/chromium/base/PowerMonitorForQ.java",
       "android/java/src/org/chromium/base/PowerMonitorReading.java",
       "android/java/src/org/chromium/base/RadioUtils.java",
       "android/java/src/org/chromium/base/RequiredCallback.java",
@@ -4698,7 +4704,6 @@ if (is_android) {
       ":features_java",
       ":file_provider_utils_java",
       ":file_utils_java",
-      ":jank_tracker_java",
       ":jni_android_java",
       ":jni_utils_java",
       ":library_loader_java",
@@ -4866,38 +4871,6 @@ if (is_android) {
     ]
   }
 
-  generate_jni("jank_tracker_jni") {
-    sources = [ "android/java/src/org/chromium/base/jank_tracker/JankMetricUMARecorder.java" ]
-  }
-
-  android_library("jank_tracker_java") {
-    srcjar_deps = [ ":jank_tracker_jni" ]
-    sources = [
-      "android/java/src/org/chromium/base/jank_tracker/FrameMetricsListener.java",
-      "android/java/src/org/chromium/base/jank_tracker/FrameMetricsStore.java",
-      "android/java/src/org/chromium/base/jank_tracker/JankActivityTracker.java",
-      "android/java/src/org/chromium/base/jank_tracker/JankEndScenarioTime.java",
-      "android/java/src/org/chromium/base/jank_tracker/JankMetricUMARecorder.java",
-      "android/java/src/org/chromium/base/jank_tracker/JankMetrics.java",
-      "android/java/src/org/chromium/base/jank_tracker/JankReportingRunnable.java",
-      "android/java/src/org/chromium/base/jank_tracker/JankReportingScheduler.java",
-      "android/java/src/org/chromium/base/jank_tracker/JankScenario.java",
-      "android/java/src/org/chromium/base/jank_tracker/JankTracker.java",
-      "android/java/src/org/chromium/base/jank_tracker/JankTrackerImpl.java",
-      "android/java/src/org/chromium/base/jank_tracker/JankTrackerStateController.java",
-      "android/java/src/org/chromium/base/jank_tracker/PlaceholderJankTracker.java",
-    ]
-    deps = [
-      ":activity_state_java",
-      ":lifetime_java",
-      ":log_java",
-      ":tasks_java",
-      ":time_utils_java",
-      "//third_party/androidx:androidx_annotation_annotation_java",
-      "//third_party/jni_zero:jni_zero_java",
-    ]
-  }
-
   java_cpp_enum("memory_pressure_level_enum_srcjar") {
     sources = [ "memory/memory_pressure_level.h" ]
   }
@@ -4982,7 +4955,6 @@ if (is_android) {
       "android/java/src/org/chromium/base/supplier/OneShotCallback.java",
       "android/java/src/org/chromium/base/supplier/OneshotSupplier.java",
       "android/java/src/org/chromium/base/supplier/OneshotSupplierImpl.java",
-      "android/java/src/org/chromium/base/supplier/Supplier.java",
       "android/java/src/org/chromium/base/supplier/SupplierUtils.java",
       "android/java/src/org/chromium/base/supplier/SyncOneshotSupplier.java",
       "android/java/src/org/chromium/base/supplier/SyncOneshotSupplierImpl.java",
@@ -5328,6 +5300,7 @@ if (is_android) {
   }
 
   android_library("flagged_apis_java") {
+    deps = [ ":service_loader_java" ]
     sources =
         [ "android/java/src/org/chromium/base/AconfigFlaggedApiDelegate.java" ]
   }
@@ -5427,7 +5400,6 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/StrictModeContextTest.java",
       "android/javatests/src/org/chromium/base/UserDataHostTest.java",
       "android/javatests/src/org/chromium/base/VirtualDocumentPathTest.java",
-      "android/javatests/src/org/chromium/base/jank_tracker/JankTrackerTest.java",
       "android/javatests/src/org/chromium/base/library_loader/EarlyNativeTest.java",
       "android/javatests/src/org/chromium/base/metrics/RecordHistogramTest.java",
       "android/javatests/src/org/chromium/base/metrics/ScopedSysTraceEventTest.java",
@@ -5553,7 +5525,6 @@ if (is_android) {
       "test/android/javatests/src/org/chromium/base/test/util/InMemorySharedPreferences.java",
       "test/android/javatests/src/org/chromium/base/test/util/InMemorySharedPreferencesContext.java",
       "test/android/javatests/src/org/chromium/base/test/util/IntegrationTest.java",
-      "test/android/javatests/src/org/chromium/base/test/util/JniMocker.java",
       "test/android/javatests/src/org/chromium/base/test/util/KeyUtils.java",
       "test/android/javatests/src/org/chromium/base/test/util/LooperUtils.java",
       "test/android/javatests/src/org/chromium/base/test/util/Manual.java",
@@ -5622,6 +5593,8 @@ if (is_android) {
   android_library("base_java_process_launcher_test_support") {
     testonly = true
 
+    srcjar_deps = [ ":base_android_java_enums_srcjar" ]
+    deps = [ "//third_party/androidx:androidx_annotation_annotation_java" ]
     public_deps = [ ":process_launcher_java" ]
 
     sources = [ "test/android/javatests/src/org/chromium/base/process_launcher/TestChildProcessConnection.java" ]
@@ -5633,7 +5606,6 @@ if (is_android) {
       "//third_party/robolectric/custom_asynctask/java/src/org/chromium/base/task/test/ShadowAsyncTaskBridge.java",
       "test/android/junit/src/org/chromium/base/task/test/BackgroundShadowAsyncTask.java",
       "test/android/junit/src/org/chromium/base/task/test/CustomShadowAsyncTask.java",
-      "test/android/junit/src/org/chromium/base/task/test/PausedExecutorTestRule.java",
       "test/android/junit/src/org/chromium/base/task/test/ShadowPostTask.java",
       "test/android/junit/src/org/chromium/base/test/BaseRobolectricAndroidConfigurer.java",
       "test/android/junit/src/org/chromium/base/test/BaseRobolectricTestListener.java",
@@ -5689,12 +5661,6 @@ if (is_android) {
       "android/junit/src/org/chromium/base/UnownedUserDataHostTest.java",
       "android/junit/src/org/chromium/base/UnownedUserDataKeyTest.java",
       "android/junit/src/org/chromium/base/ValueChangedCallbackTest.java",
-      "android/junit/src/org/chromium/base/jank_tracker/FrameMetricsListenerTest.java",
-      "android/junit/src/org/chromium/base/jank_tracker/FrameMetricsStoreTest.java",
-      "android/junit/src/org/chromium/base/jank_tracker/JankActivityTrackerTest.java",
-      "android/junit/src/org/chromium/base/jank_tracker/JankMetricUMARecorderTest.java",
-      "android/junit/src/org/chromium/base/jank_tracker/JankReportingRunnableTest.java",
-      "android/junit/src/org/chromium/base/jank_tracker/JankReportingSchedulerTest.java",
       "android/junit/src/org/chromium/base/library_loader/LinkerTest.java",
       "android/junit/src/org/chromium/base/lifetime/LifetimeAssertUnitTest.java",
       "android/junit/src/org/chromium/base/memory/MemoryPressureMonitorTest.java",

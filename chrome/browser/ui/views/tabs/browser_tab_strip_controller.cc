@@ -555,7 +555,12 @@ void BrowserTabStripController::ToggleTabGroupCollapsedState(
       } else {
         // Create a new tab that will automatically be activated
         should_toggle_group = false;
-        CreateNewTab();
+        // We intentionally do not call CreateNewTab() here because it
+        // respects the IsNewTabAddsToActiveGroupEnabled() feature, which would
+        // add the new tab to the same group as the currently active tab.
+        // In the "collapse group" scenario, we want the new tab to be created
+        // outside of any group to avoid it being collapsed immediately.
+        model_->delegate()->AddTabAt(GURL(), -1, true);
       }
     } else {
       // If the active tab is not in the group that is toggling to collapse,
@@ -652,13 +657,18 @@ void BrowserTabStripController::OnStartedDragging(bool dragging_window) {
             ImmersiveModeController::ANIMATE_REVEAL_NO);
   }
 
-  browser_view_->frame()->SetTabDragKind(dragging_window ? TabDragKind::kAllTabs
-                                                         : TabDragKind::kTab);
+  browser_view_->browser_widget()->SetTabDragKind(
+      dragging_window ? TabDragKind::kAllTabs : TabDragKind::kTab);
   // We also use fast resize for the source browser window as the source browser
   // window may also change bounds during dragging.
   BrowserView* source_browser_view = GetSourceBrowserViewInTabDragging();
   if (source_browser_view && source_browser_view != browser_view_) {
-    source_browser_view->frame()->SetTabDragKind(TabDragKind::kTab);
+    source_browser_view->browser_widget()->SetTabDragKind(TabDragKind::kTab);
+#if BUILDFLAG(IS_CHROMEOS)
+    browser_view_->GetWidget()->GetNativeWindow()->SetProperty(
+        ash::kTabDraggingSourceWindowKey,
+        source_browser_view->GetNativeWindow());
+#endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -674,15 +684,25 @@ void BrowserTabStripController::OnStoppedDragging() {
   // Only reset the source window's fast resize bit after the entire drag
   // ends.
   if (browser_view_ != source_browser_view) {
-    browser_view_->frame()->SetTabDragKind(TabDragKind::kNone);
+    browser_view_->browser_widget()->SetTabDragKind(TabDragKind::kNone);
   }
   if (source_browser_view && !TabDragController::IsActive()) {
-    source_browser_view->frame()->SetTabDragKind(TabDragKind::kNone);
+    source_browser_view->browser_widget()->SetTabDragKind(TabDragKind::kNone);
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
-  browser_view_->GetWidget()->GetNativeWindow()->ClearProperty(
-      ash::kIsDraggingTabsKey);
+  // Clear the drag properties unless the drag browser's tabs got merged into
+  // another browser, in which case SplitViewController::TabDragWindowObserver
+  // still needs to read the properties. We detect this case by checking if the
+  // tab strip model is now empty. Since it was non-empty originally and the
+  // drag browser can't have any pending downloads. we know that it's about to
+  // get destroyed anyways.
+  if (!browser_view_->browser()->tab_strip_model()->empty()) {
+    browser_view_->GetWidget()->GetNativeWindow()->ClearProperty(
+        ash::kIsDraggingTabsKey);
+    browser_view_->GetWidget()->GetNativeWindow()->ClearProperty(
+        ash::kTabDraggingSourceWindowKey);
+  }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
@@ -995,13 +1015,6 @@ void BrowserTabStripController::SetTabGroupNeedsAttention(
   tabstrip_->SetTabGroupNeedsAttention(group, attention);
 }
 
-bool BrowserTabStripController::IsFrameButtonsRightAligned() const {
-#if BUILDFLAG(IS_MAC)
-  return false;
-#else
-  return true;
-#endif  // BUILDFLAG(IS_MAC)
-}
 
 void BrowserTabStripController::OnSplitTabChanged(
     const SplitTabChange& change) {
@@ -1047,13 +1060,12 @@ void BrowserTabStripController::OnSplitTabChanged(
   }
 }
 
-BrowserNonClientFrameView* BrowserTabStripController::GetFrameView() {
-  return browser_view_->frame()->GetFrameView();
+BrowserFrameView* BrowserTabStripController::GetFrameView() {
+  return browser_view_->browser_widget()->GetFrameView();
 }
 
-const BrowserNonClientFrameView* BrowserTabStripController::GetFrameView()
-    const {
-  return browser_view_->frame()->GetFrameView();
+const BrowserFrameView* BrowserTabStripController::GetFrameView() const {
+  return browser_view_->browser_widget()->GetFrameView();
 }
 
 void BrowserTabStripController::SetTabDataAt(content::WebContents* web_contents,

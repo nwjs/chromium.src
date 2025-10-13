@@ -513,70 +513,6 @@ ci.builder(
 )
 
 ci.builder(
-    name = "linux-blink-wpt-3pcd-fyi-rel",
-    description_html = "Runs {} and web tests against Chrome with third party cookie disabled for experimental.".format(
-        linkify("https://web-platform-tests.org", "web platform tests"),
-    ),
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.LINUX,
-        ),
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "release_builder_blink",
-            "remoteexec",
-            "dcheck_always_on",
-            "linux",
-            "x64",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "chromium_webkit_isolated_scripts",
-        ],
-        mixins = [
-            "linux-jammy",
-        ],
-        per_test_modifications = {
-            "blink_web_tests": targets.mixin(
-                args = [
-                    "--flag-specific=disable-third-party-cookie",
-                ],
-            ),
-            "blink_wpt_tests": targets.mixin(
-                args = [
-                    "--flag-specific=disable-third-party-cookie",
-                ],
-            ),
-            "chrome_wpt_tests": targets.mixin(
-                args = [
-                    "--flag-specific=disable-third-party-cookie",
-                ],
-            ),
-            "headless_shell_wpt_tests": targets.mixin(
-                args = [
-                    "--flag-specific=disable-third-party-cookie",
-                ],
-            ),
-        },
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "linux|blink",
-        short_name = "3pcd",
-    ),
-    contact_team_email = "potassium-engprod-team@twosync.google.com",
-)
-
-ci.builder(
     name = "linux-blink-heap-verification",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
@@ -1001,6 +937,7 @@ fyi_ios_builder(
             "mac",
             "arm64",
             "minimal_symbols",
+            "gpu_tests",
         ],
     ),
     targets = targets.bundle(
@@ -1139,6 +1076,61 @@ ci.builder(
     ),
     contact_team_email = "chrome-blink-engprod@google.com",
     experimental = True,
+)
+
+ci.builder(
+    name = "linux-blink-tracing-rel",
+    description_html = "Runs {} with <code>blink*</code> traces added to test results.".format(
+        linkify("https://web-platform-tests.org/", "web platform tests"),
+    ),
+    schedule = "with 24h interval",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder_blink",
+            "remoteexec",
+            "linux",
+            "x64",
+            # Instrument binaries with `blink.bindings` trace events.
+            "extended_tracing",
+        ],
+    ),
+    targets = targets.bundle(
+        targets = [
+            "headless_shell_wpt_tests_tracing",
+        ],
+        mixins = [
+            "linux-jammy",
+        ],
+        per_test_modifications = {
+            "headless_shell_wpt_tests_tracing": targets.mixin(
+                # This builder isn't latency-sensitive, so use fewer shards than
+                # the base test suite.
+                swarming = targets.swarming(
+                    shards = 12,
+                ),
+            ),
+        },
+    ),
+    os = os.LINUX_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "linux|blink",
+        short_name = "trace",
+    ),
+    contact_team_email = "chrome-product-engprod@google.com",
 )
 
 fyi_ios_builder(
@@ -1491,7 +1483,14 @@ ci.builder(
         "test id uploads."
     ),
     builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(config = "chromium"),
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                # This is necessary due to child builders running the
+                # telemetry_perf_unittests suite.
+                "chromium_with_telemetry_dependencies",
+            ],
+        ),
         chromium_config = builder_config.chromium_config(
             config = "chromium",
             apply_configs = ["mb"],
@@ -1502,9 +1501,10 @@ ci.builder(
     ),
     gn_args = gn_args.config(
         configs = [
+            "gpu_tests",
             "release_builder",
             "remoteexec",
-            "minimal_symbols",
+            "devtools_do_typecheck",
             "linux",
             "x64",
         ],
@@ -1513,6 +1513,7 @@ ci.builder(
         targets = [
             "chromium_linux_gtests",
             "chromium_linux_rel_isolated_scripts_once",
+            "chromium_linux_scripts",
             "gtests_once",
             "variations_smoke_tests",  # single module scheme
             "mojo_python_unittests",  # pyunit scheme
@@ -1776,7 +1777,7 @@ fyi_ios_builder(
             "mac_default_arm64",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_16_beta",
+            "xcode_26_beta",
             "xctest",
         ],
     ),
@@ -1788,7 +1789,7 @@ fyi_ios_builder(
     ),
     contact_team_email = "cobalt-appletv@google.com",
     execution_timeout = 3 * time.hour,
-    xcode = xcode.x16betabots,
+    xcode = xcode.x26betabots,
 )
 
 fyi_ios_builder(
@@ -2501,43 +2502,6 @@ ci.builder(
     execution_timeout = 16 * time.hour,
     notifies = ["annotator-rel"],
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
-)
-
-ci.builder(
-    name = "linux-crossbench",
-    description_html = "Run Crossbench Smoke tests on Linux.",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(config = "chromium"),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.LINUX,
-        ),
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "release_builder",
-            "remoteexec",
-            "linux",
-            "x64",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "crossbench_smoketests",
-        ],
-        mixins = [
-            "linux-jammy",
-            "x86-64",
-        ],
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "linux",
-    ),
-    contact_team_email = "crossbench-infra-vteam@google.com",
 )
 
 ci.builder(

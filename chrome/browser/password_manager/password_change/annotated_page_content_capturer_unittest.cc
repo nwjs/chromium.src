@@ -17,7 +17,6 @@
 
 using ::base::test::RunOnceCallback;
 using ::testing::_;
-using ::testing::Invoke;
 
 class AnnotatedPageContentCapturerTest
     : public ChromeRenderViewHostTestHarness {
@@ -42,8 +41,12 @@ TEST_F(AnnotatedPageContentCapturerTest, CaptureEmptyPageContent) {
       completion_future;
   std::unique_ptr<AnnotatedPageContentCapturer> capturer =
       CreateCapturer(completion_future.GetCallback());
+  optimization_guide::AIPageContentResult result;
+  const char kEmptyPageContentData[] = "\n\002B\000\020\002";
+  result.proto.ParseFromArray(kEmptyPageContentData,
+                              sizeof(kEmptyPageContentData) - 1);
   EXPECT_CALL(mock_get_page_content_, Run)
-      .WillOnce(RunOnceCallback<1>(optimization_guide::AIPageContentResult()));
+      .WillOnce(RunOnceCallback<1>(std::move(result)));
   capturer->DidStopLoading();
   EXPECT_FALSE(completion_future.IsReady());
 }
@@ -73,14 +76,12 @@ TEST_F(AnnotatedPageContentCapturerTest, NewLoadInvalidatesPreviousRequest) {
   optimization_guide::OnAIPageContentDone second_request_callback;
 
   EXPECT_CALL(mock_get_page_content_, Run)
-      .WillOnce(
-          Invoke([&](auto, optimization_guide::OnAIPageContentDone callback) {
-            first_request_callback = std::move(callback);
-          }))
-      .WillOnce(
-          Invoke([&](auto, optimization_guide::OnAIPageContentDone callback) {
-            second_request_callback = std::move(callback);
-          }));
+      .WillOnce([&](auto, optimization_guide::OnAIPageContentDone callback) {
+        first_request_callback = std::move(callback);
+      })
+      .WillOnce([&](auto, optimization_guide::OnAIPageContentDone callback) {
+        second_request_callback = std::move(callback);
+      });
 
   capturer->DidStopLoading();
   ASSERT_TRUE(first_request_callback);

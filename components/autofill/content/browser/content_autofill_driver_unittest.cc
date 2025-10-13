@@ -75,7 +75,6 @@ using ::autofill::test::LazyRef;
 using ::autofill::test::SaveArgPtr;
 using ::testing::_;
 using ::testing::AllOf;
-using ::testing::DoAll;
 using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::Field;
@@ -193,13 +192,17 @@ class FakeAutofillAgent : public mojom::AutofillAgent {
               GetPotentialLastFourCombinationsForStandaloneCvc,
               (base::OnceCallback<void(const std::vector<std::string>&)>),
               (override));
-  MOCK_METHOD(void, ExposeDomNodeIDs, (), (override));
+  MOCK_METHOD(void, ExposeDomNodeIds, (), (override));
   MOCK_METHOD(void,
               ExtractLabeledTextNodeValue,
               (const std::u16string&,
                const std::u16string&,
                uint32_t number_of_ancestor_levels_to_search,
                base::OnceCallback<void(const std::string&)>),
+              (override));
+  MOCK_METHOD(void,
+              DispatchEmailVerifiedEvent,
+              (FieldRendererId, const std::string&),
               (override));
 
  private:
@@ -435,7 +438,7 @@ class ContentAutofillDriverTest : public content::RenderViewHostTestHarness {
     }
     std::vector<FormData> augmented_forms;
     EXPECT_CALL(manager(target_rfh), OnFormsSeen(_, _))
-        .WillOnce(DoAll(SaveArg<0>(&augmented_forms)));
+        .WillOnce(SaveArg<0>(&augmented_forms));
     driver(source_rfh)
         .renderer_events()
         .FormsSeen(/*updated_forms=*/{std::move(form)},
@@ -606,8 +609,7 @@ TEST_F(ContentAutofillDriverTest,
 TEST_F(ContentAutofillDriverTest, WithNewVersion) {
   FormData form = test::CreateTestAddressFormData();
   std::vector<FormData> augmented_forms;
-  EXPECT_CALL(manager(), OnFormsSeen)
-      .WillOnce(DoAll(SaveArg<0>(&augmented_forms)));
+  EXPECT_CALL(manager(), OnFormsSeen).WillOnce(SaveArg<0>(&augmented_forms));
   driver().renderer_events().FormsSeen(/*updated_forms=*/{form},
                                        /*removed_forms=*/{});
   ASSERT_EQ(augmented_forms.size(), 1u);
@@ -733,8 +735,7 @@ TEST_F(ContentAutofillDriverTest, TypePredictionsSentToRendererWhenEnabled) {
 
   FormData form = test::CreateTestAddressFormData();
   std::vector<FormData> augmented_forms;
-  EXPECT_CALL(manager(), OnFormsSeen)
-      .WillOnce(DoAll(SaveArg<0>(&augmented_forms)));
+  EXPECT_CALL(manager(), OnFormsSeen).WillOnce(SaveArg<0>(&augmented_forms));
   driver().renderer_events().FormsSeen(/*updated_forms=*/{form},
                                        /*removed_forms=*/{});
 

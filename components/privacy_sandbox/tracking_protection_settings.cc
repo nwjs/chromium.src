@@ -6,6 +6,7 @@
 
 #include "base/check.h"
 #include "base/feature_list.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -76,11 +77,29 @@ TrackingProtectionSettings::TrackingProtectionSettings(
           &TrackingProtectionSettings::OnEnterpriseControlForPrefsChanged,
           base::Unretained(this)));
 
-// This call is not applicable to iOS because it accesses prefs not registered
-// on iOS.
+// This logic accesses prefs that aren't registered on iOS.
 #if !BUILDFLAG(IS_IOS)
   // It's possible enterprise status changed while profile was shut down.
   OnEnterpriseControlForPrefsChanged();
+
+  if (pref_service_->GetBoolean(prefs::kTrackingProtection3pcdEnabled) &&
+      base::FeatureList::IsEnabled(kRollBackModeB)) {
+    // Hardcode this as using CookieControlsMode creates a circular dependency.
+    const int kBlockThirdParty = 1;
+    // Preserve the choice to block all 3PCs upon offboarding.
+    if (pref_service_->GetBoolean(prefs::kBlockAll3pcToggleEnabled)) {
+      pref_service_->SetInteger(prefs::kCookieControlsMode, kBlockThirdParty);
+    }
+    // Only show rollback UI to users who will not have 3PCs blocked.
+    if (pref_service_->GetInteger(prefs::kCookieControlsMode) !=
+        kBlockThirdParty) {
+      pref_service_->SetBoolean(prefs::kShowRollbackUiModeB, true);
+    }
+    base::UmaHistogramBoolean(
+        "Privacy.3PCD.RollbackNotice.ShouldShow",
+        pref_service_->GetBoolean(prefs::kShowRollbackUiModeB));
+    pref_service_->SetBoolean(prefs::kTrackingProtection3pcdEnabled, false);
+  }
 #endif
 }
 

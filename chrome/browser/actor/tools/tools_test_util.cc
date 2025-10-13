@@ -38,11 +38,11 @@ actor_login::Credential MakeTestCredential(
     const GURL& url,
     bool immediately_available_to_login) {
   actor_login::Credential credential;
-  credential.id = actor_login::Credential::GenerateCredentialId();
   credential.username = username;
   // TODO(crbug.com/441231531): Clarify the format.
   credential.source_site_or_app =
       base::UTF8ToUTF16(url.GetWithEmptyPath().spec());
+  credential.request_origin = url::Origin::Create(url);
   credential.type = actor_login::CredentialType::kPassword;
   credential.immediatelyAvailableToLogin = immediately_available_to_login;
   return credential;
@@ -81,8 +81,8 @@ void MockActorLoginService::SetLoginStatus(
   login_status_ = login_status;
 }
 
-const actor_login::Credential& MockActorLoginService::last_credential_used()
-    const {
+const std::optional<actor_login::Credential>&
+MockActorLoginService::last_credential_used() const {
   return last_credential_used_;
 }
 
@@ -175,6 +175,22 @@ std::unique_ptr<ExecutionEngine> ActorToolsTest::CreateExecutionEngine(
   return std::make_unique<ExecutionEngine>(profile);
 }
 
+// static
+std::string ActorToolsGeneralPageStabilityTest::DescribeParam(
+    const testing::TestParamInfo<ParamType>& info) {
+  return DescribeGeneralPageStabilityMode(info.param);
+}
+
+ActorToolsGeneralPageStabilityTest::ActorToolsGeneralPageStabilityTest() {
+  scoped_feature_list_.InitAndEnableFeatureWithParameters(
+      ::features::kGlicActor,
+      {{::features::kActorGeneralPageStabilityMode.name,
+        ::features::kActorGeneralPageStabilityMode.GetName(GetParam())}});
+}
+
+ActorToolsGeneralPageStabilityTest::~ActorToolsGeneralPageStabilityTest() =
+    default;
+
 gfx::RectF GetBoundingClientRect(content::RenderFrameHost& rfh,
                                  std::string_view query) {
   double width =
@@ -203,6 +219,29 @@ gfx::RectF GetBoundingClientRect(content::RenderFrameHost& rfh,
           .ExtractDouble();
 
   return gfx::RectF(x, y, width, height);
+}
+
+std::string DescribeGeneralPageStabilityMode(
+    features::ActorGeneralPageStabilityMode mode) {
+  switch (mode) {
+    case features::ActorGeneralPageStabilityMode::kDisabled:
+      return "Disabled";
+    case features::ActorGeneralPageStabilityMode::kNavigateAndHistoryEnabled:
+      return "NavigateAndHistoryEnabled";
+    case features::ActorGeneralPageStabilityMode::kAllEnabled:
+      return "AllEnabled";
+  }
+}
+
+std::string DescribePaintStabilityMode(features::ActorPaintStabilityMode mode) {
+  switch (mode) {
+    case features::ActorPaintStabilityMode::kDisabled:
+      return "Disabled";
+    case features::ActorPaintStabilityMode::kLogOnly:
+      return "LogOnly";
+    case features::ActorPaintStabilityMode::kEnabled:
+      return "Enabled";
+  }
 }
 
 }  // namespace actor

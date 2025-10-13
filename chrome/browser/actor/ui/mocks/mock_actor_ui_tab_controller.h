@@ -31,10 +31,7 @@ class MockActorUiTabController : public ActorUiTabControllerInterface {
               (const UiTabState& ui_tab_state, UiResultCallback callback),
               (override));
 
-  MOCK_METHOD(void,
-              OnTabActiveStatusChanged,
-              (bool tab_active_status, tabs::TabInterface* tab),
-              (override));
+  MOCK_METHOD(void, OnWebContentsAttached, (), (override));
 
   MOCK_METHOD(base::WeakPtr<ActorUiTabControllerInterface>,
               GetWeakPtr,
@@ -45,23 +42,13 @@ class MockActorUiTabController : public ActorUiTabControllerInterface {
 
   MOCK_METHOD(void, SetActorTaskResume, (), (override));
 
-  MOCK_METHOD(void, SetOverlayHoverStatus, (bool is_hovering), (override));
-
   MOCK_METHOD(void,
-              SetHandoffButtonHoverStatus,
+              OnOverlayHoverStatusChanged,
               (bool is_hovering),
               (override));
 
-  MOCK_METHOD(void,
-              BindActorOverlay,
-              (mojo::PendingRemote<mojom::ActorOverlayPage> page,
-               mojo::PendingReceiver<mojom::ActorOverlayPageHandler> receiver),
-              (override));
+  MOCK_METHOD(void, OnHandoffButtonHoverStatusChanged, (), (override));
 
-  MOCK_METHOD(void,
-              SetCallbackForTesting,
-              (base::OnceClosure callback),
-              (override));
   MOCK_METHOD(bool, ShouldShowActorTabIndicator, (), (override));
   using ActorTabIndicatorStateChangedCallback =
       base::RepeatingCallback<void(bool)>;
@@ -70,6 +57,14 @@ class MockActorUiTabController : public ActorUiTabControllerInterface {
               (ActorTabIndicatorStateChangedCallback callback),
               (override));
   MOCK_METHOD(UiTabState, GetCurrentUiTabState, (), (const, override));
+  MOCK_METHOD(base::CallbackListSubscription,
+              RegisterActorOverlayStateChange,
+              (ActorOverlayStateChangeCallback callback),
+              (override));
+  MOCK_METHOD(base::CallbackListSubscription,
+              RegisterActorOverlayBackgroundChange,
+              (ActorOverlayBackgroundChangeCallback callback),
+              (override));
 
  private:
   base::WeakPtrFactory<MockActorUiTabController> weak_factory_{this};

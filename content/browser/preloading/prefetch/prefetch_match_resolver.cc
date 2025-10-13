@@ -119,7 +119,7 @@ void PrefetchMatchResolver::FindPrefetch(
   })();
 
   auto prerender_host = ([&]() -> base::WeakPtr<PrerenderHost> {
-    if (!PreloadServingMetrics::IsEnabled()) {
+    if (!PreloadServingMetricsCapsule::IsFeatureEnabled()) {
       return nullptr;
     }
 
@@ -140,17 +140,12 @@ void PrefetchMatchResolver::FindPrefetch(
     return prerender_host->GetWeakPtr();
   })();
 
-  // See the comment of `self_`.
-  auto prefetch_match_resolver = base::WrapUnique(new PrefetchMatchResolver(
-      std::move(navigation_request), prefetch_service.GetWeakPtr(),
-      std::move(navigated_key), expected_service_worker_state,
+  PrefetchMatchResolver::FindPrefetchInternal1(
+      std::move(navigation_request), prefetch_service, std::move(navigated_key),
+      expected_service_worker_state,
       frame_tree_node->frame_tree().is_prerendering(),
-      std::move(prerender_host), std::move(callback)));
-  PrefetchMatchResolver& ref = *prefetch_match_resolver.get();
-  ref.self_ = std::move(prefetch_match_resolver);
-
-  ref.FindPrefetchInternal(prefetch_service,
-                           std::move(serving_page_metrics_container));
+      std::move(prerender_host), std::move(serving_page_metrics_container),
+      std::move(callback));
 }
 
 // static
@@ -158,23 +153,41 @@ void PrefetchMatchResolver::FindPrefetchForTesting(
     PrefetchService& prefetch_service,
     PrefetchKey navigated_key,
     PrefetchServiceWorkerState expected_service_worker_state,
+    bool is_nav_prerender,
     base::WeakPtr<PrefetchServingPageMetricsContainer>
         serving_page_metrics_container,
-    Callback callback,
-    bool is_nav_prerender) {
+    Callback callback) {
+  PrefetchMatchResolver::FindPrefetchInternal1(
+      /*navigation_request=*/nullptr, prefetch_service,
+      std::move(navigated_key), expected_service_worker_state, is_nav_prerender,
+      /*prerender_host=*/nullptr, std::move(serving_page_metrics_container),
+      std::move(callback));
+}
+
+// static
+void PrefetchMatchResolver::FindPrefetchInternal1(
+    base::WeakPtr<NavigationRequest> navigation_request,
+    PrefetchService& prefetch_service,
+    PrefetchKey navigated_key,
+    PrefetchServiceWorkerState expected_service_worker_state,
+    bool is_nav_prerender,
+    base::WeakPtr<PrerenderHost> prerender_host,
+    base::WeakPtr<PrefetchServingPageMetricsContainer>
+        serving_page_metrics_container,
+    Callback callback) {
   // See the comment of `self_`.
   auto prefetch_match_resolver = base::WrapUnique(new PrefetchMatchResolver(
-      /*navigation_request=*/nullptr, prefetch_service.GetWeakPtr(),
+      std::move(navigation_request), prefetch_service.GetWeakPtr(),
       std::move(navigated_key), expected_service_worker_state, is_nav_prerender,
-      /*prerender_host=*/nullptr, std::move(callback)));
+      std::move(prerender_host), std::move(callback)));
   PrefetchMatchResolver& ref = *prefetch_match_resolver.get();
   ref.self_ = std::move(prefetch_match_resolver);
 
-  ref.FindPrefetchInternal(prefetch_service,
-                           std::move(serving_page_metrics_container));
+  ref.FindPrefetchInternal2(prefetch_service,
+                            std::move(serving_page_metrics_container));
 }
 
-void PrefetchMatchResolver::FindPrefetchInternal(
+void PrefetchMatchResolver::FindPrefetchInternal2(
     PrefetchService& prefetch_service,
     base::WeakPtr<PrefetchServingPageMetricsContainer>
         serving_page_metrics_container) {
@@ -278,10 +291,23 @@ void PrefetchMatchResolver::RegisterCandidate(
 
   candidates_[prefetch_container.key()] = std::move(candidate_data);
 
-  if (prerender_host_for_metrics_ &&
-      prefetch_container.HasPreloadPipelineInfoForMetrics(
-          prerender_host_for_metrics_->preload_pipeline_info())) {
-    prefetch_ahead_of_prerender_for_metrics_ = prefetch_container.GetWeakPtr();
+  // If the navigation is prerender initial navigation and a prefetch ahead of
+  // prerender is a candidate, capture it for `PreloadServingMetrics`.
+  if (PreloadServingMetricsCapsule::IsFeatureEnabled()) {
+    if (prerender_host_for_metrics_ &&
+        prefetch_container.HasPreloadPipelineInfoForMetrics(
+            prerender_host_for_metrics_->preload_pipeline_info())) {
+      // We expect at most one potentially matching prefetch-ahead-of-prerender
+      // to exist for a given prerender. The pipeline normally won't trigger a
+      // new prefetch if one already exists. Furthermore, even if another is
+      // triggered, it should be deduplicated against the existing one as they
+      // would share the same PrefetchKey. Therefore, this check should always
+      // be satisfied.
+      CHECK(!prefetch_ahead_of_prerender_for_metrics_);
+
+      prefetch_ahead_of_prerender_for_metrics_ =
+          prefetch_container.GetWeakPtr();
+    }
   }
 }
 
@@ -341,7 +367,7 @@ void PrefetchMatchResolver::UnregisterCandidate(
   CHECK(candidate_data->prefetch_container);
   PrefetchContainer& prefetch_container = *candidate_data->prefetch_container;
 
-  if (PreloadServingMetrics::IsEnabled()) {
+  if (PreloadServingMetricsCapsule::IsFeatureEnabled()) {
     if (&prefetch_container == prefetch_ahead_of_prerender_for_metrics_.get()) {
       prefetch_match_metrics_
           ->prefetch_potential_candidate_serving_result_ahead_of_prerender =
@@ -535,7 +561,7 @@ void PrefetchMatchResolver::MaybeUnblockForUnmatch(
     PrefetchPotentialCandidateServingResult serving_result) {
   TRACE_EVENT("loading", "PrefetchMatchResolver::MaybeUnblockForUnmatch");
 
-  if (PreloadServingMetrics::IsEnabled()) {
+  if (PreloadServingMetricsCapsule::IsFeatureEnabled()) {
     if (&prefetch_container == prefetch_ahead_of_prerender_for_metrics_.get()) {
       prefetch_match_metrics_
           ->prefetch_potential_candidate_serving_result_ahead_of_prerender =
@@ -584,7 +610,7 @@ void PrefetchMatchResolver::UnblockInternal(
   // been unblocking.
   CHECK_EQ(candidates_.size(), 0u);
 
-  if (PreloadServingMetrics::IsEnabled()) {
+  if (PreloadServingMetricsCapsule::IsFeatureEnabled()) {
     PrefetchContainer* prefetch_container =
         serving_handle.GetPrefetchContainer();
     prefetch_match_metrics_->prefetch_container_metrics =

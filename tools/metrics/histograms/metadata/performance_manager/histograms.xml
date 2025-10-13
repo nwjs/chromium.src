@@ -90,7 +90,7 @@ each histogram.
 </histogram>
 
 <histogram name="CPU.Experimental.CpuEstimationThreadTimePercent.{CoreType}"
-    units="%" expires_after="2026-01-18">
+    units="%" expires_after="2026-03-22">
   <owner>anthonyvd@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -219,7 +219,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.DiskStats.UserDataDirFreeSpacePercent"
-    units="%" expires_after="2025-12-28">
+    units="%" expires_after="2026-03-01">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -230,7 +230,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.Experimental.AccessibilityModeFlag"
-    enum="AccessibilityModeFlagEnum" expires_after="2026-01-18">
+    enum="AccessibilityModeFlagEnum" expires_after="2026-03-22">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -240,7 +240,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.Experimental.HasAccessibilityModeFlag"
-    enum="Boolean" expires_after="2026-01-18">
+    enum="Boolean" expires_after="2026-03-22">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -320,6 +320,26 @@ each histogram.
     Emitted every time kSuccess is reported to
     PerformanceManager.RegistryStats.FrontEndHeapDebugOptionsOutcome.
   </summary>
+</histogram>
+
+<histogram name="PerformanceManager.ResourceQueryTime.{Function}"
+    units="microseconds" expires_after="M145">
+  <owner>joenotcharles@google.com</owner>
+  <owner>olivierli@chromium.org</owner>
+  <owner>chrome-catan@google.com</owner>
+  <summary>
+    The time it takes for a single Resource Attribution query to return results.
+    This slice of the metric covers the {Function} function.
+  </summary>
+  <token key="Function">
+    <variant name="CPUMeasurementMonitor"
+        summary="CPUMeasurementMonitor::UpdateAndGetCPUMeasurements"/>
+    <variant name="MemoryMeasurementProvider"
+        summary="MemoryMeasurementProvider::OnMemorySummary"/>
+    <variant name="OnResultsReceived"
+        summary="QueryScheduler::OnResultsReceived"/>
+    <variant name="RequestResults" summary="QueryScheduler::RequestResults"/>
+  </token>
 </histogram>
 
 <histogram name="PerformanceManager.TabRevisitTracker.TimeToClose2"

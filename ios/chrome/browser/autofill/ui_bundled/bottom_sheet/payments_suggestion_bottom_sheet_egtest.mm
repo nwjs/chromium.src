@@ -21,7 +21,6 @@
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_matchers.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_constants.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -111,7 +110,6 @@ id<GREYMatcher> KeyboardAccessoryCreditCardSuggestionChip() {
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
-  config.features_enabled.push_back(kIOSKeyboardAccessoryUpgradeForIPad);
   config.features_enabled.push_back(
       autofill::features::kAutofillEnableCvcStorageAndFilling);
   if ([self isRunningTest:@selector
@@ -133,7 +131,7 @@ id<GREYMatcher> KeyboardAccessoryCreditCardSuggestionChip() {
     config.features_enabled.push_back(
         autofill::features::kAutofillEnableFpanRiskBasedAuthentication);
   } else if ([self isRunningTest:@selector
-                   (testUpdateBottomSheetOnAddServerCreditCard)]) {
+                   (DISABLED_testUpdateBottomSheetOnAddServerCreditCard)]) {
     config.features_enabled.push_back(
         autofill::features::kAutofillEnableFpanRiskBasedAuthentication);
   }
@@ -288,7 +286,8 @@ void CheckAutofillSuggestionAcceptedIndexMetricsCount(
 
 // Tests that the Payments Bottom Sheet appears when tapping on a credit card
 // related field.
-- (void)testOpenPaymentsBottomSheetUseCreditCard {
+// TODO(crbug.com/444085918): Test is flaky.
+- (void)FLAKY_testOpenPaymentsBottomSheetUseCreditCard {
   [self loadPaymentsPage];
 
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
@@ -331,7 +330,8 @@ void CheckAutofillSuggestionAcceptedIndexMetricsCount(
 
 // Tests that the Payments Bottom Sheet appears when tapping on a credit card
 // related field with the new blur logic.
-- (void)testOpenPaymentsBottomSheetUseCreditCardWithNewBlur {
+// TODO(crbug.com/444033658): Fix test and re-enable.
+- (void)DISABLED_testOpenPaymentsBottomSheetUseCreditCardWithNewBlur {
   [self loadPaymentsPage];
 
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
@@ -472,7 +472,8 @@ void CheckAutofillSuggestionAcceptedIndexMetricsCount(
 
 // Tests that the expected metric is logged when accepting a suggestion from
 // the bottom sheet that is not the first one in the list.
-- (void)testAcceptedSuggestionIndexLogged {
+// TODO(crbug.com/415030578): Fix test and re-enable.
+- (void)DISABLED_testAcceptedSuggestionIndexLogged {
   // Add a credit card to the Personal Data Manager.
   [AutofillAppInterface saveMaskedCreditCard];
 
@@ -502,7 +503,8 @@ void CheckAutofillSuggestionAcceptedIndexMetricsCount(
 
 // Tests that the Payments Bottom Sheet updates its contents when a new credit
 // card becomes available in the personal data manager.
-- (void)testUpdateBottomSheetOnAddServerCreditCard {
+// TODO(crbug.com/444042991): Test is flaky.
+- (void)DISABLED_testUpdateBottomSheetOnAddServerCreditCard {
   [self loadPaymentsPage];
 
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
@@ -859,6 +861,11 @@ void CheckAutofillSuggestionAcceptedIndexMetricsCount(
 // Tests that the payment sheet doesn't spam after filling from the KA on an
 // autofocused field This ensures that crbug.com/389077460 doesn't happen.
 - (void)testFillingFromKeyboardOnAutofocus {
+  // TODO(crbug.com/443234028): Test is flaky on iPad.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_SKIPPED(@"Test skipped on iPad.");
+  }
+
   // Clear the credit cards to remove the default local cards that aren't needed
   // for this test case.
   [AutofillAppInterface clearCreditCardStore];

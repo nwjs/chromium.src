@@ -6,20 +6,36 @@
 
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
+#include "base/memory/page_size.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
+#include "cc/slim/texture_layer.h"
 #include "components/performance_manager/scenario_api/performance_scenario_observer.h"
 #include "components/performance_manager/scenario_api/performance_scenarios.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
+#include "components/viz/common/resources/transferable_resource.h"
 #include "content/browser/renderer_host/navigation_transitions/navigation_entry_screenshot_cache.h"
 #include "content/browser/renderer_host/navigation_transitions/navigation_transition_config.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/client/raster_interface.h"
+#include "gpu/command_buffer/common/sync_token.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/skia_span_util.h"
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
+#include <sys/mman.h>
+
+#ifndef MADV_POPULATE_WRITE
+// https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/uapi/asm-generic/mman-common.h
+#define MADV_POPULATE_WRITE 23
+#endif
+
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID)
 #include "ui/android/resources/etc1_utils.h"
@@ -27,10 +43,11 @@
 
 namespace content {
 
-#if BUILDFLAG(IS_ANDROID)
 namespace {
 
-BASE_FEATURE(NavigationEntryScreenshotCompression,
+#if BUILDFLAG(IS_ANDROID)
+
+BASE_FEATURE(kNavigationEntryScreenshotCompression,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 static bool g_disable_compression_for_testing = false;
@@ -57,8 +74,31 @@ void CompressNavigationScreenshotOnWorkerThread(
   }
 }
 
+#endif  // BUILDFLAG(IS_ANDROID)
+
+void AdviseBitmap(SkBitmap& bitmap) {
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
+  size_t size = bitmap.info().computeByteSize(bitmap.info().minRowBytes());
+  if (madvise(bitmap.getPixels(), size, MADV_POPULATE_WRITE) == 0) {
+    return;
+  }
+  if (EINVAL == errno) {
+    // MADV_POPULATE_WRITE is only supported in kernels 5.14 or newer.
+    // If it's not supported, we don't want the GPU read back to hit all of the
+    // page faults, as it could end up being a long task in the UI thread.
+    // Manually pre-fault all pages by writing one byte.
+    size_t page_size = base::GetPageSize();
+    auto span = gfx::SkPixmapToWritableSpan(bitmap.pixmap());
+    for (size_t i = 0; i < span.size(); i += page_size) {
+      // Write a value to the first byte of each page
+      span[i] = 0;
+    }
+  }
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) ||
+        // BUILDFLAG(IS_CHROMEOS)
+}
+
 }  // namespace
-#endif
 
 // static
 const void* const NavigationEntryScreenshot::kUserDataKey =
@@ -190,6 +230,51 @@ void NavigationEntryScreenshot::OnContextLost() {
   ResetContextProvider();
 }
 
+std::pair<scoped_refptr<cc::slim::TextureLayer>, base::ScopedClosureRunner>
+NavigationEntryScreenshot::CreateTextureLayer() {
+  CHECK(shared_image_);
+  CHECK(texture_transferable_resource_.is_empty());
+  // By the time the screenshot is created, the shared_image is already
+  // finalized, so no sync token is necessary.
+  gpu::SyncToken sync_token;
+  texture_transferable_resource_ = viz::TransferableResource::Make(
+      shared_image_, viz::TransferableResource::ResourceSource::kUI,
+      sync_token);
+  // Storing a reference to the shared image in the callback so that it's alive
+  // while it's still in use.
+  texture_release_callback_ = base::BindOnce(
+      [](scoped_refptr<gpu::ClientSharedImage> shared_image,
+         const gpu::SyncToken& sync_token, bool lost_resource) {
+        shared_image->UpdateDestructionSyncToken(sync_token);
+      },
+      shared_image_);
+  auto layer = cc::slim::TextureLayer::Create(this);
+  layer->SetContentsOpaque(true);
+  layer->NotifyUpdatedResource();
+  return std::make_pair(
+      std::move(layer),
+      base::ScopedClosureRunner(
+          base::BindOnce(&NavigationEntryScreenshot::OnTextureLayerToBeDeleted,
+                         weak_factory_.GetMutableWeakPtr())));
+}
+
+bool NavigationEntryScreenshot::PrepareTransferableResource(
+    viz::TransferableResource* transferable_resource,
+    viz::ReleaseCallback* release_callback) {
+  CHECK(!texture_transferable_resource_.is_empty());
+  if (!texture_release_callback_) {
+    return false;
+  }
+  *transferable_resource = texture_transferable_resource_;
+  *release_callback = std::move(texture_release_callback_);
+  return true;
+}
+
+void NavigationEntryScreenshot::OnTextureLayerToBeDeleted() {
+  DCHECK(!texture_transferable_resource_.is_empty());
+  texture_transferable_resource_ = viz::TransferableResource();
+}
+
 SkBitmap NavigationEntryScreenshot::GetBitmapForTesting() const {
   return GetBitmap().GetBitmapForTesting();  // IN-TEST
 }
@@ -252,13 +337,14 @@ void NavigationEntryScreenshot::ReadBack() {
   SkImageInfo info = SkImageInfo::MakeN32(shared_image_->size().width(),
                                           shared_image_->size().height(),
                                           shared_image_->alpha_type());
-  read_back_bitmap_.emplace();
-  if (!read_back_bitmap_->tryAllocPixels(info)) {
-    OnReadBack(false);
+  SkBitmap read_back_bitmap;
+  if (!read_back_bitmap.tryAllocPixels(info)) {
+    OnReadBack(SkBitmap(), false);
     return;
   }
+  AdviseBitmap(read_back_bitmap);
   if (!context_provider_) {
-    OnReadBack(false);
+    OnReadBack(SkBitmap(), false);
     return;
   }
 
@@ -268,16 +354,16 @@ void NavigationEntryScreenshot::ReadBack() {
   auto scoped_access = shared_image_->BeginRasterAccess(
       raster_interface, shared_image_->creation_sync_token(),
       /*readonly=*/true);
+  auto span = gfx::SkPixmapToWritableSpan(read_back_bitmap.pixmap());
   raster_interface->ReadbackARGBPixelsAsync(
       shared_image_->mailbox(), shared_image_->GetTextureTarget(),
       shared_image_->surface_origin(), shared_image_->size(), src_point, info,
-      info.minRowBytes(),
-      gfx::SkPixmapToWritableSpan(read_back_bitmap_->pixmap()),
+      info.minRowBytes(), span,
       base::BindOnce(&NavigationEntryScreenshot::OnReadBack,
-                     weak_factory_.GetWeakPtr()));
+                     weak_factory_.GetWeakPtr(), std::move(read_back_bitmap)));
 }
 
-void NavigationEntryScreenshot::OnReadBack(bool success) {
+void NavigationEntryScreenshot::OnReadBack(SkBitmap bitmap, bool success) {
   TRACE_EVENT("content", "NavigationEntryScreenshot::OnReadBack");
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   // The context provider will no longer be used.
@@ -288,30 +374,31 @@ void NavigationEntryScreenshot::OnReadBack(bool success) {
       FROM_HERE,
       base::BindOnce(&NavigationEntryScreenshot::ResetContextProvider,
                      weak_factory_.GetWeakPtr()));
+  shared_image_.reset();
   if (!success) {
-    read_back_bitmap_.reset();
-    shared_image_.reset();
     if (screenshot_callback_) {
       SkBitmap override_unused;
       screenshot_callback_.Run({}, false, override_unused);
     }
+    if (cache_) {
+      // Destroys this.
+      cache_->RemoveFailedScreenshot(this);
+    }
     return;
   }
   if (screenshot_callback_) {
-    SkBitmap bitmap_copy(*read_back_bitmap_);
+    SkBitmap bitmap_copy(bitmap);
     bitmap_copy.setImmutable();
     SkBitmap bitmap_override;
     screenshot_callback_.Run(bitmap_copy, true, bitmap_override);
     if (!bitmap_override.drawsNothing()) {
-      read_back_bitmap_ = bitmap_override;
+      bitmap = bitmap_override;
     }
   }
-  read_back_bitmap_->setImmutable();
-  bitmap_ = cc::UIResourceBitmap(*read_back_bitmap_);
-  shared_image_.reset();
+  bitmap.setImmutable();
+  bitmap_ = cc::UIResourceBitmap(bitmap);
 
-  SetupCompressionTask(*read_back_bitmap_, supports_etc_non_power_of_two_);
-  read_back_bitmap_.reset();
+  SetupCompressionTask(bitmap, supports_etc_non_power_of_two_);
 }
 
 void NavigationEntryScreenshot::OnCompressionFinished(
@@ -333,6 +420,10 @@ void NavigationEntryScreenshot::OnCompressionFinished(
     bitmap_.reset();
     cache_->OnScreenshotCompressed(unique_id_, GetBitmap().SizeInBytes());
   }
+}
+
+bool NavigationEntryScreenshot::IsValid() const {
+  return shared_image_ || IsBitmapReady();
 }
 
 bool NavigationEntryScreenshot::IsBitmapReady() const {

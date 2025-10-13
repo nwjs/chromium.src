@@ -6,7 +6,12 @@
 #define IOS_CHROME_BROWSER_ENTERPRISE_DATA_CONTROLS_DATA_CONTROLS_TAB_HELPER_H_
 
 #import "base/functional/callback.h"
+#import "base/memory/raw_ptr.h"
+#import "base/memory/weak_ptr.h"
+#import "components/enterprise/data_controls/core/browser/verdict.h"
+#import "ios/chrome/browser/enterprise/data_controls/clipboard_utils.h"
 #import "ios/web/public/lazy_web_state_user_data.h"
+#import "url/gurl.h"
 
 namespace web {
 class WebState;
@@ -40,6 +45,27 @@ class DataControlsTabHelper
  private:
   friend class web::LazyWebStateUserData<DataControlsTabHelper>;
   explicit DataControlsTabHelper(web::WebState* web_state);
+
+  // Returns true if clipboard data controls are enabled.
+  bool IsClipboardDataControlsEnabled() const;
+
+  // Finalizes the copy action invoking the callback.
+  void FinishCopy(const GURL& source_url,
+                  CopyPolicyVerdicts verdicts,
+                  base::OnceCallback<void(bool)> callback,
+                  bool bypassed);
+
+  // Finalizes the paste action invoking the callback.
+  void FinishPaste(const GURL& destination_url,
+                   Verdict verdict,
+                   base::OnceCallback<void(bool)> callback,
+                   bool bypassed);
+
+  // Unowned pointer to the WebState owning `this`. `web_state_` will always
+  // outlive `this`.
+  raw_ptr<web::WebState> web_state_;
+
+  base::WeakPtrFactory<DataControlsTabHelper> weak_factory_{this};
 };
 
 }  // namespace data_controls

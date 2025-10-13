@@ -55,13 +55,21 @@ class PdfCaret {
   // caret will not blink. No-op if `interval` is negative.
   void SetBlinkInterval(base::TimeDelta interval);
 
-  // Sets the caret's char position and updates its screen rect. Requires a
-  // page with at least one char and a valid char index (from 0 up to the page's
-  // char count, inclusive), otherwise crashes.
+  // Sets the caret's char position and updates its screen rect. Invalidates the
+  // old caret rect if visible but not the new caret rect. Requires a page with
+  // at least one char and a valid char index (from 0 up to the page's char
+  // count, inclusive), otherwise crashes. Use this over `SetCharAndDraw()` when
+  // the new caret should not appear on screen (e.g. during text selection).
   void SetChar(const PageCharacterIndex& next_char);
 
+  // Same as `SetChar()`, but also draws the caret at the new position if
+  // visible. Use this over `SetChar()` when the caret should appear on screen
+  // immediately.
+  void SetCharAndDraw(const PageCharacterIndex& next_char);
+
   // Draws the caret on the canvas if it is visible within any paint updates in
-  // `dirty_in_screen`. Returns true if the caret was drawn, false otherwise.
+  // `dirty_in_screen` and no text is selected. Returns true if the caret was
+  // drawn, false otherwise.
   bool MaybeDrawCaret(const RegionData& region,
                       const gfx::Rect& dirty_in_screen) const;
 
@@ -93,14 +101,31 @@ class PdfCaret {
   // Draws `rect` as the caret on `region`.
   void Draw(const RegionData& region, const gfx::Rect& rect) const;
 
+  // Moves the caret to `new_index`. If `should_select` is true, then the text
+  // selection will be extended to `new_index`, starting from the original caret
+  // position if not yet text selecting. If `should_select` is false, text
+  // selection will be cleared.
+  void MoveToChar(const PageCharacterIndex& new_index, bool should_select);
+
   // Determines the next valid char, handling moving horizontally to a char on a
   // different page and ignoring newlines. Does nothing if the current char
   // cannot move to a valid page or char.
-  void MoveHorizontallyToNextChar(bool move_right);
+  void MoveHorizontallyToNextChar(bool move_right, bool should_select);
 
   // Same as `MoveHorizontallyToNextChar()`, but moves in the vertical
   // direction.
-  void MoveVerticallyToNextChar(bool move_down);
+  void MoveVerticallyToNextChar(bool move_down, bool should_select);
+
+  // This should only be called when the caret is moving. Starts a new text
+  // selection at the current caret position, adjusting the exact index
+  // depending on the direction specified by `move_right`.
+  bool StartSelection(bool move_right) const;
+
+  // Extends the text selection to `new_index`. Must already be selecting text,
+  // otherwise does nothing. Never extends to a non-text page. Instead, the text
+  // selection will be extended to the end of the page of the original caret
+  // position.
+  void ExtendSelection(const PageCharacterIndex& new_index) const;
 
   // Returns whether moving the caret from `index` will cause it to exit the
   // page or not. Does not consider whether there are any adjacent pages.
@@ -113,6 +138,14 @@ class PdfCaret {
 
   // Returns whether `index` is a synthesized newline or not.
   bool IsSynthesizedNewline(const PageCharacterIndex& index) const;
+
+  // Returns the adjacent caret position to `index`, moving in the direction
+  // indicated by `move_right`. Moves across pages if necessary. This can return
+  // caret positions on no-text pages. Returns `std::nullopt` if no adjacent
+  // position is available.
+  std::optional<PageCharacterIndex> GetAdjacentCaretPos(
+      const PageCharacterIndex& index,
+      bool move_right) const;
 
   // Gets the `PageCharacterIndex` of the next non-newline char. Starts from
   // `index` and skips past consecutive newlines on a page, moving in the

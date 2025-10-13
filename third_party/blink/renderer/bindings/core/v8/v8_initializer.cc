@@ -364,9 +364,6 @@ void V8Initializer::ExceptionPropagationCallback(
 
   v8::ExceptionContext context_type = v8_message.GetExceptionContext();
   String class_name = ToCoreString(isolate, v8_message.GetInterfaceName());
-  if (class_name == "global") {
-    class_name = "Window";
-  }
   String property_name = ToCoreString(isolate, v8_message.GetPropertyName());
   if ((context_type == v8::ExceptionContext::kAttributeGet &&
        property_name.StartsWith("get ")) ||
@@ -486,6 +483,19 @@ std::pair<bool, v8::MaybeLocal<v8::String>> TrustedTypesCodeGenerationCheck(
     return {false, v8::MaybeLocal<v8::String>()};
   }
 
+  if (RuntimeEnabledFeatures::TrustedTypesHTMLEnabled()) {
+    // This check implements steps 1.2.8 of
+    // https://w3c.github.io/webappsec-csp/#can-compile-strings
+    bool has_changed =
+        stringified_source !=
+        (string_or_trusted_script->IsString()
+             ? string_or_trusted_script->GetAsString()
+             : string_or_trusted_script->GetAsTrustedScript()->toString());
+    if (has_changed) {
+      return {false, v8::MaybeLocal<v8::String>()};
+    }
+  }
+
   return {true, V8String(isolate, stringified_source)};
 }
 
@@ -594,7 +604,7 @@ void ThrowRangeException(v8::Isolate* isolate, const char* message) {
   isolate->ThrowException(NewRangeException(isolate, message));
 }
 
-BASE_FEATURE(WebAssemblyUnlimitedSyncCompilation,
+BASE_FEATURE(kWebAssemblyUnlimitedSyncCompilation,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool WasmModuleOverride(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -653,15 +663,6 @@ bool WasmCustomDescriptorsEnabledCallback(v8::Local<v8::Context> context) {
     return false;
   }
   return RuntimeEnabledFeatures::WebAssemblyCustomDescriptorsEnabled(
-      execution_context);
-}
-
-bool WasmJSPromiseIntegrationEnabledCallback(v8::Local<v8::Context> context) {
-  ExecutionContext* execution_context = ToExecutionContext(context);
-  if (!execution_context) {
-    return false;
-  }
-  return RuntimeEnabledFeatures::WebAssemblyJSPromiseIntegrationEnabled(
       execution_context);
 }
 
@@ -1180,7 +1181,6 @@ void V8Initializer::InitializeV8Common(v8::Isolate* isolate) {
   isolate->SetWasmInstanceCallback(WasmInstanceOverride);
   isolate->SetWasmCustomDescriptorsEnabledCallback(
       WasmCustomDescriptorsEnabledCallback);
-  isolate->SetWasmJSPIEnabledCallback(WasmJSPromiseIntegrationEnabledCallback);
   isolate->SetSharedArrayBufferConstructorEnabledCallback(
       SharedArrayBufferConstructorEnabledCallback);
   if (base::FeatureList::IsEnabled(features::kNWESM)) {

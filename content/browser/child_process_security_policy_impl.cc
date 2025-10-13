@@ -69,13 +69,12 @@ namespace features {
 
 // TODO(https://crbug.com/324934416): Remove this killswitch once the new
 // CanCommitURL restrictions finish rolling out.
-BASE_FEATURE(AdditionalNavigationCommitChecks,
+BASE_FEATURE(kAdditionalNavigationCommitChecks,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // TODO(https://crbug.com/325410297): Remove this killswitch once the new
 // sandboxed frame enforcements finish rolling out.
-BASE_FEATURE(SandboxedFrameEnforcements,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSandboxedFrameEnforcements, base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features
 

@@ -22,7 +22,6 @@
 #include "base/timer/timer.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "chrome/browser/extensions/extension_keybinding_registry.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
@@ -31,8 +30,8 @@
 #include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/exclusive_access_bubble_views_context.h"
-#include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_view_layout.h"
+#include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
@@ -48,6 +47,7 @@
 #include "components/webapps/browser/banners/app_banner_manager.h"
 #include "content/public/browser/page_user_data.h"
 #include "content/public/browser/permission_controller.h"
+#include "content/public/browser/permission_result.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
@@ -55,7 +55,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 #include "ui/base/pointer/touch_ui_controller.h"
-#include "ui/gfx/native_window_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -92,6 +92,7 @@ class TopContainerLoadingBar;
 class TopContainerView;
 class TopControlsSlideController;
 class TopControlsSlideControllerTest;
+class VerticalTabStripRegionView;
 class WebAppFrameToolbarView;
 class WebUITabStripContainerView;
 
@@ -132,7 +133,6 @@ class BrowserView : public BrowserWindow,
                     public infobars::InfoBarContainer::Delegate,
                     public ExclusiveAccessContext,
                     public ExclusiveAccessBubbleViewsContext,
-                    public extensions::ExtensionKeybindingRegistry::Delegate,
                     public ImmersiveModeController::Observer,
                     public webapps::AppBannerManager::Observer,
                     public views::FocusChangeListener {
@@ -142,18 +142,19 @@ class BrowserView : public BrowserWindow,
   // The width of the vertical tab strip.
   static constexpr int kVerticalTabStripWidth = 240;
 
-  explicit BrowserView(std::unique_ptr<Browser> browser);
+  explicit BrowserView(Browser* browser);
   BrowserView(const BrowserView&) = delete;
   BrowserView& operator=(const BrowserView&) = delete;
   ~BrowserView() override;
 
-  void set_frame(BrowserFrame* frame) {
-    frame_ = frame;
+  void set_browser_widget(std::unique_ptr<BrowserWidget> widget) {
+    browser_widget_ = std::move(widget);
     paint_as_active_subscription_ =
-        frame_->RegisterPaintAsActiveChangedCallback(base::BindRepeating(
-            &BrowserView::PaintAsActiveChanged, base::Unretained(this)));
+        browser_widget_->RegisterPaintAsActiveChangedCallback(
+            base::BindRepeating(&BrowserView::PaintAsActiveChanged,
+                                base::Unretained(this)));
   }
-  BrowserFrame* frame() const { return frame_; }
+  BrowserWidget* browser_widget() const { return browser_widget_.get(); }
 
   const extensions::SizeConstraints& size_constraints() const { return size_constraints_; }
 
@@ -166,7 +167,8 @@ class BrowserView : public BrowserWindow,
   static BrowserView* GetBrowserViewForNativeWindow(gfx::NativeWindow window);
 
   // Returns the BrowserView used for the specified Browser.
-  static BrowserView* GetBrowserViewForBrowser(const Browser* browser);
+  static BrowserView* GetBrowserViewForBrowser(
+      const BrowserWindowInterface* browser);
 
   // After calling RevealTabStripIfNeeded(), there is normally a delay before
   // the tabstrip is hidden. Tests can use this function to disable that delay
@@ -176,8 +178,8 @@ class BrowserView : public BrowserWindow,
   bool IsLoadingAnimationRunning() const;
 
   // Returns a Browser instance of this view.
-  Browser* browser() { return browser_.get(); }
-  const Browser* browser() const { return browser_.get(); }
+  Browser* browser() { return browser_; }
+  const Browser* browser() const { return browser_; }
 
   const TopControlsSlideController* top_controls_slide_controller() const {
     return top_controls_slide_controller_.get();
@@ -248,7 +250,11 @@ class BrowserView : public BrowserWindow,
   // Container for the web contents.
   views::View* contents_container() { return contents_container_; }
 
-  SidePanel* unified_side_panel() { return unified_side_panel_; }
+  views::View* main_container() { return main_container_; }
+
+  SidePanel* contents_height_side_panel() {
+    return contents_height_side_panel_;
+  }
 
   MultiContentsView* multi_contents_view() { return multi_contents_view_; }
 
@@ -256,8 +262,8 @@ class BrowserView : public BrowserWindow,
     return tab_strip_region_view_.get();
   }
 
-  TabStripRegionView* tab_strip_region_view() const {
-    return tab_strip_region_view_;
+  VerticalTabStripRegionView* vertical_tab_strip_region_view() const {
+    return vertical_tab_strip_container_;
   }
 
   // Accessor for the TabStrip.
@@ -267,6 +273,7 @@ class BrowserView : public BrowserWindow,
   WebUITabStripContainerView* webui_tab_strip() { return webui_tab_strip_; }
 
   // Accessor for the Toolbar.
+  const ToolbarView* toolbar() const { return toolbar_; }
   ToolbarView* toolbar() { return toolbar_; }
 
   // Bookmark bar may be null, for example for pop-ups.
@@ -365,7 +372,7 @@ class BrowserView : public BrowserWindow,
   float GetTopControlsSlideBehaviorShownRatio() const;
 
   // Returns the widget for anchoring bubbles and dialogs.
-  // This returns BrowserFrame except on fullscreen macOS where the toolbar is
+  // This returns BrowserWidget except on fullscreen macOS where the toolbar is
   // hosted in an OverlayWidget.
   views::Widget* GetWidgetForAnchoring();
 
@@ -508,6 +515,7 @@ class BrowserView : public BrowserWindow,
       BookmarkBar::AnimateChangeType change_type) override;
   void TemporarilyShowBookmarkBar(base::TimeDelta duration) override;
   void UpdateDevTools(content::WebContents* inspected_web_contents) override;
+  bool CanDockDevTools() const override;
   void UpdateLoadingAnimations(bool is_visible) override;
   void SetStarredState(bool is_starred) override;
   void OnActiveTabChanged(content::WebContents* old_contents,
@@ -564,7 +572,6 @@ class BrowserView : public BrowserWindow,
   void FocusInactivePopupForAccessibility() override;
   void RotatePaneFocus(bool forwards) override;
   void FocusWebContentsPane() override;
-  void DestroyBrowser() override;
   bool IsBookmarkBarVisible() const override;
   bool IsBookmarkBarAnimating() const override;
   bool IsTabStripEditable() const override;
@@ -601,7 +608,7 @@ class BrowserView : public BrowserWindow,
       bool show_signin_button) override;
 #if BUILDFLAG(IS_CHROMEOS)
   views::Button* GetSharingHubIconButton() override;
-  void ToggleMultitaskMenu() const override;
+  void ToggleMultitaskMenu() override;
 #else
   sharing_hub::SharingHubBubbleView* ShowSharingHubBubble(
       share::ShareAttempt attempt) override;
@@ -768,6 +775,9 @@ class BrowserView : public BrowserWindow,
   bool AreDropTypesRequired() override;
   bool CanDrop(const ui::OSExchangeData& data) override;
   void OnDragEntered(const ui::DropTargetEvent& event) override;
+  View* GetViewByElementId(ui::ElementIdentifier element_id) override;
+  const View* GetViewByElementId(
+      ui::ElementIdentifier element_id) const override;
 
   // ui::AcceleratorTarget:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
@@ -787,9 +797,6 @@ class BrowserView : public BrowserWindow,
   bool IsImmersiveModeEnabled() const override;
   gfx::Rect GetTopContainerBoundsInScreen() override;
   void DestroyAnyExclusiveAccessBubble() override;
-
-  // extension::ExtensionKeybindingRegistry::Delegate:
-  content::WebContents* GetWebContentsForExtension() override;
 
   // ImmersiveModeController::Observer:
   void OnImmersiveRevealStarted() override;
@@ -864,9 +871,9 @@ class BrowserView : public BrowserWindow,
     return web_app_frame_toolbar();
   }
 
-  // This value is used in a common calculation in NonClientFrameView
+  // This value is used in a common calculation in FrameView
   // subclasses. This must be added to the origin of the first painted pixel of
-  // NonClientFrameView to get the correct offset. See
+  // FrameView to get the correct offset. See
   // TopContainerBackground::PaintThemeCustomImage for details.
   gfx::Point GetThemeOffsetFromBrowserView() const;
 
@@ -891,10 +898,16 @@ class BrowserView : public BrowserWindow,
   bool IsTrustedPinned() const;
 #endif
 
+ protected:
+  // BrowserWindow:
+  void DeleteBrowserWindow() final;
+
  private:
   // Do not friend BrowserViewLayout. Use the BrowserViewLayoutDelegate
   // interface to keep these two classes decoupled and testable.
-  friend class BrowserViewLayoutDelegateImpl;
+  friend class BrowserViewLayoutDelegateImplNew;
+  friend class BrowserViewLayoutDelegateImplOld;
+  friend class BrowserViewLayoutDelegateImplBrowsertest;
   friend class TopControlsSlideControllerTest;
   FRIEND_TEST_ALL_PREFIXES(BrowserViewTest, BrowserView);
   FRIEND_TEST_ALL_PREFIXES(BrowserViewTest, AccessibleWindowTitle);
@@ -931,7 +944,7 @@ class BrowserView : public BrowserWindow,
   bool IsTabChangeInSplitView(content::WebContents* old_contents,
                               content::WebContents* new_contents);
 
-  void UpdateTabModalDialogBounds();
+  void UpdateTabModalDialogHost();
 
   // Updates stored focus for web contents that is being activated.
   void MaybeUpdateStoredFocusForWebContents(content::WebContents*);
@@ -963,6 +976,10 @@ class BrowserView : public BrowserWindow,
   // Helper method, returns if we should show the IPHs anchored on the avatar
   // toolbar.
   bool ShouldShowAvatarToolbarIPH();
+
+  // Returns the frame view.
+  BrowserFrameView* GetFrameView();
+  const BrowserFrameView* GetFrameView() const;
 
 public:
   // Returns the BrowserViewLayout.
@@ -1093,6 +1110,10 @@ private:
   // Attempts to show IPH promo for the tab search toolbar button.
   void MaybeShowTabStripToolbarButtonIPH();
 
+  // Attempts showing the IPH promo listing benefits for signed-in users
+  // after the sync-to-signin migration.
+  void MaybeShowSignInBenefitsIPH();
+
   void UpdateWindowControlsOverlayEnabled();
 
   // Updates the visibility of the Window Controls Overlay toggle button.
@@ -1101,7 +1122,7 @@ private:
   // Updates the variable keeping track of the Window Management permission,
   // which together with borderless_mode_enabled_ controls whether the title bar
   // is shown or not.
-  void UpdateWindowManagementPermission(blink::mojom::PermissionStatus status);
+  void UpdateWindowManagementPermission(content::PermissionResult result);
 
   // Sets the callback which is called when the status of the Window Management
   // permission changes.
@@ -1126,11 +1147,11 @@ private:
   bool ShouldUseBrowserContentMinimumSize() const;
   bool IsBrowserAWebApp() const;
 
-  // The BrowserFrame that hosts this view.
-  raw_ptr<BrowserFrame> frame_ = nullptr;
+  // The BrowserWidget that owns this view.
+  std::unique_ptr<BrowserWidget> browser_widget_;
 
-  // The Browser object we are associated with.
-  std::unique_ptr<Browser> browser_;
+  // The owning Browser object. `browser_` will outlive this.
+  const raw_ptr<Browser> browser_;
 
   base::CallbackListSubscription chip_visibility_subscription_;
 
@@ -1164,10 +1185,10 @@ private:
   // Menu button and page status icons. Only used by web-app windows.
   raw_ptr<WebAppFrameToolbarView> web_app_frame_toolbar_ = nullptr;
 
-  // Normally the BrowserNonClientFrameView is responsible for rendering the
-  // title of a window when appropriate. However for web applications the title
-  // needs to be more integrated with other UI components part of BrowserView,
-  // so have a title Label for them here.
+  // Normally the BrowserFrameView is responsible for rendering the title of a
+  // window when appropriate. However for web applications the title needs to be
+  // more integrated with other UI components part of BrowserView, so have a
+  // title Label for them here.
   raw_ptr<views::Label> web_app_window_title_ = nullptr;
 
   // The view that contains the tabstrip, new tab button, and grab handle space.
@@ -1234,6 +1255,12 @@ private:
   // The view that contains all visible WebContents.
   raw_ptr<MultiContentsView> multi_contents_view_ = nullptr;
 
+  // The view that contains the main views of the browser not added to top
+  // container (WebContents, SidePanel, DevTools, etc.).
+  // TODO(crbug.com/445446905): Eventually this should include all views other
+  // than the TabStripRegionView such as the Toolbar, BookmarksBar, and InfoBar.
+  raw_ptr<views::View> main_container_ = nullptr;
+
   // The view that contains the Lens overlay. The Lens Overlay is a UI overlay
   // that is shown on top of the web contents. It therefore must always have the
   // same bounds as the contents_web_view_, but also be above the
@@ -1250,13 +1277,13 @@ private:
   raw_ptr<ContentsContainerView> contents_container_view_ = nullptr;
 
   // The view responsible for housing the contents of the vertical tab strip.
-  raw_ptr<views::View> vertical_tab_strip_container_ = nullptr;
+  raw_ptr<VerticalTabStripRegionView> vertical_tab_strip_container_ = nullptr;
 
   // The side panel aligned to the left or the right side of the browser window
   // depending on the kSidePanelHorizontalAlignment pref's value.
   // Conceptually this member should exist if and only if the
   // side_panel_coordinator is created.
-  raw_ptr<SidePanel> unified_side_panel_ = nullptr;
+  raw_ptr<SidePanel> contents_height_side_panel_ = nullptr;
 
   // These are only non-null when the `SideBySide` feature is disabled.
   // Otherwise, `multi_contents_view_` will create its own separators.

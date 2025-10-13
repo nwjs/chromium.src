@@ -32,6 +32,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
+import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider.CustomTabsUiType;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
@@ -125,6 +126,21 @@ public class ReaderModeManager extends EmptyTabObserver
     }
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/accessibility/enums.xml:DomDistillerEntryPoint)
+
+    /** Possible tab types for reader mode entry points. */
+    @IntDef({
+        EntryPointTabType.REGULAR_TAB,
+        EntryPointTabType.CUSTOM_TAB,
+        EntryPointTabType.INCOGNITO_TAB,
+        EntryPointTabType.INCOGNITO_CUSTOM_TAB,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface EntryPointTabType {
+        int REGULAR_TAB = 0;
+        int CUSTOM_TAB = 1;
+        int INCOGNITO_TAB = 2;
+        int INCOGNITO_CUSTOM_TAB = 3;
+    }
 
     /** Possible states that the distiller can be in on a web page. */
     @IntDef({
@@ -692,7 +708,32 @@ public class ReaderModeManager extends EmptyTabObserver
                     AdaptiveToolbarButtonVariant.READER_MODE,
                     AdaptiveToolbarButtonVariant.MAX_VALUE);
         }
-        ReaderModeMetrics.recordReaderModeEntryPoint(entryPoint);
+        recordEntryPointMetric(entryPoint);
+    }
+
+    private void recordEntryPointMetric(@EntryPoint int entryPoint) {
+        @EntryPointTabType int entryPointTabType;
+        boolean isIncognito = mTab.isIncognito();
+        boolean isOrWillBeCustomTab = mTab.isCustomTab() || shouldDistillInCustomTab();
+        Activity activity = TabUtils.getActivity(mTab);
+        Intent intent = (activity != null) ? activity.getIntent() : null;
+        // Incognito CCT does not return true when checking mTab.isIncognito().
+        boolean isIncognitoCustomTab =
+                (intent != null)
+                        && IntentUtils.safeGetBooleanExtra(
+                                intent, IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB, false)
+                        && isOrWillBeCustomTab;
+
+        if (isIncognitoCustomTab) {
+            entryPointTabType = EntryPointTabType.INCOGNITO_CUSTOM_TAB;
+        } else if (isOrWillBeCustomTab) {
+            entryPointTabType = EntryPointTabType.CUSTOM_TAB;
+        } else if (isIncognito) {
+            entryPointTabType = EntryPointTabType.INCOGNITO_TAB;
+        } else {
+            entryPointTabType = EntryPointTabType.REGULAR_TAB;
+        }
+        ReaderModeMetrics.recordReaderModeEntryPoint(entryPoint, entryPointTabType);
     }
 
     private boolean shouldDistillInCustomTab() {
@@ -752,7 +793,9 @@ public class ReaderModeManager extends EmptyTabObserver
                                             Snackbar.UMA_UNKNOWN)
                                     .setAction(
                                             mTab.getContext().getString(R.string.chrome_dismiss),
-                                            null));
+                                            null)
+                                    // Important to get the full message displayed to the user.
+                                    .setDefaultLines(false));
                 });
     }
 
@@ -819,7 +862,8 @@ public class ReaderModeManager extends EmptyTabObserver
         // Use Incognito CCT if the source page is in Incognito mode.
         if (mTab.isIncognito()) {
             IncognitoCustomTabIntentDataProvider.addIncognitoExtrasForChromeFeatures(
-                    customTabsIntent.intent, IntentHandler.IncognitoCctCallerId.READER_MODE);
+                    customTabsIntent.intent,
+                    BrowserServicesIntentDataProvider.IncognitoCctCallerId.READER_MODE);
         }
 
         customTabsIntent.launchUrl(activity, Uri.parse(distillerUrl));
@@ -870,7 +914,10 @@ public class ReaderModeManager extends EmptyTabObserver
      * @return Whether reader mode should trigger through messages.
      */
     public static boolean shouldUseReaderModeMessages(Tab tab) {
-        return tab != null && (tab.isCustomTab() || tab.isIncognito());
+        // Messages are explicitly disabled for in-app distillation.
+        return !DomDistillerFeatures.sReaderModeDistillInApp.isEnabled()
+                && tab != null
+                && (tab.isCustomTab() || tab.isIncognito());
     }
 
     /**

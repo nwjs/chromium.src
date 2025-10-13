@@ -14,8 +14,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
-#include "chrome/browser/apps/browser_instance/browser_app_instance.h"
-#include "chrome/browser/apps/browser_instance/browser_app_instance_tracker.h"
 #include "chrome/browser/autofill/address_normalizer_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/autofill/validation_rules_storage_factory.h"
@@ -50,9 +48,19 @@
 #include "third_party/libaddressinput/chromium/chrome_metadata_source.h"
 #include "third_party/libaddressinput/chromium/chrome_storage_impl.h"
 
+#if BUILDFLAG(IS_MAC)
+#include "chrome/common/chrome_version.h"
+#endif  // BUILDFLAG(IS_MAC)
+
 namespace payments {
 
 namespace {
+
+#if BUILDFLAG(IS_MAC)
+constexpr char kSecurePaymentConfirmationKeychainAccessGroup[] =
+    MAC_TEAM_IDENTIFIER_STRING "." MAC_BUNDLE_IDENTIFIER_STRING
+                               ".secure-payment-confirmation";
+#endif  // BUILDFLAG(IS_MAC)
 
 std::unique_ptr<::i18n::addressinput::Source> GetAddressInputSource() {
   return std::unique_ptr<::i18n::addressinput::Source>(
@@ -328,6 +336,16 @@ ChromePaymentRequestDelegate::GetNoMatchingCredentialsDialogForTesting() {
 std::optional<base::UnguessableToken>
 ChromePaymentRequestDelegate::GetChromeOSTWAInstanceId() const {
   return std::nullopt;
+}
+
+std::string
+ChromePaymentRequestDelegate::GetSecurePaymentConfirmationKeychainAccessGroup()
+    const {
+#if BUILDFLAG(IS_MAC)
+  return kSecurePaymentConfirmationKeychainAccessGroup;
+#else
+  return "";
+#endif  // BUILDFLAG(IS_MAC)
 }
 
 const base::WeakPtr<PaymentUIObserver>

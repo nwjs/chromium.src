@@ -272,7 +272,7 @@ void ChannelProxy::Context::SetUrgentMessageObserver(
 
 // static
 std::unique_ptr<ChannelProxy> ChannelProxy::Create(
-    const IPC::ChannelHandle& channel_handle,
+    const mojo::MessagePipeHandle& channel_handle,
     Channel::Mode mode,
     Listener* listener,
     const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner,
@@ -309,7 +309,7 @@ ChannelProxy::~ChannelProxy() {
   Close();
 }
 
-void ChannelProxy::Init(const IPC::ChannelHandle& channel_handle,
+void ChannelProxy::Init(const mojo::MessagePipeHandle& channel_handle,
                         Channel::Mode mode,
                         bool create_pipe_now) {
 #if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
@@ -348,7 +348,6 @@ void ChannelProxy::Init(std::unique_ptr<ChannelFactory> factory,
       FROM_HERE, base::BindOnce(&Context::OnChannelOpened, context_));
 
   did_init_ = true;
-  OnChannelInit();
 }
 
 void ChannelProxy::Pause() {
@@ -410,9 +409,6 @@ void ChannelProxy::GetRemoteAssociatedInterface(
 void ChannelProxy::ClearIPCTaskRunner() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   context()->ClearIPCTaskRunner();
-}
-
-void ChannelProxy::OnChannelInit() {
 }
 
 void ChannelProxy::SetUrgentMessageObserver(UrgentMessageObserver* observer) {

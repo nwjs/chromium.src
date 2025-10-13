@@ -22,11 +22,12 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/existing_window_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/unload_controller.h"
-#include "chrome/browser/ui/views/frame/browser_non_client_frame_view.h"
+#include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/location_bar/custom_tab_bar_view.h"
@@ -231,8 +232,7 @@ IN_PROC_BROWSER_TEST_P(WebAppTabStripBrowserTest, PopOutTabOnInstall) {
   Browser* app_browser;
   webapps::AppId app_id;
   {
-    ui_test_utils::BrowserChangeObserver app_browser_observer(
-        nullptr, ui_test_utils::BrowserChangeObserver::ChangeType::kAdded);
+    ui_test_utils::BrowserCreatedObserver browser_created_observer;
     base::RunLoop run_loop;
     auto* provider = WebAppProvider::GetForTest(browser()->profile());
     DCHECK(provider);
@@ -257,7 +257,7 @@ IN_PROC_BROWSER_TEST_P(WebAppTabStripBrowserTest, PopOutTabOnInstall) {
             }),
         FallbackBehavior::kAllowFallbackDataAlways);
     run_loop.Run();
-    app_browser = app_browser_observer.Wait();
+    app_browser = browser_created_observer.Wait();
     ASSERT_TRUE(app_browser);
     EXPECT_NE(app_browser, browser());
   }
@@ -521,8 +521,9 @@ IN_PROC_BROWSER_TEST_P(WebAppTabStripBrowserTest, ReparentingPinsHomeTab) {
       embedded_test_server()->GetURL("/web_apps/tab_strip_customizations.html");
   // Install and close app.
   webapps::AppId app_id = InstallTestWebApp(start_url);
-  Browser* app_browser = FindWebAppBrowser(browser()->profile(), app_id);
-  CloseAndWait(app_browser);
+  BrowserWindowInterface* app_browser =
+      FindWebAppBrowser(browser()->profile(), app_id);
+  CloseAndWait(app_browser->GetBrowserForMigrationOnly());
 
   // Navigate to the app URL in the browser.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -534,7 +535,7 @@ IN_PROC_BROWSER_TEST_P(WebAppTabStripBrowserTest, ReparentingPinsHomeTab) {
   // Reparent web contents into app browser.
   app_browser =
       web_app::ReparentWebContentsIntoAppBrowser(web_contents, app_id);
-  TabStripModel* tab_strip = app_browser->tab_strip_model();
+  TabStripModel* tab_strip = app_browser->GetFeatures().tab_strip_model();
 
   // Expect the pinned home tab to also be opened.
   EXPECT_EQ(tab_strip->count(), 2);
@@ -552,7 +553,7 @@ IN_PROC_BROWSER_TEST_P(WebAppTabStripBrowserTest, ReparentingPinsHomeTab) {
   // Reparent web contents into app browser.
   EXPECT_EQ(app_browser,
             web_app::ReparentWebContentsIntoAppBrowser(web_contents, app_id));
-  tab_strip = app_browser->tab_strip_model();
+  tab_strip = app_browser->GetFeatures().tab_strip_model();
 
   // Expect home tab to be focused.
   EXPECT_EQ(tab_strip->count(), 2);
@@ -705,10 +706,9 @@ IN_PROC_BROWSER_TEST_P(WebAppTabStripBrowserTest, MoveTabsToNewWindow) {
 
   size_t initial_browser_count = BrowserList::GetInstance()->size();
 
-  ui_test_utils::BrowserChangeObserver new_browser_observer(
-      nullptr, ui_test_utils::BrowserChangeObserver::ChangeType::kAdded);
+  ui_test_utils::BrowserCreatedObserver browser_created_observer;
   chrome::MoveTabsToNewWindow(app_browser, {1});
-  Browser* new_browser = new_browser_observer.Wait();
+  Browser* new_browser = browser_created_observer.Wait();
   ASSERT_TRUE(new_browser);
 
   EXPECT_EQ(initial_browser_count + 1, BrowserList::GetInstance()->size());
@@ -735,10 +735,9 @@ IN_PROC_BROWSER_TEST_P(WebAppTabStripBrowserTest, MoveTabsToExistingWindow) {
   chrome::NewTab(app_browser);
 
   // Open a second app browser window.
-  ui_test_utils::BrowserChangeObserver app_browser_observer(
-      nullptr, ui_test_utils::BrowserChangeObserver::ChangeType::kAdded);
+  ui_test_utils::BrowserCreatedObserver browser_created_observer;
   chrome::MoveTabsToNewWindow(app_browser, {1});
-  Browser* app_browser2 = app_browser_observer.Wait();
+  Browser* app_browser2 = browser_created_observer.Wait();
   ASSERT_TRUE(app_browser2);
 
   EXPECT_EQ(app_browser->tab_strip_model()->count(), 1);

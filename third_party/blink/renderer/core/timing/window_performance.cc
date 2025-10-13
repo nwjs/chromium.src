@@ -104,6 +104,7 @@
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 static constexpr base::TimeDelta kLongTaskObserverThreshold =
     base::Milliseconds(50);
@@ -342,7 +343,7 @@ MemoryInfo* WindowPerformance::memory(ScriptState* script_state) const {
 
 namespace {
 
-BASE_FEATURE(AdjustNavigationalPrefetchTiming,
+BASE_FEATURE(kAdjustNavigationalPrefetchTiming,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 enum class AdjustNavigationalPrefetchTimingBehavior {
@@ -791,7 +792,8 @@ void WindowPerformance::OnPresentationPromiseResolved(
       !expected_frame_source_id || !actual_frame_source_id ||
       expected_frame_source_id == actual_frame_source_id;
   if (base::FeatureList::IsEnabled(
-          ::features::kInternalBeginFrameSourceOnManyDidNotProduceFrame)) {
+          ::features::kInternalBeginFrameSourceOnManyDidNotProduceFrame) ||
+      base::FeatureList::IsEnabled(::features::kManualBeginFrame)) {
     // Switch to cc BeginFrameSource will generate kNotRestartable(0) begin
     // frame and submit compositor frame with kManualSourceId.
     if ((expected_frame_source_id >> 32) == 0 ||
@@ -1266,12 +1268,12 @@ void WindowPerformance::NotifyAndAddEventTimingBuffer(
     // perfetto events.
     unsigned hash = GetHash(entry->name());
     AddFloatToHash(hash, entry->startTime());
-    TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP1(
-        "devtools.timeline", "EventTiming", hash, entryInfo->creation_time,
-        "data", entry->ToTracedValue(DomWindow()->GetFrame()));
+    TRACE_EVENT_BEGIN("devtools.timeline", "EventTiming",
+                      perfetto::Track::Global(hash), entryInfo->creation_time,
+                      "data", entry->ToTracedValue(DomWindow()->GetFrame()));
 
-    TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0(
-        "devtools.timeline", "EventTiming", hash, entry->GetEndTime());
+    TRACE_EVENT_END("devtools.timeline", perfetto::Track::Global(hash),
+                    entry->GetEndTime());
   }
 }
 
@@ -1459,14 +1461,15 @@ void WindowPerformance::AddVisibilityStateEntry(bool is_visible,
 void WindowPerformance::AddSoftNavigationEntry(
     const AtomicString& name,
     base::TimeTicks timestamp,
-    const DOMPaintTimingInfo& paint_timing_info) {
+    const DOMPaintTimingInfo& paint_timing_info,
+    uint32_t navigation_id) {
   if (!RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled(
           GetExecutionContext())) {
     return;
   }
   SoftNavigationEntry* entry = MakeGarbageCollected<SoftNavigationEntry>(
       name, MonotonicTimeToDOMHighResTimeStamp(timestamp), paint_timing_info,
-      DomWindow(), NavigationId());
+      DomWindow(), navigation_id);
 
   if (HasObserverFor(PerformanceEntry::kSoftNavigation)) {
     UseCounter::Count(GetExecutionContext(),
@@ -1563,7 +1566,8 @@ void WindowPerformance::OnInteractionContentfulPaintUpdated(
     base::TimeTicks load_time,
     const AtomicString& id,
     const String& url,
-    Element* element) {
+    Element* element,
+    uint32_t navigation_id) {
   if (!RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled(
           GetExecutionContext())) {
     return;
@@ -1576,7 +1580,7 @@ void WindowPerformance::OnInteractionContentfulPaintUpdated(
                                     : load_timestamp,
       paint_timing_info.has_value() ? paint_timing_info->presentation_time : 0,
       paint_size, load_timestamp, id, url, element, DomWindow(),
-      NavigationId());
+      navigation_id);
 
   if (paint_timing_info) {
     entry->SetPaintTimingInfo(paint_timing_info.value());

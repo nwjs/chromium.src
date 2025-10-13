@@ -39,6 +39,7 @@
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/component_updater/registration.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
+#include "chrome/browser/first_run/bookmark_importer.h"
 #include "chrome/browser/first_run/first_run_features.h"
 #include "chrome/browser/language/url_language_histogram_factory.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
@@ -142,6 +143,8 @@
 #include <vector>
 
 #include "base/no_destructor.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/apps/app_service/publishers/publisher_host_factory_impl.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "chrome/browser/resources_integrity.h"
@@ -1213,6 +1216,11 @@ void ChromeBrowserMainParts::PreProfileInit() {
   g_browser_process->profile_manager()
       ->GetDeleteProfileHelper()
       .CleanUpDeletedProfiles();
+
+  // Inject the publisher dependency to AppService.
+  publisher_host_factory_resetter_ =
+      apps::AppServiceProxyFactory::GetInstance()->SetPublisherHostFactory(
+          std::make_unique<apps::PublisherHostFactoryImpl>());
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -1601,12 +1609,15 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 
       if (base::FeatureList::IsEnabled(features::kBookmarksImportOnFirstRun) &&
           !master_prefs_->import_bookmarks_dict.empty()) {
-        first_run::StartBookmarksImportFromDict(
+        first_run::StartBookmarkImportFromDict(
             profile, std::move(master_prefs_->import_bookmarks_dict));
       }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
       if (base::FeatureList::IsEnabled(features::kInitialExternalExtensions)) {
+        profile->GetPrefs()->SetString(
+            extensions::pref_names::kInitialInstallProviderName,
+            std::move(master_prefs_->initial_extensions_provider_name));
         // Store the initial extension IDs into the profile's prefs so that
         // InitialExternalExtensionLoader can later pick them up.
         profile->GetPrefs()->SetList(
@@ -1872,6 +1883,8 @@ void ChromeBrowserMainParts::PostMainMessageLoopRun() {
 
   restart_last_session_ = browser_shutdown::ShutdownPreThreadsStop();
   browser_process_->StartTearDown();
+
+  publisher_host_factory_resetter_.reset();
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 

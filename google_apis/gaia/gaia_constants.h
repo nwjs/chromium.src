@@ -89,6 +89,8 @@ extern const char kCloudSearchQueryOAuth2Scope[];
 COMPONENT_EXPORT(GOOGLE_APIS)
 extern const char kDiscoveryEngineCompleteQueryOAuth2Scope[];
 COMPONENT_EXPORT(GOOGLE_APIS)
+extern const char kDiscoveryOAuth2Scope[];
+COMPONENT_EXPORT(GOOGLE_APIS)
 extern const char kGeminiOAuth2Scope[];
 COMPONENT_EXPORT(GOOGLE_APIS)
 extern const char kChromeMemexOAuth2Scope[];
@@ -121,6 +123,8 @@ COMPONENT_EXPORT(GOOGLE_APIS)
 extern const char kClassroomProfileEmailOauth2Scope[];
 COMPONENT_EXPORT(GOOGLE_APIS)
 extern const char kClassroomProfilePhotoUrlScope[];
+COMPONENT_EXPORT(GOOGLE_APIS)
+extern const char kClassroomCourseWorkMaterialsOAuthScope[];
 
 // OAuth2 scopes for Optimization Guide.
 COMPONENT_EXPORT(GOOGLE_APIS)
@@ -151,6 +155,8 @@ COMPONENT_EXPORT(GOOGLE_APIS) extern const char kGaiaSigninCookieName[];
 COMPONENT_EXPORT(GOOGLE_APIS) extern const char kWebstoreOAuth2Scope[];
 // OAuth2 scope for push notifications.
 COMPONENT_EXPORT(GOOGLE_APIS) extern const char kPushNotificationOAuth2Scope[];
+// OAuth2 scope for app license check.
+COMPONENT_EXPORT(GOOGLE_APIS) extern const char kLicenseCheckOAuth2Scope[];
 
 // Constants for the Chrome Refresh Token Binding.
 inline constexpr std::string_view kTokenBindingAssertionSentinel =

@@ -9,7 +9,7 @@
 
 namespace content {
 
-BASE_FEATURE(AttributionReportNavigationBasedRetry,
+BASE_FEATURE(kAttributionReportNavigationBasedRetry,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<NavigationRetryAttempt>::Option

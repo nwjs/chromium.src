@@ -10,6 +10,7 @@
 #include "base/compiler_specific.h"
 #include "base/containers/contains.h"
 #include "base/dcheck_is_on.h"
+#include "base/metrics/histogram_macros.h"
 #include "build/build_config.h"
 #include "device/vr/openxr/openxr_extension_handler_factories.h"
 #include "device/vr/openxr/openxr_extension_handler_factory.h"
@@ -180,6 +181,7 @@ bool OpenXrExtensionHelper::IsFeatureSupported(
     case device::mojom::XRSessionFeature::HAND_INPUT:
     case device::mojom::XRSessionFeature::HIT_TEST:
     case device::mojom::XRSessionFeature::LIGHT_ESTIMATION:
+    case device::mojom::XRSessionFeature::PLANE_DETECTION:
     case device::mojom::XRSessionFeature::REF_SPACE_UNBOUNDED:
       return std::ranges::any_of(
           GetExtensionHandlerFactories(),
@@ -243,7 +245,6 @@ OpenXrExtensionHelper::CreateLightEstimator(XrSession session,
 std::unique_ptr<OpenXRSceneUnderstandingManager>
 OpenXrExtensionHelper::CreateSceneUnderstandingManager(
     OpenXrApiWrapper* openxr,
-    XrSession session,
     XrSpace base_space,
     const std::vector<mojom::XRSessionFeature>& required_features,
     const std::vector<mojom::XRSessionFeature>& optional_features) const {
@@ -293,7 +294,7 @@ OpenXrExtensionHelper::CreateSceneUnderstandingManager(
     // then use it.
     if (supported_optional_features_count ==
         optional_features_requested_count) {
-      return factory->CreateSceneUnderstandingManager(*this, openxr, session,
+      return factory->CreateSceneUnderstandingManager(*this, openxr,
                                                       base_space);
     }
 
@@ -307,12 +308,18 @@ OpenXrExtensionHelper::CreateSceneUnderstandingManager(
     }
   }
 
+  std::unique_ptr<OpenXRSceneUnderstandingManager> manager;
   if (best_factory) {
-    return best_factory->CreateSceneUnderstandingManager(*this, openxr, session,
-                                                         base_space);
+    manager = best_factory->CreateSceneUnderstandingManager(*this, openxr,
+                                                            base_space);
   }
 
-  return nullptr;
+  UMA_HISTOGRAM_ENUMERATION("XR.OpenXR.SceneUnderstandingManagerType",
+                            manager
+                                ? manager->GetType()
+                                : OpenXrSceneUnderstandingManagerType::kNone);
+
+  return manager;
 }
 
 std::unique_ptr<OpenXrStageBoundsProvider>

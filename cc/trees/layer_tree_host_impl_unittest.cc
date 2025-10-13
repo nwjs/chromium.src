@@ -22,6 +22,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/gtest_util.h"
+#include "base/test/simple_test_tick_clock.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "cc/animation/animation.h"
@@ -118,7 +119,10 @@ using media::VideoFrame;
 using ::testing::_;
 using ::testing::AnyNumber;
 using ::testing::AtLeast;
+using ::testing::ElementsAre;
 using ::testing::Mock;
+using ::testing::Pointee;
+using ::testing::Property;
 using ::testing::Range;
 using ::testing::Return;
 using ::testing::StrictMock;
@@ -759,24 +763,24 @@ class LayerTreeHostImplTestBase : public testing::Test,
     child->SetTouchActionRegion(child_touch_action_region);
 
     TouchAction touch_action = TouchAction::kAuto;
-    GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(gfx::Point(10, 10),
-                                                             &touch_action);
+    GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(
+        gfx::Rect(gfx::Point(10, 10), gfx::Size()), &touch_action);
     EXPECT_EQ(TouchAction::kPanLeft, touch_action);
     touch_action = TouchAction::kAuto;
-    GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(gfx::Point(30, 30),
-                                                             &touch_action);
+    GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(
+        gfx::Rect(gfx::Point(30, 30), gfx::Size()), &touch_action);
     EXPECT_EQ(TouchAction::kPanX, touch_action);
 
     TouchActionRegion new_child_region;
     new_child_region.Union(TouchAction::kPanY, gfx::Rect(0, 0, 25, 25));
     child->SetTouchActionRegion(new_child_region);
     touch_action = TouchAction::kAuto;
-    GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(gfx::Point(10, 10),
-                                                             &touch_action);
+    GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(
+        gfx::Rect(gfx::Point(10, 10), gfx::Size()), &touch_action);
     EXPECT_EQ(TouchAction::kPanY, touch_action);
     touch_action = TouchAction::kAuto;
-    GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(gfx::Point(30, 30),
-                                                             &touch_action);
+    GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(
+        gfx::Rect(gfx::Point(30, 30), gfx::Size()), &touch_action);
     EXPECT_EQ(TouchAction::kPanX, touch_action);
   }
 
@@ -1723,7 +1727,7 @@ TEST_P(LayerTreeHostImplTest, ScrollBlocksOnTouchEventHandlers) {
   root->SetTouchActionRegion(std::move(touch_action_region));
   EXPECT_EQ(InputHandler::TouchStartOrMoveEventListenerType::kHandler,
             GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(
-                gfx::Point(10, 10), &touch_action));
+                gfx::Rect(gfx::Point(10, 10), gfx::Size()), &touch_action));
   EXPECT_EQ(TouchAction::kPanLeft, touch_action);
 
   // But they don't influence the actual handling of the scroll gestures.
@@ -1741,18 +1745,18 @@ TEST_P(LayerTreeHostImplTest, ScrollBlocksOnTouchEventHandlers) {
 
   EXPECT_EQ(InputHandler::TouchStartOrMoveEventListenerType::kHandler,
             GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(
-                gfx::Point(10, 30), &touch_action));
+                gfx::Rect(gfx::Point(10, 30), gfx::Size()), &touch_action));
   root->SetTouchActionRegion(TouchActionRegion());
   EXPECT_EQ(InputHandler::TouchStartOrMoveEventListenerType::kNoHandler,
             GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(
-                gfx::Point(10, 30), &touch_action));
+                gfx::Rect(gfx::Point(10, 30), gfx::Size()), &touch_action));
   EXPECT_EQ(TouchAction::kAuto, touch_action);
   touch_action_region = TouchActionRegion();
   touch_action_region.Union(TouchAction::kPanX, gfx::Rect(0, 0, 50, 50));
   child->SetTouchActionRegion(std::move(touch_action_region));
   EXPECT_EQ(InputHandler::TouchStartOrMoveEventListenerType::kHandler,
             GetInputHandler().EventListenerTypeForTouchStartOrMoveAt(
-                gfx::Point(10, 30), &touch_action));
+                gfx::Rect(gfx::Point(10, 30), gfx::Size()), &touch_action));
   EXPECT_EQ(TouchAction::kPanX, touch_action);
 }
 
@@ -17262,7 +17266,8 @@ TEST_P(TreesInVizServerLayerTreeHostImplTest,
   TestFrameData frame;
   frame.set_trees_in_viz_timestamps(
       {base::TimeTicks::Now(), base::TimeTicks::Now() + base::Milliseconds(1),
-       base::TimeTicks::Now() + base::Milliseconds(2)});
+       base::TimeTicks::Now() + base::Milliseconds(2),
+       base::TimeTicks::Now() + base::Milliseconds(3)});
   auto args = viz::CreateBeginFrameArgsForTesting(
       BEGINFRAME_FROM_HERE, viz::BeginFrameArgs::kManualSourceId, 1,
       base::TimeTicks() + base::Milliseconds(1));
@@ -17287,6 +17292,8 @@ TEST_P(TreesInVizServerLayerTreeHostImplTest,
             metadata.trees_in_viz_timing_details.start_prepare_to_draw);
   EXPECT_EQ(frame.trees_in_viz_timing_details->start_draw_layers,
             metadata.trees_in_viz_timing_details.start_draw_layers);
+  EXPECT_EQ(frame.trees_in_viz_timing_details->submit_compositor_frame,
+            metadata.trees_in_viz_timing_details.submit_compositor_frame);
 }
 
 // Tests ScrollUpdate() to see if the method sets the scroll tree's currently
@@ -19445,6 +19452,75 @@ TEST_P(LayerTreeHostImplTest, VisbilityUpdateToLayers) {
 
   host_impl_->SetVisible(false);
   EXPECT_TRUE(layer->has_been_in_invisible_layer_tree());
+}
+
+TEST_P(LayerTreeHostImplTest, DidNotProduceFramePreservesMetricsForScrollEnds) {
+  SetupViewportLayersInnerScrolls(gfx::Size(50, 50), gfx::Size(100, 100));
+
+  // Frame 1 which emits GSU and GSE metrics but doesn't end up being produced.
+  {
+    TestFrameData frame;
+    auto args = viz::CreateBeginFrameArgsForTesting(
+        BEGINFRAME_FROM_HERE, viz::BeginFrameArgs::kManualSourceId, 1,
+        base::TimeTicks() + base::Milliseconds(16));
+    host_impl_->WillBeginImplFrame(args);
+
+    base::SimpleTestTickClock tick_clock;
+    auto metrics_array = std::to_array<std::unique_ptr<EventMetrics>>(
+        {ScrollEventMetrics::CreateForTesting(
+             ui::EventType::kGestureScrollEnd,
+             ui::ScrollInputType::kTouchscreen,
+             /* is_inertial= */ false,
+             /* timestamp= */ base::TimeTicks() + base::Milliseconds(11),
+             /* arrived_in_browser_main_timestamp= */ base::TimeTicks() +
+                 base::Milliseconds(12),
+             &tick_clock),
+         ScrollUpdateEventMetrics::CreateForTesting(
+             ui::EventType::kGestureScrollUpdate,
+             ui::ScrollInputType::kTouchscreen, /* is_inertial= */ false,
+             ScrollUpdateEventMetrics::ScrollUpdateType::kContinued,
+             /* delta= */ 4.2f,
+             /* timestamp= */ base::TimeTicks() + base::Milliseconds(13),
+             /* arrived_in_browser_main_timestamp= */ base::TimeTicks() +
+                 base::Milliseconds(14),
+             &tick_clock,
+             /* trace_id= */ std::nullopt)});
+    for (auto& metrics : metrics_array) {
+      EXPECT_NE(metrics, nullptr);
+      auto scoped_monitor =
+          host_impl_->GetScopedEventMetricsMonitor(base::BindOnce(
+              [](std::unique_ptr<EventMetrics> metrics, bool handled) {
+                std::unique_ptr<EventMetrics> result =
+                    handled ? std::move(metrics) : nullptr;
+                return result;
+              },
+              std::move(metrics)));
+      scoped_monitor->SetSaveMetrics();
+    }
+
+    host_impl_->DidFinishImplFrame(args);
+    host_impl_->DidNotProduceFrame(viz::BeginFrameAck(),
+                                   FrameSkippedReason::kNoDamage);
+  }
+
+  // Frame 2 should submit the GSE metrics from frame 1 so that Chrome would
+  // emit per-scroll jank metrics for the scroll that's just ended. However,
+  // frame 2 should NOT submit the GSU metrics from frame 1 because the GSU
+  // didn't cause any damage and thus shouldn't be associated with any frame for
+  // the purposes of measuring scroll jank.
+  {
+    TestFrameData frame;
+    auto args = viz::CreateBeginFrameArgsForTesting(
+        BEGINFRAME_FROM_HERE, viz::BeginFrameArgs::kManualSourceId, 1,
+        base::TimeTicks() + base::Milliseconds(32));
+    host_impl_->WillBeginImplFrame(args);
+    host_impl_->PrepareToDraw(&frame);
+    std::optional<SubmitInfo> submit_info = host_impl_->DrawLayers(&frame);
+    EXPECT_THAT(
+        submit_info->events_metrics.impl_event_metrics,
+        ElementsAre(Pointee(Property(
+            &EventMetrics::type, EventMetrics::EventType::kGestureScrollEnd))));
+  }
 }
 
 class ConcurrentImplOnlyScrollAnimationsTest : public LayerTreeHostImplTest {

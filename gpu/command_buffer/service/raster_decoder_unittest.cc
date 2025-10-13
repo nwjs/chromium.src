@@ -276,16 +276,12 @@ class RasterDecoderOOPTest : public testing::Test, DecoderClient {
 
   std::unique_ptr<RasterDecoder> CreateDecoder() {
     command_buffer_service_ = std::make_unique<FakeCommandBufferServiceBase>();
-    auto decoder = base::WrapUnique(RasterDecoder::Create(
+    auto decoder = RasterDecoder::Create(
         this, command_buffer_service_.get(), &outputter_, gpu_feature_info_,
-        GpuPreferences(), nullptr /* memory_tracker */, &shared_image_manager_,
-        context_state_, true /* is_privileged */));
-    ContextCreationAttribs attribs;
-    attribs.enable_gpu_rasterization = true;
-    attribs.enable_raster_interface = true;
-    CHECK_EQ(decoder->Initialize(context_state_->surface(),
-                                 context_state_->context(), true,
-                                 gles2::DisallowedFeatures(), attribs),
+        GpuPreferences(), /*memory_tracker=*/nullptr, &shared_image_manager_,
+        context_state_, /*is_privileged=*/true);
+    CHECK_EQ(decoder->Initialize(/*enable_gpu_rasterization=*/true,
+                                 /*lose_context_when_out_of_memory=*/false),
              ContextResult::kSuccess);
     return decoder;
   }
@@ -397,7 +393,7 @@ TEST_F(RasterDecoderOOPTest, CopyTexSubImage2DSizeMismatch) {
   {
     // This will initialize the bottom right corner of destination.
     auto& cmd = *GetImmediateAs<cmds::CopySharedImageINTERNALImmediate>();
-    cmd.Init(1, 1, 0, 0, 1, 1, mailboxes);
+    cmd.Init(1, 1, 0, 0, 1, 1, 1, 1, mailboxes);
     EXPECT_EQ(error::kNoError, ExecuteImmediateCmd(cmd, sizeof(mailboxes)));
     EXPECT_EQ(GL_NO_ERROR, GetGLError());
     EXPECT_EQ(representation->ClearedRect(), gfx::Rect(1, 1, 1, 1));
@@ -406,7 +402,7 @@ TEST_F(RasterDecoderOOPTest, CopyTexSubImage2DSizeMismatch) {
   {
     // Dest rect outside of dest bounds
     auto& cmd = *GetImmediateAs<cmds::CopySharedImageINTERNALImmediate>();
-    cmd.Init(2, 2, 0, 0, 1, 1, mailboxes);
+    cmd.Init(2, 2, 0, 0, 1, 1, 1, 1, mailboxes);
     EXPECT_EQ(error::kNoError, ExecuteImmediateCmd(cmd, sizeof(mailboxes)));
     EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
     EXPECT_EQ(representation->ClearedRect(), gfx::Rect(1, 1, 1, 1));
@@ -415,7 +411,7 @@ TEST_F(RasterDecoderOOPTest, CopyTexSubImage2DSizeMismatch) {
   {
     // Source rect outside of source bounds
     auto& cmd = *GetImmediateAs<cmds::CopySharedImageINTERNALImmediate>();
-    cmd.Init(0, 0, 0, 0, 2, 2, mailboxes);
+    cmd.Init(0, 0, 0, 0, 2, 2, 2, 2, mailboxes);
     EXPECT_EQ(error::kNoError, ExecuteImmediateCmd(cmd, sizeof(mailboxes)));
     EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
     EXPECT_EQ(representation->ClearedRect(), gfx::Rect(1, 1, 1, 1));
@@ -441,7 +437,7 @@ TEST_F(RasterDecoderOOPTest, CopyTexSubImage2DTwiceClearsUnclearedTexture) {
   // This will initialize the top half of destination.
   {
     auto& cmd = *GetImmediateAs<cmds::CopySharedImageINTERNALImmediate>();
-    cmd.Init(0, 0, 0, 0, 2, 1, mailboxes);
+    cmd.Init(0, 0, 0, 0, 2, 1, 2, 1, mailboxes);
     EXPECT_EQ(error::kNoError, ExecuteImmediateCmd(cmd, sizeof(mailboxes)));
   }
   EXPECT_EQ(gfx::Rect(0, 0, 2, 1), representation->ClearedRect());
@@ -450,7 +446,7 @@ TEST_F(RasterDecoderOOPTest, CopyTexSubImage2DTwiceClearsUnclearedTexture) {
   // This will initialize bottom half of the destination.
   {
     auto& cmd = *GetImmediateAs<cmds::CopySharedImageINTERNALImmediate>();
-    cmd.Init(0, 1, 0, 0, 2, 1, mailboxes);
+    cmd.Init(0, 1, 0, 0, 2, 1, 2, 1, mailboxes);
     EXPECT_EQ(error::kNoError, ExecuteImmediateCmd(cmd, sizeof(mailboxes)));
   }
   EXPECT_TRUE(representation->IsCleared());
@@ -478,7 +474,7 @@ TEST_F(RasterDecoderOOPTest, CopyTexSubImage2DPartialFailsWithUnalignedRect) {
   // This will initialize the top half of destination.
   {
     auto& cmd = *GetImmediateAs<cmds::CopySharedImageINTERNALImmediate>();
-    cmd.Init(0, 0, 0, 0, 2, 1, mailboxes);
+    cmd.Init(0, 0, 0, 0, 2, 1, 2, 1, mailboxes);
     EXPECT_EQ(error::kNoError, ExecuteImmediateCmd(cmd, sizeof(mailboxes)));
   }
   EXPECT_EQ(gfx::Rect(0, 0, 2, 1), representation->ClearedRect());
@@ -489,7 +485,7 @@ TEST_F(RasterDecoderOOPTest, CopyTexSubImage2DPartialFailsWithUnalignedRect) {
   // this will fail.
   {
     auto& cmd = *GetImmediateAs<cmds::CopySharedImageINTERNALImmediate>();
-    cmd.Init(1, 1, 0, 0, 1, 1, mailboxes);
+    cmd.Init(1, 1, 0, 0, 1, 1, 1, 1, mailboxes);
     EXPECT_EQ(error::kNoError, ExecuteImmediateCmd(cmd, sizeof(mailboxes)));
     EXPECT_EQ(GL_INVALID_VALUE, GetGLError());
   }

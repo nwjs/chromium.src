@@ -203,6 +203,18 @@ public final class ChromePreferenceKeys {
     public static final String NTP_CUSTOMIZATION_BACKGROUND_COLOR =
             "Chrome.NtpCustomization.NtpBackgroundColor";
 
+    /** The primary color for customizing NTP. */
+    public static final String NTP_CUSTOMIZATION_PRIMARY_COLOR =
+            "Chrome.NtpCustomization.NtpCustomizationPrimaryColor";
+
+    /** The transformation matrix for the NTP background image in portrait orientation. */
+    public static final String NTP_BACKGROUND_IMAGE_PORTRAIT_MATRIX =
+            "Chrome.NtpCustomization.BackgroundImagePortraitMatrix";
+
+    /** The transformation matrix for the NTP background image in landscape orientation. */
+    public static final String NTP_BACKGROUND_IMAGE_LANDSCAPE_MATRIX =
+            "Chrome.NtpCustomization.BackgroundImageLandscapeMatrix";
+
     public static final String CRASH_UPLOAD_FAILURE_BROWSER = "browser_crash_failure_upload";
     public static final String CRASH_UPLOAD_FAILURE_GPU = "gpu_crash_failure_upload";
     public static final String CRASH_UPLOAD_FAILURE_OTHER = "other_crash_failure_upload";
@@ -295,6 +307,10 @@ public final class ChromePreferenceKeys {
      */
     public static final String EXPLORE_OFFLINE_CONTENT_AVAILABILITY_STATUS =
             "Chrome.NTPExploreOfflineCard.HasExploreOfflineContent";
+
+    /** Indicates whether a chrome page URL has been overridden by an extension. */
+    public static final KeyPrefix EXTENSIONS_CHROME_PAGE_URL_OVERRIDE_ENABLED =
+            new KeyPrefix("Chrome.ExtensionsUrlOverrides.Page.*");
 
     public static final String FIRST_RUN_FLOW_COMPLETE = "first_run_flow";
     // BACKUP_FLOW_SIGNIN_ACCOUNT_NAME used to be employed for the FRE too, thus the "first_run_"
@@ -1066,6 +1082,9 @@ public final class ChromePreferenceKeys {
                 CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED,
                 NTP_CUSTOMIZATION_BACKGROUND_IMAGE_TYPE,
                 NTP_CUSTOMIZATION_BACKGROUND_COLOR,
+                NTP_CUSTOMIZATION_PRIMARY_COLOR,
+                NTP_BACKGROUND_IMAGE_PORTRAIT_MATRIX,
+                NTP_BACKGROUND_IMAGE_LANDSCAPE_MATRIX,
                 CUSTOM_TABS_LAST_CLIENT_PACKAGE,
                 CUSTOM_TABS_LAST_CLOSE_TAB_INTERACTION,
                 CUSTOM_TABS_LAST_CLOSE_TIMESTAMP,
@@ -1086,6 +1105,7 @@ public final class ChromePreferenceKeys {
                 DSE_NEW_TAB_URL,
                 HOME_MODULES_IMPRESSION_COUNT_BEFORE_INTERACTION.pattern(),
                 EXPLORE_OFFLINE_CONTENT_AVAILABILITY_STATUS,
+                EXTENSIONS_CHROME_PAGE_URL_OVERRIDE_ENABLED.pattern(),
                 FIRST_RUN_SKIPPED_BY_POLICY,
                 FIRST_CTA_START_TIMESTAMP,
                 FLAGS_LAST_CACHED_MINIMAL_BROWSER_FLAGS_TIME_MILLIS,

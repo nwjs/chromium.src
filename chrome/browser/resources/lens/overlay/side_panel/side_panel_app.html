@@ -2,6 +2,8 @@
   :host {
     --cr-searchbox-height: 52px;
     --cr-searchbox-min-width: min(calc(100%), 1100px);
+    --composebox-collapsed-height: 90px;
+    --aim-header-height: 66px;
   }
 
   /* Light mode not on AIM results */
@@ -73,8 +75,8 @@
   }
 
   :host([enable-client-side-aim-header]) .results-pane {
-    inset-block-start: 66px;
-    height: calc(100vh - 66px);
+    inset-block-start: var(--aim-header-height);
+    height: calc(100vh - var(--aim-header-height) - var(--composebox-collapsed-height));
   }
 
   :host([enable-floating-g-for-header]) #ghostLoader {
@@ -231,6 +233,7 @@
     --color-new-tab-page-composebox-scrim-background: var(--search-background-color);
     display: none;
     inset-block-end: 0;
+    min-height: var(--composebox-collapsed-height);
     position: absolute;
     width: 100%;
     z-index: 2;
@@ -243,10 +246,15 @@
       transparent 1%,
       var(--color-new-tab-page-composebox-scrim-background) 52px
     );
-    inset: -66px 0 0;
+    inset: calc(var(--aim-header-height) * -1) 0 0;
     pointer-events: none;
     position: absolute;
     width: 100%;
+  }
+
+  /* Hide the gradient fog when the dropdown is visible. */
+  #composeboxContainer:has(#composebox[show-dropdown_][expanded_])::before {
+    display: none;
   }
 
   /* Show the composebox when enabled and not on the error page.
@@ -256,6 +264,7 @@
     align-items: center;
     display: flex;
     flex-direction: column;
+    justify-content: flex-end;
   }
 
   #floatingG {
@@ -278,13 +287,20 @@
 
   #aimHeader {
     inset-inline: 0;
-    height: 66px;
+    height: var(--aim-header-height);
     background-color: var(--search-background-color);
   }
 
   #aimHeaderLogo {
     position: absolute;
   }
+
+  :host([enable-lens-aim-suggestions]) #composeboxContainer:has(ntp-composebox[show-dropdown_][expanded_]) {
+    background-color: var(--search-background-color);
+    pointer-events: auto;
+    inset-block-start: var(--aim-header-height);
+  }
+
 
   #composebox {
     --expanded-border-radius: 24px;
@@ -326,11 +342,35 @@
       var(--color-new-tab-page-composebox-cancel-button);
   }
 
+  :host([show-lens-button]) #composebox::part(lens-icon) {
+    --cr-icon-button-icon-size: 24px;
+    --cr-icon-button-fill-color:
+      var(--color-new-tab-page-composebox-lens-button);
+    display: block;
+  }
+
   #composebox::part(submit) {
     display: block;
   }
 
   #composebox::part(label) {
+    display: none;
+  }
+
+  :host([enable-lens-aim-suggestions]) #composebox::part(dropdown) {
+    background-color: var(--search-background-color);
+    /* Stack the dropdown on top of the other elements in the composebox. */
+    order: -1;
+    width: 100%;
+    z-index: 4;
+    position: fixed;
+    flex-direction: column-reverse;
+    bottom: 0;
+    transform: translateY(calc(-1 * (var(--composebox-height) + 30px)));
+  }
+
+  :host(:not([enable-lens-aim-suggestions])) #composebox::part(dropdown),
+  #composebox:not([expanded_])::part(dropdown) {
     display: none;
   }
 
@@ -472,5 +512,11 @@
 </cr-toast>
 
 <div id="composeboxContainer">
-  <ntp-composebox id="composebox" is-collapsible hide-file-inputs_> </ntp-composebox>
+  <ntp-composebox
+    id="composebox"
+    is-collapsible
+    hide-file-inputs_
+    style$="--composebox-height: [[composeboxHeight_]]px;"
+  >
+  </ntp-composebox>
 </div>

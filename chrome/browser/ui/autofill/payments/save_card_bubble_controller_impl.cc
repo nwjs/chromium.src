@@ -52,6 +52,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/service/sync_service.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/visibility.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 
@@ -118,14 +119,15 @@ void SaveCardBubbleControllerImpl::OfferLocalSave(
   }
 
   // Don't show the bubble if it's already visible.
-  if (bubble_view()) {
+  if (bubble_view() || !MaySetUpBubble()) {
     return;
   }
 
   SetupLocalSave(card, options, std::move(save_card_prompt_callback));
 
   if (options.show_prompt) {
-    SetupAndShowBubble();
+    CheckPreconditionsBeforeShowing();
+    QueueOrShowBubble();
   } else {
     ShowIconOnly();
   }
@@ -163,7 +165,7 @@ void SaveCardBubbleControllerImpl::OfferUploadSave(
   }
 
   // Don't show the bubble if it's already visible.
-  if (bubble_view()) {
+  if (bubble_view() || !MaySetUpBubble()) {
     return;
   }
 
@@ -171,7 +173,8 @@ void SaveCardBubbleControllerImpl::OfferUploadSave(
                   std::move(save_card_prompt_callback));
 
   if (options_.show_prompt) {
-    SetupAndShowBubble();
+    CheckPreconditionsBeforeShowing();
+    QueueOrShowBubble();
   } else {
     ShowIconOnly();
   }
@@ -211,7 +214,8 @@ void SaveCardBubbleControllerImpl::ShowBubbleForManageCardsForTesting(
     const CreditCard& card) {
   card_ = card;
   current_bubble_type_ = PaymentsBubbleType::kManageCards;
-  SetupAndShowBubble();
+  CheckPreconditionsBeforeShowing();
+  QueueOrShowBubble();
 }
 
 void SaveCardBubbleControllerImpl::ReshowBubble(
@@ -223,7 +227,8 @@ void SaveCardBubbleControllerImpl::ReshowBubble(
 
   is_reshow_ = true;
   is_triggered_by_user_gesture_ = is_triggered_by_user_gesture;
-  SetupAndShowBubble();
+  CheckPreconditionsBeforeShowing();
+  QueueOrShowBubble(/*force_show=*/true);
 }
 
 void SaveCardBubbleControllerImpl::ShowConfirmationBubbleView(
@@ -245,7 +250,8 @@ void SaveCardBubbleControllerImpl::ShowConfirmationBubbleView(
   on_confirmation_closed_callback_ = std::move(on_confirmation_closed_callback);
 
   // Show upload confirmation bubble.
-  SetupAndShowBubble();
+  CheckPreconditionsBeforeShowing();
+  QueueOrShowBubble();
 
   // Auto close confirmation bubble when card saved is successful.
   if (card_saved) {
@@ -530,7 +536,7 @@ void SaveCardBubbleControllerImpl::ShowPaymentsSettingsPage() {
 
 void SaveCardBubbleControllerImpl::OnBubbleClosed(
     PaymentsUiClosedReason closed_reason) {
-  set_bubble_view(nullptr);
+  ResetBubbleViewAndInformBubbleManager();
 
   // If the dialog should be re-shown, do not change the bubble type or log
   // metrics.
@@ -743,6 +749,12 @@ SaveCardBubbleControllerImpl::IgnoreWindowActivationForTesting() {
 
 void SaveCardBubbleControllerImpl::OnVisibilityChanged(
     content::Visibility visibility) {
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillShowBubblesBasedOnPriorities)) {
+    // BubbleManager will handle the effects of tab changes.
+    return;
+  }
+
   if (visibility == content::Visibility::VISIBLE &&
       (was_url_opened_ ||
        current_bubble_type_ == PaymentsBubbleType::kUploadComplete)) {
@@ -752,7 +764,8 @@ void SaveCardBubbleControllerImpl::OnVisibilityChanged(
   }
 }
 
-PageActionIconType SaveCardBubbleControllerImpl::GetPageActionIconType() {
+std::optional<PageActionIconType>
+SaveCardBubbleControllerImpl::GetPageActionIconType() {
   return PageActionIconType::kSaveCard;
 }
 
@@ -763,13 +776,15 @@ void SaveCardBubbleControllerImpl::DoShowBubble() {
 
   Browser* browser = chrome::FindBrowserWithTab(web_contents());
   if (current_bubble_type_ == PaymentsBubbleType::kUploadComplete) {
-    set_bubble_view(browser->window()
-                        ->GetAutofillBubbleHandler()
-                        ->ShowSaveCardConfirmationBubble(web_contents(), this));
+    SetBubbleView(*browser->window()
+                       ->GetAutofillBubbleHandler()
+                       ->ShowSaveCardConfirmationBubble(web_contents(), this));
   } else {
-    set_bubble_view(
-        browser->window()->GetAutofillBubbleHandler()->ShowSaveCreditCardBubble(
-            web_contents(), this, is_triggered_by_user_gesture_));
+    SetBubbleView(
+        *browser->window()
+             ->GetAutofillBubbleHandler()
+             ->ShowSaveCreditCardBubble(web_contents(), this,
+                                        is_triggered_by_user_gesture_));
   }
   CHECK(bubble_view());
 
@@ -824,7 +839,7 @@ SaveCardBubbleControllerImpl::GetBubbleControllerBaseWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
 
-void SaveCardBubbleControllerImpl::SetupAndShowBubble() {
+void SaveCardBubbleControllerImpl::CheckPreconditionsBeforeShowing() {
   CHECK(current_bubble_type_ != PaymentsBubbleType::kInactive);
   // Upload save callback should not be null for kUploadSave or
   // kUploadCvcSave state.
@@ -837,7 +852,6 @@ void SaveCardBubbleControllerImpl::SetupAndShowBubble() {
         (current_bubble_type_ != PaymentsBubbleType::kLocalSave &&
          current_bubble_type_ != PaymentsBubbleType::kLocalCvcSave));
   CHECK(!bubble_view());
-  ShowBubble();
 }
 
 void SaveCardBubbleControllerImpl::ShowIconOnly() {
@@ -900,10 +914,10 @@ bool SaveCardBubbleControllerImpl::IsWebContentsActive() {
     return true;
   }
 
-  Browser* active_browser = chrome::FindBrowserWithActiveWindow();
-  return active_browser &&
-         active_browser->tab_strip_model()->GetActiveWebContents() ==
-             web_contents();
+  // Return false if the tab is inactive, occluded by another window, or out
+  // of screen bounds.
+  return web_contents() &&
+         web_contents()->GetVisibility() == content::Visibility::VISIBLE;
 }
 
 void SaveCardBubbleControllerImpl::EndSaveCardPromptFlow() {

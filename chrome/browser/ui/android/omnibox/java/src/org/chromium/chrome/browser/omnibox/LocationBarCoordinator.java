@@ -38,6 +38,7 @@ import org.chromium.chrome.browser.merchant_viewer.MerchantTrustSignalsCoordinat
 import org.chromium.chrome.browser.omnibox.LocationBarMediator.OmniboxUma;
 import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
 import org.chromium.chrome.browser.omnibox.navattach.NavigationAttachmentsCoordinator;
+import org.chromium.chrome.browser.omnibox.navattach.NavigationFulfillmentType;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator.PageInfoAction;
 import org.chromium.chrome.browser.omnibox.status.StatusView;
@@ -66,7 +67,6 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.widget.ViewRectProvider;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
@@ -171,12 +171,12 @@ public class LocationBarCoordinator
             View autocompleteAnchorView,
             ObservableSupplier<Profile> profileObservableSupplier,
             LocationBarDataProvider locationBarDataProvider,
-            ActionMode.Callback actionModeCallback,
+            ActionMode.@Nullable Callback actionModeCallback,
             WindowAndroid windowAndroid,
             Supplier<@Nullable Tab> activityTabSupplier,
-            Supplier<ModalDialogManager> modalDialogManagerSupplier,
-            Supplier<ShareDelegate> shareDelegateSupplier,
-            IncognitoStateProvider incognitoStateProvider,
+            Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
+            @Nullable Supplier<ShareDelegate> shareDelegateSupplier,
+            @Nullable IncognitoStateProvider incognitoStateProvider,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
             OverrideUrlLoadingDelegate overrideUrlLoadingDelegate,
             BackKeyBehaviorDelegate backKeyBehavior,
@@ -190,7 +190,8 @@ public class LocationBarCoordinator
             @Nullable Supplier<MerchantTrustSignalsCoordinator>
                     merchantTrustSignalsCoordinatorSupplier,
             OmniboxActionDelegate omniboxActionDelegate,
-            BrowserStateBrowserControlsVisibilityDelegate browserControlsVisibilityDelegate,
+            @Nullable BrowserStateBrowserControlsVisibilityDelegate
+                    browserControlsVisibilityDelegate,
             @Nullable BackPressManager backPressManager,
             @Nullable OmniboxSuggestionsDropdownScrollListener
                     omniboxSuggestionsDropdownScrollListener,
@@ -228,6 +229,15 @@ public class LocationBarCoordinator
                         bottomWindowPaddingSupplier);
 
         mUrlBar = mLocationBarLayout.findViewById(R.id.url_bar);
+        final boolean isIncognito =
+                incognitoStateProvider != null && incognitoStateProvider.isIncognitoSelected();
+        mNavigationAttachmentsCoordinator =
+                new NavigationAttachmentsCoordinator(
+                        context,
+                        windowAndroid,
+                        mLocationBarLayout,
+                        profileObservableSupplier,
+                        locationBarDataProvider);
         // TODO(crbug.com/40733049): Inject LocaleManager instance to LocationBarCoordinator instead
         // of using the singleton.
         mLocationBarMediator =
@@ -249,13 +259,12 @@ public class LocationBarCoordinator
                         mOmniboxDropdownEmbedderImpl,
                         tabModelSelectorSupplier,
                         browserControlsStateProvider,
-                        modalDialogManagerSupplier);
+                        modalDialogManagerSupplier,
+                        mNavigationAttachmentsCoordinator.getNavigationFulfillmentTypeSupplier());
         if (backPressManager != null) {
             backPressManager.addHandler(mLocationBarMediator, BackPressHandler.Type.LOCATION_BAR);
         }
         mActivityLifecycleDispatcher.register(mLocationBarMediator);
-        final boolean isIncognito =
-                incognitoStateProvider != null && incognitoStateProvider.isIncognitoSelected();
         mUrlCoordinator =
                 new UrlBarCoordinator(
                         context,
@@ -286,7 +295,8 @@ public class LocationBarCoordinator
                         mActivityLifecycleDispatcher,
                         uiOverrides.isForcedPhoneStyleOmnibox(),
                         windowAndroid,
-                        mDeferredIMEWindowInsetApplicationCallback);
+                        mDeferredIMEWindowInsetApplicationCallback,
+                        mNavigationAttachmentsCoordinator);
         StatusView statusView = mLocationBarLayout.findViewById(R.id.location_bar_status);
         mStatusCoordinator =
                 new StatusCoordinator(
@@ -300,9 +310,6 @@ public class LocationBarCoordinator
                         pageInfoAction,
                         merchantTrustSignalsCoordinatorSupplier,
                         browserControlsVisibilityDelegate);
-        mNavigationAttachmentsCoordinator =
-                new NavigationAttachmentsCoordinator(
-                        context, windowAndroid, mLocationBarLayout, profileObservableSupplier);
         mLocationBarMediator.setCoordinators(
                 mUrlCoordinator, mAutocompleteCoordinator, mStatusCoordinator);
         mLocationBarMediator.addUrlFocusChangeListener(mNavigationAttachmentsCoordinator);
@@ -906,8 +913,8 @@ public class LocationBarCoordinator
      * @return The location bar's {@link OmniboxSuggestionsVisualState}.
      */
     @Override
-    public Optional<OmniboxSuggestionsVisualState> getOmniboxSuggestionsVisualState() {
-        return Optional.of(mAutocompleteCoordinator);
+    public @Nullable OmniboxSuggestionsVisualState getOmniboxSuggestionsVisualState() {
+        return mAutocompleteCoordinator;
     }
 
     /**
@@ -917,5 +924,10 @@ public class LocationBarCoordinator
      */
     public void updateButtonBackground(@DrawableRes int backgroundResId) {
         mLocationBarMediator.updateButtonBackground(backgroundResId);
+    }
+
+    public ObservableSupplier<@NavigationFulfillmentType Integer>
+            getNavigationFulfillmentTypeSupplier() {
+        return mLocationBarMediator.getNavigationFulfillmentTypeSupplier();
     }
 }

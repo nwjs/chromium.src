@@ -43,7 +43,7 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image_skia.h"
-#include "ui/gfx/native_window_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/views/accessibility/tree/widget_ax_manager.h"
 #include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/drag_controller.h"
@@ -220,18 +220,6 @@ ui::ZOrderLevel Widget::InitParams::EffectiveZOrderLevel() const {
     default:
       return ui::ZOrderLevel::kNormal;
   }
-}
-
-bool Widget::InitParams::ShouldInitAsHeadless() const {
-  if (headless_mode) {
-    return true;
-  }
-
-  if (Widget* top_level_widget = GetTopLevelWidgetForNativeView(parent)) {
-    return top_level_widget->is_headless();
-  }
-
-  return false;
 }
 
 void Widget::InitParams::SetParent(Widget* parent_widget) {
@@ -481,7 +469,6 @@ void Widget::Init(InitParams params) {
 
   params.child |= (params.type == InitParams::TYPE_CONTROL);
   is_top_level_ = !params.child;
-  is_headless_ = params.ShouldInitAsHeadless();
   is_autosized_ = params.autosize;
 
   if (params.opacity == views::Widget::InitParams::WindowOpacity::kInferred &&
@@ -562,7 +549,7 @@ void Widget::Init(InitParams params) {
   if (RequiresNonClientView(type)) {
     non_client_view_ =
         new NonClientView(widget_delegate_->CreateClientView(this));
-    non_client_view_->SetFrameView(CreateNonClientFrameView());
+    non_client_view_->SetFrameView(CreateFrameView());
     non_client_view_->SetOverlayView(widget_delegate_->CreateOverlayView());
 
     // Bypass the layout that happens in Widget::SetContentsView().
@@ -612,10 +599,8 @@ void Widget::Init(InitParams params) {
     parent_->OnChildAdded(this);
   }
 
-  native_widget_->OnWidgetThemeChanged(
-      GetColorMode(), background_color_ ? GetColorProvider()->GetColor(
-                                              background_color_.value())
-                                        : std::optional<SkColor>());
+  native_widget_->SetBackgroundColor(
+      GetColorProvider()->GetColor(GetBackgroundColorId()));
 
   UpdateAccessibleNameForRootView();
   native_theme_observation_.Observe(GetNativeTheme());
@@ -740,7 +725,7 @@ void Widget::NotifyNativeViewHierarchyWillChange() {
   // |FocusManager::ViewRemoved()| calls are fouled.  We clear focus here
   // to avoid these redundant steps and to avoid accessing deleted views
   // that may have been in focus.
-  ClearFocusFromWidget();
+  ClearFocusManagerFromWidget();
   native_widget_->OnNativeViewHierarchyWillChange();
 }
 
@@ -949,7 +934,6 @@ void Widget::CloseWithReason(ClosedReason closed_reason, bool force) {
   // added logic into this class, rather than modifying the client to not call
   // Close().
   if (override_close_) {
-    base::WeakPtr<Widget> weak_this = weak_ptr_factory_.GetWeakPtr();
     std::move(override_close_).Run(closed_reason);
     return;
   }
@@ -973,11 +957,6 @@ void Widget::CloseWithReason(ClosedReason closed_reason, bool force) {
     return;
   }
 
-  // This is the last chance to cancel closing.
-  if (widget_delegate_ && !widget_delegate_->OnCloseRequested(closed_reason)) {
-    return;
-  }
-
   // Cancel widget close on focus lost. This is used in UI Devtools to lock
   // bubbles and in some tests where we want to ignore spurious deactivation.
   if (closed_reason == ClosedReason::kLostFocus &&
@@ -988,12 +967,17 @@ void Widget::CloseWithReason(ClosedReason closed_reason, bool force) {
     return;
   }
 
+  // This is the last chance to cancel closing.
+  if (widget_delegate_ && !widget_delegate_->OnCloseRequested(closed_reason)) {
+    return;
+  }
+
   // The actions below can cause this function to be called again, so mark
   // |this| as closed early. See crbug.com/714334
   widget_closed_ = true;
   closed_reason_ = closed_reason;
   SaveWindowPlacement();
-  ClearFocusFromWidget();
+  ClearFocusManagerFromWidget();
 
   ax_mode_observation_.Reset();
 
@@ -1496,10 +1480,8 @@ void Widget::ThemeChanged() {
   NotifyColorProviderChanged();
 
   if (native_widget_) {
-    native_widget_->OnWidgetThemeChanged(
-        GetColorMode(), background_color_ ? GetColorProvider()->GetColor(
-                                                background_color_.value())
-                                          : std::optional<SkColor>());
+    native_widget_->SetBackgroundColor(
+        GetColorProvider()->GetColor(GetBackgroundColorId()));
   }
 }
 
@@ -1523,17 +1505,16 @@ void Widget::ClearNativeFocus() {
   }
 }
 
-std::unique_ptr<NonClientFrameView> Widget::CreateNonClientFrameView() {
+std::unique_ptr<FrameView> Widget::CreateFrameView() {
   if (!native_widget_) {
     return nullptr;
   }
-  auto frame_view = widget_delegate_->CreateNonClientFrameView(this);
+  auto frame_view = widget_delegate_->CreateFrameView(this);
   if (!frame_view) {
-    frame_view = native_widget_->CreateNonClientFrameView();
+    frame_view = native_widget_->CreateFrameView();
   }
   if (!frame_view) {
-    frame_view =
-        ViewsDelegate::GetInstance()->CreateDefaultNonClientFrameView(this);
+    frame_view = ViewsDelegate::GetInstance()->CreateDefaultFrameView(this);
   }
   CHECK(frame_view);
   return frame_view;
@@ -1741,12 +1722,6 @@ void Widget::NotifyPaintAsActiveChanged() {
 }
 
 void Widget::SetNativeTheme(ui::NativeTheme* native_theme) {
-  // If `native_theme_` has been set for testing ensure the theme instance is
-  // not reset.
-  if (native_theme_set_for_testing_) {
-    return;
-  }
-
   const bool is_update = native_theme_ && (native_theme_ != native_theme);
   native_theme_ = native_theme;
   native_theme_observation_.Reset();
@@ -1985,7 +1960,19 @@ void Widget::OnNativeWidgetDestroyed() {
   // Mark the widget as closed so that DeleteDelegate() won't call
   // InvalidateLayout().
   widget_closed_ = true;
+  // HandleWidgetDestroyed() may cause the destruction of `this`. Save `this`
+  // as a WeakPtr in order to later check whether `this` has been destroyed.
+  auto weak_this = GetWeakPtr();
   HandleWidgetDestroyed();
+  // The following will ensure that a Widget is always destroyed synchronously
+  // along with the NativeWidget even if the NativeWidget is being destroyed by
+  // a parent Widget or the platform. If `override_close_` is set, the client
+  // is intending to make the closing process synchronous. If the callback
+  // does not reset the Widget, the Widget will be left in a closed, zombie-like
+  // state. It is strongly recommended to reset the Widget within the callback.
+  if (weak_this && override_close_) {
+    std::move(override_close_).Run(ClosedReason::kUnspecified);
+  }
 }
 
 void Widget::OnNativeWidgetParentChanged(gfx::NativeView parent) {
@@ -2428,13 +2415,20 @@ void Widget::OnAXModeAdded(ui::AXMode mode) {
 }
 
 void Widget::SetColorModeOverride(
-    std::optional<ui::ColorProviderKey::ColorMode> color_mode,
-    std::optional<ui::ColorId> background_color) {
-  if (color_mode != color_mode_override_ ||
-      background_color != background_color_) {
+    std::optional<ui::ColorProviderKey::ColorMode> color_mode) {
+  if (color_mode != color_mode_override_) {
     color_mode_override_ = color_mode;
-    background_color_ = background_color;
     ThemeChanged();
+  }
+}
+
+void Widget::SetBackgroundColor(std::optional<ui::ColorId> background_color) {
+  if (background_color != background_color_) {
+    background_color_ = background_color;
+    if (native_widget_) {
+      native_widget_->SetBackgroundColor(
+          GetColorProvider()->GetColor(GetBackgroundColorId()));
+    }
   }
 }
 
@@ -2521,7 +2515,6 @@ internal::RootView* Widget::CreateRootView() {
 }
 
 void Widget::DestroyRootView() {
-  ClearFocusFromWidget();
   NotifyWillRemoveView(root_view_.get());
   non_client_view_ = nullptr;
   // Remove all children before the unique_ptr reset so that
@@ -2703,12 +2696,18 @@ void Widget::UnlockPaintAsActive() {
   }
 }
 
-void Widget::ClearFocusFromWidget() {
+void Widget::ClearFocusManagerFromWidget() {
   FocusManager* focus_manager = GetFocusManager();
   // We are being removed from a window hierarchy.  Treat this as
   // the root_view_ being removed.
   if (focus_manager) {
     focus_manager->ViewRemoved(root_view_.get());
+    CHECK(root_view_);
+    // Also notify the view tree in the child widget
+    // to perform actions when focus is cleared.
+    if (!is_top_level()) {
+      root_view_->PropagateWillClearFocusManager();
+    }
   }
 }
 
@@ -2739,9 +2738,7 @@ void Widget::HandleWidgetDestroying() {
   if (native_widget_destroyed_) {
     return;
   }
-  if (GetFocusManager() && root_view_) {
-    GetFocusManager()->ViewRemoved(root_view_.get());
-  }
+  ClearFocusManagerFromWidget();
   if (parent_) {
     parent_->OnChildRemoved(this);
   }
@@ -2795,15 +2792,17 @@ void Widget::HandleWidgetDestroyed() {
 }
 
 void Widget::OnChildAdded(Widget* child_widget) {
-  if (ax_manager_) {
-    ax_manager_->OnChildAdded(child_widget->ax_manager_.get());
+  CHECK(child_widget);
+  if (ax_manager_ && child_widget->ax_manager_) {
+    ax_manager_->OnChildManagerAdded(*child_widget->ax_manager_);
   }
   observers_.Notify(&WidgetObserver::OnWidgetChildAdded, this, child_widget);
 }
 
 void Widget::OnChildRemoved(Widget* child_widget) {
-  if (ax_manager_) {
-    ax_manager_->OnChildRemoved(child_widget->ax_manager_.get());
+  CHECK(child_widget);
+  if (ax_manager_ && child_widget->ax_manager_) {
+    ax_manager_->OnChildManagerRemoved(*child_widget->ax_manager_);
   }
   observers_.Notify(&WidgetObserver::OnWidgetChildRemoved, this, child_widget);
 }
@@ -2835,6 +2834,10 @@ void Widget::SetClientContentsViewInternal(std::unique_ptr<View> view) {
     SetContentsView(view.release());
   }
   root_view_->LayoutImmediately();
+}
+
+ui::ColorId Widget::GetBackgroundColorId() const {
+  return background_color_.value_or(ui::kColorWindowBackground);
 }
 
 BEGIN_METADATA_BASE(Widget)

@@ -17,6 +17,7 @@
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
@@ -25,6 +26,7 @@
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager_test_api.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_ukm_logger.h"
 #include "components/autofill/core/browser/strike_databases/payments/test_strike_database.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -47,16 +49,16 @@ namespace autofill {
 
 namespace {
 
-using base::Bucket;
-using base::BucketsAre;
+using ::base::Bucket;
+using ::base::BucketsAre;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
+using ::testing::UnorderedElementsAreArray;
 
 constexpr auto kVehicle = EntityType(EntityTypeName::kVehicle);
 constexpr auto kDriversLicense = EntityType(EntityTypeName::kDriversLicense);
 constexpr auto kPassport = EntityType(EntityTypeName::kPassport);
-constexpr auto kNationalIdCard = EntityType(EntityTypeName::kNationalIdCard);
 constexpr char kDefaultUrl[] = "https://example.com";
 constexpr uint64_t kFormSession = 123456UL;
 
@@ -80,12 +82,14 @@ class BaseAutofillAiTest : public testing::Test {
         /*enabled_features=*/{features::kAutofillAiWithDataSchema,
                               features::kAutofillAiNationalIdCard,
                               features::kAutofillAiKnownTravelerNumber,
-                              features::kAutofillAiRedressNumber},
+                              features::kAutofillAiRedressNumber,
+                              features::kAutofillAiWalletFlightReservation},
         /*disabled_features=*/{});
     autofill_client().set_entity_data_manager(
         std::make_unique<EntityDataManager>(
             autofill_client().GetPrefs(),
             autofill_client().GetIdentityManager(),
+            autofill_client().GetSyncService(),
             webdata_helper_.autofill_webdata_service(),
             /*history_service=*/nullptr,
             /*strike_database=*/nullptr));
@@ -164,6 +168,16 @@ class BaseAutofillAiTest : public testing::Test {
         std::move(url));
   }
 
+  [[nodiscard]] std::unique_ptr<FormStructure> CreateFlightReservationForm(
+      std::string url = std::string(kDefaultUrl)) {
+    return CreateFormStructure(
+        {NAME_FULL, FLIGHT_RESERVATION_FLIGHT_NUMBER,
+         FLIGHT_RESERVATION_TICKET_NUMBER, FLIGHT_RESERVATION_CONFIRMATION_CODE,
+         FLIGHT_RESERVATION_ARRIVAL_AIRPORT,
+         FLIGHT_RESERVATION_DEPARTURE_AIRPORT},
+        std::move(url));
+  }
+
   [[nodiscard]] std::unique_ptr<FormStructure> CreateMergedForm(
       const std::vector<const FormStructure*>& forms,
       std::string url = std::string(kDefaultUrl)) {
@@ -187,6 +201,46 @@ class BaseAutofillAiTest : public testing::Test {
         AutofillType(CREDIT_CARD_NUMBER),
         AutofillPredictionSource::kHeuristics);
     return form;
+  }
+
+  std::unique_ptr<FormStructure> CreateForm(EntityType type) {
+    switch (type.name()) {
+      case EntityTypeName::kPassport:
+        return CreatePassportForm();
+      case EntityTypeName::kDriversLicense:
+        return CreateDriversLicenseForm();
+      case EntityTypeName::kKnownTravelerNumber:
+        return CreateKnownTravelerNumberForm();
+      case EntityTypeName::kRedressNumber:
+        return CreateRedressNumberForm();
+      case EntityTypeName::kVehicle:
+        return CreateVehicleForm();
+      case EntityTypeName::kNationalIdCard:
+        return CreateNationalIdCardForm();
+      case EntityTypeName::kFlightReservation:
+        return CreateFlightReservationForm();
+    }
+    NOTREACHED();
+  }
+
+  EntityInstance CreateEntity(EntityType type) {
+    switch (type.name()) {
+      case EntityTypeName::kPassport:
+        return test::GetPassportEntityInstance();
+      case EntityTypeName::kDriversLicense:
+        return test::GetDriversLicenseEntityInstance();
+      case EntityTypeName::kKnownTravelerNumber:
+        return test::GetKnownTravelerNumberInstance();
+      case EntityTypeName::kRedressNumber:
+        return test::GetRedressNumberEntityInstance();
+      case EntityTypeName::kVehicle:
+        return test::GetVehicleEntityInstance();
+      case EntityTypeName::kNationalIdCard:
+        return test::GetNationalIdCardEntityInstance();
+      case EntityTypeName::kFlightReservation:
+        return test::GetFlightReservationEntityInstance();
+    }
+    NOTREACHED();
   }
 
   MockAutofillClient& autofill_client() { return autofill_client_; }
@@ -269,43 +323,16 @@ class AutofillAiFunnelMetricsTest
   bool user_corrected_filling() { return std::get<2>(GetParam()) > 4; }
 
   std::unique_ptr<FormStructure> CreateForm() {
-    switch (entity_type().name()) {
-      case EntityTypeName::kPassport:
-        return CreatePassportForm();
-      case EntityTypeName::kDriversLicense:
-        return CreateDriversLicenseForm();
-      case EntityTypeName::kKnownTravelerNumber:
-        return CreateKnownTravelerNumberForm();
-      case EntityTypeName::kRedressNumber:
-        return CreateRedressNumberForm();
-      case EntityTypeName::kVehicle:
-        return CreateVehicleForm();
-      case EntityTypeName::kNationalIdCard:
-        return CreateNationalIdCardForm();
-    }
-    NOTREACHED();
+    return BaseAutofillAiTest::CreateForm(entity_type());
   }
 
   EntityInstance CreateEntity() {
-    switch (entity_type().name()) {
-      case EntityTypeName::kPassport:
-        return test::GetPassportEntityInstance();
-      case EntityTypeName::kDriversLicense:
-        return test::GetDriversLicenseEntityInstance();
-      case EntityTypeName::kKnownTravelerNumber:
-        return test::GetKnownTravelerNumberInstance();
-      case EntityTypeName::kRedressNumber:
-        return test::GetRedressNumberEntityInstance();
-      case EntityTypeName::kVehicle:
-        return test::GetVehicleEntityInstance();
-      case EntityTypeName::kNationalIdCard:
-        return test::GetNationalIdCardEntityInstance();
-    }
-    NOTREACHED();
+    return BaseAutofillAiTest::CreateEntity(entity_type());
   }
 
   void ExpectCorrectFunnelRecording(
       const base::HistogramTester& histogram_tester) {
+    std::string_view entity_type_str = EntityTypeToMetricsString(entity_type());
     for (const bool use_entity_type : {false, true}) {
       // Expect that we do not record any sample for the submission-specific
       // histograms that are not applicable.
@@ -313,21 +340,18 @@ class AutofillAiFunnelMetricsTest
                                         0);
       histogram_tester.ExpectTotalCount(
           GetReadinessAfterEligibilityHistogram(
-              !submitted(), use_entity_type
-                                ? std::optional(GetEntityTypeAsString())
-                                : std::nullopt),
+              !submitted(),
+              use_entity_type ? std::optional(entity_type_str) : std::nullopt),
           0);
       histogram_tester.ExpectTotalCount(
           GetFillAfterSuggestionHistogram(
-              !submitted(), use_entity_type
-                                ? std::optional(GetEntityTypeAsString())
-                                : std::nullopt),
+              !submitted(),
+              use_entity_type ? std::optional(entity_type_str) : std::nullopt),
           0);
       histogram_tester.ExpectTotalCount(
           GetCorrectionAfterFillHistogram(
-              !submitted(), use_entity_type
-                                ? std::optional(GetEntityTypeAsString())
-                                : std::nullopt),
+              !submitted(),
+              use_entity_type ? std::optional(entity_type_str) : std::nullopt),
           0);
       for (const bool use_submitted : {false, true}) {
         // Expect that the aggregate and appropriate submission-specific
@@ -348,14 +372,14 @@ class AutofillAiFunnelMetricsTest
           histogram_tester.ExpectUniqueSample(
               GetReadinessAfterEligibilityHistogram(
                   use_submitted ? std::optional(submitted()) : std::nullopt,
-                  use_entity_type ? std::optional(GetEntityTypeAsString())
+                  use_entity_type ? std::optional(entity_type_str)
                                   : std::nullopt),
               user_has_data(), 1);
         } else {
           histogram_tester.ExpectTotalCount(
               GetReadinessAfterEligibilityHistogram(
                   use_submitted ? std::optional(submitted()) : std::nullopt,
-                  use_entity_type ? std::optional(GetEntityTypeAsString())
+                  use_entity_type ? std::optional(entity_type_str)
                                   : std::nullopt),
               0);
         }
@@ -364,14 +388,14 @@ class AutofillAiFunnelMetricsTest
           histogram_tester.ExpectUniqueSample(
               GetSuggestionAfterReadinessHistogram(
                   use_submitted ? std::optional(submitted()) : std::nullopt,
-                  use_entity_type ? std::optional(GetEntityTypeAsString())
+                  use_entity_type ? std::optional(entity_type_str)
                                   : std::nullopt),
               user_saw_suggestions(), 1);
         } else {
           histogram_tester.ExpectTotalCount(
               GetSuggestionAfterReadinessHistogram(
                   use_submitted ? std::optional(submitted()) : std::nullopt,
-                  use_entity_type ? std::optional(GetEntityTypeAsString())
+                  use_entity_type ? std::optional(entity_type_str)
                                   : std::nullopt),
               0);
         }
@@ -380,14 +404,14 @@ class AutofillAiFunnelMetricsTest
           histogram_tester.ExpectUniqueSample(
               GetFillAfterSuggestionHistogram(
                   use_submitted ? std::optional(submitted()) : std::nullopt,
-                  use_entity_type ? std::optional(GetEntityTypeAsString())
+                  use_entity_type ? std::optional(entity_type_str)
                                   : std::nullopt),
               user_filled_suggestion(), 1);
         } else {
           histogram_tester.ExpectTotalCount(
               GetFillAfterSuggestionHistogram(
                   use_submitted ? std::optional(submitted()) : std::nullopt,
-                  use_entity_type ? std::optional(GetEntityTypeAsString())
+                  use_entity_type ? std::optional(entity_type_str)
                                   : std::nullopt),
               0);
         }
@@ -396,14 +420,14 @@ class AutofillAiFunnelMetricsTest
           histogram_tester.ExpectUniqueSample(
               GetCorrectionAfterFillHistogram(
                   use_submitted ? std::optional(submitted()) : std::nullopt,
-                  use_entity_type ? std::optional(GetEntityTypeAsString())
+                  use_entity_type ? std::optional(entity_type_str)
                                   : std::nullopt),
               user_corrected_filling(), 1);
         } else {
           histogram_tester.ExpectTotalCount(
               GetCorrectionAfterFillHistogram(
                   use_submitted ? std::optional(submitted()) : std::nullopt,
-                  use_entity_type ? std::optional(GetEntityTypeAsString())
+                  use_entity_type ? std::optional(entity_type_str)
                                   : std::nullopt),
               0);
         }
@@ -412,24 +436,6 @@ class AutofillAiFunnelMetricsTest
   }
 
  private:
-  std::string_view GetEntityTypeAsString() {
-    switch (entity_type().name()) {
-      case EntityTypeName::kPassport:
-        return "Passport";
-      case EntityTypeName::kDriversLicense:
-        return "DriversLicense";
-      case EntityTypeName::kKnownTravelerNumber:
-        return "KnownTravelerNumber";
-      case EntityTypeName::kRedressNumber:
-        return "RedressNumber";
-      case EntityTypeName::kVehicle:
-        return "Vehicle";
-      case EntityTypeName::kNationalIdCard:
-        return "NationalIdCard";
-    }
-    NOTREACHED();
-  }
-
   std::string GetFunnelHistogram(std::string_view funnel_state,
                                  std::optional<bool> submitted,
                                  std::optional<std::string_view> entity_type) {
@@ -476,14 +482,12 @@ class AutofillAiFunnelMetricsTest
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(AutofillAiTest,
-                         AutofillAiFunnelMetricsTest,
-                         testing::Combine(testing::Bool(),
-                                          testing::Values(kPassport,
-                                                          kDriversLicense,
-                                                          kVehicle,
-                                                          kNationalIdCard),
-                                          testing::Values(0, 1, 2, 3, 4, 5)));
+INSTANTIATE_TEST_SUITE_P(
+    AutofillAiTest,
+    AutofillAiFunnelMetricsTest,
+    testing::Combine(testing::Bool(),
+                     testing::ValuesIn(DenseSet<EntityType>::all()),
+                     testing::Values(0, 1, 2, 3, 4, 5)));
 
 // Tests that appropriate calls in `AutofillAiManager`
 // result in correct metric logging.
@@ -522,122 +526,127 @@ TEST_P(AutofillAiFunnelMetricsTest, Manager) {
   ExpectCorrectFunnelRecording(histogram_tester);
 }
 
-class AutofillAiKeyMetricsTest : public BaseAutofillAiTest {};
+class AutofillAiKeyMetricsTest
+    : public BaseAutofillAiTest,
+      public testing::WithParamInterface<EntityType> {
+  static constexpr char kKeyMetricsUmaMask[] = "Autofill.Ai.KeyMetrics.%s%s";
 
-TEST_F(AutofillAiKeyMetricsTest, FillingReadiness) {
-  std::unique_ptr<FormStructure> passport_form = CreatePassportForm();
-  {
-    manager().OnFormSeen(*passport_form);
-    base::HistogramTester histogram_tester;
-    manager().OnFormSubmitted(*passport_form, /*ukm_source_id=*/{});
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingReadiness.Passport", 0, 1);
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingReadiness", 0, 1);
+ public:
+  AutofillAiKeyMetricsTest() = default;
+
+  EntityType entity_type() { return GetParam(); }
+
+  std::unique_ptr<FormStructure> CreateForm() {
+    return BaseAutofillAiTest::CreateForm(entity_type());
   }
-  EntityInstance passport = test::GetPassportEntityInstance();
-  AddOrUpdateEntityInstance(passport);
+
+  EntityInstance CreateEntity() {
+    return BaseAutofillAiTest::CreateEntity(entity_type());
+  }
+
+  void ExpectKeyMetricsRecording(const base::HistogramTester& histogram_tester,
+                                 std::string_view key_metric_name,
+                                 int sample,
+                                 int expected_bucket_count) {
+    // Aggregate histogram.
+    histogram_tester.ExpectUniqueSample(
+        base::StringPrintf(kKeyMetricsUmaMask, key_metric_name, ""), sample,
+        expected_bucket_count);
+
+    // Entity-specific histogram.
+    histogram_tester.ExpectUniqueSample(
+        base::StringPrintf(
+            kKeyMetricsUmaMask, key_metric_name,
+            base::StrCat({".", EntityTypeToMetricsString(entity_type())})),
+        sample, expected_bucket_count);
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(AutofillAiTest,
+                         AutofillAiKeyMetricsTest,
+                         testing::ValuesIn(DenseSet<EntityType>::all()));
+
+TEST_P(AutofillAiKeyMetricsTest, FillingReadiness) {
+  std::unique_ptr<FormStructure> form = CreateForm();
   {
-    manager().OnFormSeen(*passport_form);
+    manager().OnFormSeen(*form);
     base::HistogramTester histogram_tester;
-    manager().OnFormSubmitted(*passport_form, /*ukm_source_id=*/{});
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingReadiness.Passport", 1, 1);
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingReadiness", 1, 1);
+    manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+    ExpectKeyMetricsRecording(histogram_tester, "FillingReadiness", 0, 1);
+  }
+  AddOrUpdateEntityInstance(CreateEntity());
+  {
+    manager().OnFormSeen(*form);
+    base::HistogramTester histogram_tester;
+    manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+    ExpectKeyMetricsRecording(histogram_tester, "FillingReadiness", 1, 1);
   }
 }
 
-TEST_F(AutofillAiKeyMetricsTest, FillingAssistance) {
-  std::unique_ptr<FormStructure> vehicle_form = CreateVehicleForm();
-  manager().OnFormSeen(*vehicle_form);
+TEST_P(AutofillAiKeyMetricsTest, FillingAssistance) {
+  std::unique_ptr<FormStructure> form = CreateForm();
+  manager().OnFormSeen(*form);
   {
     base::HistogramTester histogram_tester;
-    manager().OnFormSubmitted(*vehicle_form, /*ukm_source_id=*/{});
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingAssistance.Vehicle", 0, 1);
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingAssistance", 0, 1);
+    manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+    ExpectKeyMetricsRecording(histogram_tester, "FillingAssistance", 0, 1);
   }
   {
-    manager().OnSuggestionsShown(*vehicle_form, *vehicle_form->field(0),
-                                 {kVehicle},
+    manager().OnSuggestionsShown(*form, *form->field(0), {entity_type()},
                                  /*ukm_source_id=*/{});
-    manager().OnDidFillSuggestion(test::GetVehicleEntityInstance(),
-                                  *vehicle_form, *vehicle_form->field(0),
+    manager().OnDidFillSuggestion(CreateEntity(), *form, *form->field(0),
                                   /*filled_fields=*/{},
                                   /*ukm_source_id=*/{});
     base::HistogramTester histogram_tester;
-    manager().OnFormSubmitted(*vehicle_form, /*ukm_source_id=*/{});
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingAssistance.Vehicle", 1, 1);
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingAssistance", 1, 1);
+    manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+    ExpectKeyMetricsRecording(histogram_tester, "FillingAssistance", 1, 1);
   }
 }
 
-TEST_F(AutofillAiKeyMetricsTest, FillingAcceptance) {
-  std::unique_ptr<FormStructure> drivers_license_form =
-      CreateDriversLicenseForm();
-  manager().OnFormSeen(*drivers_license_form);
-  manager().OnSuggestionsShown(
-      *drivers_license_form, *drivers_license_form->field(0), {kDriversLicense},
-      /*ukm_source_id=*/{});
-  {
-    base::HistogramTester histogram_tester;
-    manager().OnFormSubmitted(*drivers_license_form, /*ukm_source_id=*/{});
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingAcceptance.DriversLicense", 0, 1);
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingAcceptance", 0, 1);
-  }
-  {
-    manager().OnDidFillSuggestion(test::GetDriversLicenseEntityInstance(),
-                                  *drivers_license_form,
-                                  *drivers_license_form->field(0),
-                                  /*filled_fields=*/{},
-                                  /*ukm_source_id=*/{});
-    base::HistogramTester histogram_tester;
-    manager().OnFormSubmitted(*drivers_license_form, /*ukm_source_id=*/{});
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingAcceptance.DriversLicense", 1, 1);
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingAcceptance", 1, 1);
-  }
-}
-
-TEST_F(AutofillAiKeyMetricsTest, FillingCorrectness) {
-  std::unique_ptr<FormStructure> passport_form = CreatePassportForm();
-  manager().OnFormSeen(*passport_form);
-  manager().OnSuggestionsShown(*passport_form, *passport_form->field(0),
-                               {kPassport},
+TEST_P(AutofillAiKeyMetricsTest, FillingAcceptance) {
+  std::unique_ptr<FormStructure> form = CreateForm();
+  manager().OnFormSeen(*form);
+  manager().OnSuggestionsShown(*form, *form->field(0), {entity_type()},
                                /*ukm_source_id=*/{});
-  manager().OnDidFillSuggestion(test::GetPassportEntityInstance(),
-                                *passport_form, *passport_form->field(0),
-                                /*filled_fields=*/{passport_form->field(0)},
+  {
+    base::HistogramTester histogram_tester;
+    manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+    ExpectKeyMetricsRecording(histogram_tester, "FillingAcceptance", 0, 1);
+  }
+  {
+    manager().OnDidFillSuggestion(CreateEntity(), *form, *form->field(0),
+                                  /*filled_fields=*/{},
+                                  /*ukm_source_id=*/{});
+    base::HistogramTester histogram_tester;
+    manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+    ExpectKeyMetricsRecording(histogram_tester, "FillingAcceptance", 1, 1);
+  }
+}
+
+TEST_P(AutofillAiKeyMetricsTest, FillingCorrectness) {
+  std::unique_ptr<FormStructure> form = CreateForm();
+  manager().OnFormSeen(*form);
+  manager().OnSuggestionsShown(*form, *form->field(0), {entity_type()},
+                               /*ukm_source_id=*/{});
+  manager().OnDidFillSuggestion(CreateEntity(), *form, *form->field(0),
+                                /*filled_fields=*/{form->field(0)},
                                 /*ukm_source_id=*/{});
   {
     base::HistogramTester histogram_tester;
-    manager().OnFormSubmitted(*passport_form, /*ukm_source_id=*/{});
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingCorrectness.Passport", 1, 1);
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingCorrectness", 1, 1);
+    manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+    ExpectKeyMetricsRecording(histogram_tester, "FillingCorrectness", 1, 1);
   }
   {
-    manager().OnEditedAutofilledField(*passport_form, *passport_form->field(0),
+    manager().OnEditedAutofilledField(*form, *form->field(0),
                                       /*ukm_source_id=*/{});
     base::HistogramTester histogram_tester;
-    manager().OnFormSubmitted(*passport_form, /*ukm_source_id=*/{});
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingCorrectness.Passport", 0, 1);
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.Ai.KeyMetrics.FillingCorrectness", 0, 1);
+    manager().OnFormSubmitted(*form, /*ukm_source_id=*/{});
+    ExpectKeyMetricsRecording(histogram_tester, "FillingCorrectness", 0, 1);
   }
 }
 
 // Tests that for a form fillable by multiple `EntityType`'s, we
-TEST_F(AutofillAiKeyMetricsTest, MixedForm) {
+TEST_F(BaseAutofillAiTest, KeyMetrics_MixedForm) {
   std::unique_ptr<FormStructure> vehicle_form = CreateVehicleForm();
   std::unique_ptr<FormStructure> drivers_license_form =
       CreateDriversLicenseForm();
@@ -802,6 +811,10 @@ class AutofillAiMqlsMetricsTest : public BaseAutofillAiTest {
                                                   : UNKNOWN_TYPE;
               }()))
         << event;
+    EXPECT_THAT(mqls_field_event.field_types(),
+                UnorderedElementsAreArray(field.Type().GetTypes()));
+    EXPECT_THAT(mqls_field_event.ai_field_types(),
+                UnorderedElementsAreArray(field.Type().GetAutofillAiTypes()));
     EXPECT_EQ(base::to_underlying(mqls_field_event.format_string_source()),
               base::to_underlying(field.format_string_source()))
         << event;
@@ -904,6 +917,8 @@ TEST_F(AutofillAiMqlsMetricsTest, KeyMetrics) {
 
   test_api(manager()).logger().OnEditedAutofilledField(*form, *form->field(1),
                                                        /*ukm_source_id=*/{});
+  form->field(1)->set_is_autofilled(false);
+  form->field(1)->set_is_user_edited(true);
 
   test_api(manager()).logger().RecordFormMetrics(*form, /*ukm_source_id=*/{},
                                                  /*submission_state=*/true,
@@ -920,9 +935,42 @@ TEST_F(AutofillAiMqlsMetricsTest, KeyMetrics) {
   EXPECT_TRUE(mqls_key_metrics.filling_assistance());
   EXPECT_TRUE(mqls_key_metrics.filling_acceptance());
   EXPECT_FALSE(mqls_key_metrics.filling_correctness());
+  EXPECT_FALSE(mqls_key_metrics.perfect_filling());
   EXPECT_EQ(mqls_key_metrics.autofill_filled_field_count(), 2);
   EXPECT_EQ(mqls_key_metrics.autofill_ai_filled_field_count(), 1);
   EXPECT_EQ(base::to_underlying(mqls_key_metrics.entity_type()), 1);
+}
+
+TEST_F(AutofillAiMqlsMetricsTest, KeyMetrics_PerfectFilling) {
+  std::unique_ptr<FormStructure> form = CreatePassportForm();
+
+  // Simulate a perfect filling (i.e. a fill where the user doesn't modify any
+  // field).
+  test_api(manager()).logger().OnFormHasDataToFill(form->global_id(),
+                                                   {kPassport});
+  test_api(manager()).logger().OnSuggestionsShown(*form, *form->field(1),
+                                                  {kPassport},
+                                                  /*ukm_source_id=*/{});
+  test_api(manager()).logger().OnDidFillSuggestion(*form, *form->field(1),
+                                                   kPassport,
+                                                   /*ukm_source_id=*/{});
+  test_api(manager()).logger().OnDidFillField(*form, *form->field(1), kPassport,
+                                              /*ukm_source_id=*/{});
+
+  // The MQLS logs should record a perfect filling here.
+  test_api(manager()).logger().RecordFormMetrics(*form, /*ukm_source_id=*/{},
+                                                 /*submission_state=*/true,
+                                                 /*opt_in_status=*/true);
+  EXPECT_TRUE(GetKeyMetricsLogs().perfect_filling());
+
+  // Simulate a user edit for some field.
+  form->field(2)->set_is_user_edited(true);
+
+  // Now the MQLS logs should not record a perfect filling.
+  test_api(manager()).logger().RecordFormMetrics(*form, /*ukm_source_id=*/{},
+                                                 /*submission_state=*/true,
+                                                 /*opt_in_status=*/true);
+  EXPECT_FALSE(GetKeyMetricsLogs().perfect_filling());
 }
 
 // Tests that KeyMetrics MQLS metrics aren't recorded if the user is not opted

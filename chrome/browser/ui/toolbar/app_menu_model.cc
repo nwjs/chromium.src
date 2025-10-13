@@ -80,6 +80,7 @@
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_page_handler.h"
+#include "chrome/browser/ui/webui/signin/signin_utils_desktop.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new_util.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
@@ -158,6 +159,9 @@
 #include "chrome/browser/policy/system_features_disable_list_policy_handler.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "ui/display/screen.h"
+#else
+#include "chrome/browser/ui/webui/signin/signin_ui_error.h"
+#include "chrome/browser/ui/webui/signin/signin_utils_desktop.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -169,6 +173,7 @@
 using base::UserMetricsAction;
 using content::WebContents;
 
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kCreateNewTabGroupTopLevel);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kProfileMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kProfileOpenGuestItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kBookmarksMenuItem);
@@ -597,9 +602,14 @@ int ProfileSubMenuModel::GetAndIncrementNextMenuID() {
 }
 
 bool ProfileSubMenuModel::BuildSyncSection() {
-  if (!profile_->GetPrefs()->GetBoolean(prefs::kSigninAllowed)) {
+#if !BUILDFLAG(IS_CHROMEOS)
+  // TODO(crbug.com/440342282): Support personalized signin button.
+  if (!CanOfferSignin(profile_, GaiaId(), /*email=*/std::string(),
+                      /*allow_account_from_other_profile=*/true)
+           .IsOk()) {
     return false;
   }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   if (!SyncServiceFactory::IsSyncAllowed(profile_)) {
     return false;
@@ -782,7 +792,7 @@ SaveAndShareSubMenuModel::SaveAndShareSubMenuModel(
                                    kDriveShortcutChromeRefreshIcon);
   SetElementIdentifierAt(GetItemCount() - 1, AppMenuModel::kCreateShortcutItem);
   if (!sharing_hub::SharingIsDisabledByPolicy(browser->profile()) ||
-      media_router::MediaRouterEnabled(browser->profile())) {
+      sharing_hub::DesktopScreenshotsFeatureEnabled(browser->profile())) {
     AddSeparator(ui::NORMAL_SEPARATOR);
     AddTitle(l10n_util::GetStringUTF16(IDS_SAVE_AND_SHARE_MENU_SHARE));
     if (!sharing_hub::SharingIsDisabledByPolicy(browser->profile())) {
@@ -795,11 +805,11 @@ SaveAndShareSubMenuModel::SaveAndShareSubMenuModel(
                                        IDS_APP_MENU_CREATE_QR_CODE,
                                        kQrCodeChromeRefreshIcon);
     }
-  }
-  if (sharing_hub::DesktopScreenshotsFeatureEnabled(browser->profile())) {
-    AddItemWithStringIdAndVectorIcon(this, IDC_SHARING_HUB_SCREENSHOT,
-                                     IDS_SHARING_HUB_SCREENSHOT_LABEL,
-                                     kSharingHubScreenshotIcon);
+    if (sharing_hub::DesktopScreenshotsFeatureEnabled(browser->profile())) {
+      AddItemWithStringIdAndVectorIcon(this, IDC_SHARING_HUB_SCREENSHOT,
+                                       IDS_SHARING_HUB_SCREENSHOT_LABEL,
+                                       kSharingHubScreenshotIcon);
+    }
   }
 }
 
@@ -1230,6 +1240,13 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
             "WrenchMenu.TimeToAction.LoginForDeviceTabs", delta);
       }
       LogMenuAction(MENU_ACTION_RECENT_TABS_LOGIN_FOR_DEVICE_TABS);
+      break;
+    case IDC_RECENT_TABS_SEE_DEVICE_TABS:
+      if (!uma_action_recorded_) {
+        base::UmaHistogramMediumTimes("WrenchMenu.TimeToAction.SeeDeviceTabs",
+                                      delta);
+      }
+      LogMenuAction(MENU_ACTION_RECENT_TABS_SEE_DEVICE_TABS);
       break;
     case IDC_FIND:
       if (!uma_action_recorded_) {
@@ -1832,6 +1849,16 @@ void AppMenuModel::Build() {
           ? IDS_NEW_INCOGNITO_TAB
           : IDS_NEW_TAB,
       kNewTabRefreshIcon);
+
+  if (features::IsTabGroupMenuMoreEntryPointsEnabled()) {
+    AddItemWithStringIdAndVectorIcon(this, IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL,
+                                     IDS_CREATE_NEW_TAB_GROUP,
+                                     kCreateNewTabGroupIcon);
+    SetElementIdentifierAt(
+        GetIndexOfCommandId(IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL).value(),
+        kCreateNewTabGroupTopLevel);
+  }
+
   AddItemWithStringIdAndVectorIcon(this, IDC_NEW_WINDOW, IDS_NEW_WINDOW,
                                    kNewWindowIcon);
 

@@ -14,6 +14,8 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.ui.base.ActivityWindowAndroid;
 
+import java.util.OptionalInt;
+
 /** Java class for communicating with the native {@code AndroidBrowserWindow}. */
 @NullMarked
 final class AndroidBrowserWindow {
@@ -39,7 +41,10 @@ final class AndroidBrowserWindow {
         if (mNativeAndroidBrowserWindow == 0) {
             mNativeAndroidBrowserWindow =
                     AndroidBrowserWindowJni.get()
-                            .create(this, mChromeAndroidTask.getBrowserWindowType());
+                            .create(
+                                    this,
+                                    mChromeAndroidTask.getBrowserWindowType(),
+                                    mChromeAndroidTask.getProfile());
         }
         return mNativeAndroidBrowserWindow;
     }
@@ -71,6 +76,15 @@ final class AndroidBrowserWindow {
         return mAndroidBaseWindow.getNativePtrForTesting();
     }
 
+    OptionalInt getNativeSessionIdForTesting() {
+        if (mNativeAndroidBrowserWindow == 0) {
+            return OptionalInt.empty();
+        }
+
+        return OptionalInt.of(
+                AndroidBrowserWindowJni.get().getSessionIdForTesting(mNativeAndroidBrowserWindow));
+    }
+
     @CalledByNative
     private void clearNativePtr() {
         mNativeAndroidBrowserWindow = 0;
@@ -83,11 +97,6 @@ final class AndroidBrowserWindow {
         return activityWindowAndroid.getActivity().get();
     }
 
-    @CalledByNative
-    private Profile getProfile() {
-        return mChromeAndroidTask.getProfile();
-    }
-
     @NativeMethods
     interface Natives {
         /**
@@ -96,9 +105,13 @@ final class AndroidBrowserWindow {
          * @param caller The Java object calling this method.
          * @param browserWindowType The browser window type as defined in the native {@code
          *     BrowserWindowInterface::Type} enum.
+         * @param profile The {@link Profile} associated with the {@code AndroidBrowserWindow}.
          * @return The address of the native {@code AndroidBrowserWindow}.
          */
-        long create(AndroidBrowserWindow caller, @BrowserWindowType int browserWindowType);
+        long create(
+                AndroidBrowserWindow caller,
+                @BrowserWindowType int browserWindowType,
+                Profile profile);
 
         /**
          * Destroys the native {@code AndroidBrowserWindow}.
@@ -106,5 +119,11 @@ final class AndroidBrowserWindow {
          * @param nativeAndroidBrowserWindow The address of the native {@code AndroidBrowserWindow}.
          */
         void destroy(long nativeAndroidBrowserWindow);
+
+        /**
+         * Returns the {@code SessionID} as returned by the native function {@code
+         * AndroidBrowserWindow::GetSessionID()}.
+         */
+        int getSessionIdForTesting(long nativeAndroidBrowserWindow);
     }
 }

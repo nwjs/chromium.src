@@ -260,6 +260,10 @@ void ChromePaymentsAutofillClient::ScanCreditCard(
                                               std::move(callback));
 }
 
+bool ChromePaymentsAutofillClient::LocalCardSaveIsSupported() {
+  return true;
+}
+
 void ChromePaymentsAutofillClient::ShowSaveCreditCardLocally(
     const CreditCard& card,
     SaveCreditCardOptions options,
@@ -937,6 +941,42 @@ bool ChromePaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
     tracker->NotifyEvent("keyboard_accessory_loyalty_cards_autofilled");
   }
   return loyalty_cards_shown;
+#else
+  // Touch To Fill is not supported on Desktop.
+  NOTREACHED();
+#endif
+}
+
+bool ChromePaymentsAutofillClient::UpdateTouchToFillBnplPaymentMethod(
+    std::optional<uint64_t> extracted_amount,
+    bool is_amount_supported_by_any_issuer) {
+#if BUILDFLAG(IS_ANDROID)
+  return GetTouchToFillPaymentMethodController()->UpdateBnplPaymentMethod(
+      extracted_amount, is_amount_supported_by_any_issuer);
+#else
+  // Touch To Fill is not supported on Desktop.
+  NOTREACHED();
+#endif
+}
+
+bool ChromePaymentsAutofillClient::ShowTouchToFillProgress(
+    base::WeakPtr<TouchToFillDelegate> delegate) {
+#if BUILDFLAG(IS_ANDROID)
+  // TTF should already be shown, so pass nullptr for `view`.
+  return GetTouchToFillPaymentMethodController()->ShowProgressScreen(
+      /*view=*/nullptr, delegate);
+#else
+  // Touch To Fill is not supported on Desktop.
+  NOTREACHED();
+#endif
+}
+
+bool ChromePaymentsAutofillClient::ShowTouchToFillBnplIssuers(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    base::span<const autofill::BnplIssuer> bnpl_issurs_to_suggest) {
+#if BUILDFLAG(IS_ANDROID)
+  return GetTouchToFillPaymentMethodController()->ShowBnplIssuers(
+      delegate, bnpl_issurs_to_suggest);
 #else
   // Touch To Fill is not supported on Desktop.
   NOTREACHED();

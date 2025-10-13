@@ -50,7 +50,7 @@
 #include "ui/events/platform/platform_event_source.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/vector2d.h"
-#include "ui/gfx/native_window_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/gfx/path_win.h"
 #include "ui/views/corewm/tooltip_aura.h"
 #include "ui/views/views_features.h"
@@ -247,15 +247,11 @@ void DesktopWindowTreeHostWin::OnActiveWindowChanged(bool active) {}
 
 void DesktopWindowTreeHostWin::OnWidgetInitDone() {}
 
-void DesktopWindowTreeHostWin::OnWidgetThemeChanged(
-    ui::ColorProviderKey::ColorMode color_mode,
-    std::optional<SkColor> background_color) {
+void DesktopWindowTreeHostWin::SetBackgroundColor(SkColor background_color) {
   UpdateBackdropColorMode();
-  if (background_color) {
-    ClearBackgroundPaintBrush();
-    background_paint_brush_ =
-        CreateSolidBrush(skia::SkColorToCOLORREF(*background_color));
-  }
+  ClearBackgroundPaintBrush();
+  background_paint_brush_ =
+      CreateSolidBrush(skia::SkColorToCOLORREF(background_color));
 }
 
 std::unique_ptr<corewm::Tooltip> DesktopWindowTreeHostWin::CreateTooltip() {
@@ -565,8 +561,7 @@ void DesktopWindowTreeHostWin::SetVisibilityChangedAnimationsEnabled(
   }
 }
 
-std::unique_ptr<NonClientFrameView>
-DesktopWindowTreeHostWin::CreateNonClientFrameView() {
+std::unique_ptr<FrameView> DesktopWindowTreeHostWin::CreateFrameView() {
   return (ShouldUseNativeFrame() && native_widget_delegate_)
              ? std::make_unique<NativeFrameView>(
                    native_widget_delegate_->AsWidget())

@@ -45,6 +45,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Exchanger;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Test Cronet proxy support. */
@@ -76,13 +77,15 @@ public class ProxyTest {
                                 /* scheme= */ Proxy.HTTPS,
                                 /* host= */ "this-hostname-does-not-exist.com",
                                 /* port= */ 8080,
+                                Executors.newSingleThreadExecutor(),
                                 /* callback= */ null));
     }
 
     @Test
     @SmallTest
     public void testProxy_nullHost_throws() {
-        Proxy.Callback proxyCallbackMock = Mockito.mock(Proxy.Callback.class);
+        Proxy.Callback proxyCallbackMock =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
         assertThrows(
                 NullPointerException.class,
                 () ->
@@ -90,13 +93,31 @@ public class ProxyTest {
                                 /* scheme= */ Proxy.HTTP,
                                 /* host= */ null,
                                 /* port= */ 8080,
+                                Executors.newSingleThreadExecutor(),
+                                /* callback= */ proxyCallbackMock));
+    }
+
+    @Test
+    @SmallTest
+    public void testProxy_nullExecutor_throws() {
+        Proxy.Callback proxyCallbackMock =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
+        assertThrows(
+                NullPointerException.class,
+                () ->
+                        new Proxy(
+                                /* scheme= */ Proxy.HTTP,
+                                /* host= */ "this-hostname-does-not-exist.com",
+                                /* port= */ 8080,
+                                null,
                                 /* callback= */ proxyCallbackMock));
     }
 
     @Test
     @SmallTest
     public void testProxy_invalidScheme_throws() {
-        Proxy.Callback proxyCallbackMock = Mockito.mock(Proxy.Callback.class);
+        Proxy.Callback proxyCallbackMock =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
@@ -104,6 +125,7 @@ public class ProxyTest {
                                 /* scheme= */ -1,
                                 /* host= */ "localhost",
                                 /* port= */ 8080,
+                                Executors.newSingleThreadExecutor(),
                                 /* callback= */ proxyCallbackMock));
         assertThrows(
                 IllegalArgumentException.class,
@@ -112,6 +134,7 @@ public class ProxyTest {
                                 /* scheme= */ 2,
                                 /* host= */ "localhost",
                                 /* port= */ 8080,
+                                Executors.newSingleThreadExecutor(),
                                 /* callback= */ proxyCallbackMock));
     }
 
@@ -126,12 +149,14 @@ public class ProxyTest {
     public void testProxyOptions_nullProxyIsNotLastElement_throws() {
         assertThrows(
                 IllegalArgumentException.class, () -> new ProxyOptions(Arrays.asList(null, null)));
-        Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+        Proxy.Callback proxyCallback =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
         Proxy proxy =
                 new Proxy(
                         /* scheme= */ Proxy.HTTPS,
                         /* host= */ "this-hostname-does-not-exist.com",
                         /* port= */ 8080,
+                        Executors.newSingleThreadExecutor(),
                         /* callback= */ proxyCallback);
         assertThrows(
                 IllegalArgumentException.class, () -> new ProxyOptions(Arrays.asList(null, proxy)));
@@ -185,7 +210,8 @@ public class ProxyTest {
     @RequiresMinAndroidApi(Build.VERSION_CODES.N)
     public void testUnreachableProxyWithDirectFallback_requestSucceeds() {
         mNativeTestServer.start();
-        Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+        Proxy.Callback proxyCallback =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
         mTestRule
                 .getTestFramework()
                 .applyEngineBuilderPatch(
@@ -197,6 +223,7 @@ public class ProxyTest {
                                                                 /* scheme= */ Proxy.HTTPS,
                                                                 /* host= */ "this-hostname-does-not-exist.com",
                                                                 /* port= */ 8080,
+                                                                Executors.newSingleThreadExecutor(),
                                                                 /* callback= */ proxyCallback),
                                                         null))));
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
@@ -224,7 +251,8 @@ public class ProxyTest {
     @RequiresMinAndroidApi(Build.VERSION_CODES.N)
     public void testUnreachableProxy_requestFails() {
         mNativeTestServer.start();
-        Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+        Proxy.Callback proxyCallback =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
         mTestRule
                 .getTestFramework()
                 .applyEngineBuilderPatch(
@@ -236,6 +264,7 @@ public class ProxyTest {
                                                                 /* scheme= */ Proxy.HTTPS,
                                                                 /* host= */ "this-hostname-does-not-exist.com",
                                                                 /* port= */ 8080,
+                                                                Executors.newSingleThreadExecutor(),
                                                                 /* callback= */ proxyCallback)))));
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -275,7 +304,8 @@ public class ProxyTest {
             workingProxyServer.enableConnectProxy(Arrays.asList(originServer.getSuccessURL()));
             workingProxyServer.start();
 
-            Proxy.Callback brokenProxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback brokenProxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 Proxy.Callback.Request request = invocation.getArgument(0);
@@ -284,10 +314,12 @@ public class ProxyTest {
                             })
                     .when(brokenProxyCallback)
                     .onBeforeTunnelRequest(any());
-            Mockito.when(brokenProxyCallback.onTunnelHeadersReceived(any(), anyInt()))
-                    .thenReturn(true);
+            Mockito.doReturn(true)
+                    .when(brokenProxyCallback)
+                    .onTunnelHeadersReceived(any(), anyInt());
 
-            Proxy.Callback workingProxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback workingProxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 Proxy.Callback.Request request = invocation.getArgument(0);
@@ -296,8 +328,9 @@ public class ProxyTest {
                             })
                     .when(workingProxyCallback)
                     .onBeforeTunnelRequest(any());
-            Mockito.when(workingProxyCallback.onTunnelHeadersReceived(any(), anyInt()))
-                    .thenReturn(true);
+            Mockito.doReturn(true)
+                    .when(workingProxyCallback)
+                    .onTunnelHeadersReceived(any(), anyInt());
 
             mTestRule
                     .getTestFramework()
@@ -311,12 +344,16 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ brokenProxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ brokenProxyCallback),
                                                             new Proxy(
                                                                     /* scheme= */ Proxy.HTTP,
                                                                     /* host= */ "localhost",
                                                                     /* port= */ workingProxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ workingProxyCallback)))));
 
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
@@ -377,7 +414,8 @@ public class ProxyTest {
                 };
         mNativeTestServer.registerRequestHandler(requestHandler);
         mNativeTestServer.start();
-        Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+        Proxy.Callback proxyCallback =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
         mTestRule
                 .getTestFramework()
                 .applyEngineBuilderPatch(
@@ -390,6 +428,7 @@ public class ProxyTest {
                                                                 /* host= */ "localhost",
                                                                 /* port= */ mNativeTestServer
                                                                         .getPort(),
+                                                                Executors.newSingleThreadExecutor(),
                                                                 /* callback= */ proxyCallback)))));
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -434,7 +473,8 @@ public class ProxyTest {
                 };
         mNativeTestServer.registerRequestHandler(requestHandler);
         mNativeTestServer.start();
-        Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+        Proxy.Callback proxyCallback =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
         doAnswer(
                         invocation -> {
                             Proxy.Callback.Request request = invocation.getArgument(0);
@@ -443,7 +483,7 @@ public class ProxyTest {
                         })
                 .when(proxyCallback)
                 .onBeforeTunnelRequest(any());
-        Mockito.when(proxyCallback.onTunnelHeadersReceived(anyList(), anyInt())).thenReturn(true);
+        Mockito.doReturn(true).when(proxyCallback).onTunnelHeadersReceived(any(), anyInt());
         mTestRule
                 .getTestFramework()
                 .applyEngineBuilderPatch(
@@ -456,6 +496,7 @@ public class ProxyTest {
                                                                 /* host= */ "localhost",
                                                                 /* port= */ mNativeTestServer
                                                                         .getPort(),
+                                                                Executors.newSingleThreadExecutor(),
                                                                 /* callback= */ proxyCallback)))));
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -498,7 +539,8 @@ public class ProxyTest {
                 };
         mNativeTestServer.registerRequestHandler(requestHandler);
         mNativeTestServer.start();
-        Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+        Proxy.Callback proxyCallback =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
         doAnswer(
                         invocation -> {
                             Proxy.Callback.Request request = invocation.getArgument(0);
@@ -510,7 +552,7 @@ public class ProxyTest {
                         })
                 .when(proxyCallback)
                 .onBeforeTunnelRequest(any());
-        Mockito.when(proxyCallback.onTunnelHeadersReceived(any(), anyInt())).thenReturn(true);
+        Mockito.doReturn(true).when(proxyCallback).onTunnelHeadersReceived(any(), anyInt());
         mTestRule
                 .getTestFramework()
                 .applyEngineBuilderPatch(
@@ -523,6 +565,7 @@ public class ProxyTest {
                                                                 /* host= */ "localhost",
                                                                 /* port= */ mNativeTestServer
                                                                         .getPort(),
+                                                                Executors.newSingleThreadExecutor(),
                                                                 /* callback= */ proxyCallback)))));
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -551,16 +594,12 @@ public class ProxyTest {
     // Mockito#when implementation makes use of java.util.Map#computeIfAbsent, which is available
     // starting from Nougat/API level 24.
     @RequiresMinAndroidApi(Build.VERSION_CODES.N)
-    public void testProxyAuthChallenge_connectRequestIsSentTwice() {
+    public void testProxyAuthChallenge_urlRequestFails() {
         var requestHandler =
                 new NativeTestServer.HandleRequestCallback() {
-                    public NativeTestServer.HttpRequest mReceivedHttpRequest;
-
                     @Override
                     public NativeTestServer.RawHttpResponse handleRequest(
                             NativeTestServer.HttpRequest httpRequest) {
-                        assertThat(mReceivedHttpRequest).isNull();
-                        mReceivedHttpRequest = httpRequest;
                         return NativeTestServer.RawHttpResponse.createFromHeaders(
                                 Arrays.asList(
                                         "HTTP/1.1 407 Proxy Authentication Required",
@@ -569,7 +608,9 @@ public class ProxyTest {
                 };
         mNativeTestServer.registerRequestHandler(requestHandler);
         mNativeTestServer.start();
-        Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+
+        Proxy.Callback proxyCallback =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
         doAnswer(
                         invocation -> {
                             Proxy.Callback.Request request = invocation.getArgument(0);
@@ -578,20 +619,23 @@ public class ProxyTest {
                         })
                 .when(proxyCallback)
                 .onBeforeTunnelRequest(any());
-        Mockito.when(proxyCallback.onTunnelHeadersReceived(any(), anyInt())).thenReturn(true);
+        Mockito.doReturn(true).when(proxyCallback).onTunnelHeadersReceived(any(), anyInt());
         mTestRule
                 .getTestFramework()
                 .applyEngineBuilderPatch(
-                        (builder) ->
-                                builder.setProxyOptions(
-                                        new ProxyOptions(
-                                                Arrays.asList(
-                                                        new Proxy(
-                                                                /* scheme= */ Proxy.HTTP,
-                                                                /* host= */ "localhost",
-                                                                /* port= */ mNativeTestServer
-                                                                        .getPort(),
-                                                                /* callback= */ proxyCallback)))));
+                        (builder) -> {
+                            builder.enableHttpCache(
+                                    CronetEngine.Builder.HTTP_CACHE_IN_MEMORY, 100 * 1024);
+                            builder.setProxyOptions(
+                                    new ProxyOptions(
+                                            Arrays.asList(
+                                                    new Proxy(
+                                                            /* scheme= */ Proxy.HTTP,
+                                                            /* host= */ "localhost",
+                                                            /* port= */ mNativeTestServer.getPort(),
+                                                            Executors.newSingleThreadExecutor(),
+                                                            /* callback= */ proxyCallback))));
+                        });
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
         UrlRequest.Builder urlRequestBuilder =
@@ -599,16 +643,13 @@ public class ProxyTest {
                         "https://test-hostname/test-path", callback, callback.getExecutor());
         urlRequestBuilder.build().start();
         callback.blockForDone();
-        assertThat(requestHandler.mReceivedHttpRequest).isNotNull();
-        assertThat(requestHandler.mReceivedHttpRequest.getRelativeUrl())
-                .isEqualTo("test-hostname:443");
-        assertThat(requestHandler.mReceivedHttpRequest.getMethod()).isEqualTo("CONNECT");
         Mockito.verify(proxyCallback, times(1)).onBeforeTunnelRequest(any());
         Mockito.verify(proxyCallback, times(1)).onTunnelHeadersReceived(any(), anyInt());
-        // TODO(https://crbug.com/441490632): This request should not fail with
-        // net::ERR_TUNNEL_CONNECTION_FAILED. Instead, we should call Request#onBeforeTunnelRequest
-        // again for the same Proxy, giving the embedder a chance to respond to the authentication
-        // challenge.
+        // TODO(https://crbug.com/447574602): Consider supporting authentication challenges in
+        // Cronet. Currently, whenever Cronet encounters a 401/407 we rely on developers to retry
+        // the request after adding an Authentication/Proxy-Authentication header. If this turns out
+        // to be too cumbersome, we should consider providing an ad-hoc abstraction to handle these
+        // (similarly to how //net provides net::HttpAuthController).
         assertThat(callback.mError).isNotNull();
         assertThat(callback.mError).isInstanceOf(NetworkException.class);
         NetworkException networkException = (NetworkException) callback.mError;
@@ -632,7 +673,8 @@ public class ProxyTest {
         // destinations other than the one passed will result in 502 responses.
         mNativeTestServer.enableConnectProxy(Arrays.asList("https://not-existing-url.com"));
         mNativeTestServer.start();
-        Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+        Proxy.Callback proxyCallback =
+                Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
         doAnswer(
                         invocation -> {
                             Proxy.Callback.Request request = invocation.getArgument(0);
@@ -641,7 +683,7 @@ public class ProxyTest {
                         })
                 .when(proxyCallback)
                 .onBeforeTunnelRequest(any());
-        Mockito.when(proxyCallback.onTunnelHeadersReceived(any(), anyInt())).thenReturn(true);
+        Mockito.doReturn(true).when(proxyCallback).onTunnelHeadersReceived(any(), anyInt());
         mTestRule
                 .getTestFramework()
                 .applyEngineBuilderPatch(
@@ -654,6 +696,7 @@ public class ProxyTest {
                                                                 /* host= */ "localhost",
                                                                 /* port= */ mNativeTestServer
                                                                         .getPort(),
+                                                                Executors.newSingleThreadExecutor(),
                                                                 /* callback= */ proxyCallback)))));
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -689,7 +732,8 @@ public class ProxyTest {
             originServer.start();
             proxyServer.enableConnectProxy(Arrays.asList(originServer.getSuccessURL()));
             proxyServer.start();
-            Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 Proxy.Callback.Request request = invocation.getArgument(0);
@@ -698,8 +742,7 @@ public class ProxyTest {
                             })
                     .when(proxyCallback)
                     .onBeforeTunnelRequest(any());
-            Mockito.when(proxyCallback.onTunnelHeadersReceived(anyList(), anyInt()))
-                    .thenReturn(true);
+            Mockito.doReturn(true).when(proxyCallback).onTunnelHeadersReceived(any(), anyInt());
             mTestRule
                     .getTestFramework()
                     .applyEngineBuilderPatch(
@@ -712,6 +755,8 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proxyCallback)))));
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
             TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -757,6 +802,147 @@ public class ProxyTest {
     }
 
     @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.AOSP_PLATFORM, CronetImplementation.FALLBACK},
+            reason =
+                    "This feature flag has not reached platform Cronet yet. Fallback provides no"
+                            + " ProxyOptions support.")
+    // Mockito fails on Marshmallow with NoClassDefFoundError:
+    // org.mockito.internal.invocation.TypeSafeMatching$$ExternalSyntheticLambda0
+    @RequiresMinAndroidApi(Build.VERSION_CODES.N)
+    public void testCallback_proxyResponse_returningFalseFailsUrlRequest() {
+        try (NativeTestServer proxyServer = mNativeTestServer;
+                NativeTestServer originServer =
+                        NativeTestServer.createNativeTestServerWithHTTPS(
+                                mTestRule.getTestFramework().getContext(),
+                                ServerCertificate.CERT_OK)) {
+            originServer.start();
+            proxyServer.enableConnectProxy(Arrays.asList(originServer.getSuccessURL()));
+            proxyServer.start();
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
+            doAnswer(
+                            invocation -> {
+                                Proxy.Callback.Request request = invocation.getArgument(0);
+                                request.proceed(Collections.emptyList());
+                                return null;
+                            })
+                    .when(proxyCallback)
+                    .onBeforeTunnelRequest(any());
+            Mockito.doReturn(false).when(proxyCallback).onTunnelHeadersReceived(any(), anyInt());
+            mTestRule
+                    .getTestFramework()
+                    .applyEngineBuilderPatch(
+                            (builder) ->
+                                    builder.setProxyOptions(
+                                            new ProxyOptions(
+                                                    Arrays.asList(
+                                                            new Proxy(
+                                                                    /* scheme= */ Proxy.HTTP,
+                                                                    /* host= */ "localhost",
+                                                                    /* port= */ proxyServer
+                                                                            .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
+                                                                    /* callback= */ proxyCallback)))));
+            ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
+            TestUrlRequestCallback callback = new TestUrlRequestCallback();
+            UrlRequest.Builder urlRequestBuilder =
+                    cronetEngine.newUrlRequestBuilder(
+                            originServer.getSuccessURL(), callback, callback.getExecutor());
+            urlRequestBuilder.build().start();
+            callback.blockForDone();
+            Mockito.verify(proxyCallback, times(1)).onBeforeTunnelRequest(any());
+            // Confirm that Proxy.Callback#onTunnelHeadersReceived was called reporting a success
+            // (status code 200), but that the UrlRequest still failed, since
+            // onTunnelHeadersReceived returned false.
+            Mockito.verify(proxyCallback, times(1)).onTunnelHeadersReceived(anyList(), eq(200));
+            assertThat(callback.mError).isNotNull();
+            assertThat(callback.mError).isInstanceOf(NetworkException.class);
+            NetworkException networkException = (NetworkException) callback.mError;
+            assertThat(networkException.getErrorCode())
+                    .isEqualTo(NetworkException.ERROR_CONNECTION_CLOSED);
+        }
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.AOSP_PLATFORM, CronetImplementation.FALLBACK},
+            reason =
+                    "This feature flag has not reached platform Cronet yet. Fallback provides no"
+                            + " ProxyOptions support.")
+    // Mockito fails on Marshmallow with NoClassDefFoundError:
+    // org.mockito.internal.invocation.TypeSafeMatching$$ExternalSyntheticLambda0
+    @RequiresMinAndroidApi(Build.VERSION_CODES.N)
+    public void testCallback_proxyResponse_throwingFailsUrlRequest() {
+        try (NativeTestServer proxyServer = mNativeTestServer;
+                NativeTestServer originServer =
+                        NativeTestServer.createNativeTestServerWithHTTPS(
+                                mTestRule.getTestFramework().getContext(),
+                                ServerCertificate.CERT_OK)) {
+            originServer.start();
+            proxyServer.enableConnectProxy(Arrays.asList(originServer.getSuccessURL()));
+            proxyServer.start();
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
+            doAnswer(
+                            invocation -> {
+                                Proxy.Callback.Request request = invocation.getArgument(0);
+                                request.proceed(Collections.emptyList());
+                                return null;
+                            })
+                    .when(proxyCallback)
+                    .onBeforeTunnelRequest(any());
+            doAnswer(
+                            invocation -> {
+                                throw new RuntimeException("This should fail the UrlRequest");
+                            })
+                    .when(proxyCallback)
+                    .onTunnelHeadersReceived(anyList(), anyInt());
+            Proxy proxy =
+                    new Proxy(
+                            /* scheme= */ Proxy.HTTP,
+                            /* host= */ "localhost",
+                            /* port= */ proxyServer.getPort(),
+                            (Runnable r) -> {
+                                try {
+                                    r.run();
+                                } catch (Exception e) {
+                                    // Ignore the exception. This is bad practice. We're doing this
+                                    // only to confirm the tunnel won't be used as we promise in our
+                                    // documentation.
+                                }
+                            },
+                            /* callback= */ proxyCallback);
+            mTestRule
+                    .getTestFramework()
+                    .applyEngineBuilderPatch(
+                            (builder) ->
+                                    builder.setProxyOptions(
+                                            new ProxyOptions(Arrays.asList(proxy))));
+            ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
+            TestUrlRequestCallback callback = new TestUrlRequestCallback();
+            UrlRequest.Builder urlRequestBuilder =
+                    cronetEngine.newUrlRequestBuilder(
+                            originServer.getSuccessURL(), callback, callback.getExecutor());
+            urlRequestBuilder.build().start();
+            callback.blockForDone();
+            Mockito.verify(proxyCallback, times(1)).onBeforeTunnelRequest(any());
+            // Confirm that Proxy.Callback#onTunnelHeadersReceived was called reporting a success
+            // (status code 200), but that the UrlRequest still failed, since
+            // onTunnelHeadersReceived threw.
+            Mockito.verify(proxyCallback, times(1)).onTunnelHeadersReceived(anyList(), eq(200));
+            assertThat(callback.mError).isNotNull();
+            assertThat(callback.mError).isInstanceOf(NetworkException.class);
+            NetworkException networkException = (NetworkException) callback.mError;
+            assertThat(networkException.getErrorCode())
+                    .isEqualTo(NetworkException.ERROR_CONNECTION_CLOSED);
+        }
+    }
+
+    @Test
     @LargeTest
     @IgnoreFor(
             implementations = {CronetImplementation.AOSP_PLATFORM, CronetImplementation.FALLBACK},
@@ -775,8 +961,15 @@ public class ProxyTest {
             originServer.start();
             proxyServer.enableConnectProxy(Arrays.asList(originServer.getSuccessURL()));
             proxyServer.start();
-            // We want to hang: do not mock the callback methods.
-            Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
+            doAnswer(
+                            invocation -> {
+                                // We want to hang: ignore the Request object we receive.
+                                return null;
+                            })
+                    .when(proxyCallback)
+                    .onBeforeTunnelRequest(any());
             mTestRule
                     .getTestFramework()
                     .applyEngineBuilderPatch(
@@ -789,6 +982,8 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proxyCallback)))));
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
             TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -801,7 +996,13 @@ public class ProxyTest {
             assertThat(callback.mError).isNotNull();
             assertThat(callback.mError).isInstanceOf(NetworkException.class);
             NetworkException networkException = (NetworkException) callback.mError;
-            assertThat(networkException.getErrorCode()).isEqualTo(NetworkException.ERROR_TIMED_OUT);
+            assertThat(networkException.getErrorCode())
+                    .isAnyOf(
+                            NetworkException.ERROR_TIMED_OUT,
+                            // Sometimes the device network can disconnect during the test, making
+                            // this test flaky. Work around it by accepting ERROR_NETWORK_CHANGED as
+                            // a possible failure.
+                            NetworkException.ERROR_NETWORK_CHANGED);
             Mockito.verify(proxyCallback, times(1)).onBeforeTunnelRequest(any());
             Mockito.verify(proxyCallback, never()).onTunnelHeadersReceived(anyList(), anyInt());
         }
@@ -830,7 +1031,8 @@ public class ProxyTest {
 
             Exchanger<Proxy.Callback.Request> proxyRequestExchanger =
                     new Exchanger<Proxy.Callback.Request>();
-            Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 proxyRequestExchanger.exchange(invocation.getArgument(0));
@@ -851,6 +1053,8 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proxyCallback)))));
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
 
@@ -882,6 +1086,7 @@ public class ProxyTest {
             reason =
                     "This feature flag has not reached platform Cronet yet. Fallback provides no"
                             + " ProxyOptions support.")
+    @DisabledTest(message = "TODO(https://crbug.com/442024094): Reenable after flakiness is fixed")
     // Mockito fails on Marshmallow with NoClassDefFoundError:
     // org.mockito.internal.invocation.TypeSafeMatching$$ExternalSyntheticLambda0
     @RequiresMinAndroidApi(Build.VERSION_CODES.N)
@@ -898,7 +1103,8 @@ public class ProxyTest {
 
             Exchanger<Proxy.Callback.Request> proxyRequestExchanger =
                     new Exchanger<Proxy.Callback.Request>();
-            Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 proxyRequestExchanger.exchange(invocation.getArgument(0));
@@ -919,6 +1125,8 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proxyCallback)))));
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
             TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -962,7 +1170,8 @@ public class ProxyTest {
 
             Exchanger<Proxy.Callback.Request> proxyRequestExchanger =
                     new Exchanger<Proxy.Callback.Request>();
-            Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 proxyRequestExchanger.exchange(invocation.getArgument(0));
@@ -983,6 +1192,8 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proxyCallback)))));
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
             TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -1028,7 +1239,8 @@ public class ProxyTest {
 
             Exchanger<Proxy.Callback.Request> proxyRequestExchanger =
                     new Exchanger<Proxy.Callback.Request>();
-            Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 proxyRequestExchanger.exchange(invocation.getArgument(0));
@@ -1036,8 +1248,7 @@ public class ProxyTest {
                             })
                     .when(proxyCallback)
                     .onBeforeTunnelRequest(any());
-            Mockito.when(proxyCallback.onTunnelHeadersReceived(anyList(), anyInt()))
-                    .thenReturn(true);
+            Mockito.doReturn(true).when(proxyCallback).onTunnelHeadersReceived(any(), anyInt());
 
             mTestRule
                     .getTestFramework()
@@ -1051,6 +1262,8 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proxyCallback)))));
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
             TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -1108,7 +1321,8 @@ public class ProxyTest {
 
             Exchanger<Proxy.Callback.Request> proxyRequestExchanger =
                     new Exchanger<Proxy.Callback.Request>();
-            Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 proxyRequestExchanger.exchange(invocation.getArgument(0));
@@ -1116,8 +1330,7 @@ public class ProxyTest {
                             })
                     .when(proxyCallback)
                     .onBeforeTunnelRequest(any());
-            Mockito.when(proxyCallback.onTunnelHeadersReceived(anyList(), anyInt()))
-                    .thenReturn(true);
+            Mockito.doReturn(true).when(proxyCallback).onTunnelHeadersReceived(any(), anyInt());
 
             mTestRule
                     .getTestFramework()
@@ -1131,6 +1344,8 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proxyCallback)))));
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
             TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -1177,7 +1392,8 @@ public class ProxyTest {
 
             Exchanger<Proxy.Callback.Request> proxyRequestExchanger =
                     new Exchanger<Proxy.Callback.Request>();
-            Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 proxyRequestExchanger.exchange(invocation.getArgument(0));
@@ -1185,8 +1401,7 @@ public class ProxyTest {
                             })
                     .when(proxyCallback)
                     .onBeforeTunnelRequest(any());
-            Mockito.when(proxyCallback.onTunnelHeadersReceived(anyList(), anyInt()))
-                    .thenReturn(true);
+            Mockito.doReturn(true).when(proxyCallback).onTunnelHeadersReceived(any(), anyInt());
 
             mTestRule
                     .getTestFramework()
@@ -1200,6 +1415,8 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proxyCallback)))));
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
             TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -1246,7 +1463,8 @@ public class ProxyTest {
 
             Exchanger<Proxy.Callback.Request> proxyRequestExchanger =
                     new Exchanger<Proxy.Callback.Request>();
-            Proxy.Callback proxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 proxyRequestExchanger.exchange(invocation.getArgument(0));
@@ -1254,8 +1472,7 @@ public class ProxyTest {
                             })
                     .when(proxyCallback)
                     .onBeforeTunnelRequest(any());
-            Mockito.when(proxyCallback.onTunnelHeadersReceived(anyList(), anyInt()))
-                    .thenReturn(true);
+            Mockito.doReturn(true).when(proxyCallback).onTunnelHeadersReceived(any(), anyInt());
 
             mTestRule
                     .getTestFramework()
@@ -1269,6 +1486,8 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proxyCallback)))));
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
             TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -1310,7 +1529,8 @@ public class ProxyTest {
             proxyServer.enableConnectProxy(Arrays.asList(originServer.getSuccessURL()));
             proxyServer.start();
 
-            Proxy.Callback requestCancelProxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback requestCancelProxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 Proxy.Callback.Request request = invocation.getArgument(0);
@@ -1320,7 +1540,8 @@ public class ProxyTest {
                     .when(requestCancelProxyCallback)
                     .onBeforeTunnelRequest(any());
 
-            Proxy.Callback proceedProxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proceedProxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 Proxy.Callback.Request request = invocation.getArgument(0);
@@ -1329,8 +1550,9 @@ public class ProxyTest {
                             })
                     .when(proceedProxyCallback)
                     .onBeforeTunnelRequest(any());
-            Mockito.when(proceedProxyCallback.onTunnelHeadersReceived(any(), anyInt()))
-                    .thenReturn(true);
+            Mockito.doReturn(true)
+                    .when(proceedProxyCallback)
+                    .onTunnelHeadersReceived(any(), anyInt());
 
             mTestRule
                     .getTestFramework()
@@ -1344,12 +1566,16 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ requestCancelProxyCallback),
                                                             new Proxy(
                                                                     /* scheme= */ Proxy.HTTP,
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proceedProxyCallback)))));
 
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
@@ -1409,7 +1635,8 @@ public class ProxyTest {
             proxyServer.enableConnectProxy(Arrays.asList(originServer.getSuccessURL()));
             proxyServer.start();
 
-            Proxy.Callback responseCancelProxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback responseCancelProxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 Proxy.Callback.Request request = invocation.getArgument(0);
@@ -1418,10 +1645,12 @@ public class ProxyTest {
                             })
                     .when(responseCancelProxyCallback)
                     .onBeforeTunnelRequest(any());
-            Mockito.when(responseCancelProxyCallback.onTunnelHeadersReceived(any(), anyInt()))
-                    .thenReturn(false);
+            Mockito.doReturn(false)
+                    .when(responseCancelProxyCallback)
+                    .onTunnelHeadersReceived(any(), anyInt());
 
-            Proxy.Callback proceedProxyCallback = Mockito.mock(Proxy.Callback.class);
+            Proxy.Callback proceedProxyCallback =
+                    Mockito.mock(Proxy.Callback.class, Mockito.CALLS_REAL_METHODS);
             doAnswer(
                             invocation -> {
                                 Proxy.Callback.Request request = invocation.getArgument(0);
@@ -1430,8 +1659,9 @@ public class ProxyTest {
                             })
                     .when(proceedProxyCallback)
                     .onBeforeTunnelRequest(any());
-            Mockito.when(proceedProxyCallback.onTunnelHeadersReceived(any(), anyInt()))
-                    .thenReturn(true);
+            Mockito.doReturn(true)
+                    .when(proceedProxyCallback)
+                    .onTunnelHeadersReceived(any(), anyInt());
 
             mTestRule
                     .getTestFramework()
@@ -1445,12 +1675,16 @@ public class ProxyTest {
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ responseCancelProxyCallback),
                                                             new Proxy(
                                                                     /* scheme= */ Proxy.HTTP,
                                                                     /* host= */ "localhost",
                                                                     /* port= */ proxyServer
                                                                             .getPort(),
+                                                                    Executors
+                                                                            .newSingleThreadExecutor(),
                                                                     /* callback= */ proceedProxyCallback)))));
 
             ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
@@ -1555,6 +1789,7 @@ public class ProxyTest {
                                                                 /* host= */ "localhost",
                                                                 /* port= */ mNativeTestServer
                                                                         .getPort(),
+                                                                Executors.newSingleThreadExecutor(),
                                                                 /* callback= */ proxyCallback)))));
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -1643,12 +1878,14 @@ public class ProxyTest {
                                                                 /* host= */ "localhost",
                                                                 /* port= */ mNativeTestServer
                                                                         .getPort(),
+                                                                Executors.newSingleThreadExecutor(),
                                                                 /* callback= */ closeDuringRequestProxyCallback),
                                                         new Proxy(
                                                                 /* scheme= */ Proxy.HTTP,
                                                                 /* host= */ "localhost",
                                                                 /* port= */ mNativeTestServer
                                                                         .getPort(),
+                                                                Executors.newSingleThreadExecutor(),
                                                                 /* callback= */ closeDuringResponseProxyCallback)))));
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
@@ -1721,6 +1958,7 @@ public class ProxyTest {
                                                                 /* host= */ "localhost",
                                                                 /* port= */ mNativeTestServer
                                                                         .getPort(),
+                                                                Executors.newSingleThreadExecutor(),
                                                                 /* callback= */ proxyCallback)))));
         ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
         TestUrlRequestCallback callback = new TestUrlRequestCallback();

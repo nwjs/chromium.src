@@ -692,7 +692,6 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
                             userInfo:userInfo];
   }
 
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
   if (@available(iOS 26, *)) {
     if ([error.domain isEqualToString:@(web::kWebKitErrorDomain)] &&
         error.code == web::kWebKitErrorCannotShowUrl &&
@@ -711,7 +710,6 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
                               userInfo:userInfo];
     }
   }
-#endif
 
   // Handle load cancellation for directly cancelled navigations without
   // handling their potential errors. Otherwise, handle the error.
@@ -1404,6 +1402,11 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
     return YES;
   }
 
+  if (pageTransition & ui::PAGE_TRANSITION_RELOAD) {
+    // Allow reload navigations.
+    return YES;
+  }
+
   // Allow navigating to chrome:// pages if the navigation happens due to
   //  - user typing the url in the omnibox,
   //  - user tapping on a suggestion in the omnibox,
@@ -1413,6 +1416,7 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
       ui::PAGE_TRANSITION_GENERATED,
       ui::PAGE_TRANSITION_AUTO_BOOKMARK,
   };
+
   for (const ui::PageTransition allowedType : kAllowedTypes) {
     if (ui::PageTransitionCoreTypeIs(pageTransition, allowedType)) {
       return YES;

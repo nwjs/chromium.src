@@ -31,6 +31,10 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabwindow.TabWindowManager;
+import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
+import org.chromium.components.content_settings.ContentSetting;
+import org.chromium.components.content_settings.ContentSettingsType;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ResourceRequestBody;
@@ -41,6 +45,7 @@ import org.chromium.url.Origin;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 
 /** Bridges between the C++ and Java {@link TabModel} interfaces. */
@@ -153,6 +158,16 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         TabModelJniBridgeJni.get().broadcastSessionRestoreComplete(mNativeTabModelJniBridge);
     }
 
+    @Override
+    public OptionalInt getNativeSessionIdForTesting() {
+        if (!isNativeInitialized()) {
+            return OptionalInt.empty();
+        }
+
+        return OptionalInt.of(
+                TabModelJniBridgeJni.get().getSessionIdForTesting(mNativeTabModelJniBridge));
+    }
+
     /**
      * Called by subclasses when a Tab is added to the TabModel.
      *
@@ -164,8 +179,8 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         }
     }
 
-    protected void duplicateTabForTesting(Tab tab) {
-        TabModelJniBridgeJni.get()
+    protected Tab duplicateTabForTesting(Tab tab) {
+        return TabModelJniBridgeJni.get()
                 .duplicateTabForTesting( // IN-TEST
                         mNativeTabModelJniBridge, tab);
     }
@@ -466,10 +481,8 @@ public abstract class TabModelJniBridge implements TabModelInternal {
      * @return The new tab, if the duplication succeeded.
      */
     @CalledByNative
-    public @JniType("TabAndroid*") @Nullable Tab duplicateTab(
+    protected @JniType("TabAndroid*") @Nullable Tab duplicateTab(
             @JniType("TabAndroid*") Tab parentTab, WebContents webContents) {
-        // TODO(crbug.com/431997520): Insert tab next to parent instead of next to the other
-        // children tabs.
         return getTabCreator()
                 .createTabWithWebContents(
                         parentTab,
@@ -563,6 +576,44 @@ public abstract class TabModelJniBridge implements TabModelInternal {
     protected abstract void moveTabGroupToWindow(
             @JniType("base::Token") Token tabGroupId, Activity activity, int newIndex);
 
+    @Override
+    public int getPinnedTabsCount() {
+        // The index of the first non-pinned tab is equivalent to the number of pinned tabs.
+        // For example, if there are 3 pinned tabs at indices 0, 1, and 2, the first non-pinned
+        // tab will be at index 3. If all tabs are pinned, this will return getCount(). If no
+        // tabs are pinned, this will return 0.
+        return findFirstNonPinnedTabIndex();
+    }
+
+    @Override
+    public void setMuteSetting(List<Tab> tabs, boolean mute) {
+        TabModelJniBridgeJni.get().setMuteSetting(mNativeTabModelJniBridge, tabs, mute);
+    }
+
+    @Override
+    public boolean isMuted(Tab tab) {
+        WebContents contents = tab.getWebContents();
+        if (contents != null) {
+            return contents.isAudioMuted();
+        }
+
+        GURL url = tab.getUrl();
+        String scheme = url.getScheme();
+        if (url.isEmpty()
+                || UrlConstants.CHROME_SCHEME.equals(scheme)
+                || UrlConstants.CHROME_NATIVE_SCHEME.equals(scheme)) {
+            // Chrome URLs don't have content settings, so default to false when WebContents are not
+            // available.
+            return false;
+        }
+
+        @ContentSetting
+        int soundSetting =
+                WebsitePreferenceBridge.getContentSetting(
+                        mProfile, ContentSettingsType.SOUND, url, url);
+        return soundSetting == ContentSetting.BLOCK;
+    }
+
     @NativeMethods
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public interface Natives {
@@ -581,7 +632,13 @@ public abstract class TabModelJniBridge implements TabModelInternal {
         void associateWithBrowserWindow(
                 long nativeTabModelJniBridge, long nativeAndroidBrowserWindow);
 
-        void duplicateTabForTesting( // IN-TEST
+        void setMuteSetting(
+                long nativeTabModelJniBridge,
+                @JniType("std::vector<TabAndroid*>") List<Tab> tabs,
+                boolean mute);
+
+        @JniType("TabAndroid*")
+        Tab duplicateTabForTesting( // IN-TEST
                 long nativeTabModelJniBridge, @JniType("TabAndroid*") Tab tab);
 
         void moveTabToWindowForTesting( // IN-TEST
@@ -595,5 +652,7 @@ public abstract class TabModelJniBridge implements TabModelInternal {
                 @JniType("base::Token") Token tabGroupId,
                 long nativeAndroidBrowserWindow,
                 int newIndex);
+
+        int getSessionIdForTesting(long nativeTabModelJniBridge);
     }
 }

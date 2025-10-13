@@ -41,6 +41,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.browser_controls.TopControlLayer;
+import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlType;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlVisibility;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -53,12 +54,14 @@ import org.chromium.chrome.browser.toolbar.ConstraintsChecker;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.ToolbarCaptureType;
+import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
+import org.chromium.chrome.browser.toolbar.ToolbarDataProvider.Observer;
 import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarHairlineView;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult.TopToolbarBlockCaptureReason;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
-import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager.AppHeaderObserver;
 import org.chromium.components.browser_ui.widget.ClipDrawableProgressBar.DrawingInfo;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
 import org.chromium.components.browser_ui.widget.ViewResourceCoordinatorLayout;
@@ -79,7 +82,7 @@ import java.util.function.Supplier;
 /** Layout for the browser controls (omnibox, menu, tab strip, etc..). */
 @NullMarked
 public class ToolbarControlContainer extends OptimizedFrameLayout
-        implements ControlContainer, DesktopWindowStateManager.AppHeaderObserver, TopControlLayer {
+        implements ControlContainer, AppHeaderObserver, TopControlLayer, Observer {
     private boolean mIncognito;
     private boolean mMidVisibilityToggle;
     private boolean mIsCompositorInitialized;
@@ -102,6 +105,8 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
     private final Callback<Boolean> mOnXrSpaceModeChanged = this::onXrSpaceModeChanged;
     private @Nullable ObservableSupplier<Boolean> mXrSpaceModeObservableSupplier;
     private @Nullable ObservableSupplierImpl<Integer> mHeightChangedSupplier;
+    private @Nullable TopControlsStacker mTopControlsStacker;
+    private ToolbarDataProvider mToolbarDataProvider;
 
     /**
      * Constructs a new control container.
@@ -204,6 +209,11 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         ((ToolbarViewResourceAdapter) getToolbarResourceAdapter()).onPageLoadStopped();
     }
 
+    public void onContentViewScrollingStateChanged(boolean scrolling) {
+        ((ToolbarViewResourceAdapter) getToolbarResourceAdapter())
+                .onContentViewScrollingStateChanged(scrolling);
+    }
+
     @Override
     public void setCompositorBackgroundInitialized() {
         mIsCompositorInitialized = true;
@@ -248,7 +258,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
             mToolbarView.setVisibility(View.GONE);
             mToolbarView.removeView(mLocationBarView);
             mToolbarContainer.addView(mLocationBarView);
-            setBackgroundColor(mToolbar.getPrimaryColor());
+            setBackgroundColor(mToolbarDataProvider.getPrimaryColor());
         } else {
             assert mLocationBarView != null
                     : "Trying to restore location bar view to toolbar without removing it first";
@@ -288,6 +298,9 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
 
         if (mXrSpaceModeObservableSupplier != null) {
             mXrSpaceModeObservableSupplier.removeObserver(mOnXrSpaceModeChanged);
+        }
+        if (mToolbarDataProvider != null) {
+            mToolbarDataProvider.removeToolbarDataProviderObserver(this);
         }
     }
 
@@ -365,6 +378,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
      *     captures are stale and not able to be taken.
      * @param layoutStateProviderSupplier Used to check the current layout type.
      * @param fullscreenManager Used to check whether in fullscreen.
+     * @param topControlsStacker The TopControlsStacker for |this| to query layer states.
      */
     @Initializer
     public void setPostInitializationDependencies(
@@ -377,9 +391,14 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
             BrowserStateBrowserControlsVisibilityDelegate
                     browserStateBrowserControlsVisibilityDelegate,
             OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
-            FullscreenManager fullscreenManager) {
+            FullscreenManager fullscreenManager,
+            TopControlsStacker topControlsStacker,
+            ToolbarDataProvider toolbarDataProvider) {
         mToolbar = toolbar;
         mIncognito = isIncognito;
+        mTopControlsStacker = topControlsStacker;
+        mToolbarDataProvider = toolbarDataProvider;
+        mToolbarDataProvider.addToolbarDataProviderObserver(this);
 
         BooleanSupplier isVisible = () -> this.getVisibility() == View.VISIBLE;
         mToolbarContainer.setPostInitializationDependencies(
@@ -391,7 +410,8 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                 isVisible,
                 layoutStateProviderSupplier,
                 fullscreenManager,
-                () -> mMidVisibilityToggle);
+                () -> mMidVisibilityToggle,
+                toolbarDataProvider);
 
         mToolbarView = toolbarView;
         assert mToolbarView != null;
@@ -472,6 +492,13 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         mToolbarContainer.setOnDragListener(mToolbarContainerDragListener);
     }
 
+    @Override
+    public void onPrimaryColorChanged() {
+        if (mShowLocationBarOnly) {
+            setBackgroundColor(mToolbarDataProvider.getPrimaryColor());
+        }
+    }
+
     /** The layout that handles generating the toolbar view resource. */
     // Only publicly visible due to lint warnings.
     public static class ToolbarViewResourceCoordinatorLayout extends ViewResourceCoordinatorLayout {
@@ -501,7 +528,8 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                 BooleanSupplier isVisible,
                 OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
                 FullscreenManager fullscreenManager,
-                BooleanSupplier isMidVisibilityToggle) {
+                BooleanSupplier isMidVisibilityToggle,
+                ToolbarDataProvider toolbarDataProvider) {
             mIsMidVisibilityToggle = isMidVisibilityToggle;
             ToolbarViewResourceAdapter adapter =
                     ((ToolbarViewResourceAdapter) getResourceAdapter());
@@ -513,7 +541,8 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                     browserStateBrowserControlsVisibilityDelegate,
                     isVisible,
                     layoutStateProviderSupplier,
-                    fullscreenManager);
+                    fullscreenManager,
+                    toolbarDataProvider);
         }
 
         @Override
@@ -573,6 +602,10 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
 
         private boolean mNeedCaptureAfterPageLoad;
 
+        private ToolbarDataProvider mToolbarDataProvider;
+
+        private CharSequence mMostRecentlyCapturedUrl;
+
         /** Builds the resource adapter for the toolbar. */
         public ToolbarViewResourceAdapter(View toolbarContainer) {
             super(toolbarContainer);
@@ -603,7 +636,8 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                         browserStateBrowserControlsVisibilityDelegate,
                 BooleanSupplier controlContainerIsVisibleSupplier,
                 OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
-                FullscreenManager fullscreenManager) {
+                FullscreenManager fullscreenManager,
+                ToolbarDataProvider toolbarDataProvider) {
             assert mToolbar == null;
             mToolbar = toolbar;
 
@@ -622,6 +656,8 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
             layoutStateProviderSupplier.onAvailable(
                     (layoutStateProvider) -> mLayoutStateProvider = layoutStateProvider);
             mFullscreenManager = fullscreenManager;
+            mToolbarDataProvider = toolbarDataProvider;
+            mMostRecentlyCapturedUrl = "";
         }
 
         @Override
@@ -728,6 +764,7 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         @Override
         public void onCaptureEnd() {
             mToolbar.setTextureCaptureMode(false);
+            mMostRecentlyCapturedUrl = mToolbarDataProvider.getUrlBarData().displayText;
         }
 
         @Override
@@ -758,6 +795,20 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                 mNeedCaptureAfterPageLoad = true;
                 onResourceRequested();
                 mNeedCaptureAfterPageLoad = false;
+            }
+        }
+
+        public void onContentViewScrollingStateChanged(boolean scrolling) {
+            if (scrolling
+                    && mControlsToken == TokenHolder.INVALID_TOKEN
+                    && !mConstraintsObserver.areControlsLocked()) {
+                boolean isCaptureStale =
+                        !mToolbarDataProvider
+                                .getUrlBarData()
+                                .displayText
+                                .equals(mMostRecentlyCapturedUrl);
+                RecordHistogram.recordBooleanHistogram(
+                        "Android.Toolbar.StaleCapturedUrlOnScroll", isCaptureStale);
             }
         }
 
@@ -797,8 +848,10 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
                 }
             } else if (Boolean.TRUE.equals(compositorInMotion)
                     && super.isDirty()
-                    && mControlContainerIsVisibleSupplier.getAsBoolean()) {
+                    && (ChromeFeatureList.isEnabled(ChromeFeatureList.TOOLBAR_STALE_CAPTURE_BUG_FIX)
+                            || mControlContainerIsVisibleSupplier.getAsBoolean())) {
                 CaptureReadinessResult captureReadinessResult = mToolbar.isReadyForTextureCapture();
+                CaptureReadinessResult.logCaptureReasonFromResult(captureReadinessResult);
                 if (ToolbarFeatures.shouldRecordSuppressionMetrics()) {
                     RecordHistogram.recordEnumeratedHistogram(
                             "Android.TopToolbar.InMotionStage",
@@ -933,5 +986,16 @@ public class ToolbarControlContainer extends OptimizedFrameLayout
         return isToolbarContainerFullyVisible()
                 ? TopControlVisibility.VISIBLE
                 : TopControlVisibility.HIDDEN;
+    }
+
+    @Override
+    public void onTopControlLayerHeightChanged(int topControlsHeight, int topControlsMinHeight) {
+        // TODO(crbug.com/417238089): This may be better placed in the hairline view itself.
+        // If this layer is at the bottom, the hairline should be visible.
+        mToolbarHairline.setVisibility(
+                mTopControlsStacker != null
+                                && mTopControlsStacker.isLayerAtBottom(getTopControlType())
+                        ? View.VISIBLE
+                        : View.GONE);
     }
 }

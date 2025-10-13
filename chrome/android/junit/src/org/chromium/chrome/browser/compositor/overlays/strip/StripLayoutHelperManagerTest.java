@@ -92,7 +92,6 @@ import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
-import org.chromium.chrome.browser.theme.SurfaceColorUpdateUtils;
 import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.top.tab_strip.StripVisibilityState;
@@ -120,7 +119,6 @@ import java.util.List;
 @DisableFeatures({
     ChromeFeatureList.TAB_STRIP_INCOGNITO_MIGRATION,
     ChromeFeatureList.DATA_SHARING,
-    ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
     ChromeFeatureList.TAB_STRIP_MOUSE_CLOSE_RESIZE_DELAY
 })
 public class StripLayoutHelperManagerTest {
@@ -386,7 +384,7 @@ public class StripLayoutHelperManagerTest {
         // Default state
         assertEquals(
                 "Initial strip background color is incorrect.",
-                SemanticColorUtils.getColorSurfaceDim(mActivity),
+                SemanticColorUtils.getColorSurfaceContainerHigh(mActivity),
                 mStripLayoutHelperManager.getBackgroundColor());
 
         // Incognito
@@ -404,7 +402,12 @@ public class StripLayoutHelperManagerTest {
         mStripLayoutHelperManager.onTopResumedActivityChanged(false);
         assertEquals(
                 "Unfocused strip background color is incorrect.",
-                SurfaceColorUpdateUtils.getTabStripBackgroundColorUnfocused(mActivity),
+                TabUiThemeUtil.getTabStripBackgroundColor(
+                        mActivity,
+                        /* isIn
+                        cognito= */ false,
+                        /* isInDesktopWindow= */ true,
+                        /* isActivityFocused= */ false),
                 mStripLayoutHelperManager.getBackgroundColor());
 
         // Unfocused incognito
@@ -1392,7 +1395,7 @@ public class StripLayoutHelperManagerTest {
         assertEquals(
                 "Strip visibility is incorrect.",
                 StripVisibilityState.HIDDEN_BY_FADE,
-                mStripLayoutHelperManager.getStripVisibilityState());
+                (int) mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
         // Verify that a motion event on the strip is not handled.
         assertFalse(
                 "Strip motion event should not be handled.",
@@ -1407,7 +1410,7 @@ public class StripLayoutHelperManagerTest {
         assertEquals(
                 "Strip visibility is incorrect.",
                 StripVisibilityState.HIDDEN_BY_FADE,
-                mStripLayoutHelperManager.getStripVisibilityState());
+                (int) mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
         // Verify StatusBarColorController method invocations during the transition.
         InOrder hideTransition = Mockito.inOrder(mStatusBarColorController);
         hideTransition.verify(mStatusBarColorController).setTabStripHiddenOnTablet(true);
@@ -1435,7 +1438,7 @@ public class StripLayoutHelperManagerTest {
                 "StripVisibilityState.HIDDEN_BY_HEIGHT_TRANSITION should be set.",
                 0,
                 StripVisibilityState.HIDDEN_BY_HEIGHT_TRANSITION
-                        & mStripLayoutHelperManager.getStripVisibilityState());
+                        & mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
 
         // Simulate a switch to a small desktop window.
         int topPadding = 5;
@@ -1449,12 +1452,12 @@ public class StripLayoutHelperManagerTest {
                 "StripVisibilityState.HIDDEN_BY_HEIGHT_TRANSITION should be unset.",
                 0,
                 StripVisibilityState.HIDDEN_BY_HEIGHT_TRANSITION
-                        & mStripLayoutHelperManager.getStripVisibilityState());
+                        & mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
         assertNotEquals(
                 "StripVisibilityState.HIDDEN_BY_FADE should be set.",
                 0,
                 StripVisibilityState.HIDDEN_BY_FADE
-                        & mStripLayoutHelperManager.getStripVisibilityState());
+                        & mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
     }
 
     @Test
@@ -1466,7 +1469,7 @@ public class StripLayoutHelperManagerTest {
                 "StripVisibilityState.HIDDEN_BY_FADE should be set.",
                 0,
                 StripVisibilityState.HIDDEN_BY_FADE
-                        & mStripLayoutHelperManager.getStripVisibilityState());
+                        & mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
 
         // Simulate switching out of desktop windowing mode.
         mStripLayoutHelperManager.onHeightChanged(
@@ -1476,17 +1479,17 @@ public class StripLayoutHelperManagerTest {
         assertEquals(
                 "Strip visibility is incorrect.",
                 0,
-                mStripLayoutHelperManager.getStripVisibilityState());
+                (int) mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
         assertEquals(
                 "StripVisibilityState.HIDDEN_BY_HEIGHT_TRANSITION should be unset.",
                 0,
                 StripVisibilityState.HIDDEN_BY_HEIGHT_TRANSITION
-                        & mStripLayoutHelperManager.getStripVisibilityState());
+                        & mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
         assertEquals(
                 "StripVisibilityState.HIDDEN_BY_FADE should be unset.",
                 0,
                 StripVisibilityState.HIDDEN_BY_FADE
-                        & mStripLayoutHelperManager.getStripVisibilityState());
+                        & mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
     }
 
     @Test
@@ -1572,7 +1575,7 @@ public class StripLayoutHelperManagerTest {
         assertEquals(
                 "Strip visibility after fade transition is incorrect.",
                 expectedVisibilityState,
-                mStripLayoutHelperManager.getStripVisibilityState());
+                (int) mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
         // Verify that the correct rect is set in the motion event filter.
         RectF motionEventFilterArea =
                 ((AreaMotionEventFilter) mStripLayoutHelperManager.getEventFilter())

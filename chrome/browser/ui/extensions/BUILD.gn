@@ -29,6 +29,7 @@ source_set("extensions") {
 
     if (is_android) {
       sources += [ "extension_install_ui_android.h" ]
+      public_deps += [ "//components/messages/android" ]
     }
 
     if (is_win || is_mac || is_linux || is_chromeos) {
@@ -48,7 +49,8 @@ source_set("extensions") {
       "accelerator_priority.h",
       "app_launch_params.h",
       "application_launch.h",
-      "controlled_home_bubble_delegate.h",
+      "controlled_home_dialog_controller.h",
+      "controlled_home_dialog_controller_interface.h",
       "extension_action_platform_delegate.h",
       "extension_action_view_controller.h",
       "extension_enable_flow.h",
@@ -99,7 +101,9 @@ source_set("impl") {
 
   if (enable_extensions_core) {
     sources += [
+      "controlled_home_dialog.cc",
       "extension_install_blocked_dialog.cc",
+      "extension_install_friction_dialog.cc",
       "extension_install_ui.cc",
       "extension_multiple_uninstall_dialog.cc",
       "extension_uninstall_dialog_impl.cc",
@@ -109,6 +113,7 @@ source_set("impl") {
     deps += [
       "//chrome/browser/extensions",
       "//chrome/browser/profiles:profile",
+      "//components/vector_icons",
     ]
 
     if (is_win || is_mac || is_linux || is_chromeos) {
@@ -147,7 +152,7 @@ source_set("impl") {
     sources += [
       "app_launch_params.cc",
       "application_launch.cc",
-      "controlled_home_bubble_delegate.cc",
+      "controlled_home_dialog_controller.cc",
       "extension_action_view_controller.cc",
       "extension_enable_flow.cc",
       "extension_installed_bubble_model.cc",
@@ -210,9 +215,8 @@ source_set("unit_tests") {
 
   if (!is_android) {
     sources += [
-      "controlled_home_bubble_delegate_unittest.cc",
+      "controlled_home_dialog_controller_unittest.cc",
       "extension_installed_bubble_model_unittest.cc",
-      "extension_installed_waiter_unittest.cc",
       "extension_settings_overridden_dialog_unittest.cc",
       "extensions_overrides/simple_overrides_unittest.cc",
       "settings_api_bubble_helpers_unittest.cc",
@@ -231,6 +235,7 @@ source_set("unit_tests") {
       "//chrome/common/extensions",
       "//chrome/test:test_support",
       "//components/crx_file",
+      "//components/custom_handlers:test_support",
       "//components/proxy_config",
       "//components/search_engines",
       "//components/signin/public/base",
@@ -258,6 +263,7 @@ source_set("browser_tests") {
       "extension_enable_flow_test_delegate.cc",
       "extension_enable_flow_test_delegate.h",
       "extension_image_util_browsertest.cc",
+      "extension_installed_waiter_browsertest.cc",
       "hosted_app_browsertest.cc",
       "notifications_custom_bindings_browsertest.cc",
       "settings_overridden_params_providers_browsertest.cc",
@@ -320,6 +326,7 @@ source_set("browser_tests") {
       "//ui/color:color_headers",
       "//ui/gfx",
       "//ui/native_theme",
+      "//ui/native_theme:test_support",
     ]
 
     if (is_linux) {

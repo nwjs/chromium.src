@@ -3,16 +3,19 @@
 <translationbundle lang="kn">
 <translation id="1010283278930414892">ಈ ಸಾಧನದಲ್ಲಿ ಯಾವುದೇ ಸೇವ್ ಮಾಡಲಾದ ಪಾಸ್‌ವರ್ಡ್‌ಗಳಿಲ್ಲ</translation>
 <translation id="1011749477052068769">ಇಲ್ಲಿಗೆ ಮೂವ್ ಮಾಡಿ</translation>
+<translation id="1014083013111769343">ರೀಡಿಂಗ್ ಮೋಡ್ ಆದ್ಯತೆಗಳನ್ನು ಪೂರ್ಣ ಎತ್ತರದಲ್ಲಿ ತೆರೆಯಲಾಗಿದೆ</translation>
 <translation id="1014147525163127655">ಈ ಸಾಧನದಲ್ಲಿ <ph name="ORIGIN" /> ಗಾಗಿ ಯಾವುದೇ ಪಾಸ್‌ಕೀಗಳಿಲ್ಲ</translation>
 <translation id="1016498331642356377">ನಿಮ್ಮ ಧ್ವನಿಯ ಮೂಲಕ ತ್ವರಿತವಾಗಿ ಹುಡುಕಿ. ಈ ಶಾರ್ಟ್‌ಕಟ್ ಅನ್ನು ಎಡಿಟ್ ಮಾಡಲು ಸ್ಪರ್ಶಿಸಿ ಮತ್ತು ಒತ್ತಿ ಹಿಡಿಯಿರಿ.</translation>
 <translation id="1028699632127661925"><ph name="DEVICE_NAME" /> ಗೆ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ...</translation>
 <translation id="103269572468856066">ಈ ಸೈಟ್ &amp; ಆ್ಯಪ್ ಡೇಟಾ ತೆರವುಗೊಳಿಸಬೇಕೇ?</translation>
 <translation id="1034259925032978114">ವಿಂಡೋ ತೆರೆದಿದೆ</translation>
+<translation id="1035113036584565771">ಸಲಹೆಗಳ ನೋಟಿಫಿಕೇಶನ್‌ಗಳ ಪ್ರೋಮೋವನ್ನು ಮುಚ್ಚಲಾಗಿದೆ</translation>
 <translation id="1036348656032585052">ಆಫ್ ಮಾಡಿ</translation>
 <translation id="1045899828449635435">ಈ ಸೈಟ್‌ನ ಡೇಟಾ ತೆರವುಗೊಳಿಸಬೇಕೇ?</translation>
 <translation id="1049743911850919806">ಅದೃಶ್ಯ</translation>
 <translation id="1052842760770519282">ನಿಮ್ಮ ಕೆಲವು ಪಾಸ್‌ವರ್ಡ್‌ಗಳನ್ನು ಆ್ಯಕ್ಸೆಸ್ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ</translation>
 <translation id="1058669287135776095">ನೀವು ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿರುವಿರಿ. ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಕನೆಕ್ಷನ್ ಅನ್ನು ಪರಿಶೀಲಿಸಿ ಹಾಗೂ ಪುನಃ ಪ್ರಯತ್ನಿಸಿ.</translation>
+<translation id="1066338698580889414">ಸಲಹೆಗಳ ನೋಟಿಫಿಕೇಶನ್‌ಗಳ ಪ್ರೋಮೋವನ್ನು ಪೂರ್ಣ ಎತ್ತರದಲ್ಲಿ ತೆರೆಯಲಾಗಿದೆ</translation>
 <translation id="1070689840697074178">ನೀವು PDF ಗಳನ್ನು ಇಲ್ಲಿ ಡೌನ್‌ಲೋಡ್ ಮಾಡಬಹುದು</translation>
 <translation id="107147699690128016">ಫೈಲ್ ವಿಸ್ತರಣೆಯನ್ನು ಬದಲಾಯಿಸಿದರೆ, ಇತರ ಅಪ್ಲಿಕೇಶನ್‌ಗಳಲ್ಲಿ ಫೈಲ್‌ ಅನ್ನು ತೆರೆಯಬಹುದು ಮತ್ತು ನಿಮ್ಮ ಸಾಧನವನ್ನು ಹಾನಿಗೊಳಿಸಬಹುದು.</translation>
 <translation id="1087799850623149508">ವಿಳಾಸ ಪಟ್ಟಿಯನ್ನು ಕೆಳಕ್ಕೆ ಸರಿಸಲು ನೀವು ಸ್ಪರ್ಶಿಸಿ ಮತ್ತು ಒತ್ತಿ ಹಿಡಿದುಕೊಳ್ಳಬಹುದು</translation>
@@ -30,6 +33,7 @@
 <translation id="1138458427267715730">ವೆಬ್‌ನಾದ್ಯಂತ ಯಾವುದೇ ಸೈಟ್‌ನಲ್ಲಿ ಬೆಲೆ ಕಡಿಮೆಯಾದಾಗ ಎಚ್ಚರಿಕೆಗಳನ್ನು ಪಡೆಯಿರಿ</translation>
 <translation id="1140317858355046628">ನೀವು ಅದನ್ನು ಅಳಿಸಿದರೆ, ಎಲ್ಲರೂ ತಕ್ಷಣವೇ "<ph name="GROUP_NAME" />" ಟ್ಯಾಬ್ ಗುಂಪಿಗೆ ಆ್ಯಕ್ಸೆಸ್ ಅನ್ನು ಕಳೆದುಕೊಳ್ಳುತ್ತಾರೆ ಮತ್ತು ಅದನ್ನು ಎಲ್ಲಾ ಸಾಧನಗಳಿಂದ ಅಳಿಸಲಾಗುತ್ತದೆ.</translation>
 <translation id="1142732900304639782">ಈ ಸೈಟ್‌ಗಳನ್ನು ಅನುವಾದಿಸುವ ಪ್ರಸ್ತಾಪ ಮಾಡಬೇಡಿ</translation>
+<translation id="1143193470214071120">ವಿಂಡೋವನ್ನು ಮುಚ್ಚಿ ಅಥವಾ ವಿಂಡೋಗಳನ್ನು ನಿರ್ವಹಿಸಿ</translation>
 <translation id="1150263420752757504"><ph name="APP_NAME" />, Chrome ನಲ್ಲಿ ತೆರೆಯುತ್ತದೆ. ಮುಂದುವರಿಯುವ ಮೂಲಕ, ನೀವು <ph name="BEGIN_LINK1" />Google ಸೇವಾ ನಿಯಮಗಳು<ph name="END_LINK1" />, ಹಾಗೂ <ph name="BEGIN_LINK2" />Google Chrome ಮತ್ತು ChromeOS ಹೆಚ್ಚುವರಿ ಸೇವಾ ನಿಯಮಗಳಿಗೆ<ph name="END_LINK2" /> ಸಮ್ಮತಿಸುತ್ತೀರಿ.</translation>
 <translation id="1154555449933432029">ನೀವು Google Password Manager ನಲ್ಲಿ ಪಾಸ್‌ವರ್ಡ್‌ಗಳನ್ನು ಸೇವ್‌ ಮಾಡಲಾಗಿಲ್ಲ.</translation>
 <translation id="115483310321669804"><ph name="PASSWORD" /> ಪಾಸ್‌ವರ್ಡ್ ಬಳಸಿ</translation>
@@ -98,6 +102,7 @@
 <translation id="1407135791313364759">ಎಲ್ಲವನ್ನೂ ತೆರೆಯಿರಿ</translation>
 <translation id="1409879593029778104">ಫೈಲ್ ಈಗಾಗಲೇ ಇರುವುದರಿಂದ <ph name="FILE_NAME" /> ಡೌನ್‌ಲೋಡ್ ತಡೆಯಲಾಗಿದೆ.</translation>
 <translation id="1413446866325418126">ನಿಮ್ಮ Google ಖಾತೆಯಲ್ಲಿ ಡೇಟಾವನ್ನು ಸೇವ್‌ ಮಾಡಿ</translation>
+<translation id="1414919006379339073">ಪ್ರಸ್ತುತ ವಿಂಡೋವನ್ನು ಮುಚ್ಚಿ</translation>
 <translation id="1416550906796893042">ಅಪ್ಲಿಕೇಶನ್ ಆವೃತ್ತಿ</translation>
 <translation id="1419753403124156396">Chrome ಅನ್ನು ಮರುಪ್ರಾರಂಭಿಸಬೇಕೆ?</translation>
 <translation id="1428770807407000502">ಸಿಂಕ್‌ ಆಫ್‌ ಮಾಡಬೇಕೆ?</translation>
@@ -148,6 +153,7 @@
 <translation id="1696555181932908973">ನೀವು <ph name="SITE_ETLD_PLUS_ONE" /> ನಲ್ಲಿ ಮುಂದುವರಿಯಲು ಇತರ ಮಾರ್ಗಗಳನ್ನು ಪ್ರಯತ್ನಿಸಬಹುದು.</translation>
 <translation id="1702543251015153180">ನಿಮ್ಮ ಡಾರ್ಕ್‌ ಥೀಮ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಬದಲಾಯಿಸಬೇಕೆ?</translation>
 <translation id="1702907158640575240">ನಿರ್ವಹಿಸಿದ ಬ್ರೌಸರ್</translation>
+<translation id="170478069042229393"><ph name="TAB_TITLE" />, ಪಿನ್ ಮಾಡಿದ ಅಜ್ಞಾತ ಟ್ಯಾಬ್‌</translation>
 <translation id="1718835860248848330">ಕಳೆದ ಗಂಟೆ</translation>
 <translation id="1726477445370128854">ನೀವು ಭೇಟಿ ನೀಡಬಹುದೆಂದು Chrome ಭಾವಿಸುವ ಪುಟಗಳನ್ನು ಅದು ಮುಂಚಿತವಾಗಿ ಲೋಡ್ ಮಾಡಿದಾಗ, ನೀವು ವೇಗವಾಗಿ ಬ್ರೌಸ್ ಮಾಡಬಹುದು ಮತ್ತು ಹುಡುಕಾಟ ನಡೆಸಬಹುದು</translation>
 <translation id="1728803206919861584">ಪಾಸ್‌ಕೀ ಅನ್ನು ಅಜ್ಞಾತ ಮೋಡ್‌ನ ಹೊರಗೆ ಸೇವ್ ಮಾಡಬೇಕೇ?</translation>
@@ -207,6 +213,7 @@
 <translation id="197288927597451399">ಇರಿಸಿ</translation>
 <translation id="1973912524893600642">ಡೇಟಾವನ್ನು ಇರಿಸಿಕೊಳ್ಳಿ</translation>
 <translation id="1974060860693918893">ಸುಧಾರಿತ</translation>
+<translation id="1982274314082047220">ರೀಡಿಂಗ್ ಮೋಡ್, ಆದ್ಯತೆಗಳಿಗಾಗಿ ಮೇಲಕ್ಕೆ ಸ್ವೈಪ್ ಮಾಡಿ</translation>
 <translation id="1984087999855033707">ಫೋನ್ ಸಂಖ್ಯೆ</translation>
 <translation id="1984417487208496350">ಸುರಕ್ಷತೆ ಇಲ್ಲ (ಇದನ್ನು ನಾವು ಶಿಫಾರಸು ಮಾಡುವುದಿಲ್ಲ)</translation>
 <translation id="1986685561493779662">ಹೆಸರು ಈಗಾಗಲೇ ಅಸ್ತಿತ್ವದಲ್ಲಿದೆ</translation>
@@ -270,11 +277,11 @@
 <translation id="2318045970523081853">ಕರೆ ಮಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ</translation>
 <translation id="2323763861024343754">ಸೈಟ್ ಸಂಗ್ರಹಣೆ</translation>
 <translation id="2328474416100889417">ಪ್ರತಿಯೊಬ್ಬರೂ ತಕ್ಷಣವೇ "<ph name="GROUP_NAME" />" ಟ್ಯಾಬ್ ಗುಂಪಿಗೆ ಆ್ಯಕ್ಸೆಸ್ ಅನ್ನು ಕಳೆದುಕೊಳ್ಳುತ್ತಾರೆ ಮತ್ತು ಎಲ್ಲಾ ಆಹ್ವಾನ ಲಿಂಕ್‌ಗಳನ್ನು ಆಫ್ ಮಾಡಲಾಗುತ್ತದೆ</translation>
+<translation id="2330186936255788117">ಇನ್ನಷ್ಟು ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳು</translation>
 <translation id="2332515770639153015">ವರ್ಧಿತ ಸುರಕ್ಷಿತ ಬ್ರೌಸಿಂಗ್ ಆನ್ ಆಗಿದೆ</translation>
 <translation id="233375395665273385">ಅಳಿಸಿ ಮತ್ತು ಸೈನ್ ಔಟ್ ಆಗಿ</translation>
 <translation id="2341410551640223969"><ph name="WEBAPK_NAME" /> ಅನ್ನು ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.</translation>
 <translation id="2349710944427398404">ಖಾತೆಗಳು, ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳು ಮತ್ತು ಉಳಿಸಿದ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಒಳಗೊಂಡಂತೆ Chrome ಬಳಸಿದ ಒಟ್ಟು ಡೇಟಾ</translation>
-<translation id="2349954856814571872">ಬುಕ್‌ಮಾರ್ಕ್ ಪಟ್ಟಿ ಬಟನ್ ಐಕಾನ್</translation>
 <translation id="235789365079050412">Google ಗೌಪ್ಯತೆ ನೀತಿ</translation>
 <translation id="2359808026110333948">ಮುಂದುವರೆಸಿ</translation>
 <translation id="2362083820973145409"><ph name="USER_NAME" /> ಹೆಸರಿನಲ್ಲಿ ಸೈನ್ ಇನ್ ಮಾಡಲಾಗಿದೆ. <ph name="USER_EMAIL" />. ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ತೆರೆಯುತ್ತದೆ.</translation>
@@ -307,7 +314,6 @@
 <translation id="2496180316473517155">ಬ್ರೌಸಿಂಗ್ ಇತಿಹಾಸ</translation>
 <translation id="2497852260688568942">ನಿಮ್ಮ ನಿರ್ವಾಹಕರು ಸಿಂಕ್ ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿದ್ದಾರೆ</translation>
 <translation id="250020030759455918">ನಿಮ್ಮ <ph name="SITE_NAME" /> ಸೈನ್-ಇನ್ ಸ್ಥಿತಿ, ಬ್ರೌಸಿಂಗ್ ಡೇಟಾ ಮತ್ತು ಸೈಟ್ ಡೇಟಾವನ್ನು Chrome ನಲ್ಲಿ ನೋಡುವಿರಿ</translation>
-<translation id="2502798195266898572">ರೀಡಿಂಗ್ ಮೋಡ್ ಕೆಳಭಾಗದ ಶೀಟ್ ಅನ್ನು ಪೂರ್ಣ ಎತ್ತರದಲ್ಲಿ ತೆರೆಯಲಾಗಿದೆ</translation>
 <translation id="2510106555128151389"><ph name="WEBAPK_NAME" /> ಅನ್ನು ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲಾಗುತ್ತಿದೆ…</translation>
 <translation id="2512234228327349533">ಖರೀದಿ ಆಯ್ಕೆಗಳನ್ನು ಹುಡುಕಿ</translation>
 <translation id="2513403576141822879">ಗೌಪ್ಯತೆ, ಸುರಕ್ಷತೆ ಮತ್ತು ಡೇಟಾ ಸಂಗ್ರಹಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಹೆಚ್ಚಿನ ಸೆಟ್ಟಿಂಗ್‌ಗಳಿಗಾಗಿ <ph name="BEGIN_LINK" />ಸಿಂಕ್ ಮತ್ತು Google ಸೇವೆಗಳನ್ನು<ph name="END_LINK" /> ನೋಡಿ</translation>
@@ -406,6 +412,7 @@
 <translation id="2908243544703713905">ಓದದಿರುವ ಸ್ಟೋರಿಗಳು ಸಿದ್ಧವಾಗಿವೆ</translation>
 <translation id="2909615210195135082">Google ಅಧಿಸೂಚನೆಗಳು ಪ್ಲ್ಯಾಟ್‌ಫಾರ್ಮ್</translation>
 <translation id="2912345083818861431">ತೆರೆದ ಅಜ್ಞಾತ ಟ್ಯಾಬ್‌ಗಳನ್ನು ವೀಕ್ಷಿಸಲು ಸ್ಕ್ರೀನ್ ಲಾಕ್ ಬಳಸಿ</translation>
+<translation id="2918484639460781603">ಸೆಟ್ಟಿಂಗ್‌ಗಳಿಗೆ ಹೋಗಿ</translation>
 <translation id="2923908459366352541">ಹೆಸರು ಅಮಾನ್ಯವಾಗಿದೆ</translation>
 <translation id="2932150158123903946">Google <ph name="APP_NAME" /> ಸಂಗ್ರಹಣೆ</translation>
 <translation id="2932222164150889403">ನಿಮ್ಮ ಕೀಬೋರ್ಡ್ ಬದಲಾಗುವುದಿಲ್ಲ</translation>
@@ -429,11 +436,13 @@
 <translation id="2992473221983447149">ಚಿತ್ರದ ವಿವರಣೆಗಳು</translation>
 <translation id="2996291259634659425">ಪಾಸ್‌ಫ್ರೇಸ್ ರಚಿಸಿ</translation>
 <translation id="2996809686854298943">URL ಅಗತ್ಯವಿದೆ</translation>
+<translation id="3024215143424744261">ರೀಡಿಂಗ್ ಮೋಡ್ ಆದ್ಯತೆಗಳನ್ನು ಮುಚ್ಚಲಾಗಿದೆ</translation>
 <translation id="3026955690410463085">ಲಿಂಕ್ ಸೇರಿಸಿ</translation>
 <translation id="3027644380269727216">ಸೈಟ್‌ ಒಂದರಲ್ಲಿನ ನಿಮ್ಮ ಚಟುವಟಿಕೆಯನ್ನು ಆಧರಿಸಿ. ಈ ಸೆಟ್ಟಿಂಗ್ ಆನ್ ಆಗಿದೆ.</translation>
 <translation id="3027950907978057636"><ph name="APP_LABEL" /> ನಿಂದ</translation>
 <translation id="3029276696788198026">ಮುಂಚಿತವಾಗಿ ಲೋಡ್ ಮಾಡುವಿಕೆ ಇಲ್ಲ</translation>
 <translation id="3029704984691124060">ಪಾಸ್‌ಫ್ರೇಸ್‌ಗಳು ಹೊಂದಿಕೆಯಾಗುವುದಿಲ್ಲ</translation>
+<translation id="3029829659829245765"><ph name="TAB_TITLE" />, ಪಿನ್ ಮಾಡಿದ, ಆಯ್ಕೆ ಮಾಡಲಾದ ಟ್ಯಾಬ್</translation>
 <translation id="3036750288708366620"><ph name="BEGIN_LINK" />ಸಹಾಯ ಪಡೆಯಿರಿ<ph name="END_LINK" /></translation>
 <translation id="3037177537145227281">ದರವನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಲಾಗುತ್ತಿದೆ</translation>
 <translation id="3037517125981011456">Chrome ಗೆ ಸೈನ್ ಇನ್ ಮಾಡಲು ಪ್ರಾಂಪ್ಟ್‌ಗಳನ್ನು ತೋರಿಸುತ್ತದೆ</translation>
@@ -595,6 +604,7 @@
 <translation id="3845098929839618392">ಅಜ್ಞಾತ ಟ್ಯಾಬ್‌ನಲ್ಲಿ ತೆರೆಯಿರಿ</translation>
 <translation id="3847319713229060696">ಎಲ್ಲರಿಗಾಗಿ ವೆಬ್‌ನ ಸುರಕ್ಷತೆಯನ್ನು ಸುಧಾರಿಸಲು ಸಹಾಯಮಾಡಿ</translation>
 <translation id="385051799172605136">ಹಿಂದೆ</translation>
+<translation id="3851464569313827017"><ph name="IFRAME_ETLD_PLUS_ONE" /> ನಿಂದ ಕಂಟೆಂಟ್‌ ಅನ್ನು <ph name="SITE_ETLD_PLUS_ONE" /> ಎಂಬೆಡ್ ಮಾಡುತ್ತದೆ</translation>
 <translation id="3856096718352044181">ಇವರು ಮಾನ್ಯವಾದ ಪೂರೈಕೆದಾರರೇ ಎಂಬುದನ್ನು ದೃಢೀಕರಿಸಿ ಅಥವಾ ಆನಂತರ ಪುನಃ ಪ್ರಯತ್ನಿಸಿ</translation>
 <translation id="3858860766373142691">ಹೆಸರು</translation>
 <translation id="3863527519275151528">ನೋಟಿಫಿಕೇಶನ್ ಅನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲಾಗುತ್ತಿದೆ</translation>
@@ -620,6 +630,7 @@
 <translation id="397105322502079400">ಎಣಿಸಲಾಗುತ್ತಿದೆ...</translation>
 <translation id="397583555483684758">ಸಿಂಕ್ ಕಾರ್ಯನಿರ್ವಹಿಸುವುದನ್ನು ನಿಲ್ಲಿಸಿದೆ</translation>
 <translation id="3976396876660209797">ಈ ಶಾರ್ಟ್‌ಕಟ್‌ ಅನ್ನು ತೆಗೆದುಹಾಕಿ ಮತ್ತು ಮರುರಚಿಸಿ</translation>
+<translation id="397650873162244514"><ph name="TAB_TITLE" />, ಪಿನ್ ಮಾಡಿದ ಟ್ಯಾಬ್</translation>
 <translation id="3985022125189960801">ನೀವು ಇಷ್ಟಪಡುವದನ್ನು ಊಹಿಸಬಹುದಾದ ಸೈಟ್‌ಗಳ ಪೂಲ್‌ನಲ್ಲಿ ನೀವು ಸೈಟ್ ಅನ್ನು ಬಯಸಿದರೆ, ಅದನ್ನು ಪುನಃ ಸೇರಿಸಿ</translation>
 <translation id="3985215325736559418"><ph name="FILE_NAME" /> ಅನ್ನು ಮತ್ತೆ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ನೀವು ಬಯಸುವಿರಾ?</translation>
 <translation id="3987993985790029246">ಲಿಂಕ್ ಕಾಪಿ ಮಾಡಿ</translation>
@@ -628,6 +639,7 @@
 <translation id="4015643064997321279">{NUM_PASSWORDS,plural, =1{ನಿಮ್ಮ Google ಖಾತೆಯಲ್ಲಿ 1 ಅಪಾಯಕ್ಕೀಡಾದ ಪಾಸ್‌ವರ್ಡ್ ಇದೆ}one{ನಿಮ್ಮ Google ಖಾತೆಯಲ್ಲಿ # ಅಪಾಯಕ್ಕೀಡಾದ ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಇವೆ}other{ನಿಮ್ಮ Google ಖಾತೆಯಲ್ಲಿ # ಅಪಾಯಕ್ಕೀಡಾದ ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಇವೆ}}</translation>
 <translation id="4016425174436051808">ಅನುಸರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ಏನೋ ತಪ್ಪಾಗಿದೆ.</translation>
 <translation id="4024768890073681126">ನಿಮ್ಮ ಬ್ರೌಸರ್ ಅನ್ನು ನಿಮ್ಮ ಪೋಷಕರು ನಿರ್ವಹಿಸುತ್ತಾರೆ</translation>
+<translation id="4027569221211770437"><ph name="FOLDER_TITLE" /> ಫೋಲ್ಡರ್‌</translation>
 <translation id="4034817413553209278">{HOURS,plural, =1{# ಗಂಟೆ}one{# ಗಂಟೆಗಳು}other{# ಗಂಟೆಗಳು}}</translation>
 <translation id="4042941173059740150"><ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /> ಜೊತೆಗಿನ <ph name="SITE_ETLD_PLUS_ONE" /> ಬಳಕೆಯನ್ನು ಮುಂದುವರಿಸಿ</translation>
 <translation id="4044708993631234325">ಕೆಳಭಾಗದ ಶೀಟ್</translation>
@@ -707,6 +719,7 @@
 <translation id="4380055775103003110">ಈ ಸಮಸ್ಯೆ ಮುಂದುವರಿದರೆ, ನೀವು <ph name="SITE_ETLD_PLUS_ONE" /> ನಲ್ಲಿ ಮುಂದುವರಿಯಲು ಇತರ ಮಾರ್ಗಗಳನ್ನು ಪ್ರಯತ್ನಿಸಬಹುದು.</translation>
 <translation id="4384468725000734951">ಹುಡುಕಲು Sogou ಬಳಸಲಾಗುತ್ತಿದೆ</translation>
 <translation id="4387647248986092471">ಕಾರ್ ಪ್ರೊಫೈಲ್ ಲಾಕ್ ಅನ್ನು ರಚಿಸಿ</translation>
+<translation id="4387817230000841154">ಡೌನ್‌ಲೋಡ್‌ಗಳನ್ನು ತೆರೆಯಿರಿ</translation>
 <translation id="4401432223274567153">{INACTIVE_TIME_DAYS,plural, =1{ಟ್ಯಾಬ್‌ಗಳು ಮತ್ತು ಗುಂಪುಗಳನ್ನು 1 ದಿನ ಅಥವಾ ಅದಕ್ಕಿಂತ ಹೆಚ್ಚಿನ ಸಮಯ ಬಳಸಲಾಗಿಲ್ಲ}one{ಟ್ಯಾಬ್‌ಗಳು ಮತ್ತು ಗುಂಪುಗಳನ್ನು # ದಿನಗಳು ಅಥವಾ ಅದಕ್ಕಿಂತ ಹೆಚ್ಚಿನ ಸಮಯ ಬಳಸಲಾಗಿಲ್ಲ}other{ಟ್ಯಾಬ್‌ಗಳು ಮತ್ತು ಗುಂಪುಗಳನ್ನು # ದಿನಗಳು ಅಥವಾ ಅದಕ್ಕಿಂತ ಹೆಚ್ಚಿನ ಸಮಯ ಬಳಸಲಾಗಿಲ್ಲ}}</translation>
 <translation id="4402611456429872546"><ph name="LANG" /> - ಡೌನ್‌ಲೋಡ್ ಆಗುತ್ತಿದೆ…</translation>
 <translation id="4404568932422911380">ಯಾವುದೇ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ</translation>
@@ -720,7 +733,6 @@
 <translation id="4425173294238317796">ಪಾಸ್‌ಕೀ ದೃಢೀಕರಣದ ಶೀಟ್</translation>
 <translation id="442518031075347249">Google Pay ಜೊತೆಗೆ ನಿಮ್ಮ ವರ್ಚುವಲ್ ಕಾರ್ಡ್ ಅನ್ನು ಇನ್ನು ಮುಂದೆ ಬಳಸಲು ನಿಮಗೆ ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ. <ph name="BEGIN_LINK1" />ವರ್ಚುವಲ್ ಕಾರ್ಡ್‌ಗಳ ಕುರಿತು ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ<ph name="END_LINK1" /></translation>
 <translation id="442577985493096785">{TAB_COUNT,plural, =1{<ph name="TAB_TITLE" /> ಮತ್ತು ಇತರ <ph name="TAB_COUNT_ONE" /> ಟ್ಯಾಬ್ ಅನ್ನು ಮುಚ್ಚಲಾಗುತ್ತದೆ}one{<ph name="TAB_TITLE" /> ಮತ್ತು ಇತರ <ph name="TAB_COUNT_MANY" /> ಟ್ಯಾಬ್‌ಗಳನ್ನು ಮುಚ್ಚಲಾಗುತ್ತದೆ}other{<ph name="TAB_TITLE" /> ಮತ್ತು ಇತರ <ph name="TAB_COUNT_MANY" /> ಟ್ಯಾಬ್‌ಗಳನ್ನು ಮುಚ್ಚಲಾಗುತ್ತದೆ}}</translation>
-<translation id="4426508677408162512">ಎಲ್ಲಾ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳು</translation>
 <translation id="4430277756566635951"><ph name="EMAIL" /> ಅನ್ನು ಪ್ರಸ್ತುತ ಆಯ್ಕೆಮಾಡಲಾಗಿದೆ. ಖಾತೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ.</translation>
 <translation id="4452411734226507615"><ph name="TAB_TITLE" /> ಟ್ಯಾಬ್‌ ಮುಚ್ಚಿ</translation>
 <translation id="4452548195519783679"><ph name="FOLDER_NAME" /> ಗೆ ಬುಕ್‌ಮಾರ್ಕ್ ಮಾಡಲಾಗಿದೆ</translation>
@@ -895,6 +907,7 @@
 <translation id="5171045022955879922">ಹುಡುಕಾಟ ನಡೆಸಿ ಅಥವಾ URL ಅನ್ನು ಟೈಪ್‌ ಮಾಡಿ</translation>
 <translation id="5174700554036517242">ಟ್ಯಾಬ್ ಅನ್ನು ಆರಂಭಿಕ ಎತ್ತರಕ್ಕೆ ಹಿಂತಿರುಗಿಸಲಾಗಿದೆ</translation>
 <translation id="5180063720319462041">ಪುಟವನ್ನು <ph name="TARGET_LANGUAGE" /> ಭಾಷೆಗೆ ಅನುವಾದ ಮಾಡಲಾಗಿದೆ</translation>
+<translation id="5190835502935405962">ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳ ಬಾರ್</translation>
 <translation id="5191251636205085390">ಥರ್ಡ್ ಪಾರ್ಟಿ ಕುಕೀಗಳನ್ನು ಬದಲಿಸುವ ಉದ್ದೇಶವನ್ನು ಹೊಂದಿರುವ ಹೊಸ ತಂತ್ರಜ್ಞಾನಗಳ ಬಗ್ಗೆ ತಿಳಿದುಕೊಳ್ಳಿ ಮತ್ತು ಅವುಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ</translation>
 <translation id="5197649123261764478">ನಿಮ್ಮ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳನ್ನು ಸುಲಭವಾಗಿ ಆ್ಯಕ್ಸೆಸ್ ಮಾಡಿ</translation>
 <translation id="5204967432542742771">ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ</translation>
@@ -980,6 +993,7 @@
 <translation id="5626134646977739690">ಹೆಸರು:</translation>
 <translation id="5628604359369369630">ಓದಿಲ್ಲ - ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿ ಲಭ್ಯವಿದೆ</translation>
 <translation id="5631483240431073854">ತೆರೆದ ಟ್ಯಾಬ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಿ</translation>
+<translation id="5632485077360054581">ಹೇಗೆಂದು ನನಗೆ ತೋರಿಸಿ</translation>
 <translation id="564121214411935612"><ph name="USER_NAME" /> ಆಗಿ ಸೈನ್ ಇನ್ ಮಾಡಲಾಗಿದೆ. Google ಖಾತೆಯ ದೋಷ. ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ತೆರೆಯುತ್ತದೆ.</translation>
 <translation id="5641456720590409793"><ph name="BEGIN_LINK1" />ಹುಡುಕಾಟದ ಇತಿಹಾಸ<ph name="END_LINK1" /> ಮತ್ತು <ph name="BEGIN_LINK2" />ಚಟುವಟಿಕೆಯ ಇತರ ವಿಧಾನಗಳನ್ನು<ph name="END_LINK2" /> ನಿಮ್ಮ Google ಖಾತೆಯಲ್ಲಿ ಉಳಿಸಬಹುದು</translation>
 <translation id="5648166631817621825">ಕಳೆದ 7 ದಿನಗಳು</translation>
@@ -1122,18 +1136,17 @@
 
 ಉದಾಹರಣೆಗೆ, ಕೆಲವು ವೆಬ್‌ಸೈಟ್‌ಗಳು, ನೀವು ಭೇಟಿ ನೀಡಿದ ಇತರ ವೆಬ್‌ಸೈಟ್‌ಗಳನ್ನು ಆಧರಿಸಿಲ್ಲದ ಜಾಹೀರಾತುಗಳನ್ನು ನಿಮಗೆ ತೋರಿಸುವ ಮೂಲಕ ಈ ವಿನಂತಿಗೆ ಸ್ಪಂದಿಸಬಹುದು. ಹೆಚ್ಚಿನ ವೆಬ್‌ಸೈಟ್‌ಗಳು ನಿಮ್ಮ ಬ್ರೌಸಿಂಗ್‌ ಡೇಟಾವನ್ನು ಈಗಲೂ ಸಂಗ್ರಹಿಸುತ್ತವೆ ಹಾಗೂ ಅವುಗಳನ್ನು ಬಳಸಿಕೊಳ್ಳುತ್ತವೆ. ಉದಾಹರಣೆಗೆ, ಭದ್ರತೆಯನ್ನು ಸುಧಾರಿಸಲು, ವಿಷಯ, ಜಾಹೀರಾತುಗಳು ಮತ್ತು ಶಿಫಾರಸುಗಳನ್ನು ಒದಗಿಸಲು ಮತ್ತು ವರದಿಯ ಅಂಕಿಅಂಶಗಳನ್ನು ರಚಿಸಲು.</translation>
 <translation id="6247557882553405851">Google ಪಾಸ್‌ವರ್ಡ್ ನಿರ್ವಾಹಕ</translation>
+<translation id="6248988683584659830">ಸೆಟ್ಟಿಂಗ್‌‌ಗಳಲ್ಲಿ ಹುಡುಕಿ</translation>
 <translation id="6251449557817521191">ನಿಮ್ಮ Chrome ಇತಿಹಾಸವನ್ನು ಇಲ್ಲಿ ವೀಕ್ಷಿಸಿ</translation>
 <translation id="6254139308321626268">ನೀವು PDF ಫೈಲ್ ಅನ್ನು ವೀಕ್ಷಿಸುತ್ತಿದ್ದೀರಿ</translation>
 <translation id="6255809143828972562">Chrome ನಲ್ಲಿನ ಟೂಲ್‌ಗಳ ಮೂಲಕ ನೀವು ಸುರಕ್ಷಿತವಾಗಿ ಬ್ರೌಸ್ ಮಾಡಬಹುದು ಮತ್ತು ನಿಯಂತ್ರಣದಲ್ಲಿರಬಹುದು</translation>
 <translation id="6264376385120300461">ಹೇಗಿದ್ದರೂ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ</translation>
 <translation id="6264485186158353794">ಸುರಕ್ಷತೆಗೆ ಹಿಂದಿರುಗಿ</translation>
-<translation id="6267063201726531683">ರೀಡಿಂಗ್ ಮೋಡ್ ಕೆಳಭಾಗದ ಶೀಟ್</translation>
 <translation id="6277522088822131679">ಪುಟವನ್ನು ಮುದ್ರಿಸುವಲ್ಲಿ ಸಮಸ್ಯೆ ಕಂಡುಬಂದಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.</translation>
 <translation id="6278428485366576908">ಥೀಮ್</translation>
 <translation id="6291294824436685757">ಬ್ರೌಸಿಂಗ್ ಡೇಟಾವನ್ನು ಅಳಿಸಿ; ಅಳಿಸಲು ಡೇಟಾವನ್ನು ಆಯ್ಕೆಮಾಡಿ</translation>
 <translation id="6295158916970320988">ಎಲ್ಲಾ ಸೈಟ್‌ಗಳು</translation>
 <translation id="629730747756840877">ಖಾತೆ</translation>
-<translation id="6300697579369314762">ರೀಡಿಂಗ್ ಮೋಡ್ ಕೆಳಭಾಗದ ಶೀಟ್ ಅನ್ನು ಅರ್ಧ ಎತ್ತರದಲ್ಲಿ ತೆರೆಯಲಾಗಿದೆ</translation>
 <translation id="6301526076346731664">ಡೆವಲಪರ್ ಟೂಲ್‌ಗಳನ್ನು ತೆರೆಯಿರಿ</translation>
 <translation id="6303969859164067831">ಸೈನ್ ಔಟ್ ಮಾಡಿ ಮತ್ತು ಸಿಂಕ್ ಆಫ್ ಮಾಡಿ</translation>
 <translation id="6307241780749477694">ಈ ಸಾಧನದಲ್ಲಿ ನಿಮ್ಮ ಎಲ್ಲಾ ಪಾಸ್‌ವರ್ಡ್‌ಗಳನ್ನು ಪಡೆಯುವುದಕ್ಕಾಗಿ ಇದು ನೀವೇ ಎಂಬುದನ್ನು ದೃಢೀಕರಿಸಿ</translation>
@@ -1252,6 +1265,7 @@
 <translation id="6783664456110886353">{TAB_COUNT,plural, =1{<ph name="INCOGNITO_TAB_COUNT" /> ಅಜ್ಞಾತ ಮತ್ತು ಇತರ <ph name="TAB_COUNT_ONE" /> ಟ್ಯಾಬ್ ಅನ್ನು ಮುಚ್ಚಲಾಗುತ್ತದೆ}one{<ph name="INCOGNITO_TAB_COUNT" /> ಅಜ್ಞಾತ ಮತ್ತು ಇತರ <ph name="TAB_COUNT_MANY" /> ಟ್ಯಾಬ್‌ಗಳನ್ನು ಮುಚ್ಚಲಾಗುತ್ತದೆ}other{<ph name="INCOGNITO_TAB_COUNT" /> ಅಜ್ಞಾತ ಮತ್ತು ಇತರ <ph name="TAB_COUNT_MANY" /> ಟ್ಯಾಬ್‌ಗಳನ್ನು ಮುಚ್ಚಲಾಗುತ್ತದೆ}}</translation>
 <translation id="6785476624617658922">Chrome ಮತ್ತು ChromeOS ಹೆಚ್ಚುವರಿ ಸೇವಾ ನಿಯಮಗಳು</translation>
 <translation id="6786747875388722282">ಎಕ್ಸ್‌ಟೆನ್ಷನ್‌‌ಗಳು</translation>
+<translation id="6787600234697426339"><ph name="MAX_INSTANCE_COUNT" /> ವಿಂಡೋ ಮಿತಿಯನ್ನು ತಲುಪಿದೆ</translation>
 <translation id="6795633245022906657">ಹೊಸ ಟ್ಯಾಬ್ ಅನ್ನು ತ್ವರಿತವಾಗಿ ತೆರೆಯಿರಿ. ಈ ಶಾರ್ಟ್‌ಕಟ್ ಅನ್ನು ಎಡಿಟ್ ಮಾಡಲು, ಸೆಟ್ಟಿಂಗ್‌ಗಳಿಗೆ ಹೋಗಿ.</translation>
 <translation id="679588508577699489">Chrome ಅನ್ನು ನಿಮ್ಮ ಡೀಫಾಲ್ಟ್ ಆಗಿಸಿ</translation>
 <translation id="679956319013005046">ಆಟೋಫಿಲ್‌ಗಾಗಿ ನಿಮ್ಮ ಆದ್ಯತೆಯ ಸೇವೆಯನ್ನು ಸೆಟ್ ಮಾಡಲು, ಮೊದಲು ಅದನ್ನು <ph name="BEGIN_LINK" />Android ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ<ph name="END_LINK" /> ಸೇರಿಸಿ.</translation>
@@ -1273,7 +1287,6 @@
 <translation id="6850830437481525139"><ph name="TAB_COUNT" /> ಟ್ಯಾಬ್‌ಗಳನ್ನು ಮುಚ್ಚಲಾಗಿದೆ</translation>
 <translation id="685340923442249391">{FILE_COUNT,plural, =1{ಆಡಿಯೋ ಫೈಲ್‌ಗಳು, ಪಟ್ಟಿಯಲ್ಲಿರುವ 1 ಆಡಿಯೋ ಫೈಲ್}one{ಆಡಿಯೋ ಫೈಲ್‌ಗಳು, ಪಟ್ಟಿಯಲ್ಲಿರುವ # ಆಡಿಯೋ ಫೈಲ್‌ಗಳು}other{ಆಡಿಯೋ ಫೈಲ್‌ಗಳು, ಪಟ್ಟಿಯಲ್ಲಿರುವ # ಆಡಿಯೋ ಫೈಲ್‌ಗಳು}}</translation>
 <translation id="685850645784703949">Google ನಿಂದ Discover - ಆಫ್ ಆಗಿದೆ</translation>
-<translation id="6861722405755529743">ಬುಕ್‌ಮಾರ್ಕ್ ಪಟ್ಟಿ ಓವರ್‌ಫ್ಲೋ ಬಟನ್</translation>
 <translation id="6864459304226931083">ಚಿತ್ರ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ</translation>
 <translation id="686490460830618322">ಆ್ಯಪ್ ಫಿಲ್ಟರ್ ಶೀಟ್</translation>
 <translation id="6865313869410766144">ಸ್ವಯಂತುಂಬುವಿಕೆ ಫಾರ್ಮ್ ಡೇಟಾ</translation>
@@ -1313,6 +1326,7 @@
 <translation id="696447261358045621">ಅಜ್ಞಾತ ಮೋಡ್‌‌ ಅನ್ನು ತೊರೆಯಿರಿ</translation>
 <translation id="6965382102122355670">ಸರಿ</translation>
 <translation id="6968350777423863208">{NUMBER_OF_TABS,plural, =1{ಹಂಚಿಕೊಂಡ ಟ್ಯಾಬ್ ಗುಂಪುಗಳಲ್ಲಿನ ಹೊಸ ಚಟುವಟಿಕೆಯೊಂದಿಗೆ <ph name="TABS_COUNT_ONE" /> ಟ್ಯಾಬ್ ಅನ್ನು ನೋಡಿ}one{ಹಂಚಿಕೊಂಡ ಟ್ಯಾಬ್ ಗುಂಪುಗಳಲ್ಲಿನ ಹೊಸ ಚಟುವಟಿಕೆಯೊಂದಿಗೆ <ph name="TABS_COUNT_MANY" /> ಟ್ಯಾಬ್‌ಗಳನ್ನು ನೋಡಿ}other{ಹಂಚಿಕೊಂಡ ಟ್ಯಾಬ್ ಗುಂಪುಗಳಲ್ಲಿನ ಹೊಸ ಚಟುವಟಿಕೆಯೊಂದಿಗೆ <ph name="TABS_COUNT_MANY" /> ಟ್ಯಾಬ್‌ಗಳನ್ನು ನೋಡಿ}}</translation>
+<translation id="6971555615916967190">ರೀಡಿಂಗ್ ಮೋಡ್ ಆದ್ಯತೆಗಳನ್ನು ಅರ್ಧ ಎತ್ತರದಲ್ಲಿ ತೆರೆಯಲಾಗಿದೆ</translation>
 <translation id="6971862865055170158">ಅನುಮೋದಿಸಬೇಡಿ</translation>
 <translation id="6976223255612495095"><ph name="TAB_TITLE" />, ಹೊಸ ಅಥವಾ ಅಪ್‌ಡೇಟ್‌ ಮಾಡಿದ ಟ್ಯಾಬ್</translation>
 <translation id="6976811588313110624">ಹೊಸ ಶಾರ್ಟ್‌ಕಟ್ ಸೇರಿಸಿ.</translation>
@@ -1352,7 +1366,6 @@
 <translation id="71503698506017927">ಪಾಸ್‌ಫ್ರೇಸ್ ಎನ್‌ಕ್ರಿಪ್ಶನ್ Google Pay ಗೆ ಸಂಬಂಧಿಸಿದ ಪಾವತಿ ವಿಧಾನಗಳು ಮತ್ತು ವಿಳಾಸಗಳನ್ನು ಒಳಗೊಂಡಿರುವುದಿಲ್ಲ.
 
 ಈ ಸೆಟ್ಟಿಂಗ್ ಅನ್ನು ಬದಲಾಯಿಸಲು, <ph name="BEGIN_LINK" />ನಿಮ್ಮ ಖಾತೆಯಲ್ಲಿರುವ Chrome ಡೇಟಾವನ್ನು ಅಳಿಸಿ<ph name="END_LINK" />.</translation>
-<translation id="7151332203500147130">ರೀಡಿಂಗ್ ಮೋಡ್ ಕೆಳಭಾಗದ ಶೀಟ್ ಅನ್ನು ಮುಚ್ಚಲಾಗಿದೆ</translation>
 <translation id="7165972437814027679">Chrome ಕೆಲವು ಫೈಲ್‌ಗಳನ್ನು ಏಕೆ ನಿರ್ಬಂಧಿಸುತ್ತದೆ ಎಂಬುದರ ಕುರಿತು ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ</translation>
 <translation id="7168323970702333693"><ph name="USER_NAME" /> ಹೆಸರಿನಲ್ಲಿ ಸೈನ್ ಇನ್ ಮಾಡಲಾಗಿದೆ. ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ತೆರೆಯುತ್ತದೆ.</translation>
 <translation id="7173114856073700355">ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ತೆರೆಯಿರಿ</translation>
@@ -1404,6 +1417,7 @@
 <translation id="7375125077091615385">ಪ್ರಕಾರ:</translation>
 <translation id="7376560087009844242">ಪುಟದಲ್ಲಿರುವ ಇನ್ನಷ್ಟು ಪಠ್ಯವನ್ನು ಸೇರಿಸುವ ಮೂಲಕ, ಹುಡುಕಲು ಸ್ಪರ್ಶಿಸಿ ಎಂಬುದನ್ನು ಬಳಸುವಾಗ ನೀವು ಉತ್ತಮ ಫಲಿತಾಂಶಗಳನ್ನು ನೋಡಬಹುದು. ಇದನ್ನು ಬದಲಾಯಿಸಲು ನೀವು ಯಾವಾಗ ಬೇಕಾದರೂ <ph name="BEGIN_LINK" />ಸೆಟ್ಟಿಂಗ್‌ಗಳಿಗೆ<ph name="END_LINK" /> ಭೇಟಿ ನೀಡಬಹುದು.</translation>
 <translation id="7379900596734708416">ಸೈಟ್‌ಗಳ ಡಾರ್ಕ್ ಥೀಮ್ ಲಭ್ಯವಿದೆ</translation>
+<translation id="7384486627147155832">ಸಲಹೆಗಳ ನೋಟಿಫಿಕೇಶನ್‌ಗಳ ಪ್ರೋಮೋವನ್ನು ಅರ್ಧ ಎತ್ತರದಲ್ಲಿ ತೆರೆಯಲಾಗಿದೆ</translation>
 <translation id="7388615499319468910">ಜಾಹೀರಾತುಗಳು ಹೇಗೆ ಕಾರ್ಯನಿರ್ವಹಿಸುತ್ತವೆ ಎಂಬುದನ್ನು ಸೈಟ್‌ಗಳು ಮತ್ತು ಜಾಹೀರಾತುದಾರರು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಬಹುದು. ಈ ಸೆಟ್ಟಿಂಗ್ ಆಫ್ ಆಗಿದೆ.</translation>
 <translation id="7400003506822844357">{FILE_COUNT,plural, =1{ಪಟ್ಟಿಯಲ್ಲಿರುವ ಇತರ 1 ಫೈಲ್}one{ಪಟ್ಟಿಯಲ್ಲಿರುವ ಇತರ # ಫೈಲ್‌ಗಳು}other{ಪಟ್ಟಿಯಲ್ಲಿರುವ ಇತರ # ಫೈಲ್‌ಗಳು}}</translation>
 <translation id="7400418766976504921">URL</translation>
@@ -1435,6 +1449,7 @@
 <translation id="749294055653435199">ಈ ಸಾಧನದಲ್ಲಿ Google Lens ಲಭ್ಯವಿಲ್ಲ</translation>
 <translation id="7493994139787901920"><ph name="VERSION" /> (<ph name="TIME_SINCE_UPDATE" /> ಅಪ್‌ಡೇಟ್‌ ಮಾಡಲಾಗಿದೆ)</translation>
 <translation id="7498271377022651285">ದಯವಿಟ್ಟು ಕಾಯಿರಿ...</translation>
+<translation id="7501135638693251872">ಎಲ್ಲ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳು</translation>
 <translation id="750228856503700085">ಅಪ್‌ಡೇಟ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ</translation>
 <translation id="7507207699631365376">ಈ ಪೂರೈಕೆದಾರರ <ph name="BEGIN_LINK" />ಗೌಪ್ಯತೆ ನೀತಿಯನ್ನು<ph name="END_LINK" /> ನೋಡಿ</translation>
 <translation id="750886945254958667">ಟ್ಯಾಬ್‌ಗಳನ್ನು ನಂತರ ಸೇರಿಸಲು ಈ ಗುಂಪನ್ನು ಇರಿಸಿಕೊಳ್ಳಿ ಅಥವಾ ನಿಮಗೆ ಇನ್ನು ಮುಂದೆ ಇದಕ್ಕೆ ಆ್ಯಕ್ಸೆಸ್ ಬೇಕಿಲ್ಲದಿದ್ದರೆ ಇದನ್ನು ತೊರೆಯಿರಿ</translation>
@@ -1574,6 +1589,7 @@
 <translation id="8090732854597034573">ನಿಮಗೆ ಸಹಾಯ ಬೇಕಿದ್ದರೆ, ನಿಮ್ಮ ಪೋಷಕರನ್ನು ಕೇಳಿ</translation>
 <translation id="8101414242770404289"><ph name="TIME_PERIOD" /> ಅವಧಿಯ ಯಾವುದೇ ಟ್ಯಾಬ್‌ಗಳು ಇಲ್ಲ</translation>
 <translation id="8103578431304235997">ಅದೃಶ್ಯ ಟ್ಯಾಬ್‌</translation>
+<translation id="810433609302852">ಸಲಹೆಗಳ ನೋಟಿಫಿಕೇಶನ್‌ಗಳ ಫೀಚರ್ ಪ್ರೋಮೋ ಮತ್ತು ಬಳಕೆಯ ಹಂತಗಳ ಕೆಳಭಾಗದ ಶೀಟ್</translation>
 <translation id="8105893657415066307"><ph name="DESCRIPTION" /> <ph name="SEPARATOR" /> <ph name="FILE_SIZE" /></translation>
 <translation id="8107530384992929318">ವಿಂಗಡಣೆ ಆಯ್ಕೆಗಳನ್ನು ಮುಚ್ಚಿರಿ</translation>
 <translation id="8110024788458304985">Chrome ನ ಫೀಚರ್‌ಗಳು ಹಾಗೂ ಕಾರ್ಯಕ್ಷಮತೆಯನ್ನು ಸುಧಾರಿಸಲು ಸಹಾಯ ಮಾಡಿ</translation>
@@ -1696,9 +1712,9 @@
 <translation id="8611922158252451755">ಲಿಂಕ್ ಹೊಂದಿರುವ ಯಾರಾದರೂ ಎಲ್ಲಾ ಟ್ಯಾಬ್‌ಗಳನ್ನು ಎಡಿಟ್‌ ಮಾಡಬಹುದು, ಆದ್ದರಿಂದ ಎಚ್ಚರಿಕೆಯಿಂದ ಸೇರಿಕೊಳ್ಳಿ. ಲಿಂಕ್ 48 ಗಂಟೆಗಳಲ್ಲಿ ಮುಕ್ತಾಯಗೊಳ್ಳುತ್ತದೆ.</translation>
 <translation id="8616006591992756292">ನಿಮ್ಮ Google ಖಾತೆಯು <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> ನಲ್ಲಿ ಇತರ ವಿಧಗಳ ಬ್ರೌಸಿಂಗ್ ಇತಿಹಾಸವನ್ನು ಹೊಂದಿರಬಹುದು.</translation>
 <translation id="8617240290563765734">ಡೌನ್‌ಲೋಡ್‌ ಮಾಡಲಾದ ವಿಷಯದಲ್ಲಿ ಸೂಚಿಸಲಾದ ನಿರ್ದಿಷ್ಟ URL ತೆರೆಯುವುದೇ?</translation>
+<translation id="8634050254805484913">ಕಿರಿದಾದ ಸ್ಕ್ರೀನ್‌ಗಳಲ್ಲಿ ಮರೆಮಾಡಲಾಗಿದೆ</translation>
 <translation id="8635399646025169806">ಟ್ಯಾಬ್ ಗುಂಪನ್ನು ಇರಿಸಿಕೊಳ್ಳಬೇಕೆ?</translation>
 <translation id="8636825310635137004">ನಿಮ್ಮ ಇತರ ಸಾಧನಗಳಿಂದ ನಿಮ್ಮ ಟ್ಯಾಬ್‌ಗಳನ್ನು ಪಡೆದುಕೊಳ್ಳಲು, ಸಿಂಕ್‌ ಆನ್‌ ಮಾಡಿ.</translation>
-<translation id="864544049772947936">ವಿಂಡೋಗಳನ್ನು ನಿರ್ವಹಿಸಿ (<ph name="INSTANCE_COUNTS" />)</translation>
 <translation id="8662474268934425487"><ph name="SITE_ETLD_PLUS_ONE" /> ಗೆ ಸೈನ್ ಇನ್ ಮಾಡಿ</translation>
 <translation id="8664979001105139458">ಫೈಲ್ ಹೆಸರು ಈಗಾಗಲೇ ಅಸ್ತಿತ್ವದಲ್ಲಿದೆ</translation>
 <translation id="8676276370198826499"><ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /> ಜೊತೆಗೆ <ph name="SITE_ETLD_PLUS_ONE" /> ಗೆ ಸೈನ್ ಅಪ್ ಮಾಡಿ</translation>
@@ -1815,6 +1831,7 @@
 <translation id="9169507124922466868">ನ್ಯಾವಿಗೇಷನ್ ಇತಿಹಾಸವು ಅರ್ಧ-ತೆರೆದಿದೆ</translation>
 <translation id="9189607089796819144">ನೀವು "<ph name="FILE_NAME" />" (<ph name="FILE_SIZE" />) ಅನ್ನು ಹೇಗಾದರೂ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ಬಯಸುವಿರಾ?</translation>
 <translation id="9190276265094487094">ನಿಮ್ಮ ಎಲ್ಲಾ ಸಿಂಕ್ ಮಾಡಿದ ಸಾಧನಗಳಲ್ಲಿ ನಿಮ್ಮ ಇತಿಹಾಸ ಲಭ್ಯವಿರುತ್ತದೆ ಹಾಗಾಗಿ ನೀವು ಮಾಡುತ್ತಿದ್ದ ಕೆಲಸವನ್ನು ನೀವು ಮುಂದುವರಿಸಬಹುದು</translation>
+<translation id="9197941237799589838"><ph name="TAB_TITLE" />, ಪಿನ್ ಮಾಡಿದ, ಆಯ್ಕೆ ಮಾಡಲಾದ ಅಜ್ಞಾತ ಟ್ಯಾಬ್‌</translation>
 <translation id="9199368092038462496">{NUM_MINS,plural, =1{1 ನಿಮಿಷದ ಹಿಂದೆ ಪರಿಶೀಲಿಸಲಾಗಿದೆ}one{# ನಿಮಿಷಗಳ ಹಿಂದೆ ಪರಿಶೀಲಿಸಲಾಗಿದೆ}other{# ನಿಮಿಷಗಳ ಹಿಂದೆ ಪರಿಶೀಲಿಸಲಾಗಿದೆ}}</translation>
 <translation id="9204836675896933765">1 ಫೈಲ್ ಬಾಕಿ ಉಳಿದಿದೆ</translation>
 <translation id="9205933215779845960">ಆ ಪುಟ ಕಂಡುಬರುತ್ತಿಲ್ಲ. ನಿಮ್ಮ ಕಾಗುಣಿತವನ್ನು ಪರಿಶೀಲಿಸಿ ಅಥವಾ <ph name="SEARCH_ENGINE" /> ನಲ್ಲಿ ಹುಡುಕಿ ನೋಡಿ.</translation>
@@ -1830,6 +1847,7 @@
 <translation id="930124987204876019">ಇತಿಹಾಸ, ಕುಕಿಗಳು, ಸೈಟ್‌ ಡೇಟಾ, ಕ್ಯಾಷ್ ಅನ್ನು ಅಳಿಸಿ…</translation>
 <translation id="938850635132480979">ದೋಷ: <ph name="ERROR_CODE" /></translation>
 <translation id="939598580284253335">ಪಾಸ್‌ಫ್ರೇಸ್ ಅನ್ನು ನಮೂದಿಸಿ</translation>
+<translation id="945522503751344254">ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ಕಳುಹಿಸಿ</translation>
 <translation id="95817756606698420">Chrome ಚೀನಾದಲ್ಲಿ ಹುಡುಕಲು <ph name="BEGIN_BOLD" />Sogou<ph name="END_BOLD" /> ಬಳಸಬಹುದು. ನೀವು ಇದನ್ನು <ph name="BEGIN_LINK" />ಸೆಟ್ಟಿಂಗ್‌ಗಳು<ph name="END_LINK" /> ನಲ್ಲಿ ಬದಲಾಯಿಸಬಹುದು.</translation>
 <translation id="961856697154696964">ಬ್ರೌಸಿಂಗ್ ಡೇಟಾವನ್ನು ಅಳಿಸಿ</translation>
 <translation id="963246339335003378">ಟಾಸ್ಕ್‌ ಮ್ಯಾನೇಜರ್‌ ಅನ್ನು ತೆರೆಯಿರಿ</translation>

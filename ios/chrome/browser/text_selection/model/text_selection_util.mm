@@ -8,17 +8,18 @@ const char kTextClassifierAddressParameterName[] = "TCAddressOneTap";
 const char kTextClassifierPhoneNumberParameterName[] = "TCPhoneNumberOneTap";
 const char kTextClassifierEmailParameterName[] = "TCEmailOneTap";
 
-BASE_FEATURE(EnableExpKitTextClassifier, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableExpKitTextClassifier, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableExpKitTextClassifierDate, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(EnableExpKitTextClassifierAddress,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(EnableExpKitTextClassifierPhoneNumber,
+BASE_FEATURE(kEnableExpKitTextClassifierDate,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(EnableExpKitTextClassifierEmail,
+BASE_FEATURE(kEnableExpKitTextClassifierAddress,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableExpKitTextClassifierPhoneNumber,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableExpKitTextClassifierEmail,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsExpKitTextClassifierEntityEnabled() {

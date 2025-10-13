@@ -606,7 +606,7 @@ void CachedStorageArea::MaybeApplyNonLocalMutationForKey(
 // There are 2 parameters that influence how long the delay is, `factor` and
 // `offset`. If the actual time taken is `time_to_prime` then the delay will be
 // `time_to_prime * factor + offset`.
-BASE_FEATURE(DomStorageAblation, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDomStorageAblation, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(double,
                    kDomStorageAblationDelayFactor,
                    &kDomStorageAblation,
@@ -732,7 +732,7 @@ String CachedStorageArea::Uint8VectorToString(const Vector<uint8_t>& input,
         break;
       }
       StringBuffer<UChar> buffer(input_size / sizeof(UChar));
-      UNSAFE_TODO(std::memcpy(buffer.Characters(), input.data(), input_size));
+      UNSAFE_TODO(std::memcpy(buffer.Span().data(), input.data(), input_size));
       result = String::Adopt(buffer);
       break;
     }
@@ -757,8 +757,8 @@ String CachedStorageArea::Uint8VectorToString(const Vector<uint8_t>& input,
             break;
           }
           StringBuffer<UChar> buffer(payload_size / sizeof(UChar));
-          UNSAFE_TODO(
-              std::memcpy(buffer.Characters(), input.data() + 1, payload_size));
+          UNSAFE_TODO(std::memcpy(buffer.Span().data(), input.data() + 1,
+                                  payload_size));
           result = String::Adopt(buffer);
           break;
         }

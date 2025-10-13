@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.dragdrop;
 
+import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.content.ClipDescription;
@@ -15,6 +16,7 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
@@ -145,6 +147,7 @@ public class ChromeTabbedOnDragListener implements OnDragListener {
 
     private boolean handleTabDrop(DragEvent dragEvent, boolean isInDesktopWindow) {
         DragDropGlobalState globalState = DragDropGlobalState.getState(dragEvent);
+        assertNonNull(globalState);
         Tab draggedTab = ChromeDragDropUtils.getTabFromGlobalState(globalState);
         if (!validDragEvent(
                 globalState,
@@ -152,6 +155,14 @@ public class ChromeTabbedOnDragListener implements OnDragListener {
                 isInDesktopWindow,
                 /* isTabGroup= */ false,
                 /* isMultiTab= */ false)) {
+            return false;
+        }
+
+        // Reject cross-model drops if incognito is opened as a new window.
+        boolean draggedTabIncognito = draggedTab.isIncognitoBranded();
+        if (IncognitoUtils.shouldOpenIncognitoAsWindow()
+                && !ChromeDragDropUtils.doesBelongToCurrentModel(
+                        draggedTabIncognito, mTabModelSelector)) {
             return false;
         }
 
@@ -164,9 +175,7 @@ public class ChromeTabbedOnDragListener implements OnDragListener {
         // destination tab models match.
         final int destIndex =
                 ChromeDragDropUtils.handleDropInDifferentModel(
-                        mWindowAndroid.getActivity().get(),
-                        draggedTab.isIncognitoBranded(),
-                        mTabModelSelector);
+                        mWindowAndroid.getActivity().get(), draggedTabIncognito, mTabModelSelector);
 
         // Reparent the dragged tab to the destination window.
         mMultiInstanceManager.moveTabsToWindow(
@@ -183,6 +192,7 @@ public class ChromeTabbedOnDragListener implements OnDragListener {
 
     private boolean handleMultiTabDrop(DragEvent dragEvent, boolean isInDesktopWindow) {
         DragDropGlobalState globalState = DragDropGlobalState.getState(dragEvent);
+        assertNonNull(globalState);
         List<Tab> draggedTabs = ChromeDragDropUtils.getTabsFromGlobalState(globalState);
         if (!validDragEvent(
                 globalState,
@@ -193,12 +203,20 @@ public class ChromeTabbedOnDragListener implements OnDragListener {
             return false;
         }
 
+        // Reject cross-model drops if incognito is opened as a new window.
+        boolean draggedTabsIncognito = draggedTabs.get(0).isIncognitoBranded();
+        if (IncognitoUtils.shouldOpenIncognitoAsWindow()
+                && !ChromeDragDropUtils.doesBelongToCurrentModel(
+                        draggedTabsIncognito, mTabModelSelector)) {
+            return false;
+        }
+
         // Determine the destination index for dropping the tabs based on whether the source and
         // destination tab models match.
         final int destIndex =
                 ChromeDragDropUtils.handleDropInDifferentModel(
                         mWindowAndroid.getActivity().get(),
-                        draggedTabs.get(0).isIncognitoBranded(),
+                        draggedTabsIncognito,
                         mTabModelSelector);
 
         // Reparent the dragged tabs to the destination window.
@@ -214,6 +232,7 @@ public class ChromeTabbedOnDragListener implements OnDragListener {
 
     private boolean handleGroupDrop(DragEvent dragEvent, boolean isInDesktopWindow) {
         DragDropGlobalState globalState = DragDropGlobalState.getState(dragEvent);
+        assertNonNull(globalState);
         TabGroupMetadata tabGroupMetadata =
                 ChromeDragDropUtils.getTabGroupMetadataFromGlobalState(globalState);
 
@@ -226,12 +245,20 @@ public class ChromeTabbedOnDragListener implements OnDragListener {
             return false;
         }
 
+        // Reject cross-model drops if incognito is opened as a new window.
+        boolean draggedTabGroupIncognito = tabGroupMetadata.isIncognito;
+        if (IncognitoUtils.shouldOpenIncognitoAsWindow()
+                && !ChromeDragDropUtils.doesBelongToCurrentModel(
+                        draggedTabGroupIncognito, mTabModelSelector)) {
+            return false;
+        }
+
         // Determine the destination index for dropping the tab group based on whether the source
         // and destination tab models match.
         final int destIndex =
                 ChromeDragDropUtils.handleDropInDifferentModel(
                         mWindowAndroid.getActivity().get(),
-                        tabGroupMetadata.isIncognito,
+                        draggedTabGroupIncognito,
                         mTabModelSelector);
 
         // Reparent the dragged tab group to destination window.

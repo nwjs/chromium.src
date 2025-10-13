@@ -11,7 +11,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
 #include "chrome/browser/actor/ui/actor_border_view_controller.h"
-#include "chrome/browser/actor/ui/actor_overlay_window_controller.h"
+#include "chrome/browser/actor/ui/actor_ui_window_controller.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/collaboration/collaboration_service_factory.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
@@ -60,7 +60,7 @@
 #include "chrome/browser/ui/tabs/split_view_iph_controller.h"
 #include "chrome/browser/ui/tabs/tab_group_deletion_dialog_controller.h"
 #include "chrome/browser/ui/tabs/tab_list_bridge.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_service_impl.h"
+#include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_service_mojo_handler.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
@@ -73,6 +73,7 @@
 #include "chrome/browser/ui/views/extensions/extension_keybinding_registry_views.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_border_controller.h"
+#include "chrome/browser/ui/views/frame/find_bar_owner_views.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/scrim_view_controller.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
@@ -83,6 +84,7 @@
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/media_router/cast_browser_controller.h"
 #include "chrome/browser/ui/views/new_tab_footer/footer_controller.h"
+#include "chrome/browser/ui/views/profiles/profile_customization_bubble_sync_controller.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_coordinator.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_bubble_controller.h"
 #include "chrome/browser/ui/views/side_panel/bookmarks/bookmarks_side_panel_coordinator.h"
@@ -102,6 +104,7 @@
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/webui_browser/browser_elements_webui_browser.h"
+#include "chrome/browser/ui/webui_browser/find_bar_owner_webui_browser.h"
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_side_panel_ui.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_window.h"
@@ -130,6 +133,10 @@
 #include "chrome/browser/ui/startup/default_browser_prompt/pin_infobar/pin_infobar_controller.h"
 #endif
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_controller.h"
+#endif
+
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/ui/views/frame/windows_taskbar_icon_updater.h"
 #endif
@@ -145,13 +152,34 @@
 #include "chrome/browser/glic/browser_ui/glic_iph_controller.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
-#include "chrome/browser/glic/widget/glic_side_panel_coordinator.h"
 #include "chrome/browser/ui/tabs/glic_actor_task_icon_controller.h"
+#include "chrome/browser/ui/views/side_panel/glic/glic_legacy_side_panel_coordinator.h"
 #endif
 
 #if defined(USE_AURA)
 #include "chrome/browser/ui/overscroll_pref_manager.h"
 #endif  // defined(USE_AURA)
+
+class BrowserWindowFeatures::ExtensionKeybindingRegistryDelegateTabStrip final
+    : public extensions::ExtensionKeybindingRegistry::Delegate {
+ public:
+  explicit ExtensionKeybindingRegistryDelegateTabStrip(
+      TabStripModel& tab_strip_model)
+      : tab_strip_model_(tab_strip_model) {}
+  ~ExtensionKeybindingRegistryDelegateTabStrip() = default;
+
+  ExtensionKeybindingRegistryDelegateTabStrip(
+      const ExtensionKeybindingRegistryDelegateTabStrip& other) = delete;
+  ExtensionKeybindingRegistryDelegateTabStrip& operator=(
+      const ExtensionKeybindingRegistryDelegateTabStrip& other) = delete;
+
+  content::WebContents* GetWebContentsForExtension() override {
+    return tab_strip_model_->GetActiveWebContents();
+  }
+
+ private:
+  const raw_ref<TabStripModel> tab_strip_model_;
+};
 
 BrowserWindowFeatures::BrowserWindowFeatures() = default;
 BrowserWindowFeatures::~BrowserWindowFeatures() = default;
@@ -239,7 +267,7 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
     }
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
-    if (tabs::AreVerticalTabsEnabled()) {
+    if (tabs::IsVerticalTabsFeatureEnabled()) {
       vertical_tab_strip_state_controller_ =
           std::make_unique<tabs::VerticalTabStripStateController>(
               profile->GetPrefs());
@@ -256,8 +284,8 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
 
   tab_strip_model_ = browser->GetTabStripModel();
 
-  tab_strip_service_ =
-      std::make_unique<TabStripServiceImpl>(browser, tab_strip_model_);
+  tab_strip_service_feature_ =
+      std::make_unique<TabStripServiceMojoHandler>(browser, tab_strip_model_);
 
   memory_saver_bubble_controller_ =
       std::make_unique<memory_saver::MemorySaverBubbleController>(browser);
@@ -346,6 +374,17 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
 
   browser_select_file_dialog_controller_ =
       std::make_unique<BrowserSelectFileDialogController>(profile);
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  profile_customization_bubble_sync_controller_ =
+      std::make_unique<ProfileCustomizationBubbleSyncController>(browser,
+                                                                 profile);
+  session_restore_infobar_controller_ =
+      GetUserDataFactory()
+          .CreateInstance<
+              session_restore_infobar::SessionRestoreInfobarController>(
+              *browser, browser);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 }
 
 void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
@@ -504,19 +543,12 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
     toast_service_ = std::make_unique<ToastService>(browser);
   }
 
+  views::FocusManager* focus_manager = nullptr;
   if (BrowserView* const browser_view =
           BrowserView::GetBrowserViewForBrowser(browser)) {
+    focus_manager = browser_view->GetFocusManager();
     contents_border_controller_ =
         std::make_unique<ContentsBorderController>(browser_view);
-
-    // Focus manager can be null in tests.
-    if (views::FocusManager* focus_manager = browser_view->GetFocusManager()) {
-      extension_keybinding_registry_ =
-          std::make_unique<ExtensionKeybindingRegistryViews>(
-              profile, focus_manager,
-              extensions::ExtensionKeybindingRegistry::ALL_EXTENSIONS,
-              browser_view);
-    }
 
     // BrowserView is an AcceleratorProvider.
     accelerator_provider_ = browser_view;
@@ -530,11 +562,27 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
 
   if (WebUIBrowserWindow* webui_browser_window =
           WebUIBrowserWindow::FromBrowser(browser)) {
+    focus_manager = webui_browser_window->widget()->GetFocusManager();
     webui_browser_side_panel_ui_ =
         std::make_unique<WebUIBrowserSidePanelUI>(browser);
 
     // WebUIBrowserWindow is an AcceleratorProvider.
     accelerator_provider_ = webui_browser_window;
+
+    find_bar_owner_ =
+        std::make_unique<FindBarOwnerWebUIBrowser>(webui_browser_window);
+  }
+
+  // Focus manager can be null in tests.
+  if (focus_manager) {
+    extension_keybinding_delegate_ =
+        std::make_unique<ExtensionKeybindingRegistryDelegateTabStrip>(
+            *browser->GetTabStripModel());
+    extension_keybinding_registry_ =
+        std::make_unique<ExtensionKeybindingRegistryViews>(
+            profile, focus_manager,
+            extensions::ExtensionKeybindingRegistry::ALL_EXTENSIONS,
+            extension_keybinding_delegate_.get());
   }
 }
 
@@ -551,9 +599,9 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
   // TODO(crbug.com/346148554): Do not create a SidePanelCoordinator for most
   // browser.h types
   // Conceptually, SidePanelCoordinator handles the "model" whereas
-  // BrowserView::unified_side_panel_ handles the "ui". When we stop making this
-  // for most browser.h types, we should also stop making the
-  // unified_side_panel_.
+  // BrowserView::contents_height_side_panel_ handles the "ui". When we stop
+  // making this for most browser.h types, we should also stop making the
+  // contents_height_side_panel_.
   side_panel_coordinator_ =
       std::make_unique<SidePanelCoordinator>(browser_view);
 
@@ -570,12 +618,14 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
     comments_side_panel_coordinator_ =
         std::make_unique<CommentsSidePanelCoordinator>(browser_view->browser());
   }
-
 #if BUILDFLAG(ENABLE_GLIC)
-  glic_side_panel_coordinator_ =
-      std::make_unique<glic::GlicSidePanelCoordinator>();
+  if (!base::FeatureList::IsEnabled(features::kGlicMultiInstance) &&
+      glic::GlicKeyedService::Get(browser_view->GetProfile())) {
+    glic_side_panel_coordinator_ =
+        std::make_unique<glic::GlicLegacySidePanelCoordinator>(
+            browser_view->browser(), side_panel_coordinator_.get());
+  }
 #endif  // BUILDFLAG(ENABLE_GLIC)
-
   side_panel_coordinator_->Init(browser_view->browser());
 
   extension_side_panel_manager_ =
@@ -625,17 +675,17 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
               browser_view->browser());
     }
 
-    if (features::kGlicActorUiOverlay.Get()) {
-      std::vector<std::pair<views::WebView*, views::View*>>
+    if (base::FeatureList::IsEnabled(features::kGlicActorUi)) {
+      std::vector<std::pair<views::WebView*, ActorOverlayWebView*>>
           container_overlay_view_pairs;
       for (auto* contents_container :
            browser_view->GetContentsContainerViews()) {
         container_overlay_view_pairs.emplace_back(
             contents_container->contents_view(),
-            contents_container->actor_overlay_view());
+            contents_container->actor_overlay_web_view());
       }
-      actor_overlay_window_controller_ =
-          GetUserDataFactory().CreateInstance<ActorOverlayWindowController>(
+      actor_ui_window_controller_ =
+          GetUserDataFactory().CreateInstance<ActorUiWindowController>(
               *browser_, browser_, std::move(container_overlay_view_pairs));
     }
 
@@ -667,6 +717,8 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
 #endif
 
   user_education_->Init(browser_view);
+
+  find_bar_owner_ = std::make_unique<FindBarOwnerViews>(browser_view);
 }
 
 void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
@@ -682,7 +734,6 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   toast_service_.reset();
   extension_window_controller_.reset();
   actor_border_view_controller_.reset();
-  actor_overlay_window_controller_.reset();
 
 #if BUILDFLAG(ENABLE_GLIC)
   glic_button_controller_.reset();
@@ -727,6 +778,10 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
     devtools_ui_controller_->TearDown();
   }
 
+  if (actor_ui_window_controller_) {
+    actor_ui_window_controller_->TearDown();
+  }
+
   data_protection_ui_controller_.reset();
 
   desktop_browser_window_capabilities_.reset();
@@ -762,6 +817,8 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   if (auto* const provider = browser_elements_->AsA<BrowserElementsViews>()) {
     provider->TearDown();
   }
+
+  find_bar_owner_.reset();
 }
 
 SidePanelUI* BrowserWindowFeatures::side_panel_ui() {

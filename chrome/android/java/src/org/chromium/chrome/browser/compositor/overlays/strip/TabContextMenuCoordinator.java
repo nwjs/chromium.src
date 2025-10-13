@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.compositor.overlays.strip;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
+import static org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutUtils.isTabPinningFromStripEnabled;
 import static org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType.ACTIVE;
 import static org.chromium.chrome.browser.share.ShareDelegate.ShareOrigin.TAB_STRIP_CONTEXT_MENU;
 import static org.chromium.chrome.browser.tabmodel.TabGroupUtils.createNewGroupForTabs;
@@ -53,6 +54,7 @@ import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabClosureParamsUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabGroupUtils;
+import org.chromium.chrome.browser.tabmodel.TabGroupUtils.TabGroupCreationCallback;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
@@ -98,6 +100,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
     private final Supplier<TabModel> mTabModelSupplier;
 
     private final TabGroupModelFilter mTabGroupModelFilter;
+    private final TabGroupCreationCallback mTabGroupCreationCallback;
     private final WindowAndroid mWindowAndroid;
     private final Context mContext;
 
@@ -105,6 +108,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
             Supplier<TabModel> tabModelSupplier,
             TabGroupModelFilter tabGroupModelFilter,
             TabGroupListBottomSheetCoordinator tabGroupListBottomSheetCoordinator,
+            TabGroupCreationCallback tabGroupCreationCallback,
             MultiInstanceManager multiInstanceManager,
             Supplier<ShareDelegate> shareDelegateSupplier,
             WindowAndroid windowAndroid,
@@ -126,6 +130,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
                 context);
         mTabModelSupplier = tabModelSupplier;
         mTabGroupModelFilter = tabGroupModelFilter;
+        mTabGroupCreationCallback = tabGroupCreationCallback;
         mWindowAndroid = windowAndroid;
         mContext = context;
     }
@@ -137,6 +142,8 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
      * @param tabGroupModelFilter The {@link TabGroupModelFilter} to act on.
      * @param tabGroupListBottomSheetCoordinator The {@link TabGroupListBottomSheetCoordinator} that
      *     will be used to show a bottom sheet when the user selects the "Add to group" option.
+     * @param tabGroupCreationCallback The {@link TabGroupCreationCallback} to run after creating a
+     *     new tab group for the interacting tab(s) through the submenu.
      * @param multiInstanceManager The {@link MultiInstanceManager} that will be used to move tabs
      *     from one window to another.
      * @param shareDelegateSupplier Supplies the {@link ShareDelegate} that will be used to share
@@ -147,6 +154,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
             Supplier<TabModel> tabModelSupplier,
             TabGroupModelFilter tabGroupModelFilter,
             TabGroupListBottomSheetCoordinator tabGroupListBottomSheetCoordinator,
+            TabGroupCreationCallback tabGroupCreationCallback,
             MultiInstanceManager multiInstanceManager,
             Supplier<ShareDelegate> shareDelegateSupplier,
             WindowAndroid windowAndroid,
@@ -163,6 +171,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
                 tabModelSupplier,
                 tabGroupModelFilter,
                 tabGroupListBottomSheetCoordinator,
+                tabGroupCreationCallback,
                 multiInstanceManager,
                 shareDelegateSupplier,
                 windowAndroid,
@@ -196,7 +205,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
             } else if (menuId == R.id.move_to_other_window_menu_id) {
                 multiInstanceManager.moveTabsToOtherWindow(tabs);
             } else if (menuId == R.id.share_tab) {
-                assert tabs.size() == 1: "Share is only available for single tab selection.";
+                assert tabs.size() == 1 : "Share is only available for single tab selection.";
                 shareDelegateSupplier
                         .get()
                         .share(tabs.get(0), /* shareDirectly= */ false, TAB_STRIP_CONTEXT_MENU);
@@ -209,6 +218,10 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
                 for (int i = tabs.size() - 1; i >= 0; i--) {
                     tabModel.unpinTab(tabs.get(i).getId());
                 }
+            } else if (menuId == R.id.mute_site_menu_id) {
+                tabModel.setMuteSetting(tabs, /* mute= */ true);
+            } else if (menuId == R.id.unmute_site_menu_id) {
+                tabModel.setMuteSetting(tabs, /* mute= */ false);
             } else if (menuId == R.id.close_tab) {
                 boolean allowUndo = TabClosureParamsUtils.shouldAllowUndo(listViewTouchTracker);
                 tabModel.getTabRemover()
@@ -269,8 +282,11 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
             // Share is only available for single tab selection.
             itemList.add(createShareItem(isIncognito));
         }
-        if (ChromeFeatureList.sAndroidPinnedTabs.isEnabled()) {
+        if (isTabPinningFromStripEnabled()) {
             itemList.add(createPinUnpinTabItem(tabs, isIncognito));
+        }
+        if (ChromeFeatureList.sMediaIndicatorsAndroid.isEnabled()) {
+            itemList.add(createMuteUnmuteSiteItem(tabs, isIncognito));
         }
         itemList.add(createCloseItem(isIncognito));
     }
@@ -285,8 +301,11 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
             itemList.add(createMoveToWindowItem(TabModelUtils.getTabIds(tabs), isIncognito));
         }
         itemList.add(buildMenuDivider(isIncognito));
-        if (ChromeFeatureList.sAndroidPinnedTabs.isEnabled()) {
+        if (isTabPinningFromStripEnabled()) {
             itemList.add(createPinUnpinTabItem(tabs, isIncognito));
+        }
+        if (ChromeFeatureList.sMediaIndicatorsAndroid.isEnabled()) {
+            itemList.add(createMuteUnmuteSiteItem(tabs, isIncognito));
         }
         itemList.add(createCloseItem(isIncognito));
     }
@@ -330,7 +349,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
                                                     tabs,
                                                     mTabGroupModelFilter,
                                                     /* tabMovedCallback= */ null,
-                                                    /* tabGroupCreationCallback= */ null);
+                                                    mTabGroupCreationCallback);
                                         })
                                 .build()));
         // Available tab groups.
@@ -405,6 +424,28 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
                 .build();
     }
 
+    private ListItem createMuteUnmuteSiteItem(List<Tab> tabs, boolean isIncognito) {
+        boolean showUnmute = true;
+        TabModel tabModel = mTabModelSupplier.get();
+        for (Tab tab : tabs) {
+            if (!tabModel.isMuted(tab)) {
+                showUnmute = false;
+                break;
+            }
+        }
+        String title =
+                showUnmute
+                        ? mContext.getResources()
+                                .getQuantityString(R.plurals.unmute_sites_menu_item, tabs.size())
+                        : mContext.getResources()
+                                .getQuantityString(R.plurals.mute_sites_menu_item, tabs.size());
+        return new ListItemBuilder()
+                .withTitle(title)
+                .withMenuId(showUnmute ? R.id.unmute_site_menu_id : R.id.mute_site_menu_id)
+                .withIsIncognito(isIncognito)
+                .build();
+    }
+
     private ListItem createCloseItem(boolean isIncognito) {
         return buildListItem(R.string.close, R.id.close_tab, isIncognito);
     }
@@ -438,6 +479,10 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<List<I
             recordUserAction("MoveTabToNewWindow", isMultipleTabs);
         } else if (menuId == R.id.move_to_other_window_sub_menu_id) {
             recordUserAction("MoveTabToOtherWindow", isMultipleTabs);
+        } else if (menuId == R.id.mute_site_menu_id) {
+            recordUserAction("MuteSite", isMultipleTabs);
+        } else if (menuId == R.id.unmute_site_menu_id) {
+            recordUserAction("UnmuteSite", isMultipleTabs);
         } else {
             assert false : "Unknown menu id: " + menuId;
         }

@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "ui/views/widget/widget.h"
 
@@ -21,6 +22,7 @@ namespace glic {
 
 namespace {
 constexpr base::TimeDelta kDebounceDelay = base::Seconds(0.1);
+bool g_testing_mode = false;
 
 // Returns whether `a` and `b` both point to the same object.
 // Note that if both `a` and `b` are invalidated, this returns true, even if
@@ -34,6 +36,10 @@ bool IsWeakPtrSame(const base::WeakPtr<T>& a, const base::WeakPtr<T>& b) {
          std::make_pair(b.get(), b.WasInvalidated());
 }
 }  // namespace
+
+void GlicFocusedBrowserManager::SetTestingModeForTesting(bool testing_mode) {
+  g_testing_mode = testing_mode;
+}
 
 GlicFocusedBrowserManager::GlicFocusedBrowserManager(
     GlicWindowController* window_controller)
@@ -219,19 +225,22 @@ BrowserWindowInterface* GlicFocusedBrowserManager::ComputeBrowserCandidate() {
 
 BrowserWindowInterface* GlicFocusedBrowserManager::ComputeActiveBrowser() {
 #if BUILDFLAG(IS_MAC)
-  if (!ui::IsActiveApplication()) {
+  // Ignore this check when testing because we can't guarantee that the
+  // application is active.
+  if (!g_testing_mode && !ui::IsActiveApplication()) {
     return nullptr;
   }
 #endif
 
-  Browser* active_browser = BrowserList::GetInstance()->GetLastActive();
-  if (!active_browser) {
+  BrowserWindowInterface* const bwi =
+      GetLastActiveBrowserWindowInterfaceWithAnyProfile();
+  if (!bwi) {
     return nullptr;
   }
-  if (!window_controller_->IsActive() && !active_browser->IsActive()) {
+  if (!window_controller_->IsActive() && !bwi->IsActive()) {
     return nullptr;
   }
-  return active_browser;
+  return bwi;
 }
 
 bool GlicFocusedBrowserManager::IsBrowserStateValid(

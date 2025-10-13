@@ -27,15 +27,6 @@
 
 namespace autofill {
 
-namespace {
-
-raw_ptr<const FormFieldData> to_form_field_data(
-    const std::unique_ptr<AutofillField>& field) {
-  return field.get();
-}
-
-}  // namespace
-
 class FormFieldParserTest : public FormFieldParserTestBase,
                             public ::testing::Test {
  public:
@@ -48,48 +39,45 @@ class FormFieldParserTest : public FormFieldParserTestBase,
   // Returns the number of fields parsed.
   int ParseFormFields(GeoIpCountryCode client_country = GeoIpCountryCode(""),
                       LanguageCode language = LanguageCode("")) {
-    auto fields = base::ToVector(fields_, &to_form_field_data);
-    ParsingContext context(fields, client_country, language,
+    ParsingContext context(fields_, client_country, language,
                            GetActivePatternFile().value(),
-                           GetActiveRegexFeatures());
-    FormFieldParser::ParseFormFields(context, fields, field_candidates_map_);
+                           GetActiveRegexFeatures(), /*log_manager=*/nullptr);
+    FormFieldParser::ParseFormFields(context, fields_, field_candidates_map_);
     return field_candidates_map_.size();
   }
 
   // Like `ParseFormFields()`, but using `ParseSingleFields()` instead.
   int ParseSingleFields() {
-    auto fields = base::ToVector(fields_, &to_form_field_data);
-    ParsingContext context(fields, GeoIpCountryCode(""), LanguageCode(""),
+    ParsingContext context(fields_, GeoIpCountryCode(""), LanguageCode(""),
                            GetActivePatternFile().value(),
-                           GetActiveRegexFeatures());
-    FormFieldParser::ParseSingleFields(context, fields, field_candidates_map_);
+                           GetActiveRegexFeatures(), /*log_manager=*/nullptr);
+    FormFieldParser::ParseSingleFields(context, fields_, field_candidates_map_);
     return field_candidates_map_.size();
   }
 
   int ParseStandaloneCVCFields() {
-    auto fields = base::ToVector(fields_, &to_form_field_data);
-    ParsingContext context(fields, GeoIpCountryCode(""), LanguageCode(""),
-                           GetActivePatternFile().value());
-    FormFieldParser::ParseStandaloneCVCFields(context, fields,
+    ParsingContext context(fields_, GeoIpCountryCode(""), LanguageCode(""),
+                           GetActivePatternFile().value(),
+                           /*active_features=*/{}, /*log_manager=*/nullptr);
+    FormFieldParser::ParseStandaloneCVCFields(context, fields_,
                                               field_candidates_map_);
     return field_candidates_map_.size();
   }
 
   int ParseStandaloneEmailFields() {
-    auto fields = base::ToVector(fields_, &to_form_field_data);
-    ParsingContext context(fields, GeoIpCountryCode(""), LanguageCode(""),
-                           GetActivePatternFile().value());
-    FormFieldParser::ParseStandaloneEmailFields(context, fields,
+    ParsingContext context(fields_, GeoIpCountryCode(""), LanguageCode(""),
+                           GetActivePatternFile().value(),
+                           /*active_features=*/{}, /*log_manager=*/nullptr);
+    FormFieldParser::ParseStandaloneEmailFields(context, fields_,
                                                 field_candidates_map_);
     return field_candidates_map_.size();
   }
 
   int ParseStandaloneLoyaltyCardFields() {
-    auto fields = base::ToVector(fields_, &to_form_field_data);
-    ParsingContext context(fields, GeoIpCountryCode(""), LanguageCode(""),
+    ParsingContext context(fields_, GeoIpCountryCode(""), LanguageCode(""),
                            GetActivePatternFile().value(),
-                           GetActiveRegexFeatures());
-    FormFieldParser::ParseStandaloneLoyaltyCardFields(context, fields,
+                           GetActiveRegexFeatures(), /*log_manager=*/nullptr);
+    FormFieldParser::ParseStandaloneLoyaltyCardFields(context, fields_,
                                                       field_candidates_map_);
     return field_candidates_map_.size();
   }
@@ -98,7 +86,7 @@ class FormFieldParserTest : public FormFieldParserTestBase,
   // This function is unused in these unit tests, because FormFieldParser is not
   // a parser itself, but the infrastructure combining them.
   std::unique_ptr<FormFieldParser> Parse(ParsingContext& context,
-                                         AutofillScanner* scanner) override {
+                                         AutofillScanner& scanner) override {
     return nullptr;
   }
 };
@@ -147,17 +135,17 @@ TEST_P(MatchTest, Match) {
   SCOPED_TRACE("label = " + base::UTF16ToUTF8(label));
   field->set_label(label);
   for (const auto& pattern : positive_patterns) {
-    ParsingContext context(base::span_from_ref(to_form_field_data(field)),
-                           GeoIpCountryCode(""), LanguageCode(""),
-                           GetActivePatternFile().value());
+    ParsingContext context(base::span_from_ref(field), GeoIpCountryCode(""),
+                           LanguageCode(""), GetActivePatternFile().value(),
+                           /*active_features=*/{}, /*log_manager=*/nullptr);
     SCOPED_TRACE("positive_pattern = " + base::UTF16ToUTF8(pattern));
     EXPECT_TRUE(FormFieldParserTestApi::Match(context, *field, pattern,
                                               {MatchAttribute::kLabel}));
   }
   for (const auto& pattern : negative_patterns) {
-    ParsingContext context(base::span_from_ref(to_form_field_data(field)),
-                           GeoIpCountryCode(""), LanguageCode(""),
-                           GetActivePatternFile().value());
+    ParsingContext context(base::span_from_ref(field), GeoIpCountryCode(""),
+                           LanguageCode(""), GetActivePatternFile().value(),
+                           /*active_features=*/{}, /*log_manager=*/nullptr);
     SCOPED_TRACE("negative_pattern = " + base::UTF16ToUTF8(pattern));
     EXPECT_FALSE(FormFieldParserTestApi::Match(context, *field, pattern,
                                                {MatchAttribute::kLabel}));
@@ -190,14 +178,13 @@ TEST_F(FormFieldParserTest, ParseFormFieldsEnforceMinFillableFields) {
 // Test that the parseable label is used when the feature is enabled.
 TEST_F(FormFieldParserTest, TestParseableLabels) {
   AddTextFormFieldData("", "not a parseable label", UNKNOWN_TYPE);
-  AutofillField* autofill_field = fields_.back().get();
-
-  ParsingContext context(base::ToVector(fields_, &to_form_field_data),
-                         GeoIpCountryCode(""), LanguageCode(""),
-                         GetActivePatternFile().value());
-  context.label_overrides[autofill_field->global_id()] = u"First Name";
-  EXPECT_TRUE(FormFieldParserTestApi::Match(
-      context, *autofill_field, u"First Name", {MatchAttribute::kLabel}));
+  FormFieldData& field = fields_.back();
+  ParsingContext context(fields_, GeoIpCountryCode(""), LanguageCode(""),
+                         GetActivePatternFile().value(), /*active_features=*/{},
+                         /*log_manager=*/nullptr);
+  context.label_overrides[field.global_id()] = u"First Name";
+  EXPECT_TRUE(FormFieldParserTestApi::Match(context, field, u"First Name",
+                                            {MatchAttribute::kLabel}));
 }
 
 // Tests that `ParseSingleFields` is called as part of `ParseFormFields`.
@@ -334,55 +321,61 @@ TEST_P(ParseInAnyOrderTest, ParseInAnyOrder) {
   bool expect_success = !testcase.expected_permutation.empty();
   size_t n = testcase.field_matches_parser.size();
 
-  std::vector<std::unique_ptr<AutofillField>> fields;
+  std::vector<FormFieldData> fields;
   // Creates n fields and encodes their ids in `max_length`, as `id_attribute`
   // is a string.
   for (size_t i = 0; i < n; i++) {
     FormFieldData form_field_data;
     form_field_data.set_max_length(i);
-    fields.push_back(std::make_unique<AutofillField>(form_field_data));
+    fields.push_back(form_field_data);
   }
 
   // Checks if `matching_ids` of the `scanner`'s current position is true.
   // This is used to simulate different parsers, as described by
   // `testcase.field_matches_parser`.
-  auto Matches = [](AutofillScanner* scanner,
+  auto Matches = [](AutofillScanner& scanner,
                     const std::vector<bool>& matching_ids) -> bool {
-    return matching_ids[scanner->Cursor()->max_length()];
+    return matching_ids[scanner.Cursor().max_length()];
   };
 
-  // Must outlive `scanner`.
-  auto unowned_fields =
-      base::ToVector(fields, [](const std::unique_ptr<AutofillField>& field) {
-        return raw_ptr<const FormFieldData>(field.get());
-      });
-
-  // Construct n parsers from `testcase.field_matches_parser`.
-  AutofillScanner scanner(unowned_fields);
+  // Construct `n` parsers from `testcase.field_matches_parser`.
+  // Since base::FunctionRef is non-owning, we need to define at least `n`
+  // lambdas by hand.
+  AutofillScanner scanner(fields,
+                          [](const FormFieldData& field) { return true; });
+  CHECK_LE(n, 3u) << "If a test case has size > 3, add a `callbackN` variable "
+                     "below and add it to `callbacks`";
+  auto callback0 = [&]() {
+    return Matches(scanner, testcase.field_matches_parser[0]);
+  };
+  auto callback1 = [&]() {
+    return Matches(scanner, testcase.field_matches_parser[1]);
+  };
+  auto callback2 = [&]() {
+    return Matches(scanner, testcase.field_matches_parser[2]);
+  };
+  auto callbacks = std::to_array<base::FunctionRef<bool()>>(
+      {callback0, callback1, callback2});
   std::vector<raw_ptr<const FormFieldData>> matched_fields(n);
   std::vector<
-      std::pair<raw_ptr<const FormFieldData>*, base::RepeatingCallback<bool()>>>
+      std::pair<raw_ptr<const FormFieldData>*, base::FunctionRef<bool()>>>
       fields_and_parsers;
   for (size_t i = 0; i < n; i++) {
-    fields_and_parsers.emplace_back(
-        &matched_fields[i],
-        base::BindRepeating(Matches, &scanner,
-                            testcase.field_matches_parser[i]));
+    fields_and_parsers.emplace_back(&matched_fields[i], callbacks[i]);
   }
 
   EXPECT_EQ(
-      FormFieldParserTestApi::ParseInAnyOrder(&scanner, fields_and_parsers),
+      FormFieldParserTestApi::ParseInAnyOrder(scanner, fields_and_parsers),
       expect_success);
 
   if (expect_success) {
     EXPECT_TRUE(scanner.IsEnd());
     ASSERT_EQ(testcase.expected_permutation.size(), n);
     for (size_t i = 0; i < n; i++) {
-      EXPECT_EQ(matched_fields[i],
-                fields[testcase.expected_permutation[i]].get());
+      EXPECT_EQ(matched_fields[i], &fields[testcase.expected_permutation[i]]);
     }
   } else {
-    EXPECT_EQ(scanner.CursorPosition(), 0u);
+    EXPECT_EQ(scanner.GetOffset(), 0u);
     EXPECT_THAT(matched_fields, ::testing::Each(nullptr));
   }
 }
@@ -462,7 +455,7 @@ TEST_F(FormFieldParserTest, LabelPrioritization) {
   AddFormFieldData(FormControlType::kInputText, /*name=*/"",
                    /*label=*/"Full name", /*placeholder=*/"Street address",
                    /*max_length=*/0, NAME_FULL);
-  fields_.back()->set_label_source(FormFieldData::LabelSource::kForId);
+  fields_.back().set_label_source(FormFieldData::LabelSource::kForId);
 
   // - Low quality name-type label.
   // - High quality address-type placeholder.
@@ -473,7 +466,7 @@ TEST_F(FormFieldParserTest, LabelPrioritization) {
   AddFormFieldData(FormControlType::kInputText, /*name=*/"",
                    /*label=*/"Full name", /*placeholder=*/"Street address",
                    /*max_length=*/0, ADDRESS_HOME_LINE2);
-  fields_.back()->set_label_source(FormFieldData::LabelSource::kDivTable);
+  fields_.back().set_label_source(FormFieldData::LabelSource::kDivTable);
 
   // - High quality name-type label.
   // - Low quality address-type placeholder.
@@ -482,7 +475,7 @@ TEST_F(FormFieldParserTest, LabelPrioritization) {
   AddFormFieldData(FormControlType::kInputText, /*name=*/"email",
                    /*label=*/"Full name", /*placeholder=*/"Street address",
                    /*max_length=*/0, EMAIL_ADDRESS);
-  fields_.back()->set_label_source(FormFieldData::LabelSource::kForId);
+  fields_.back().set_label_source(FormFieldData::LabelSource::kForId);
 
   // - Low quality name-type label.
   // - High quality address-type placeholder.
@@ -491,7 +484,7 @@ TEST_F(FormFieldParserTest, LabelPrioritization) {
   AddFormFieldData(FormControlType::kInputText, /*name=*/"email",
                    /*label=*/"Full name", /*placeholder=*/"Street address",
                    /*max_length=*/0, EMAIL_ADDRESS);
-  fields_.back()->set_label_source(FormFieldData::LabelSource::kDivTable);
+  fields_.back().set_label_source(FormFieldData::LabelSource::kDivTable);
 
   EXPECT_EQ(4, ParseFormFields());
   TestClassificationExpectations();

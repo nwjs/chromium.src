@@ -210,8 +210,8 @@ void BaseRenderingContext2D::DispatchContextLostEvent(TimerBase*) {
   if (context_lost_mode_ == CanvasRenderingContext::kRealLostContext ||
       context_lost_mode_ == CanvasRenderingContext::kSyntheticLostContext) {
     try_restore_context_attempt_count_ = 0;
-    try_restore_context_event_timer_.StartRepeating(
-        try_restore_context_interval_, FROM_HERE);
+    try_restore_context_event_timer_.StartRepeating(kTryRestoreContextInterval,
+                                                    FROM_HERE);
   }
 }
 
@@ -295,7 +295,7 @@ void BaseRenderingContext2D::RestoreFromInvalidSizeIfNeeded() {
       !host) {
     return;
   }
-  DCHECK(!GetResourceProviderForCanvas2D());
+  DCHECK(!GetResourceProvider());
 
   if (host->IsValidImageSize()) {
     if (dispatch_context_lost_event_timer_.IsActive()) {
@@ -394,6 +394,10 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
         String::Format("The source %s is 0.", sw ? "height" : "width"));
+  } else if (RuntimeEnabledFeatures::BlockCanvasReadbackEnabled(
+                 GetTopExecutionContext())) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kNotAllowedError,
+                                      String(kBlockCanvasReadbackErrorMessage));
   }
 
   if (exception_state.HadException())
@@ -489,7 +493,6 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
     noised = CanvasInterventionsHelper::MaybeNoiseSnapshot(
         GetTopExecutionContext(), snapshot);
   }
-
   TRACE_EVENT_INSTANT(
       TRACE_DISABLED_BY_DEFAULT("identifiability.high_entropy_api"),
       "CanvasReadback", perfetto::Flow::FromPointer(this),
@@ -782,7 +785,11 @@ void BaseRenderingContext2D::Trace(Visitor* visitor) const {
 }
 
 bool BaseRenderingContext2D::Is2DCanvasAccelerated() const {
-  auto* resource_provider = GetResourceProviderForCanvas2D();
+  if (IsHibernating()) {
+    return false;
+  }
+
+  auto* resource_provider = GetResourceProvider();
   return resource_provider ? resource_provider->IsAccelerated()
                            : Host()->ShouldTryToUseGpuRaster();
 }
@@ -804,7 +811,7 @@ BaseRenderingContext2D::PaintRenderingResultsToSnapshot(
     return nullptr;
   }
 
-  CanvasResourceProvider* provider = GetResourceProviderForCanvas2D();
+  CanvasResourceProvider* provider = GetResourceProvider();
   provider->FlushCanvas(reason);
   return provider->Snapshot(reason);
 }
@@ -1492,10 +1499,11 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
   // want to behave differently here?
   EnableAccelerationIfPossible();
 
-  // A texture needs to exist on the GPU. If we aren't able to enable
-  // acceleration, the canvas pixels live on the CPU and we weren't able to
-  // transfer them; in that case, WebGPU access is not possible.
-  CanvasResourceProvider* provider = GetOrCreateCanvas2DResourceProvider();
+  // A texture needs to exist on the GPU. If we aren't able to create an
+  // accelerated SharedImage provider, we won't be able to transfer the canvas.
+  // In that case, WebGPU access is not possible.
+  CanvasResourceProviderSharedImage* provider =
+      GetOrCreateCanvas2DResourceProvider()->AsSharedImageProvider();
   if (!provider || !provider->IsAccelerated()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Unable to transfer canvas to GPU.");
@@ -1509,11 +1517,10 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
   gpu::SyncToken canvas_access_sync_token;
   bool performed_copy = false;
   scoped_refptr<gpu::ClientSharedImage> client_si =
-      GetResourceProviderForCanvas2D()
-          ->GetBackingClientSharedImageForExternalWrite(
-              gpu::SHARED_IMAGE_USAGE_WEBGPU_READ |
-                  gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE,
-              canvas_access_sync_token, &performed_copy);
+      provider->GetBackingClientSharedImageForExternalWrite(
+          gpu::SHARED_IMAGE_USAGE_WEBGPU_READ |
+              gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE,
+          canvas_access_sync_token, &performed_copy);
   if (access_options->requireZeroCopy() && performed_copy) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
@@ -1554,8 +1561,13 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
   // canvas to be treated as a brand new surface if additional draws occur.
   // It also gives us a mechanism to detect post-transfer-out draws, which is
   // used in `transferBackFromWebGPU` to raise an exception.
+  auto owned_provider = ReplaceResourceProviderForCanvas2D(nullptr);
+
+  // Note: This must be a CRPSI since this method would have bailed out earlier
+  // otherwise.
   resource_provider_from_webgpu_access_ =
-      ReplaceResourceProviderForCanvas2D(nullptr);
+      base::WrapUnique<CanvasResourceProviderSharedImage>(
+          owned_provider.release()->AsSharedImageProvider());
 
   // The user isn't obligated to ever transfer back, which means this resource
   // provider might stick around for while. Jettison any unnecessary resources.
@@ -1591,7 +1603,7 @@ void BaseRenderingContext2D::transferBackFromGPUTexture(
   // If this canvas already has a resource provider, this means that drawing has
   // occurred after `transferToWebGPU`. We disallow transferring back in this
   // case, and raise an exception instead.
-  if (GetResourceProviderForCanvas2D()) {
+  if (GetResourceProvider()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
         "The canvas was touched after transferToGPUTexture.");
@@ -1612,7 +1624,7 @@ void BaseRenderingContext2D::transferBackFromGPUTexture(
 
   // Restore the canvas' resource provider back onto the canvas host,
   // surrendering our temporary ownership of the provider.
-  CanvasResourceProvider* resource_provider =
+  CanvasResourceProviderSharedImage* resource_provider =
       resource_provider_from_webgpu_access_.get();
   ReplaceResourceProviderForCanvas2D(
       std::move(resource_provider_from_webgpu_access_));

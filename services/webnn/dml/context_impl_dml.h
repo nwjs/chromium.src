@@ -33,6 +33,8 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) ContextImplDml final
                  mojo::PendingAssociatedReceiver<mojom::WebNNContext> receiver,
                  WebNNContextProviderImpl* context_provider,
                  mojom::CreateContextOptionsPtr options,
+                 mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
+                 mojo::ScopedDataPipeProducerHandle read_tensor_producer,
                  std::unique_ptr<CommandRecorder> command_recorder,
                  const gpu::GpuFeatureInfo& gpu_feature_info,
                  gpu::CommandBufferId command_buffer_id,
@@ -101,10 +103,10 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) ContextImplDml final
                    mojom::TensorInfoPtr tensor_info) override;
 
   base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
-  CreateTensorFromMailboxImpl(
+  CreateTensorFromSharedImageImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
       mojom::TensorInfoPtr tensor_info,
-      gpu::Mailbox mailbox) override;
+      std::unique_ptr<gpu::WebNNTensorRepresentation> representation) override;
 
   // Begins recording commands needed for context operations.
   // If recording failed, calling this function will recreate the recorder to

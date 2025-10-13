@@ -175,7 +175,8 @@ public class TabSwitcherMessageManagerUnitTest {
                         mPaneManagerSupplier,
                         mTabGroupUiActionHandlerSupplier,
                         mLayoutStateProviderSupplier);
-        mMessageManager.registerMessages(mTabListCoordinator);
+        mMessageManager.registerMessageHostDelegate(
+                MessageHostDelegateFactory.build(mTabListCoordinator));
         mMessageManager.bind(
                 mTabListCoordinator,
                 container,
@@ -226,6 +227,30 @@ public class TabSwitcherMessageManagerUnitTest {
         // Mock that mTab1 is the only tab in the current tab model and it will be closed.
         doReturn(1).when(mTabModel).getCount();
         getTabModelObserver(0).willCloseTab(mTab1, true);
+
+        verify(mTabListCoordinator).removeSpecialListItem(UiType.IPH_MESSAGE, MessageType.IPH);
+        verify(mTabListCoordinator)
+                .removeSpecialListItem(UiType.PRICE_MESSAGE, MessageType.PRICE_MESSAGE);
+        verify(mTabListCoordinator)
+                .removeSpecialListItem(
+                        UiType.INCOGNITO_REAUTH_PROMO_MESSAGE,
+                        MessageType.INCOGNITO_REAUTH_PROMO_MESSAGE);
+        verify(mTabListCoordinator)
+                .removeSpecialListItem(
+                        UiType.ARCHIVED_TABS_MESSAGE, MessageType.ARCHIVED_TABS_MESSAGE);
+        verify(mMessageUpdateObserver).onRemoveAllAppendedMessage();
+    }
+
+    @Test
+    public void removeMessageItemsWhenCloseMultipleTabs() {
+        // Simulate only some tabs being closed.
+        doReturn(3).when(mTabModel).getCount();
+        getTabModelObserver(0).willCloseMultipleTabs(false, List.of(mTab1, mTab2));
+        verify(mTabListCoordinator, never()).removeSpecialListItem(anyInt(), anyInt());
+
+        // Simulate all tabs being closed.
+        doReturn(2).when(mTabModel).getCount();
+        getTabModelObserver(0).willCloseMultipleTabs(false, List.of(mTab1, mTab2));
 
         verify(mTabListCoordinator).removeSpecialListItem(UiType.IPH_MESSAGE, MessageType.IPH);
         verify(mTabListCoordinator)

@@ -384,7 +384,8 @@ HTMLDocumentParser::HTMLDocumentParser(
     ContainerNode* fragment_target,
     Element* context_element,
     ParserContentPolicy parser_content_policy,
-    ParserPrefetchPolicy parser_prefetch_policy)
+    ParserPrefetchPolicy parser_prefetch_policy,
+    CustomElementRegistry* registry)
     : HTMLDocumentParser(fragment_target->GetDocument(),
                          parser_content_policy,
                          kForceSynchronousParsing,
@@ -403,7 +404,7 @@ HTMLDocumentParser::HTMLDocumentParser(
   // No script_runner_ in fragment parser.
   tree_builder_ = MakeGarbageCollected<HTMLTreeBuilder>(
       this, fragment_target, context_element, parser_content_policy, options_,
-      include_shadow_roots);
+      include_shadow_roots, registry);
 }
 
 HTMLDocumentParser::HTMLDocumentParser(Document& document,
@@ -769,7 +770,9 @@ bool HTMLDocumentParser::PumpTokenizer() {
     {
       RUNTIME_CALL_TIMER_SCOPE(
           isolate, RuntimeCallStats::CounterId::kHTMLTokenizerNextToken);
+      base::ElapsedTimer timer;
       token = tokenizer_.NextToken(input_.Current());
+      total_tokenization_time_ += timer.Elapsed();
       if (!token)
         break;
       budget--;
@@ -822,6 +825,11 @@ bool HTMLDocumentParser::PumpTokenizer() {
       if (should_yield)
         break;
     }
+  }
+
+  if (tokens_parsed) {
+    total_parsing_time_ +=
+        chunk_parsing_timer.Elapsed() - time_executing_script;
   }
 
   base::TimeDelta pump_tokenizer_elapsed_time = pump_tokenizer_timer.Elapsed();
@@ -1081,6 +1089,19 @@ void HTMLDocumentParser::CommitPreloadedData() {
 
 void HTMLDocumentParser::end() {
   DCHECK(!IsDetached());
+
+  if (!IsParsingFragment() && GetDocument()->IsInOutermostMainFrame() &&
+      base::TimeTicks::IsHighResolution()) {
+    base::UmaHistogramCustomMicrosecondsTimes(
+        "Blink.HTMLParsing.TokenizationTime.MainDocument",
+        total_tokenization_time_, base::Microseconds(1), base::Seconds(10),
+        100);
+    if (!total_parsing_time_.is_zero()) {
+      base::UmaHistogramPercentage(
+          "Blink.HTMLParsing.TokenizationTimePercentage.MainDocument",
+          total_tokenization_time_ * 100 / total_parsing_time_);
+    }
+  }
 
   // Informs the the rest of WebCore that parsing is really finished (and
   // deletes this).
@@ -1406,9 +1427,11 @@ void HTMLDocumentParser::ParseDocumentFragment(
     const String& source,
     DocumentFragment* fragment,
     Element* context_element,
+    CustomElementRegistry* registry,
     ParserContentPolicy parser_content_policy) {
   auto* parser = MakeGarbageCollected<HTMLDocumentParser>(
-      fragment, context_element, parser_content_policy);
+      fragment, context_element, parser_content_policy,
+      ParserPrefetchPolicy::kAllowPrefetching, registry);
 
   if (RuntimeEnabledFeatures::DOMPartsAPIEnabled()) {
     // Within templates containing the `parseparts` attribute, allow parsing

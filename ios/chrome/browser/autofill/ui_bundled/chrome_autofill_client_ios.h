@@ -105,7 +105,7 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   FormDataImporter* GetFormDataImporter() override;
   payments::IOSChromePaymentsAutofillClient* GetPaymentsAutofillClient()
       override;
-  StrikeDatabase* GetStrikeDatabase() override;
+  strike_database::StrikeDatabase* GetStrikeDatabase() override;
   ukm::UkmRecorder* GetUkmRecorder() override;
   AddressNormalizer* GetAddressNormalizer() override;
   const GURL& GetLastCommittedPrimaryMainFrameURL() const override;
@@ -118,7 +118,7 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   void ConfirmSaveAddressProfile(
       const AutofillProfile& profile,
       const AutofillProfile* original_profile,
-      bool is_migration_to_account,
+      AutofillClient::SaveAddressBubbleType save_address_bubble_type,
       AddressProfileSavePromptCallback callback) override;
   SuggestionUiSessionId ShowAutofillSuggestions(
       const PopupOpenArgs& open_args,
@@ -169,18 +169,19 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   // signed-in user.
   std::optional<std::u16string> GetUserEmail();
 
-  raw_ptr<PrefService> pref_service_;
-  raw_ptr<syncer::SyncService> sync_service_;
+  raw_ptr<PrefService, DanglingUntriaged> pref_service_;
+  raw_ptr<syncer::SyncService, DanglingUntriaged> sync_service_;
   std::unique_ptr<AutofillCrowdsourcingManager> crowdsourcing_manager_;
   VotesUploader votes_uploader_{this};
-  raw_ptr<PersonalDataManager> personal_data_manager_;
-  raw_ptr<AutocompleteHistoryManager> autocomplete_history_manager_;
+  raw_ptr<PersonalDataManager, DanglingUntriaged> personal_data_manager_;
+  raw_ptr<AutocompleteHistoryManager, DanglingUntriaged>
+      autocomplete_history_manager_;
   raw_ptr<ProfileIOS> profile_;
   __weak id<AutofillClientIOSBridge> bridge_;
-  raw_ptr<signin::IdentityManager> identity_manager_;
+  raw_ptr<signin::IdentityManager, DanglingUntriaged> identity_manager_;
   std::unique_ptr<FormDataImporter> form_data_importer_;
   scoped_refptr<AutofillWebDataService> autofill_web_data_service_;
-  raw_ptr<infobars::InfoBarManager> infobar_manager_;
+  raw_ptr<infobars::InfoBarManager, DanglingUntriaged> infobar_manager_;
   const raw_ptr<LogRouter> log_router_;
   std::unique_ptr<LogManager> log_manager_;
   autofill_metrics::FormInteractionsUkmLogger form_interactions_ukm_logger_{

@@ -120,7 +120,6 @@ interface AnimationTimeline
     method getCurrentTime
 interface AnimationTrigger
     attribute @@toStringTag
-    getter behavior
     method addAnimation
     method constructor
     method removeAnimation
@@ -374,7 +373,9 @@ interface AuthenticatorResponse
     method constructor
 interface AutomationDelegate
     attribute @@toStringTag
+    method clearContext
     method constructor
+    method provideContext
     method registerTool
     method unregisterTool
 interface BackForwardCacheRestoration : PerformanceEntry
@@ -459,11 +460,6 @@ interface BatteryManager : EventTarget
     setter onchargingtimechange
     setter ondischargingtimechange
     setter onlevelchange
-interface BeforeCreatePolicyEvent : Event
-    attribute @@toStringTag
-    getter policyName
-    method constructor
-    setter policyName
 interface BeforeInstallPromptEvent : Event
     attribute @@toStringTag
     getter platforms
@@ -1035,6 +1031,9 @@ interface CSSRotate : CSSTransformComponent
     setter x
     setter y
     setter z
+interface CSSRouteRule : CSSConditionRule
+    attribute @@toStringTag
+    method constructor
 interface CSSRule
     attribute @@toStringTag
     attribute CHARSET_RULE
@@ -1289,8 +1288,8 @@ interface CanvasRenderingContext2D
     method createPattern
     method createRadialGradient
     method drawElement
+    method drawElementImage
     method drawFocusIfNeeded
-    method drawHTMLElement
     method drawImage
     method drawMesh
     method ellipse
@@ -2128,6 +2127,7 @@ interface Document : Node
     getter readyState
     getter referrer
     getter rootElement
+    getter routeMap
     getter scripts
     getter scrollingElement
     getter styleSheets
@@ -2811,6 +2811,10 @@ interface ElementInternals
     setter ariaVirtualContent
     setter role
     setter type
+interface EmailVerifiedEvent : Event
+    attribute @@toStringTag
+    getter presentationToken
+    method constructor
 interface EncodedAudioChunk
     attribute @@toStringTag
     getter byteLength
@@ -2895,6 +2899,11 @@ interface EventTarget
     method dispatchEvent
     method removeEventListener
     method when
+interface EventTrigger : AnimationTrigger
+    attribute @@toStringTag
+    getter eventTarget
+    getter eventType
+    method constructor
 interface External
     attribute @@toStringTag
     method AddSearchProvider
@@ -3070,6 +3079,8 @@ interface FontFaceSetLoadEvent : Event
 interface FormControlRange : AbstractRange
     attribute @@toStringTag
     method constructor
+    method setFormControlRange
+    method toString
 interface FormData
     attribute @@toStringTag
     method @@iterator
@@ -3848,6 +3859,7 @@ interface HTMLDocument : Document
 interface HTMLElement : Element
     attribute @@toStringTag
     getter accessKey
+    getter accessKeyLabel
     getter attributeStyleMap
     getter autocapitalize
     getter autofocus
@@ -6732,6 +6744,7 @@ interface NavigationTransition
     getter finished
     getter from
     getter navigationType
+    getter to
     method constructor
 interface Navigator
     attribute @@toStringTag
@@ -7964,7 +7977,6 @@ interface RTCPeerConnection : EventTarget
     getter pendingLocalDescription
     getter pendingRemoteDescription
     getter remoteDescription
-    getter rtpTransport
     getter sctp
     getter signalingState
     method addIceCandidate
@@ -8014,13 +8026,6 @@ interface RTCPeerConnectionIceEvent : Event
     attribute @@toStringTag
     getter candidate
     method constructor
-interface RTCRtpAcks
-    attribute @@toStringTag
-    getter explicitCongestionNotification
-    getter receivedTime
-    getter remoteSendTimestamp
-    method acks
-    method constructor
 interface RTCRtpReceiver
     static method getCapabilities
     attribute @@toStringTag
@@ -8042,15 +8047,6 @@ interface RTCRtpReceiver
 interface RTCRtpScriptTransform
     attribute @@toStringTag
     method constructor
-interface RTCRtpSendResult
-    attribute @@toStringTag
-    getter sent
-    getter unsent
-    method constructor
-interface RTCRtpSendStream
-    attribute @@toStringTag
-    method constructor
-    method sendRtp
 interface RTCRtpSender
     static method getCapabilities
     attribute @@toStringTag
@@ -8063,17 +8059,10 @@ interface RTCRtpSender
     method createEncodedStreams
     method getParameters
     method getStats
-    method replaceSendStreams
     method replaceTrack
     method setParameters
     method setStreams
     setter transform
-interface RTCRtpSent
-    attribute @@toStringTag
-    getter ackId
-    getter size
-    getter time
-    method constructor
 interface RTCRtpTransceiver
     attribute @@toStringTag
     getter currentDirection
@@ -8089,10 +8078,6 @@ interface RTCRtpTransceiver
     method setHeaderExtensionsToNegotiate
     method stop
     setter direction
-interface RTCRtpTransport
-    attribute @@toStringTag
-    method constructor
-    method createProcessor
 interface RTCSctpTransport : EventTarget
     attribute @@toStringTag
     getter maxChannels
@@ -8328,6 +8313,29 @@ interface Rewriter
     method measureInputUsage
     method rewrite
     method rewriteStreaming
+interface Route : EventTarget
+    attribute @@toStringTag
+    getter matches
+    getter pattern
+    method constructor
+interface RouteEvent : Event
+    attribute @@toStringTag
+    method constructor
+interface RouteMap
+    attribute @@toStringTag
+    method constructor
+    method get
+interface RtcReceivedPacket
+    attribute @@toStringTag
+    getter data
+    method constructor
+interface RtcTransport
+    attribute @@toStringTag
+    getter onicecandidate
+    method constructor
+    method getReceivedPackets
+    method sendPackets
+    setter onicecandidate
 interface SVGAElement : SVGGraphicsElement
     attribute @@toStringTag
     getter download
@@ -10441,12 +10449,11 @@ interface TrustedTypePolicy
     method createHTML
     method createScript
     method createScriptURL
-interface TrustedTypePolicyFactory : EventTarget
+interface TrustedTypePolicyFactory
     attribute @@toStringTag
     getter defaultPolicy
     getter emptyHTML
     getter emptyScript
-    getter onbeforecreatepolicy
     method constructor
     method createPolicy
     method getAttributeType
@@ -10455,7 +10462,6 @@ interface TrustedTypePolicyFactory : EventTarget
     method isHTML
     method isScript
     method isScriptURL
-    setter onbeforecreatepolicy
 interface UIEvent : Event
     attribute @@toStringTag
     getter detail
@@ -11615,7 +11621,7 @@ interface WebGL2RenderingContext
     method stencilOp
     method stencilOpSeparate
     method texElement2D
-    method texHTMLElement2D
+    method texElementImage2D
     method texImage2D
     method texImage3D
     method texParameterf
@@ -12120,7 +12126,7 @@ interface WebGLRenderingContext
     method stencilOp
     method stencilOpSeparate
     method texElement2D
-    method texHTMLElement2D
+    method texElementImage2D
     method texImage2D
     method texParameterf
     method texParameteri
@@ -12541,6 +12547,21 @@ interface XRCompositionLayer : XRLayer
     setter chromaticAberrationCorrection
     setter forceMonoPresentation
     setter opacity
+interface XRCylinderLayer : XRCompositionLayer
+    attribute @@toStringTag
+    getter aspectRatio
+    getter centralAngle
+    getter onredraw
+    getter radius
+    getter space
+    getter transform
+    method constructor
+    setter aspectRatio
+    setter centralAngle
+    setter onredraw
+    setter radius
+    setter space
+    setter transform
 interface XRDOMOverlayState
     attribute @@toStringTag
     getter type
@@ -12554,6 +12575,23 @@ interface XRDepthInformation
     getter transform
     getter width
     method constructor
+interface XREquirectLayer : XRCompositionLayer
+    attribute @@toStringTag
+    getter centralHorizontalAngle
+    getter lowerVerticalAngle
+    getter onredraw
+    getter radius
+    getter space
+    getter transform
+    getter upperVerticalAngle
+    method constructor
+    setter centralHorizontalAngle
+    setter lowerVerticalAngle
+    setter onredraw
+    setter radius
+    setter space
+    setter transform
+    setter upperVerticalAngle
 interface XRFrame
     attribute @@toStringTag
     getter detectedPlanes
@@ -12652,6 +12690,10 @@ interface XRJointSpace : XRSpace
 interface XRLayer : EventTarget
     attribute @@toStringTag
     method constructor
+interface XRLayerEvent : Event
+    attribute @@toStringTag
+    getter layer
+    method constructor
 interface XRLightEstimate
     attribute @@toStringTag
     getter primaryLightDirection
@@ -12699,6 +12741,19 @@ interface XRProjectionLayer : XRCompositionLayer
     method constructor
     setter deltaPose
     setter fixedFoveation
+interface XRQuadLayer : XRCompositionLayer
+    attribute @@toStringTag
+    getter height
+    getter onredraw
+    getter space
+    getter transform
+    getter width
+    method constructor
+    setter height
+    setter onredraw
+    setter space
+    setter transform
+    setter width
 interface XRRay
     attribute @@toStringTag
     getter direction
@@ -12834,10 +12889,14 @@ interface XRWebGLBinding
     getter nativeProjectionScaleFactor
     getter usesDepthValues
     method constructor
+    method createCylinderLayer
+    method createEquirectLayer
     method createProjectionLayer
+    method createQuadLayer
     method getCameraImage
     method getDepthInformation
     method getReflectionCubeMap
+    method getSubImage
     method getViewSubImage
 interface XRWebGLDepthInformation : XRDepthInformation
     attribute @@toStringTag
@@ -12921,7 +12980,6 @@ interface webkitRTCPeerConnection : EventTarget
     getter pendingLocalDescription
     getter pendingRemoteDescription
     getter remoteDescription
-    getter rtpTransport
     getter sctp
     getter signalingState
     method addIceCandidate

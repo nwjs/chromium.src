@@ -36,11 +36,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.AbstractMap;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -158,12 +158,12 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
 
     @GuardedBy("mNativeStreamLock")
     // Pending write data.
-    private final LinkedList<ByteBuffer> mPendingData;
+    private final ArrayList<ByteBuffer> mPendingData;
 
     @GuardedBy("mNativeStreamLock")
     // Flush data queue that should be pushed to the native stack when the previous
     // CronetBidirectionalStreamJni.get().writevData completes.
-    private final LinkedList<ByteBuffer> mFlushData;
+    private final ArrayDeque<ByteBuffer> mFlushData;
 
     @GuardedBy("mNativeStreamLock")
     // Whether an end-of-stream flag is passed in through write().
@@ -310,8 +310,8 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
         mInitialMethod = httpMethod;
         mRequestHeaders = stringsFromHeaderList(requestHeaders);
         mDelayRequestHeadersUntilFirstFlush = delayRequestHeadersUntilNextFlush;
-        mPendingData = new LinkedList<>();
-        mFlushData = new LinkedList<>();
+        mPendingData = new ArrayList<>();
+        mFlushData = new ArrayDeque<>();
         mRequestAnnotations = requestAnnotations;
         mTrafficStatsTagSet = trafficStatsTagSet;
         mTrafficStatsTag = trafficStatsTag;
@@ -504,7 +504,7 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
     /** Returns a read-only copy of {@code mPendingData} for testing. */
     public List<ByteBuffer> getPendingDataForTesting() {
         synchronized (mNativeStreamLock) {
-            List<ByteBuffer> pendingData = new LinkedList<>();
+            List<ByteBuffer> pendingData = new ArrayList<>();
             for (ByteBuffer buffer : mPendingData) {
                 pendingData.add(buffer.asReadOnlyBuffer());
             }
@@ -515,7 +515,7 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
     /** Returns a read-only copy of {@code mFlushData} for testing. */
     public List<ByteBuffer> getFlushDataForTesting() {
         synchronized (mNativeStreamLock) {
-            List<ByteBuffer> flushData = new LinkedList<>();
+            List<ByteBuffer> flushData = new ArrayList<>();
             for (ByteBuffer buffer : mFlushData) {
                 flushData.add(buffer.asReadOnlyBuffer());
             }
@@ -861,12 +861,9 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
         mMetrics = metrics;
         if (mMetrics == null) {
             // mMetrics can be null if the native counterpart never created an underlying native
-            // component for this request. In this scenario, initialize the mMetrics with sentinel
-            // values. This is not ideal, but this is how Cronet historically behaved and so we
-            // cannot change this behavior without running the risk of breaking apps.
-            mMetrics =
-                    new CronetMetrics(
-                            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, false, 0, 0);
+            // component for this request. Make sure we provide users with a non-null metrics object
+            // as some users would be broken otherwise.
+            mMetrics = CronetMetrics.empty();
         }
         mQuicConnectionMigrationAttempted = quicConnectionMigrationAttempted;
         mQuicConnectionMigrationSuccessful = quicConnectionMigrationSuccessful;
@@ -1066,7 +1063,19 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
                 failureReason,
                 mMetrics.getSocketReused(),
                 ImplVersion.getCronetVersion(),
-                NativeCronetEngineBuilderImpl.getCronetSource());
+                NativeCronetEngineBuilderImpl.getCronetSource(),
+                CronetMetrics.getDateDeltaMillisOrDefault(
+                        mMetrics.getDnsStart(), mMetrics.getDnsEnd(), /* defaultValue= */ -1),
+                CronetMetrics.getDateDeltaMillisOrDefault(
+                        mMetrics.getSslStart(), mMetrics.getSslEnd(), /* defaultValue= */ -1),
+                CronetMetrics.getDateDeltaMillisOrDefault(
+                        mMetrics.getConnectStart(),
+                        mMetrics.getConnectEnd(),
+                        /* defaultValue= */ -1),
+                CronetMetrics.getDateDeltaMillisOrDefault(
+                        mMetrics.getRequestStart(),
+                        mMetrics.getSendingStart(),
+                        /* defaultValue= */ -1));
     }
 
     public void setOnDestroyedCallbackForTesting(Runnable onDestroyedCallbackForTesting) {

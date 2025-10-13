@@ -41,10 +41,7 @@
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_ANDROID)
-#include "base/feature_list.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
-#include "ui/android/ui_android_features.h"
 #endif  // IS_ANDROID
 
 using blink::PermissionType;
@@ -202,10 +199,12 @@ class PermissionManagerTest : public content::RenderViewHostTestHarness {
   PermissionStatus GetPermissionStatusForCurrentDocument(
       PermissionType permission,
       content::RenderFrameHost* render_frame_host) {
-    return GetPermissionManager()->GetPermissionStatusForCurrentDocument(
-        content::PermissionDescriptorUtil::
-            CreatePermissionDescriptorForPermissionType(permission),
-        render_frame_host, /*should_include_device_status*/ false);
+    return GetPermissionManager()
+        ->GetPermissionResultForCurrentDocument(
+            content::PermissionDescriptorUtil::
+                CreatePermissionDescriptorForPermissionType(permission),
+            render_frame_host, /*should_include_device_status*/ false)
+        .status;
   }
 
   content::PermissionResult GetPermissionResultForCurrentDocument(
@@ -221,10 +220,12 @@ class PermissionManagerTest : public content::RenderViewHostTestHarness {
       PermissionType permission,
       content::RenderProcessHost* render_process_host,
       const GURL& worker_origin) {
-    return GetPermissionManager()->GetPermissionStatusForWorker(
-        content::PermissionDescriptorUtil::
-            CreatePermissionDescriptorForPermissionType(permission),
-        render_process_host, worker_origin);
+    return GetPermissionManager()
+        ->GetPermissionResultForWorker(
+            content::PermissionDescriptorUtil::
+                CreatePermissionDescriptorForPermissionType(permission),
+            render_process_host, worker_origin)
+        .status;
   }
 
   bool IsPermissionOverridable(PermissionType permission,
@@ -388,8 +389,8 @@ TEST_F(PermissionManagerTest, GetPermissionStatusAfterSet) {
 TEST_F(PermissionManagerTest, AndroidWindowManagementPermission) {
   // Enable kAndroidWindowManagementWebApi flag
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatureState(ui::kAndroidWindowManagementWebApi,
-                                           true);
+  scoped_feature_list.InitWithFeatureState(
+      permissions::features::kAndroidWindowManagementWebApi, true);
 
   {
     base::HistogramTester histogram_tester;

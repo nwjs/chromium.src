@@ -7,11 +7,12 @@
 #import <Foundation/Foundation.h>
 
 #import "base/check.h"
+#import "base/metrics/histogram_functions.h"
 #import "ios/chrome/browser/home_customization/ui/background_collection_configuration.h"
 #import "ios/chrome/browser/home_customization/ui/background_customization_configuration.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_cell.h"
-#import "ios/chrome/browser/home_customization/ui/home_customization_background_picker_action_sheet_mutator.h"
-#import "ios/chrome/browser/home_customization/ui/home_customization_background_preset_gallery_picker_mutator.h"
+#import "ios/chrome/browser/home_customization/ui/home_customization_background_configuration_mutator.h"
+#import "ios/chrome/browser/home_customization/ui/home_customization_background_picker_action_sheet_consumer.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_preset_header_view.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_skeleton_cell.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_collection_configurator.h"
@@ -74,6 +75,13 @@ const NSTimeInterval kAnimationIntervalSeconds = 0.5;
 
   // The current index of the cell being dimmed in the loading animation.
   NSInteger _skeletonAnimationIndex;
+
+  // Tracking for maximum visible indices
+  NSInteger _maxVisibleSectionIndex;
+  NSInteger _maxVisibleItemIndex;
+
+  // The number of times an item from the gallery is selected.
+  int _galleryClickCount;
 }
 @end
 
@@ -83,6 +91,8 @@ const NSTimeInterval kAnimationIntervalSeconds = 0.5;
 @synthesize collectionView = _collectionView;
 @synthesize diffableDataSource = _diffableDataSource;
 @synthesize page = _page;
+
+@dynamic navigationItem;
 
 - (void)viewDidLoad {
   [super viewDidLoad];
@@ -143,7 +153,11 @@ const NSTimeInterval kAnimationIntervalSeconds = 0.5;
   AddSameConstraints(_collectionView, self.view);
 }
 
-#pragma mark - HomeCustomizationBackgroundPresetGalleryPickerConsumer
+- (NSInteger)selectedIndex {
+  return _collectionView.indexPathsForSelectedItems.firstObject.section;
+}
+
+#pragma mark - HomeCustomizationBackgroundConfigurationConsumer
 
 - (void)setBackgroundCollectionConfigurations:
             (NSArray<BackgroundCollectionConfiguration*>*)
@@ -177,6 +191,17 @@ const NSTimeInterval kAnimationIntervalSeconds = 0.5;
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
+  // Log final maximums before disappearing, for example.
+  base::UmaHistogramSparse(
+      "IOS.HomeCustomization.Background.Gallery.MaxVisibleSectionIndex",
+      _maxVisibleSectionIndex);
+  base::UmaHistogramSparse(
+      "IOS.HomeCustomization.Background.Gallery.MaxVisibleItemIndex",
+      _maxVisibleItemIndex);
+  // Log the total number of selection changes while the gallery was open.
+  base::UmaHistogramCounts10000(
+      "IOS.HomeCustomization.Background.Gallery.ClickCount",
+      _galleryClickCount);
   [self stopLoadingAnimation];
 }
 
@@ -216,14 +241,29 @@ const NSTimeInterval kAnimationIntervalSeconds = 0.5;
     didSelectItemAtIndexPath:(NSIndexPath*)indexPath {
   NSString* itemIdentifier =
       [_diffableDataSource itemIdentifierForIndexPath:indexPath];
-  [self.customizationMutator
-      applyBackgroundForConfiguration:_backgroundCustomizationConfigurationMap
-                                          [itemIdentifier]];
+
+  // Prevent background updates when a user clicks on an already selected cell.
+  if (_selectedBackgroundId == itemIdentifier) {
+    return;
+  }
+
+  _selectedBackgroundId = itemIdentifier;
+
+  [self.mutator applyBackgroundForConfiguration:
+                    _backgroundCustomizationConfigurationMap[itemIdentifier]];
+  _galleryClickCount += 1;
 }
 
 - (void)collectionView:(UICollectionView*)collectionView
        willDisplayCell:(HomeCustomizationBackgroundCell*)cell
     forItemAtIndexPath:(NSIndexPath*)indexPath {
+  // Update the maximum visible section index.
+  _maxVisibleSectionIndex =
+      std::max(_maxVisibleSectionIndex, indexPath.section);
+
+  // Update the maximum visible item index.
+  _maxVisibleItemIndex = std::max(_maxVisibleItemIndex, indexPath.item);
+
   NSString* itemIdentifier =
       [_diffableDataSource itemIdentifierForIndexPath:indexPath];
   id<BackgroundCustomizationConfiguration> backgroundConfiguration =
@@ -232,7 +272,7 @@ const NSTimeInterval kAnimationIntervalSeconds = 0.5;
 
   if (backgroundConfiguration &&
       !backgroundConfiguration.thumbnailURL.is_empty()) {
-    [self.galleryMutator
+    [self.mutator
         fetchBackgroundCustomizationThumbnailURLImage:backgroundConfiguration
                                                           .thumbnailURL
                                            completion:^(UIImage* image,

@@ -47,6 +47,10 @@
 #include "components/autofill/core/browser/integrators/fast_checkout/fast_checkout_client.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
+namespace optimization_guide {
+class OptimizationGuideModelExecutor;
+}
+
 namespace autofill {
 
 #if BUILDFLAG(IS_ANDROID)
@@ -57,7 +61,9 @@ class SaveUpdateAddressProfileFlowManager;
 #endif
 
 class AutofillOptimizationGuideDecider;
+class EmailVerifierDelegate;
 class FormFieldData;
+class OtpFieldDetector;
 class LogRouter;
 enum class SuggestionType;
 
@@ -123,11 +129,12 @@ class ChromeAutofillClient : public ContentAutofillClient,
   AutofillPlusAddressDelegate* GetPlusAddressDelegate() final;
   PasswordManagerDelegate* GetPasswordManagerDelegate(
       const FieldGlobalId& field_id) final;
-  OtpDelegate* GetOtpDelegate() final;
   void GetAiPageContent(GetAiPageContentCallback callback) final;
   AutofillAiManager* GetAutofillAiManager() final;
   AutofillAiModelCache* GetAutofillAiModelCache() final;
   AutofillAiModelExecutor* GetAutofillAiModelExecutor() final;
+  optimization_guide::OptimizationGuideModelExecutor*
+  GetOptimizationGuideModelExecutor() final;
   IdentityCredentialDelegate* GetIdentityCredentialDelegate() final;
   void OfferPlusAddressCreation(const url::Origin& main_frame_origin,
                                 bool is_manual_fallback,
@@ -145,7 +152,7 @@ class ChromeAutofillClient : public ContentAutofillClient,
   const GoogleGroupsManager* GetGoogleGroupsManager() const final;
   FormDataImporter* GetFormDataImporter() final;
   payments::ChromePaymentsAutofillClient* GetPaymentsAutofillClient() final;
-  StrikeDatabase* GetStrikeDatabase() final;
+  strike_database::StrikeDatabase* GetStrikeDatabase() final;
   ukm::UkmRecorder* GetUkmRecorder() final;
   AddressNormalizer* GetAddressNormalizer() final;
   const GURL& GetLastCommittedPrimaryMainFrameURL() const final;
@@ -160,7 +167,7 @@ class ChromeAutofillClient : public ContentAutofillClient,
   void ConfirmSaveAddressProfile(
       const AutofillProfile& profile,
       const AutofillProfile* original_profile,
-      bool is_migration_to_account,
+      SaveAddressBubbleType save_address_bubble_type,
       AddressProfileSavePromptCallback callback) final;
   // Not called during construction -- safe to override in tests.
   SuggestionUiSessionId ShowAutofillSuggestions(
@@ -260,6 +267,10 @@ class ChromeAutofillClient : public ContentAutofillClient,
   credential_management::ContentCredentialManager* GetContentCredentialManager()
       override;
 
+  OtpFieldDetector* GetOtpFieldDetector() override;
+
+  one_time_tokens::SmsOtpBackend* GetSmsOtpBackend() const final;
+
  protected:
   explicit ChromeAutofillClient(content::WebContents* web_contents);
 
@@ -316,6 +327,9 @@ class ChromeAutofillClient : public ContentAutofillClient,
   const AutofillAblationStudy ablation_study_;
 
   ContentIdentityCredentialDelegate identity_credential_delegate_;
+  std::unique_ptr<OtpFieldDetector> otp_field_detector_;
+  std::unique_ptr<EmailVerifierDelegate> email_verifier_delegate_;
+
   base::WeakPtrFactory<ChromeAutofillClient> weak_ptr_factory_{this};
 };
 

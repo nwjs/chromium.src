@@ -608,14 +608,8 @@ const CGFloat kIdentityDiscAvatarBackgroundSpacing = 5;
             ? ntp_home::kCustomizationMenuIconSizeWhenSignInButtonHasNoAvatar
             : ntp_home::kCustomizationMenuIconSize);
     [customizationMenuButton setImage:icon forState:UIControlStateNormal];
-
-    UIColor* backgroundColor =
-        IsSignInButtonNoAvatarEnabled()
-            ? [[UIColor colorNamed:kSolidWhiteColor]
-                  colorWithAlphaComponent:0.75]
-            : [[UIColor colorNamed:@"fake_omnibox_solid_background_color"]
-                  colorWithAlphaComponent:0.8];
-    customizationMenuButton.backgroundColor = backgroundColor;
+    customizationMenuButton.backgroundColor =
+        [self defaultButtonBackgroundColor];
 
     UIColor* tintColor = [UIColor
         colorNamed:(IsSignInButtonNoAvatarEnabled() ? kBlue600Color
@@ -673,7 +667,7 @@ const CGFloat kIdentityDiscAvatarBackgroundSpacing = 5;
     UIButtonConfiguration* buttonConfiguration =
         [UIButtonConfiguration plainButtonConfiguration];
     buttonConfiguration.background.backgroundColor =
-        [[UIColor colorNamed:kSolidWhiteColor] colorWithAlphaComponent:0.75];
+        [self defaultButtonBackgroundColor];
     NSDictionary* attributes = @{
       NSFontAttributeName : PreferredFontForTextStyle(
           UIFontTextStyleSubheadline, UIFontWeightSemibold,
@@ -711,9 +705,8 @@ const CGFloat kIdentityDiscAvatarBackgroundSpacing = 5;
                                    : [UIColor colorNamed:kBlue600Color];
 
     UIColor* backgroundColor = colorPalette
-                                   ? colorPalette.secondaryColor
-                                   : [[UIColor colorNamed:kSolidWhiteColor]
-                                         colorWithAlphaComponent:0.75];
+                                   ? colorPalette.headerButtonColor
+                                   : [self defaultButtonBackgroundColor];
     // The default avatar icon does not have a background.
     if (colorPalette || IsSignInButtonNoAvatarEnabled()) {
       buttonConfiguration.background.backgroundColor = backgroundColor;
@@ -1085,6 +1078,21 @@ const CGFloat kIdentityDiscAvatarBackgroundSpacing = 5;
 
 #pragma mark - Private
 
+// Returns the default background color for buttons based on the current
+// appearance.
+- (UIColor*)defaultButtonBackgroundColor {
+  return
+      [UIColor colorWithDynamicProvider:^UIColor*(UITraitCollection* traits) {
+        if (!IsSignInButtonNoAvatarEnabled()) {
+          return [[UIColor colorNamed:@"fake_omnibox_solid_background_color"]
+              colorWithAlphaComponent:0.8];
+        }
+        return traits.userInterfaceStyle == UIUserInterfaceStyleDark
+                   ? [UIColor colorNamed:kTabGroupFaviconBackgroundColor]
+                   : [[UIColor colorNamed:kSolidWhiteColor]
+                         colorWithAlphaComponent:0.75];
+      }];
+}
 // Sets the background using the current color palette, or defaults if none is
 // set.
 - (void)applyBackgroundTheme {
@@ -1137,7 +1145,7 @@ const CGFloat kIdentityDiscAvatarBackgroundSpacing = 5;
 
   if (showSignInButtonWithoutAvatar) {
     identityAvatarPadding *= kMarginMultiplier;
-  } else if (IsIdentityDiscAccountMenuEnabled()) {
+  } else {
     dimension += ntp_home::kHeaderIconMargin;
     identityAvatarPadding -= ntp_home::kHeaderIconMargin / 2;
   }
@@ -1153,42 +1161,27 @@ const CGFloat kIdentityDiscAvatarBackgroundSpacing = 5;
 - (void)updateIdentityDiscAccessibilityLabelWithName:(NSString*)name
                                                email:(NSString*)email {
   NSString* accountButtonLabel;
-  if (base::FeatureList::IsEnabled(kIdentityDiscAccountMenu)) {
-    // _hasAccountError is only set if the feature
-    // `kEnableErrorBadgeOnIdentityDisc` is enabled, and the primary identity
-    // has an error.
-    if (name) {
-      accountButtonLabel =
-          _hasAccountError
-              ? l10n_util::GetNSStringF(
-                    IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_OPEN_ACCOUNT_MENU_WITH_ERROR,
-                    base::SysNSStringToUTF16(name),
-                    base::SysNSStringToUTF16(email))
-              : l10n_util::GetNSStringF(
-                    IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_OPEN_ACCOUNT_MENU,
-                    base::SysNSStringToUTF16(name),
-                    base::SysNSStringToUTF16(email));
-    } else {
-      accountButtonLabel =
-          _hasAccountError
-              ? l10n_util::GetNSStringF(
-                    IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU_WITH_ERROR,
-                    base::SysNSStringToUTF16(email))
-              : l10n_util::GetNSStringF(
-                    IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU,
-                    base::SysNSStringToUTF16(email));
-    }
+  // `_hasAccountError` is only set if the primary identity has an error.
+  if (name) {
+    accountButtonLabel =
+        _hasAccountError
+            ? l10n_util::GetNSStringF(
+                  IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_OPEN_ACCOUNT_MENU_WITH_ERROR,
+                  base::SysNSStringToUTF16(name),
+                  base::SysNSStringToUTF16(email))
+            : l10n_util::GetNSStringF(
+                  IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_OPEN_ACCOUNT_MENU,
+                  base::SysNSStringToUTF16(name),
+                  base::SysNSStringToUTF16(email));
   } else {
-    // TODO(crbug.com/389915527): Update the following strings to reflect the
-    // error badge introduced with kEnableErrorBadgeOnIdentityDisc.
-    if (name) {
-      accountButtonLabel = l10n_util::GetNSStringF(
-          IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL,
-          base::SysNSStringToUTF16(name), base::SysNSStringToUTF16(email));
-    } else {
-      accountButtonLabel = l10n_util::GetNSStringF(
-          IDS_IOS_IDENTITY_DISC_WITH_EMAIL, base::SysNSStringToUTF16(email));
-    }
+    accountButtonLabel =
+        _hasAccountError
+            ? l10n_util::GetNSStringF(
+                  IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU_WITH_ERROR,
+                  base::SysNSStringToUTF16(email))
+            : l10n_util::GetNSStringF(
+                  IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU,
+                  base::SysNSStringToUTF16(email));
   }
 
   self.identityDiscAccessibilityLabel = accountButtonLabel;

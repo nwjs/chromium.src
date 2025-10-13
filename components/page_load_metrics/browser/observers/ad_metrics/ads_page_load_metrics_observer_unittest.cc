@@ -406,8 +406,10 @@ class FrameRemoteTester : public content::FakeLocalFrame {
   }
 
   // blink::mojom::LocalFrame
-  void SendInterventionReport(const std::string& id,
-                              const std::string& message) override {
+  void SendInterventionReport(
+      const std::string& id,
+      const std::string& message,
+      const std::optional<blink::FrameToken>& child_frame_token) override {
     if (id.empty()) {
       if (!on_empty_report_callback_)
         return;
@@ -425,7 +427,7 @@ class FrameRemoteTester : public content::FakeLocalFrame {
   bool FlushForTesting(RenderFrameHost* render_frame_host) {
     base::RunLoop run_loop;
     on_empty_report_callback_ = run_loop.QuitClosure();
-    render_frame_host->SendInterventionReport("", "");
+    render_frame_host->SendInterventionReport("", "", nullptr);
     run_loop.Run();
     int had_message = had_message_;
     had_message_ = false;
@@ -906,7 +908,8 @@ class AdsPageLoadMetricsObserverTest
         /*heavy_ad_service=*/nullptr,
         /*history_service=*/nullptr,
         base::BindRepeating([]() { return std::string("en-US"); }),
-        IsIncognito(), clock_.get(), test_blocklist_.get());
+        /*is_in_foreground=*/true, IsIncognito(), clock_.get(),
+        test_blocklist_.get());
     // Mock the noise provider to make tests deterministic. Tests can override
     // this again to test non-zero noise.
     observer->SetHeavyAdThresholdNoiseProviderForTesting(

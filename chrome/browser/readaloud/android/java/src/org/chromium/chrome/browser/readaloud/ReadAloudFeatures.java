@@ -104,6 +104,10 @@ public final class ReadAloudFeatures {
       return ChromeFeatureList.sShouldConsiderLanguageInOverviewReadability.getValue();
     }
 
+    public static int getReadabilityDelayMsAfterPageLoad() {
+      return ChromeFeatureList.sReadAloudReadabilityDelayMsAfterPageLoad.getValue();
+    }
+
     public static @IneligibilityReason int getIneligibilityReason() {
         return sIneligibilityReason;
     }

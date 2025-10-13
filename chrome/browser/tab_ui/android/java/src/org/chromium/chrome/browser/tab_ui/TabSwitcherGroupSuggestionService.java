@@ -45,7 +45,7 @@ public class TabSwitcherGroupSuggestionService {
 
     /* Tab gaps equal to this or beyond will not be permitted to be shown. */
     private static final int TAB_GAP_LIMIT = 2;
-    private static final int NUM_TABS_IN_FORCED_SUGGESTION = 3;
+    private static final int NUM_TABS_IN_FORCED_SUGGESTION = 14;
 
     /** Observes lifecycle events for tab group suggestions. */
     public interface SuggestionLifecycleObserver {
@@ -271,6 +271,8 @@ public class TabSwitcherGroupSuggestionService {
             Map<@TabId Integer, Integer> tabIdsToIndices, List<Tab> tabsSortedByIndex) {
         int prevIndex = TabModel.INVALID_TAB_INDEX;
         for (Tab tab : tabsSortedByIndex) {
+            if (tab.getIsPinned()) return false;
+
             @TabId int tabId = tab.getId();
 
             assert tabIdsToIndices.containsKey(tabId);

@@ -34,11 +34,6 @@ constexpr FormControlType kFieldTypes[] = {
     FormControlType::kInputNumber,
 };
 
-raw_ptr<const FormFieldData> to_form_field_data(
-    const std::unique_ptr<AutofillField>& field) {
-  return field.get();
-}
-
 class PhoneFieldParserTest : public testing::Test {
  public:
   PhoneFieldParserTest() = default;
@@ -48,7 +43,7 @@ class PhoneFieldParserTest : public testing::Test {
  protected:
   // Downcast for tests.
   static std::unique_ptr<PhoneFieldParser> Parse(ParsingContext& context,
-                                                 AutofillScanner* scanner) {
+                                                 AutofillScanner& scanner) {
     // An empty page_language means the language is unknown and patterns of all
     // languages are used.
     std::unique_ptr<FormFieldParser> field =
@@ -88,7 +83,7 @@ class PhoneFieldParserTest : public testing::Test {
 
   void Clear();
 
-  std::vector<std::unique_ptr<AutofillField>> list_;
+  std::vector<FormFieldData> list_;
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -117,8 +112,8 @@ FieldGlobalId PhoneFieldParserTest::AppendField(
   }
   field.set_options(std::move(options));
   field.set_renderer_id(MakeFieldRendererId());
-  list_.push_back(std::make_unique<AutofillField>(field));
-  return list_.back()->global_id();
+  list_.push_back(field);
+  return list_.back().global_id();
 }
 
 void PhoneFieldParserTest::RunParsingTest(
@@ -132,18 +127,12 @@ void PhoneFieldParserTest::RunParsingTest(
     global_ids.push_back(AppendField(field));
   }
 
-  // Must outlive `scanner`.
-  auto unowned_fields =
-      base::ToVector(list_, [](const std::unique_ptr<AutofillField>& field) {
-        return raw_ptr<const FormFieldData>(field.get());
-      });
-
   // Parse.
-  AutofillScanner scanner(unowned_fields);
-  ParsingContext context(base::ToVector(list_, &to_form_field_data),
-                         GeoIpCountryCode(""), LanguageCode(""),
-                         *GetActivePatternFile());
-  field_ = Parse(context, &scanner);
+  AutofillScanner scanner(list_, [](const FormFieldData&) { return true; });
+  ParsingContext context(list_, GeoIpCountryCode(""), LanguageCode(""),
+                         *GetActivePatternFile(), /*active_features=*/{},
+                         /*log_manager=*/nullptr);
+  field_ = Parse(context, scanner);
   ASSERT_EQ(expect_success, field_.get() != nullptr);
 
   // Verify expecations.
@@ -170,7 +159,7 @@ TEST_F(PhoneFieldParserTest, Empty) {
 }
 
 TEST_F(PhoneFieldParserTest, NonParse) {
-  list_.push_back(std::make_unique<AutofillField>());
+  list_.emplace_back();
   RunParsingTest({}, /*expect_success=*/false);
 }
 

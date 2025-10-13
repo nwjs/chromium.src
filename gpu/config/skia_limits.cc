@@ -14,7 +14,7 @@ namespace gpu {
 
 namespace {
 
-BASE_FEATURE(GrCacheLimitsFeature, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kGrCacheLimitsFeature, base::FEATURE_ENABLED_BY_DEFAULT);
 
 MIRACLE_PARAMETER_FOR_INT(GetMaxGaneshResourceCacheBytes,
                           kGrCacheLimitsFeature,

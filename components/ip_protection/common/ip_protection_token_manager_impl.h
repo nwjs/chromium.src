@@ -40,19 +40,19 @@ class IpProtectionTokenManagerImpl : public IpProtectionTokenManager {
       scoped_refptr<IpProtectionCoreHostRemote> core_host_remote,
       std::unique_ptr<IpProtectionTokenFetcher> fetcher,
       ProxyLayer proxy_layer,
+      std::vector<BlindSignedAuthToken> initial_tokens,
       bool disable_cache_management_for_testing = false);
   ~IpProtectionTokenManagerImpl() override;
 
   // IpProtectionTokenManager implementation.
-  bool IsAuthTokenAvailable() override;
   bool IsAuthTokenAvailable(const std::string& geo_id) override;
   bool WasTokenCacheEverFilled() override;
-  std::optional<BlindSignedAuthToken> GetAuthToken() override;
   std::optional<BlindSignedAuthToken> GetAuthToken(
       const std::string& geo_id) override;
   std::string CurrentGeo() const override;
   void SetCurrentGeo(const std::string& geo_id) override;
   void InvalidateTryAgainAfterTime() override;
+  void RecordTokenDemand() override;
 
   // Set a callback that will be run after the next call to `TryGetAuthTokens()`
   // has completed.
@@ -92,6 +92,7 @@ class IpProtectionTokenManagerImpl : public IpProtectionTokenManager {
   bool fetching_auth_tokens_for_testing() { return fetching_auth_tokens_; }
 
  private:
+  void ProcessInitialTokens(std::vector<BlindSignedAuthToken> initial_tokens);
   void OnGotAuthTokens(base::TimeTicks attempt_start_time_for_metrics,
                        std::optional<std::vector<BlindSignedAuthToken>> tokens,
                        std::optional<base::Time> try_again_after);
@@ -112,9 +113,9 @@ class IpProtectionTokenManagerImpl : public IpProtectionTokenManager {
   const int batch_size_;
   const size_t cache_low_water_mark_;
 
-  // The last time token rates were measured and the counts since then.
+  // The last time token rates were measured and the expiration counts since
+  // then.
   base::TimeTicks last_token_rate_measurement_;
-  int64_t tokens_spent_ = 0;
   int64_t tokens_expired_ = 0;
 
   // Map for caches of tokens keyed by geo id. For each geo entry, tokens are
@@ -166,6 +167,10 @@ class IpProtectionTokenManagerImpl : public IpProtectionTokenManager {
 
   // If true, do not try to automatically refill the cache.
   bool disable_cache_management_for_testing_ = false;
+
+  // The number of tokens requested while a `TryGetAuthTokens()` call was in
+  // progress.
+  int tokens_demanded_during_fetch_ = 0;
 
   // If false, token expiration is not fuzzed.
   bool enable_token_expiration_fuzzing_ = true;

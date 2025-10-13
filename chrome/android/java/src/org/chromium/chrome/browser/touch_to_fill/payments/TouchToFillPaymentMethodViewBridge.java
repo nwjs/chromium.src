@@ -92,6 +92,24 @@ class TouchToFillPaymentMethodViewBridge {
     }
 
     @CalledByNative
+    private void updateBnplPaymentMethod(
+            @JniType("std::optional<int64_t>") @Nullable Long extractedAmount,
+            boolean isAmountSupportedByAnyIssuer) {
+        mComponent.updateBnplPaymentMethod(extractedAmount, isAmountSupportedByAnyIssuer);
+    }
+
+    @CalledByNative
+    private void showProgressScreen() {
+        mComponent.showProgressScreen();
+    }
+
+    @CalledByNative
+    private void showBnplIssuers(
+            @JniType("std::vector") List<PersonalDataManager.BnplIssuer> bnplIssuers) {
+        mComponent.showBnplIssuers(bnplIssuers);
+    }
+
+    @CalledByNative
     private void hideSheet() {
         mComponent.hideSheet();
     }

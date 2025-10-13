@@ -42,8 +42,6 @@ class API_AVAILABLE(macos(12.3)) TensorImplCoreml final
       mojom::TensorInfoPtr tensor_info,
       scoped_refptr<QueueableResourceState<BufferContent>> buffer_state,
       std::unique_ptr<gpu::WebNNTensorRepresentation> representation,
-      std::unique_ptr<gpu::WebNNTensorRepresentation::ScopedAccess>
-          representation_access,
       base::PassKey<TensorImplCoreml> pass_key);
 
   TensorImplCoreml(const TensorImplCoreml&) = delete;
@@ -52,6 +50,12 @@ class API_AVAILABLE(macos(12.3)) TensorImplCoreml final
   // WebNNTensorImpl:
   void ReadTensorImpl(mojom::WebNNTensor::ReadTensorCallback callback) override;
   void WriteTensorImpl(mojo_base::BigBuffer src_buffer) override;
+  bool ImportTensorImpl(
+      std::unique_ptr<gpu::WebNNTensorRepresentation::ScopedAccess> access)
+      override;
+  void ExportTensorImpl(
+      std::unique_ptr<gpu::WebNNTensorRepresentation::ScopedAccess> access)
+      override;
 
   const scoped_refptr<QueueableResourceState<BufferContent>>& GetBufferState()
       const;
@@ -59,10 +63,8 @@ class API_AVAILABLE(macos(12.3)) TensorImplCoreml final
  private:
   ~TensorImplCoreml() override;
 
-  SEQUENCE_CHECKER(sequence_checker_);
-
   scoped_refptr<QueueableResourceState<BufferContent>> buffer_state_
-      GUARDED_BY_CONTEXT(sequence_checker_);
+      GUARDED_BY_CONTEXT(gpu_sequence_checker_);
 };
 
 }  // namespace coreml

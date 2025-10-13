@@ -6,7 +6,8 @@
 
 #include <objbase.h>
 
-#include <esent.h>
+#include <winternl.h>
+
 #include <ntstatus.h>
 
 #include <string_view>
@@ -17,6 +18,7 @@
 #include "base/process/process_handle.h"
 #include "base/scoped_environment_variable_override.h"
 #include "base/scoped_native_library.h"
+#include "base/strings/cstring_view.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/gmock_expected_support.h"
@@ -50,6 +52,25 @@ class ThreadLocaleSaver {
 auto* csm_false = static_cast<bool (*)()>([]() -> bool { return false; });
 
 auto* csm_true = static_cast<bool (*)()>([]() -> bool { return true; });
+
+void TestUnicodeStringToView(wcstring_view test) {
+  UNICODE_STRING teststr = {};
+  ::RtlInitUnicodeString(&teststr, test.c_str());
+  std::wstring_view view = UnicodeStringToView(teststr);
+  EXPECT_EQ(view, test);
+  // Pointer comparison.
+  EXPECT_EQ(view.data(), test.data());
+  EXPECT_EQ(std::size(view), std::size(test));
+}
+
+void TestViewToUnicodeString(std::wstring_view view) {
+  UNICODE_STRING str;
+  EXPECT_TRUE(ViewToUnicodeString(view, str));
+  // Pointer comparison.
+  EXPECT_EQ(str.Buffer, view.data());
+  EXPECT_EQ(str.Length, view.size() * sizeof(WCHAR));
+  EXPECT_EQ(str.Length, str.MaximumLength);
+}
 
 }  // namespace
 
@@ -404,26 +425,23 @@ TEST(BaseWinUtilTest, GetSerialNumber) {
   EXPECT_FALSE(serial_number.empty());
 }
 
-TEST(BaseWinUtilTest, LoadAllImportsForDll) {
-  bool loaded;
-  // Attempt to pre-load a delayloaded dll - use ESENT.dll.JetCloseDatabase as
-  // nothing in base:: is likely to need to call that in future but ESENT.dll is
-  // present on all Windows systems.
-  ASSERT_OK_AND_ASSIGN(loaded, LoadAllImportsForDll("ESENT.dll"));
-  EXPECT_TRUE(loaded);
+TEST(BaseWinUtilTest, UnicodeStringToView) {
+  UNICODE_STRING nullstr = {};
+  EXPECT_TRUE(UnicodeStringToView(nullstr).empty());
+  TestUnicodeStringToView(L"");
+  TestUnicodeStringToView(L"ThisIsATestString");
+  TestUnicodeStringToView(std::wstring((UINT16_MAX / sizeof(WCHAR)) - 1, L'A'));
+}
 
-  // Expect this to fail, but not crash, as there is no database opened.
-  JET_DBID dbid{};
-  JET_ERR jet_error = JetCloseDatabase(NULL, dbid, 0);
-  EXPECT_NE(jet_error, JET_errSuccess);
-
-  // Expect that a module this module does not depend on does not load.
-  ASSERT_OK_AND_ASSIGN(loaded, LoadAllImportsForDll("not-a-module.dll"));
-  EXPECT_FALSE(loaded);
-
-  // Should be harmless to call this if a dll is not delayloaded.
-  ASSERT_OK_AND_ASSIGN(loaded, LoadAllImportsForDll("VERSION.dll"));
-  EXPECT_FALSE(loaded);
+TEST(BaseWinUtilTest, ViewToUnicodeString) {
+  TestViewToUnicodeString({});
+  TestViewToUnicodeString(L"");
+  TestViewToUnicodeString(L"ThisIsATestString");
+  std::wstring long_str(UINT16_MAX / sizeof(WCHAR), L'A');
+  TestViewToUnicodeString(long_str);
+  long_str += L"A";
+  UNICODE_STRING invalid = {};
+  EXPECT_FALSE(ViewToUnicodeString(long_str, invalid));
 }
 
 }  // namespace win

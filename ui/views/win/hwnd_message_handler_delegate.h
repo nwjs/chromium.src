@@ -7,7 +7,7 @@
 
 #include "base/win/windows_types.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
-#include "ui/gfx/native_window_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/views/views_export.h"
 
 class SkPath;
@@ -109,7 +109,6 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
   // Returns the NativeViewAccessible for the parent Widget's RootView if the
   // parent is a Views-owned Widget; otherwise nullptr.
   virtual gfx::NativeViewAccessible GetParentNativeViewAccessible() = 0;
-
   // on windows, maximizing sometime is sent through WM_SIZE, not
   // WM_SYSCOMMAND, see node-webkit#753
   virtual bool ShouldHandleOnSize() const = 0;

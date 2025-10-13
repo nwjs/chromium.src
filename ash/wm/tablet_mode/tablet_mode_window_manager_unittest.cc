@@ -171,8 +171,12 @@ class TabletModeWindowManagerTest : public AshTestBase {
       if (!params.max_size.IsEmpty())
         delegate->set_maximum_size(params.max_size);
     }
-    aura::Window* window = aura::test::CreateTestWindowWithDelegateAndType(
-        delegate, params.type, 0, params.bounds, NULL, params.show_on_creation);
+    aura::Window* window =
+        aura::test::CreateTestWindow({.delegate = delegate,
+                                      .bounds = params.bounds,
+                                      .window_type = params.type,
+                                      .show = params.show_on_creation})
+            .release();
     int32_t behavior = aura::client::kResizeBehaviorNone |
                        aura::client::kResizeBehaviorCanFullscreen;
     behavior |= params.can_resize ? aura::client::kResizeBehaviorCanResize : 0;
@@ -1583,7 +1587,7 @@ TEST_F(TabletModeWindowManagerTest, StateTypeChange) {
 TEST_F(TabletModeWindowManagerTest, SetPropertyOnUnmanagedWindow) {
   Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
   InitParams params(aura::client::WINDOW_TYPE_NORMAL);
-  params.bounds = gfx::Rect(10, 10, 100, 100);
+  params.bounds = {10, 10, 100, 100};
   params.show_on_creation = false;
   std::unique_ptr<aura::Window> window(CreateWindowInWatchedContainer(params));
   WindowState::Get(window.get())->set_allow_set_bounds_direct(true);

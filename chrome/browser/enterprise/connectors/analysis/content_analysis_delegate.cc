@@ -34,7 +34,6 @@
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
 #include "chrome/browser/enterprise/connectors/referrer_cache_utils.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 #include "chrome/browser/file_util_service.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/profiles/profile.h"
@@ -960,10 +959,15 @@ bool ContentAnalysisDelegate::text_request_required() const {
 }
 
 bool ContentAnalysisDelegate::image_request_required() const {
-  return !data_.image.empty() &&
-         data_.image.size() <=
-             data_.settings.cloud_or_local_settings.max_file_size() &&
-         data_.settings.cloud_or_local_settings.is_local_analysis();
+  if (data_.settings.cloud_or_local_settings.is_local_analysis() ||
+      base::FeatureList::IsEnabled(
+          enterprise_connectors::kDlpScanPastedImages)) {
+    return !data_.image.empty() &&
+           data_.image.size() <=
+               data_.settings.cloud_or_local_settings.max_file_size();
+  }
+
+  return false;
 }
 
 const AnalysisSettings& ContentAnalysisDelegate::settings() const {

@@ -101,7 +101,16 @@ BASE_DECLARE_FEATURE(kDevToolsGlobalAiButton);
 extern const base::FeatureParam<bool> kDevToolsGlobalAiButtonPromotionEnabled;
 
 BASE_DECLARE_FEATURE(kDevToolsGdpProfiles);
+extern const base::FeatureParam<bool> kDevToolsGdpProfilesBadgesEnabled;
 extern const base::FeatureParam<bool> kDevToolsGdpProfilesStarterBadgeEnabled;
+
+BASE_DECLARE_FEATURE(kDevToolsLiveEdit);
+
+BASE_DECLARE_FEATURE(kDevToolsIndividualRequestThrottling);
+
+BASE_DECLARE_FEATURE(kDevToolsAiPromptApi);
+
+BASE_DECLARE_FEATURE(kDevToolsStartingStyleDebugging);
 
 }  // namespace features
 

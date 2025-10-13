@@ -33,6 +33,7 @@
 #include "base/rand_util.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/parser_content_policy.h"
@@ -95,7 +96,8 @@ class CORE_EXPORT HTMLDocumentParser : public ScriptableDocumentParser,
   HTMLDocumentParser(ContainerNode* fragment_target,
                      Element* context_element,
                      ParserContentPolicy,
-                     ParserPrefetchPolicy prefetch_policy = kAllowPrefetching);
+                     ParserPrefetchPolicy prefetch_policy,
+                     CustomElementRegistry* registry);
   ~HTMLDocumentParser() override;
   void Trace(Visitor*) const override;
 
@@ -103,6 +105,7 @@ class CORE_EXPORT HTMLDocumentParser : public ScriptableDocumentParser,
       const String&,
       DocumentFragment*,
       Element* context_element,
+      CustomElementRegistry*,
       ParserContentPolicy = kAllowScriptingContent);
 
   // Exposed for testing.
@@ -325,6 +328,9 @@ class CORE_EXPORT HTMLDocumentParser : public ScriptableDocumentParser,
   base::TimeTicks time_waiting_for_user_timing_;
 
   base::MetricsSubSampler metrics_sub_sampler_;
+
+  base::TimeDelta total_tokenization_time_;
+  base::TimeDelta total_parsing_time_;
 };
 
 }  // namespace blink

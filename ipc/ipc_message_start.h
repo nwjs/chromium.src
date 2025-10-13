@@ -12,10 +12,7 @@
 // You should no longer be adding any new message classes. Instead, use mojo
 // for all new work.
 enum IPCMessageStart {
-  AutomationMsgStart = 0,
   TestMsgStart,
-  WorkerMsgStart,
-  ShellMsgStart,
   LastIPCMsgStart  // Must come last.
 };
 

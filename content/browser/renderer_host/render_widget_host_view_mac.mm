@@ -83,7 +83,7 @@
 #include "ui/gfx/geometry/dip_util.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/mac/coordinate_conversion.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/menus/cocoa/text_services_context_menu.h"
 
 using blink::WebInputEvent;
@@ -103,7 +103,7 @@ namespace {
 // called after a delay. This is done as `updateWindows` can be quite
 // costly, and if the text input state is changing rapidly there is no need to
 // update it immediately.
-BASE_FEATURE(DelayUpdateWindowsAfterTextInputStateChanged,
+BASE_FEATURE(kDelayUpdateWindowsAfterTextInputStateChanged,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace
@@ -580,6 +580,13 @@ void RenderWidgetHostViewMac::SetSize(const gfx::Size& size) {
 
 void RenderWidgetHostViewMac::SetBounds(const gfx::Rect& rect) {
   ns_view_->SetBounds(rect);
+
+  // Check if running with no associated NSWindow and force bounds change
+  // propagation. This occurs while running headless and causes problems with
+  // RenderDocument. See more details here: http://crbug.com/444226873.
+  if (IsHeadless()) {
+    OnWindowFrameInScreenChanged(rect);
+  }
 }
 
 gfx::NativeView RenderWidgetHostViewMac::GetNativeView() {
@@ -598,6 +605,20 @@ void RenderWidgetHostViewMac::Focus() {
 
   base::AutoReset<bool> is_getting_focus_bit(&is_getting_focus_, true);
   ns_view_->MakeFirstResponder();
+
+  // Check if running with no associated NSWindow and force focus change
+  // propagation. This occurs while running headless and causes problems with
+  // RenderDocument. See more details here: http://crbug.com/444244102.
+  // Here notification callback is invoked asynchronously because focus and
+  // activation notifications are nested so synchronous invocation does not
+  // always result in the correct state.
+  if (IsHeadless()) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(&RenderWidgetHostViewMac::OnFirstResponderChanged,
+                       weak_factory_.GetWeakPtr(),
+                       /*is_first_responder=*/true));
+  }
 }
 
 bool RenderWidgetHostViewMac::HasFocus() {
@@ -637,6 +658,7 @@ input::CursorManager* RenderWidgetHostViewMac::GetCursorManager() {
 void RenderWidgetHostViewMac::OnOldViewDidNavigatePreCommit() {
   CHECK(browser_compositor_) << "Shouldn't be called during destruction!";
   browser_compositor_->DidNavigateMainFramePreCommit();
+  gesture_provider_.ResetDetection();
 }
 
 void RenderWidgetHostViewMac::OnNewViewDidNavigatePostCommit() {
@@ -1008,7 +1030,7 @@ void RenderWidgetHostViewMac::SpeakSelection() {
 }
 
 void RenderWidgetHostViewMac::SetWindowFrameInScreen(const gfx::Rect& rect) {
-  DCHECK(GetInProcessNSView() && ![GetInProcessNSView() window])
+  DCHECK(IsHeadless())
       << "This method should only be called in headless browser!";
   OnWindowFrameInScreenChanged(rect);
 
@@ -2419,6 +2441,10 @@ RenderWidgetHostViewMac::MaybeUpdateScreenInfosForHiDPI() {
     return {true, current_display_changed};
   }
   return {false, false};
+}
+
+bool RenderWidgetHostViewMac::IsHeadless() const {
+  return GetInProcessNSView() && ![GetInProcessNSView() window];
 }
 
 Class GetRenderWidgetHostViewCocoaClassForTesting() {

@@ -661,7 +661,7 @@ const CGFloat kHeaderImageShadowShadowInset = 20;
         (self.actionButtonsVisibility ==
          ActionButtonsVisibility::kEquallyWeightedButtonShown);
     if (equallyWeightedButton) {
-      UpdateButtonToMatchEqualWeightAction(self.primaryActionButton);
+      UpdateButtonToMatchTertiaryAction(self.primaryActionButton);
     } else {
       UpdateButtonToMatchPrimaryAction(self.primaryActionButton);
     }
@@ -1499,11 +1499,9 @@ const CGFloat kHeaderImageShadowShadowInset = 20;
 }
 
 - (void)updateActionButtonsSpacing {
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
   if (@available(iOS 26, *)) {
     _actionButtonsStackView.spacing = kStackViewEquallyWeightedButtonSpacing;
   } else {
-#endif
     switch (self.actionButtonsVisibility) {
       case ActionButtonsVisibility::kEquallyWeightedButtonShown:
         // Spacing is needed when all buttons have filled background.
@@ -1519,9 +1517,7 @@ const CGFloat kHeaderImageShadowShadowInset = 20;
         // Do not add button spacing by default or when buttons are hidden.
         break;
     }
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
   }
-#endif
 }
 
 - (void)updateActionButtonsStackAlpha:(CGFloat)alpha {
@@ -1559,7 +1555,7 @@ const CGFloat kHeaderImageShadowShadowInset = 20;
        ActionButtonsVisibility::kEquallyWeightedButtonShown);
   ChromeButton* button;
   if (equallyWeightedButton) {
-    button = EqualWeightButton();
+    button = TertiaryActionButton();
   } else {
     button = primary ? PrimaryActionButton() : SecondaryActionButton();
   }

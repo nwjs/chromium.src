@@ -33,12 +33,14 @@ class WebContents;
 }  // namespace content
 
 namespace gfx {
-class Canvas;
+class RoundedCornersF;
 }  // namespace gfx
 
 namespace views {
 class WebView;
 }  // namespace views
+
+class MultiContentsBackgroundView;
 
 // MultiContentsView shows up to two contents web views side by side, and
 // manages their layout relative to each other.
@@ -72,6 +74,9 @@ class MultiContentsView : public views::View,
 
   // Returns the currently inactive ContentsWebView.
   ContentsWebView* GetInactiveContentsView() const;
+
+  const gfx::RoundedCornersF& background_radii() const;
+  void SetBackgroundRadii(const gfx::RoundedCornersF& radii);
 
   // Returns the size of the contents area. If in split view, this captures the
   // entire area starting from the origin of the first contents to the bottom
@@ -132,7 +137,6 @@ class MultiContentsView : public views::View,
   void OnResize(int resize_amount, bool done_resizing) override;
 
   // views::View:
-  void OnPaint(gfx::Canvas* canvas) override;
   void OnThemeChanged() override;
 
   std::vector<ContentsContainerView*> contents_container_views() const {
@@ -166,6 +170,10 @@ class MultiContentsView : public views::View,
 
   MultiContentsViewMiniToolbar* mini_toolbar_for_testing(int index) const {
     return contents_container_views_[index]->mini_toolbar();
+  }
+
+  MultiContentsBackgroundView* background_view_for_testing() const {
+    return background_view_;
   }
 
  private:
@@ -210,6 +218,7 @@ class MultiContentsView : public views::View,
 
   void OnWebContentsFocused(views::WebView*);
   void OnNtpFooterFocused(views::WebView*);
+  void OnActorOverlayFocused(views::WebView*);
 
   ViewWidths GetViewWidths(gfx::Rect available_space) const;
 
@@ -226,6 +235,7 @@ class MultiContentsView : public views::View,
   raw_ptr<BrowserView> browser_view_;
   std::unique_ptr<MultiContentsViewDelegate> delegate_;
 
+  raw_ptr<MultiContentsBackgroundView> background_view_;
   ContentsSeparators contents_separators_;
 
   // Holds ContentsContainerViews, when not in a split view the second
@@ -240,6 +250,11 @@ class MultiContentsView : public views::View,
   // Holds subscriptions for when the attached web contents to NtpFooterView
   // is focused.
   std::vector<base::CallbackListSubscription> ntp_footer_focused_subscriptions_;
+
+  // Holds subscriptions for when the attached web contents to
+  // ActorOverlayWebView is focused.
+  std::vector<base::CallbackListSubscription>
+      actor_overlay_focused_subscriptions_;
 
   // The handle responsible for resizing the two contents views as relative to
   // each other.

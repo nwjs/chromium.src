@@ -10,6 +10,7 @@
 #include "base/android/jni_array.h"
 #include "base/android/jni_callback.h"
 #include "base/android/jni_string.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
@@ -216,34 +217,6 @@ bool WebContentsDelegateAndroid::IsWebContentsCreationOverridden(
                                                                   java_gurl);
 }
 
-void WebContentsDelegateAndroid::WebContentsCreated(
-    WebContents* source_contents,
-    int opener_render_process_id,
-    int opener_render_frame_id,
-    const std::string& frame_name,
-    const GURL& target_url,
-    WebContents* new_contents) {
-  JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
-  if (obj.is_null())
-    return;
-
-  ScopedJavaLocalRef<jobject> jsource_contents;
-  if (source_contents)
-    jsource_contents = source_contents->GetJavaWebContents();
-  ScopedJavaLocalRef<jobject> jnew_contents;
-  if (new_contents)
-    jnew_contents = new_contents->GetJavaWebContents();
-
-  ScopedJavaLocalRef<jobject> java_gurl =
-      url::GURLAndroid::FromNativeGURL(env, target_url);
-  Java_WebContentsDelegateAndroid_webContentsCreated(
-      env, obj, jsource_contents, opener_render_process_id,
-      opener_render_frame_id,
-      base::android::ConvertUTF8ToJavaString(env, frame_name), java_gurl,
-      jnew_contents);
-}
-
 void WebContentsDelegateAndroid::CloseContents(WebContents* source) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
@@ -396,7 +369,8 @@ void WebContentsDelegateAndroid::FullscreenStateChangedForTab(
   if (obj.is_null())
     return;
   Java_WebContentsDelegateAndroid_fullscreenStateChangedForTab(
-      env, obj, options.prefers_navigation_bar, options.prefers_status_bar,
+      env, obj, reinterpret_cast<jlong>(requesting_frame),
+      options.prefers_navigation_bar, options.prefers_status_bar,
       options.display_id);
 }
 
@@ -696,6 +670,31 @@ void WebContentsDelegateAndroid::ContentsZoomChange(bool zoom_in) {
     return;
   }
   Java_WebContentsDelegateAndroid_contentsZoomChange(env, obj, zoom_in);
+}
+
+content::NavigationController::UserAgentOverrideOption
+WebContentsDelegateAndroid::ShouldOverrideUserAgentForPrerender2(
+    const GURL& url) {
+  // Killswitch
+  if (!base::FeatureList::IsEnabled(
+          features::kPreloadingRespectUserAgentOverride)) {
+    return WebContentsDelegate::ShouldOverrideUserAgentForPrerender2(url);
+  }
+
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
+  if (obj.is_null()) {
+    // Fallback to base class version when JNI is unavailable.
+    return WebContentsDelegate::ShouldOverrideUserAgentForPrerender2(url);
+  }
+
+  ScopedJavaLocalRef<jobject> j_url =
+      url::GURLAndroid::FromNativeGURL(env, url);
+  int j_override_option =
+      Java_WebContentsDelegateAndroid_shouldOverrideUserAgentForPrerender2(
+          env, obj, j_url);
+  return static_cast<content::NavigationController::UserAgentOverrideOption>(
+      j_override_option);
 }
 
 }  // namespace web_contents_delegate_android

@@ -213,7 +213,8 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
             TabListMediator.@Nullable TabGridDialogHandler dialogHandler,
             @TabActionState int initialTabActionState,
             TabListMediator.@Nullable SelectionDelegateProvider selectionDelegateProvider,
-            @Nullable Supplier<PriceWelcomeMessageController> priceWelcomeMessageControllerSupplier,
+            @Nullable Supplier<@Nullable PriceWelcomeMessageController>
+                    priceWelcomeMessageControllerSupplier,
             ViewGroup parentView,
             boolean attachToParent,
             String componentName,
@@ -1154,5 +1155,9 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
 
     public TabListHighlighter getTabListHighlighter() {
         return mTabListHighlighter;
+    }
+
+    public TabListModel getTabListModel() {
+        return mModelList;
     }
 }

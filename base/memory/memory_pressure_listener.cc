@@ -25,7 +25,8 @@ namespace {
 // Controls whether or no MemoryPressureListeners are notified synchronously or,
 // in the disabled state, asynchronously. This is only suitable for a listener
 // that only lives on the main thread.
-BASE_FEATURE(MakeMemoryPressureListenerSync, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kMakeMemoryPressureListenerSync,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 std::variant<SyncMemoryPressureListener, AsyncMemoryPressureListener>
 CreateMemoryPressureListenerImpl(

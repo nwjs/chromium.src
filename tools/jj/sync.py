@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2025 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
@@ -22,7 +22,7 @@ def _fetch(shallow: bool) -> None:
                            ignore_working_copy=True)
     assert len(history_limit) == 1
     history_limit = history_limit[0]['commit_id']
-    args.append(f'--shallow_exclude={history_limit}')
+    args.append(f'--shallow-exclude={history_limit}')
   run_command(args)
 
 

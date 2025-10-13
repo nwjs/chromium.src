@@ -142,6 +142,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
+#include "url/scheme_host_port.h"
 
 namespace network {
 
@@ -809,8 +810,8 @@ class URLLoaderTest : public testing::Test {
     net::HttpNetworkSessionParams params;
     auto quic_context = std::make_unique<net::QuicContext>();
     quic_context->params()->origins_to_force_quic_on.insert(
-        net::HostPortPair(net::QuicSimpleTestServer::GetHost(),
-                          net::QuicSimpleTestServer::GetPort()));
+        url::SchemeHostPort("https", net::QuicSimpleTestServer::GetHost(),
+                            net::QuicSimpleTestServer::GetPort()));
     params.enable_quic = true;
     net::URLRequestContextBuilder context_builder;
     context_builder.set_http_network_session_params(params);
@@ -1900,6 +1901,10 @@ TEST_F(URLLoaderTest, NonSecurePublicToLoopbackPreflightBlock) {
 }
 
 TEST_F(URLLoaderTest, SecureLocalToLoopbackDefault) {
+  // This test presumes that LNA enforcement is enabled.
+  base::test::ScopedFeatureList feature_list(
+      features::kLocalNetworkAccessChecks);
+
   auto client_security_state = NewSecurityState();
   client_security_state->is_web_secure_context = true;
   client_security_state->ip_address_space = mojom::IPAddressSpace::kLocal;
@@ -1939,6 +1944,10 @@ TEST_F(URLLoaderTest, SecureLocalToLoopbackAllow) {
 }
 
 TEST_F(URLLoaderTest, NonSecureLocalToLoopbackDefault) {
+  // This test presumes that LNA enforcement is enabled.
+  base::test::ScopedFeatureList feature_list(
+      features::kLocalNetworkAccessChecks);
+
   auto client_security_state = NewSecurityState();
   client_security_state->ip_address_space = mojom::IPAddressSpace::kLocal;
   set_factory_client_security_state(std::move(client_security_state));
@@ -2428,6 +2437,10 @@ class URLLoaderFakeTransportInfoTest
 // more-private address space or not. The test is parameterized by
 // (client address space, server address space, expected result) tuple.
 TEST_P(URLLoaderFakeTransportInfoTest, LocalNetworkRequestLoadsCorrectly) {
+  // This test presumes that LNA enforcement is enabled.
+  base::test::ScopedFeatureList feature_list(
+      features::kLocalNetworkAccessChecks);
+
   const auto params = GetParam();
 
   auto client_security_state = NewSecurityState();
@@ -2964,15 +2977,9 @@ TEST_F(URLLoaderTest, WritesToDurableMessage) {
   ASSERT_EQ(accounting_delegate.size(), kGzippedBodyLength);
   ASSERT_EQ(durable_message.encoded_byte_size(),
             static_cast<size_t>(kGzippedBodyLength));
-  ASSERT_EQ(durable_message.byte_size(), body.size());
+  ASSERT_EQ(durable_message.byte_size_for_testing(), body.size());
   // Retrieve the stored body and verify that it is accurate.
-  std::vector<uint8_t> buffer(durable_message.byte_size());
-  EXPECT_TRUE(durable_message.CopyTo(buffer));
-  // TODO(414864477): Returned body should be in decoded form, regardless of
-  // whether body decoding was done or deferred by the Network stack. Once
-  // deferred decoding is implemented in durable messages, add a test for
-  // client-side-decoded response correctness.
-  EXPECT_EQ(buffer, base::as_byte_span(body));
+  EXPECT_EQ(durable_message.Retrieve(), base::as_byte_span(body));
 }
 
 TEST_F(URLLoaderTest, DurableMessageWorksWithMimeSniffing) {
@@ -2989,19 +2996,20 @@ TEST_F(URLLoaderTest, DurableMessageWorksWithMimeSniffing) {
   EXPECT_THAT(client()->response_head()->client_side_content_decoding_types,
               ElementsAre(net::SourceStreamType::kGzip));
   EXPECT_TRUE(did_mime_sniff());
+  EXPECT_THAT(durable_message.GetClientDecodingTypesForTesting(),
+              ElementsAre(net::SourceStreamType::kGzip));
   EXPECT_EQ(encoded_body, ReadTestFile("content-sniffer-test0.html.gz"));
   EXPECT_TRUE(durable_message.is_complete());
   ASSERT_EQ(accounting_delegate.size(), kGzippedBodyLength);
   ASSERT_EQ(durable_message.encoded_byte_size(),
             static_cast<size_t>(kGzippedBodyLength));
-  ASSERT_EQ(durable_message.byte_size(), encoded_body.size());
-  // TODO(414864477): Returned body should be in decoded form, regardless of
-  // whether body decoding was done or deferred by the Network stack. Once
-  // deferred decoding is implemented in durable messages, add a test for
-  // client-side-decoded response correctness.
-  std::vector<uint8_t> buffer(durable_message.byte_size());
-  EXPECT_TRUE(durable_message.CopyTo(buffer));
-  EXPECT_EQ(buffer, base::as_byte_span(encoded_body));
+  ASSERT_EQ(durable_message.byte_size_for_testing(), encoded_body.size());
+  // Retrieve the stored body and verify that it is accurate and contents are in
+  // decoded form.
+  mojo_base::BigBuffer buffer = durable_message.Retrieve();
+  auto decoded_body = ReadTestFile("content-sniffer-test0.html");
+  EXPECT_EQ(buffer.size(), decoded_body.size());
+  EXPECT_EQ(buffer, base::as_byte_span(decoded_body));
 }
 
 // Tests a large response body, which would result in multiple asynchronous
@@ -3051,16 +3059,38 @@ TEST_F(URLLoaderMockSocketTest, DurableMessageWorksWithLotsOfData) {
               ElementsAre(net::SourceStreamType::kGzip));
   EXPECT_TRUE(durable_message.is_complete());
   size_t compressed_size = compressed.size();
-  ASSERT_EQ(static_cast<size_t>(accounting_delegate.size()), compressed_size);
+  ASSERT_EQ(accounting_delegate.size(), static_cast<int64_t>(compressed_size));
   ASSERT_EQ(durable_message.encoded_byte_size(), compressed_size);
-  ASSERT_EQ(durable_message.byte_size(), compressed_size);
-  // TODO(414864477): Returned body should be in decoded form, regardless of
-  // whether body decoding was done or deferred by the Network stack. Once
-  // deferred decoding is implemented in durable messages, add a test for
-  // client-side-decoded response correctness.
-  std::vector<uint8_t> buffer(durable_message.byte_size());
-  EXPECT_TRUE(durable_message.CopyTo(buffer));
-  EXPECT_EQ(buffer, base::as_byte_span(compressed));
+  ASSERT_EQ(durable_message.byte_size_for_testing(), compressed_size);
+  EXPECT_EQ(durable_message.Retrieve(), base::as_byte_span(response_body));
+}
+
+// Tests that client side decoding types are written into DurableMessage and the
+// body is decoded on retrieval.
+TEST_F(URLLoaderTest, DurableMessagePerformsClientSideDecodingGzip) {
+  MockDurableMessageAccountingDelegate accounting_delegate;
+  DevtoolsDurableMessage durable_message("test", accounting_delegate);
+  set_durable_message(durable_message.GetWeakPtr());
+  constexpr size_t kGzippedBodyLength = 60;
+  set_sniff();
+  set_client_side_content_decoding_enabled();
+  std::string encoded_body;
+  EXPECT_EQ(net::OK,
+            Load(test_server()->GetURL("/hello.html.gz"), &encoded_body));
+  EXPECT_THAT(client()->response_head()->client_side_content_decoding_types,
+              ElementsAre(net::SourceStreamType::kGzip));
+  EXPECT_THAT(durable_message.GetClientDecodingTypesForTesting(),
+              ElementsAre(net::SourceStreamType::kGzip));
+  EXPECT_TRUE(durable_message.is_complete());
+  ASSERT_EQ(accounting_delegate.size(),
+            static_cast<int64_t>(kGzippedBodyLength));
+  ASSERT_EQ(durable_message.encoded_byte_size(), kGzippedBodyLength);
+  // Retrieve the stored body and verify that it is accurate and contents are in
+  // decoded form.
+  mojo_base::BigBuffer buffer = durable_message.Retrieve();
+  auto decoded_body = ReadTestFile("hello.html");
+  EXPECT_EQ(buffer.size(), decoded_body.size());
+  EXPECT_EQ(buffer, base::as_byte_span(decoded_body));
 }
 
 // Tests that URLLoader still completes the load without errors/crashing, but
@@ -5887,6 +5917,64 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Values(TestMode::kCredentialsModeOmit,
                     TestMode::kCredentialsModeOmitWorkaround,
                     TestMode::kCredentialsModeOmitWithFeatureFix));
+
+TEST_F(URLLoaderTest, AcceptCHFrameNotAllowedHintWithFeature) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kOffloadAcceptCHFrameCheck,
+      {{"AcceptCHFrameOffloadNotAllowedHints", "true"}});
+
+  net::TransportInfo info = net::DefaultTransportInfo();
+  info.accept_ch_frame = "Sec-CH-UA-Platform";
+
+  const GURL url("http://accept-ch.test/");
+  net::URLRequestFilter::GetInstance()->AddUrlInterceptor(
+      url, std::make_unique<FakeTransportInfoInterceptor>(info));
+
+  MockAcceptCHFrameObserver observer;
+  set_accept_ch_frame_observer_for_next_request(&observer);
+
+  network::ResourceRequest::TrustedParams::EnabledClientHints enabled_hints;
+  enabled_hints.origin = url::Origin::Create(url);
+  enabled_hints.is_outermost_main_frame = true;
+  enabled_hints.hints = {network::mojom::WebClientHintsType::kUAArch};
+  enabled_hints.not_allowed_hints = {
+      network::mojom::WebClientHintsType::kUAPlatform};
+  set_enabled_client_hints_for_next_request(std::move(enabled_hints));
+
+  EXPECT_THAT(Load(url), IsOk());
+  EXPECT_FALSE(observer.called());
+}
+
+TEST_F(URLLoaderTest, AcceptCHFrameNotAllowedHintWithoutFeature) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kOffloadAcceptCHFrameCheck,
+      {{"AcceptCHFrameOffloadNotAllowedHints", "false"}});
+
+  net::TransportInfo info = net::DefaultTransportInfo();
+  info.accept_ch_frame = "Sec-CH-UA-Platform";
+
+  const GURL url("http://accept-ch.test/");
+  net::URLRequestFilter::GetInstance()->AddUrlInterceptor(
+      url, std::make_unique<FakeTransportInfoInterceptor>(info));
+
+  MockAcceptCHFrameObserver observer;
+  set_accept_ch_frame_observer_for_next_request(&observer);
+
+  network::ResourceRequest::TrustedParams::EnabledClientHints enabled_hints;
+  enabled_hints.origin = url::Origin::Create(url);
+  enabled_hints.is_outermost_main_frame = true;
+  enabled_hints.hints = {network::mojom::WebClientHintsType::kUAArch};
+  enabled_hints.not_allowed_hints = {
+      network::mojom::WebClientHintsType::kUAPlatform};
+  set_enabled_client_hints_for_next_request(std::move(enabled_hints));
+
+  EXPECT_THAT(Load(url), IsOk());
+  EXPECT_TRUE(observer.called());
+  EXPECT_THAT(observer.accept_ch_frame(),
+              ElementsAre(network::mojom::WebClientHintsType::kUAPlatform));
+}
 
 // Tests that a request with CredentialsMode::kOmit still sends client
 // certificates when features::kOmitCorsClientCert is disabled, and when the

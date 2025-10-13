@@ -33,8 +33,6 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAvoidDuplicateDelayBeginFrame);
 VIZ_COMMON_EXPORT extern const char kDrawQuadSplit[];
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
-    kTransferableResourcePassAlphaTypeDirectly);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kDrawQuadSplitLimit);
 
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
@@ -101,6 +99,8 @@ VIZ_COMMON_EXPORT extern const char kTargetForVSyncAnimation[];
 VIZ_COMMON_EXPORT extern const char kTargetForVSyncInteraction[];
 #endif
 
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
+    kAckCopyOutputRequestEarlyForViewTransition);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAllowUndamagedNonrootRenderPassToSkip);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kAllowForceMergeRenderPassWithRequireOverlayQuads);
@@ -190,6 +190,8 @@ VIZ_COMMON_EXPORT bool ShouldUseAdpfForSoc(std::string_view soc_allowlist,
                                            std::string_view soc_blocklist,
                                            std::string_view soc);
 #endif  // BUILDFLAG(IS_ANDROID)
+
+VIZ_COMMON_EXPORT bool ShouldAckCOREarlyForViewTransition();
 
 }  // namespace features
 

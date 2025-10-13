@@ -5,21 +5,42 @@
 #ifndef CHROME_BROWSER_GLIC_WIDGET_GLIC_SIDE_PANEL_UI_H_
 #define CHROME_BROWSER_GLIC_WIDGET_GLIC_SIDE_PANEL_UI_H_
 
+#include <memory>
+
+#include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
-#include "chrome/browser/glic/host/glic.mojom-forward.h"
-#include "chrome/browser/glic/host/glic_ui_embedder.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/host.h"
+#include "chrome/browser/glic/service/glic_ui_embedder.h"
+#include "chrome/browser/ui/views/side_panel/glic/glic_side_panel_coordinator.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
+#include "ui/gfx/image/image_skia.h"
+#include "ui/snapshot/snapshot.h"
+
+namespace tabs {
+class TabInterface;
+}
 
 namespace glic {
 
-// A stub implementation of GlicUiEmbedder for side panel UIs.
-class GlicSidePanelUi : public GlicUiEmbedder {
+// Implementation of GlicUiEmbedder for side panel UIs.
+class GlicSidePanelUi : public GlicUiEmbedder,
+                        public Host::EmbedderDelegate,
+                        public GlicSidePanelCoordinator::StateObserver {
  public:
-  GlicSidePanelUi();
+  GlicSidePanelUi(Profile* profile,
+                  base::WeakPtr<tabs::TabInterface> tab,
+                  GlicUiEmbedder::Delegate& delegate);
   ~GlicSidePanelUi() override;
 
   // GlicUiEmbedder:
+  Host::EmbedderDelegate* GetHostEmbedderDelegate() override;
+  void Show() override;
+  void Close() override;
+  std::unique_ptr<GlicUiEmbedder> CreateInactiveEmbedder() const override;
+
+  // Host::EmbedderDelegate:
   const mojom::PanelState& GetPanelState() const override;
   void Resize(const gfx::Size& size,
               base::TimeDelta duration,
@@ -30,10 +51,27 @@ class GlicSidePanelUi : public GlicUiEmbedder {
   void Attach() override;
   void Detach() override;
   void SetMinimumWidgetSize(const gfx::Size& size) override;
+  void SwitchConversation(
+      glic::mojom::ConversationInfoPtr info,
+      mojom::WebClientHandler::SwitchConversationCallback callback) override;
+
+  // GlicSidePanelCoordinator::StateObserver
+  void VisibilityChanged(bool visible) override;
+
+  // GlicUiEmbedder and Host::Delegate:
   bool IsShowing() const override;
 
+  void TakeScreenshot(ui::GrabSnapshotImageCallback callback) const;
+
  private:
+  base::ScopedObservation<GlicSidePanelCoordinator,
+                          GlicSidePanelCoordinator::StateObserver>
+      coordinator_observation_{this};
+  std::unique_ptr<views::View> CreateView(Profile* profile);
   mojom::PanelState panel_state_;
+  raw_ptr<Profile> profile_;
+  base::WeakPtr<tabs::TabInterface> tab_;
+  raw_ref<GlicUiEmbedder::Delegate> delegate_;
 };
 
 }  // namespace glic

@@ -29,6 +29,7 @@
 #include "components/sharing_message/pref_names.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
+#include "components/sync_preferences/cross_device_pref_tracker/prefs/cross_device_pref_names.h"
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "components/translate/core/browser/translate_prefs.h"
 #include "components/variations/service/google_groups_manager_prefs.h"
@@ -141,7 +142,9 @@ enum {
   kFingerprintingProtectionEnabled = 92,
   kAutofillNameAndEmailProfileSignature = 93,
   kAutofillNameAndEmailProfileNotSelectedCounter = 94,
-  kIsOmniboxInBottomPosition = 95,
+  kAutofillAiLastVersionDeduped = 96,
+  kCrossDeviceOmniboxIsInBottomPosition = 97,
+  kAutofillWasNameAndEmailProfileUsed = 98,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -164,15 +167,27 @@ constexpr auto kCommonSyncablePrefsAllowlist =
         {autofill::prefs::kAutofillLastVersionDeduped,
          {syncable_prefs_ids::kAutofillLastVersionDeduped, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
+        {autofill::prefs::kAutofillAiLastVersionDeduped,
+         {syncable_prefs_ids::kAutofillAiLastVersionDeduped,
+          syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
         {autofill::prefs::kAutofillProfileEnabled,
          {syncable_prefs_ids::kAutofillProfileEnabled, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
         {autofill::prefs::kAutofillNameAndEmailProfileSignature,
          {syncable_prefs_ids::kAutofillNameAndEmailProfileSignature,
-          syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
+          syncer::PRIORITY_PREFERENCES,
+          PrefSensitivity::kExemptFromUserControlWhileSignedIn,
+          MergeBehavior::kNone}},
         {autofill::prefs::kAutofillNameAndEmailProfileNotSelectedCounter,
          {syncable_prefs_ids::kAutofillNameAndEmailProfileNotSelectedCounter,
-          syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
+          syncer::PRIORITY_PREFERENCES,
+          PrefSensitivity::kExemptFromUserControlWhileSignedIn,
+          MergeBehavior::kNone}},
+        {autofill::prefs::kAutofillWasNameAndEmailProfileUsed,
+         {syncable_prefs_ids::kAutofillWasNameAndEmailProfileUsed,
+          syncer::PRIORITY_PREFERENCES,
+          PrefSensitivity::kExemptFromUserControlWhileSignedIn,
+          MergeBehavior::kNone}},
         {bookmarks::prefs::kShowAppsShortcutInBookmarkBar,
          {syncable_prefs_ids::kShowAppsShortcutInBookmarkBar,
           syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
@@ -214,9 +229,6 @@ constexpr auto kCommonSyncablePrefsAllowlist =
         {omnibox::kShowGoogleLensShortcut,
          {syncable_prefs_ids::kShowGoogleLensShortcut, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
-        {omnibox::kIsOmniboxInBottomPosition,
-         {syncable_prefs_ids::kIsOmniboxInBottomPosition, syncer::PREFERENCES,
-          PrefSensitivity::kNone, MergeBehavior::kNone}},
         {password_manager::prefs::kCredentialsEnableAutosignin,
          {syncable_prefs_ids::kCredentialsEnableAutosignin,
           syncer::PRIORITY_PREFERENCES, PrefSensitivity::kNone,
@@ -249,6 +261,10 @@ constexpr auto kCommonSyncablePrefsAllowlist =
         {prefs::kCookieControlsMode,
          {syncable_prefs_ids::kCookieControlsMode, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
+        {prefs::kCrossDeviceOmniboxIsInBottomPosition,
+         {syncable_prefs_ids::kCrossDeviceOmniboxIsInBottomPosition,
+          syncer::PREFERENCES, PrefSensitivity::kNone,
+          MergeBehavior::kMergeableDict}},
         {prefs::kSafeBrowsingEnabled,
          {syncable_prefs_ids::kSafeBrowsingEnabled, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},

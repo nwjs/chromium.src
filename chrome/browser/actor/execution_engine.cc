@@ -19,13 +19,13 @@
 #include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/state_transitions.h"
+#include "base/trace_event/trace_event.h"
 #include "base/types/id_type.h"
 #include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/browser_action_util.h"
 #include "chrome/browser/actor/site_policy.h"
-#include "chrome/browser/actor/task_id.h"
 #include "chrome/browser/actor/tools/navigate_tool_request.h"
 #include "chrome/browser/actor/tools/tool_controller.h"
 #include "chrome/browser/actor/tools/tool_request.h"
@@ -38,6 +38,8 @@
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
+#include "chrome/common/actor/journal_details_builder.h"
+#include "chrome/common/actor/task_id.h"
 #include "chrome/common/chrome_features.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
@@ -59,7 +61,6 @@ using optimization_guide::proto::Action;
 using optimization_guide::proto::Actions;
 using optimization_guide::proto::ActionTarget;
 using optimization_guide::proto::AnnotatedPageContent;
-using optimization_guide::proto::BrowserAction;
 using tabs::TabInterface;
 
 namespace actor {
@@ -86,6 +87,7 @@ ExecutionEngine::ExecutionEngine(Profile* profile)
       journal_(ActorKeyedService::Get(profile)->GetJournal().GetSafeRef()),
       ui_event_dispatcher_(ui::NewUiEventDispatcher(
           ActorKeyedService::Get(profile)->GetActorUiStateManager())) {
+  TRACE_EVENT0("actor", "ExecutionEngine::ExecutionEngine");
   CHECK(profile_);
 }
 
@@ -95,6 +97,7 @@ ExecutionEngine::ExecutionEngine(
     : profile_(profile),
       journal_(ActorKeyedService::Get(profile)->GetJournal().GetSafeRef()),
       ui_event_dispatcher_(std::move(ui_event_dispatcher)) {
+  TRACE_EVENT0("actor", "ExecutionEngine::ExecutionEngine");
   CHECK(profile_);
 }
 
@@ -111,15 +114,19 @@ ExecutionEngine::~ExecutionEngine() {
 
 void ExecutionEngine::SetOwner(ActorTask* task) {
   task_ = task;
+  TRACE_EVENT0("actor", "ExecutionEngine::SetOwner");
   actor_login_service_ = std::make_unique<actor_login::ActorLoginServiceImpl>();
   tool_controller_ = std::make_unique<ToolController>(*task_, *this);
 }
 
 void ExecutionEngine::SetState(State state) {
+  TRACE_EVENT0("actor", "ExecutionEngine::SetState");
   journal_->Log(GURL(), task_->id(), mojom::JournalTrack::kActor,
                 "ExecutionEngine::StateChange",
-                absl::StrFormat("State %s -> %s", StateToString(state_),
-                                StateToString(state)));
+                JournalDetailsBuilder()
+                    .Add("current_state", StateToString(state_))
+                    .Add("new_state", StateToString(state))
+                    .Build());
 
 #if DCHECK_IS_ON()
   static const base::NoDestructor<base::StateTransitions<State>> transitions(
@@ -136,6 +143,7 @@ void ExecutionEngine::SetState(State state) {
       }));
   DCHECK_STATE_TRANSITION(transitions, state_, state);
 #endif  // DCHECK_IS_ON()
+  observers_.Notify(&StateObserver::OnStateChanged, state_, state);
   state_ = state;
 }
 
@@ -159,32 +167,77 @@ std::string ExecutionEngine::StateToString(State state) {
 }
 
 bool ExecutionEngine::ShouldGateNavigation(
-    content::NavigationHandle& navigation_handle) {
+    content::NavigationHandle& navigation_handle,
+    ExecutionEngine::UserConfirmationDialogCallback callback) {
   if (!base::FeatureList::IsEnabled(kGlicCrossOriginNavigationGating)) {
     return false;
   }
 
-  const GURL& navigation_url = navigation_handle.GetURL();
+  auto navigation_origin = url::Origin::Create(navigation_handle.GetURL());
+
+  // Assumes the initiator origin is safe since it is currently being actuated
+  // on.
+  const std::optional<url::Origin>& initiator_origin =
+      navigation_handle.GetInitiatorOrigin();
+  if (initiator_origin &&
+      initiator_origin->IsSameOriginWith(navigation_origin)) {
+    return false;
+  }
 
   for (const auto& origin : allowed_navigation_origins_) {
-    if (origin.IsSameOriginWith(navigation_url)) {
+    if (origin.IsSameOriginWith(navigation_origin)) {
       return false;
     }
   }
 
-  const std::optional<url::Origin>& initiator_origin =
-      navigation_handle.GetInitiatorOrigin();
-  return initiator_origin &&
-         !initiator_origin->IsSameOriginWith(navigation_url);
+  // Do not prompt user for permission in pre-rendered frames.
+  if (navigation_handle.IsInPrerenderedMainFrame()) {
+    return true;
+  }
+
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          &ExecutionEngine::PromptToConfirmCrossOriginNavigation, GetWeakPtr(),
+          navigation_origin,
+          base::BindOnce(&ExecutionEngine::OnPromptToConfirmNavigationDecision,
+                         GetWeakPtr(), navigation_origin,
+                         std::move(callback))));
+
+  return true;
+}
+
+void ExecutionEngine::OnPromptToConfirmNavigationDecision(
+    url::Origin navigation_origin,
+    ExecutionEngine::UserConfirmationDialogCallback callback,
+    webui::mojom::UserConfirmationDialogResponsePtr response) {
+  if (response->result->is_permission_granted() &&
+      response->result->get_permission_granted()) {
+    allowed_navigation_origins_.insert(std::move(navigation_origin));
+  }
+  std::move(callback).Run(std::move(response));
+}
+
+void ExecutionEngine::AddObserver(StateObserver* observer) {
+  observers_.AddObserver(observer);
+}
+
+void ExecutionEngine::RemoveObserver(StateObserver* observer) {
+  observers_.RemoveObserver(observer);
 }
 
 void ExecutionEngine::CancelOngoingActions(mojom::ActionResultCode reason) {
+  TRACE_EVENT0("actor", "ExecutionEngine::CancelOngoingActions");
+  if (tool_controller_) {
+    tool_controller_->Cancel();
+  }
   if (!action_sequence_.empty()) {
     CompleteActions(MakeResult(reason), /*action_index=*/std::nullopt);
   }
 }
 
 void ExecutionEngine::FailCurrentTool(mojom::ActionResultCode reason) {
+  TRACE_EVENT0("actor", "ExecutionEngine::FailCurrentTool");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK_NE(reason, mojom::ActionResultCode::kOk);
   if (state_ != State::kToolInvoke) {
@@ -196,6 +249,7 @@ void ExecutionEngine::FailCurrentTool(mojom::ActionResultCode reason) {
 
 void ExecutionEngine::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
                           ActorTask::ActCallback callback) {
+  TRACE_EVENT0("actor", "ExecutionEngine::Act");
   CHECK(base::FeatureList::IsEnabled(features::kGlicActor));
   CHECK(!actions.empty());
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -205,7 +259,10 @@ void ExecutionEngine::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
     journal_->Log(
         actions[0]->GetURLForJournal(), task_->id(),
         mojom::JournalTrack::kActor, "Act Failed",
-        "Unable to perform action: task already has action in progress");
+        JournalDetailsBuilder()
+            .AddError(
+                "Unable to perform action: task already has action in progress")
+            .Build());
     PostTaskForActCallback(std::move(callback),
                            MakeResult(mojom::ActionResultCode::kError,
                                       "Task already has action in progress"),
@@ -240,6 +297,7 @@ void ExecutionEngine::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
 
 void ExecutionEngine::KickOffNextAction(
     mojom::ActionResultPtr init_hooks_result) {
+  TRACE_EVENT0("actor", "ExecutionEngine::KickOffNextAction");
   DCHECK(state_ == State::kInit || state_ == State::kUiPostInvoke ||
          state_ == State::kComplete)
       << "Current state is " << StateToString(state_);
@@ -254,10 +312,7 @@ void ExecutionEngine::KickOffNextAction(
 
   SetState(State::kStartAction);
 
-  // TODO(crbug.com/411462297): It's not clear that navigate requests (which are
-  // tab scoped) should be doing tab safety checks. For now we return `true` to
-  // preserve existing behavior.
-  if (GetNextAction().IsTabScoped()) {
+  if (GetNextAction().RequiresUrlCheckInCurrentTab()) {
     SafetyChecksForNextAction();
   } else {
     ExecuteNextAction();
@@ -265,11 +320,15 @@ void ExecutionEngine::KickOffNextAction(
 }
 
 void ExecutionEngine::SafetyChecksForNextAction() {
+  TRACE_EVENT0("actor", "ExecutionEngine::SafetyChecksForNextAction");
   tabs::TabInterface* tab = GetNextAction().GetTabHandle().Get();
 
   if (!tab) {
     journal_->Log(GURL::EmptyGURL(), task_->id(), mojom::JournalTrack::kActor,
-                  "Act Failed", "The tab is no longer present");
+                  "Act Failed",
+                  JournalDetailsBuilder()
+                      .AddError("The tab is no longer present")
+                      .Build());
     CompleteActions(MakeResult(mojom::ActionResultCode::kTabWentAway,
                                "The tab is no longer present."),
                     next_action_index_);
@@ -287,13 +346,18 @@ void ExecutionEngine::SafetyChecksForNextAction() {
 void ExecutionEngine::DidFinishAsyncSafetyChecks(
     const url::Origin& evaluated_origin,
     bool may_act) {
+  TRACE_EVENT0("actor", "ExecutionEngine::DidFinishAsyncSafetyChecks");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(!action_sequence_.empty());
 
   tabs::TabInterface* tab = GetNextAction().GetTabHandle().Get();
   if (!tab) {
     journal_->Log(GURL::EmptyGURL(), task_->id(), mojom::JournalTrack::kActor,
-                  "Act Failed", "The tab is no longer present");
+                  "Act Failed",
+                  JournalDetailsBuilder()
+                      .AddError("The tab is no longer present")
+                      .Build());
+
     CompleteActions(MakeResult(mojom::ActionResultCode::kTabWentAway,
                                "The tab is no longer present."),
                     next_action_index_);
@@ -309,7 +373,10 @@ void ExecutionEngine::DidFinishAsyncSafetyChecks(
     // TODO(mcnee): Handle this gracefully.
     journal_->Log(GetNextAction().GetURLForJournal(), task_id,
                   mojom::JournalTrack::kActor, "Act Failed",
-                  "Acting after cross-origin navigation occurred");
+                  JournalDetailsBuilder()
+                      .AddError("Acting after cross-origin navigation occurred")
+                      .Build());
+    FailedOnTabBeforeToolCreation();
     CompleteActions(MakeResult(mojom::ActionResultCode::kCrossOriginNavigation,
                                "Acting after cross-origin navigation occurred"),
                     next_action_index_);
@@ -317,9 +384,11 @@ void ExecutionEngine::DidFinishAsyncSafetyChecks(
   }
 
   if (!may_act) {
-    journal_->Log(GetNextAction().GetURLForJournal(), task_id,
-                  mojom::JournalTrack::kActor, "Act Failed",
-                  "URL blocked for actions");
+    journal_->Log(
+        GetNextAction().GetURLForJournal(), task_id,
+        mojom::JournalTrack::kActor, "Act Failed",
+        JournalDetailsBuilder().AddError("URL blocked for actions").Build());
+    FailedOnTabBeforeToolCreation();
     CompleteActions(MakeResult(mojom::ActionResultCode::kUrlBlocked,
                                "URL blocked for actions"),
                     next_action_index_);
@@ -329,7 +398,19 @@ void ExecutionEngine::DidFinishAsyncSafetyChecks(
   ExecuteNextAction();
 }
 
+void ExecutionEngine::FailedOnTabBeforeToolCreation() {
+  tabs::TabHandle tab = GetNextAction().GetTabHandle();
+  journal_->Log(GetNextAction().GetURLForJournal(), task_->id(),
+                mojom::JournalTrack::kActor, "Act Failed",
+                JournalDetailsBuilder()
+                    .Add("tabId", tab.raw_value())
+                    .AddError("Associating tab for failed action")
+                    .Build());
+  task_->AddTab(tab, base::DoNothing());
+}
+
 void ExecutionEngine::ExecuteNextAction() {
+  TRACE_EVENT0("actor", "ExecutionEngine::ExecuteNextAction");
   DCHECK_EQ(state_, State::kStartAction);
   CHECK(!action_sequence_.empty());
   CHECK(tool_controller_);
@@ -344,6 +425,7 @@ void ExecutionEngine::ExecuteNextAction() {
 }
 
 void ExecutionEngine::PostToolCreate(mojom::ActionResultPtr result) {
+  TRACE_EVENT0("actor", "ExecutionEngine::PostToolCreate");
   if (!IsOk(*result)) {
     CompleteActions(std::move(result), InProgressActionIndex());
     return;
@@ -355,6 +437,7 @@ void ExecutionEngine::PostToolCreate(mojom::ActionResultPtr result) {
 }
 
 void ExecutionEngine::FinishedUiPreInvoke(mojom::ActionResultPtr result) {
+  TRACE_EVENT0("actor", "ExecutionEngine::FinishedUiPreInvoke");
   DCHECK_EQ(state_, State::kUiPreInvoke);
   if (!IsOk(*result)) {
     CompleteActions(std::move(result), InProgressActionIndex());
@@ -367,6 +450,7 @@ void ExecutionEngine::FinishedUiPreInvoke(mojom::ActionResultPtr result) {
 }
 
 void ExecutionEngine::FinishedToolInvoke(mojom::ActionResultPtr result) {
+  TRACE_EVENT0("actor", "ExecutionEngine::FinishedToolInvoke");
   DCHECK_EQ(state_, State::kToolInvoke);
   // The current action errored out. Stop the chain.
   std::optional<mojom::ActionResultCode> external_tool_failure_reason;
@@ -393,6 +477,7 @@ void ExecutionEngine::FinishedToolInvoke(mojom::ActionResultPtr result) {
 }
 
 void ExecutionEngine::FinishedUiPostInvoke(mojom::ActionResultPtr result) {
+  TRACE_EVENT0("actor", "ExecutionEngine::FinishedUiPostInvoke");
   DCHECK_EQ(state_, State::kUiPostInvoke);
   CHECK(!action_sequence_.empty());
 
@@ -411,6 +496,7 @@ void ExecutionEngine::FinishedUiPostInvoke(mojom::ActionResultPtr result) {
 
 void ExecutionEngine::CompleteActions(mojom::ActionResultPtr result,
                                       std::optional<size_t> action_index) {
+  TRACE_EVENT0("actor", "ExecutionEngine::CompleteActions");
   CHECK(!action_sequence_.empty());
   CHECK(act_callback_);
 
@@ -421,11 +507,11 @@ void ExecutionEngine::CompleteActions(mojom::ActionResultPtr result,
     if (action_index) {
       url = action_sequence_[*action_index]->GetURLForJournal();
     }
-    journal_->Log(url, task_->id(), mojom::JournalTrack::kActor, "Act Failed",
-                  ToDebugString(*result));
+    journal_->Log(
+        url, task_->id(), mojom::JournalTrack::kActor, "Act Failed",
+        JournalDetailsBuilder().AddError(ToDebugString(*result)).Build());
   }
 
-  // TODO(crbug.com/411462297): Populate observation.
   PostTaskForActCallback(std::move(act_callback_), std::move(result),
                          action_index, std::move(action_results_));
 
@@ -443,6 +529,10 @@ favicon::FaviconService* ExecutionEngine::GetFaviconService() {
       profile_, ServiceAccessType::EXPLICIT_ACCESS);
 }
 
+Profile& ExecutionEngine::GetProfile() {
+  return *profile_;
+}
+
 AggregatedJournal& ExecutionEngine::GetJournal() {
   return *journal_;
 }
@@ -453,8 +543,9 @@ actor_login::ActorLoginService& ExecutionEngine::GetActorLoginService() {
 
 void ExecutionEngine::PromptToSelectCredential(
     const std::vector<actor_login::Credential>& credentials,
-    const base::flat_map<GURL, gfx::Image>& favicons,
+    const base::flat_map<std::string, gfx::Image>& icons,
     ToolDelegate::CredentialSelectedCallback callback) {
+  TRACE_EVENT0("actor", "ExecutionEngine::PromptToSelectCredential");
   CHECK(!credentials.empty());
 
   // In the same task, another login attempt is made before the previous one
@@ -467,17 +558,68 @@ void ExecutionEngine::PromptToSelectCredential(
   }
   credential_selected_callback_ = std::move(callback);
 
-  // TODO(crbug.com/438710031): Surface the favicons to the WebClient.
-
   ActorKeyedService::Get(profile_)
-      ->NotifyRequestToShowCredentialSelectionDialog(task_->id(), credentials);
+      ->NotifyRequestToShowCredentialSelectionDialog(task_->id(), icons,
+                                                     credentials);
+}
+
+void ExecutionEngine::SetUserSelectedCredential(
+    const actor_login::Credential& credential) {
+  user_selected_credentials_[credential.request_origin] = credential;
+}
+
+const std::optional<actor_login::Credential>
+ExecutionEngine::GetUserSelectedCredential(
+    const url::Origin& request_origin) const {
+  auto it = user_selected_credentials_.find(request_origin);
+  if (it == user_selected_credentials_.end()) {
+    return std::nullopt;
+  }
+  return it->second;
 }
 
 void ExecutionEngine::OnCredentialSelected(
     webui::mojom::SelectCredentialDialogResponsePtr response) {
+  TRACE_EVENT0("actor", "ExecutionEngine::OnCredentialSelected");
   if (credential_selected_callback_) {
     std::move(credential_selected_callback_).Run(std::move(response));
   }
+}
+
+void ExecutionEngine::PromptToConfirmCrossOriginNavigation(
+    const url::Origin& navigation_origin,
+    ExecutionEngine::UserConfirmationDialogCallback callback) {
+  PromptUserForConfirmationInternal(
+      navigation_origin, /*download_url=*/std::nullopt, std::move(callback));
+}
+
+void ExecutionEngine::PromptToConfirmDownload(
+    int32_t download_id,
+    ExecutionEngine::UserConfirmationDialogCallback callback) {
+  PromptUserForConfirmationInternal(/*navigation_origin=*/std::nullopt,
+                                    download_id, std::move(callback));
+}
+
+void ExecutionEngine::PromptUserForConfirmationInternal(
+    const std::optional<url::Origin>& navigation_origin,
+    const std::optional<int32_t> download_id,
+    ExecutionEngine::UserConfirmationDialogCallback callback) {
+  if (user_confirmation_callback_) {
+    std::move(user_confirmation_callback_)
+        .Run(webui::mojom::UserConfirmationDialogResponse::New(
+            webui::mojom::UserConfirmationDialogResult::NewErrorReason(
+                webui::mojom::UserConfirmationDialogErrorReason::
+                    kPreemptedByNewRequest)));
+  }
+  user_confirmation_callback_ = std::move(callback);
+  ActorKeyedService::Get(profile_)->NotifyRequestToShowUserConfirmationDialog(
+      task_->id(), navigation_origin, download_id);
+}
+
+void ExecutionEngine::OnUserConfirmation(
+    webui::mojom::UserConfirmationDialogResponsePtr response) {
+  CHECK(user_confirmation_callback_);
+  std::move(user_confirmation_callback_).Run(std::move(response));
 }
 
 const ToolRequest& ExecutionEngine::GetNextAction() const {

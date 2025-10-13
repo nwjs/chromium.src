@@ -4,11 +4,12 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.tabwindow.TabWindowManager.INVALID_WINDOW_ID;
 
 import android.app.Activity;
 import android.content.ClipDescription;
-import android.content.Context;
 import android.view.DragEvent;
 import android.view.View;
 import android.view.View.DragShadowBuilder;
@@ -21,7 +22,6 @@ import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.dragdrop.ChromeDragDropUtils;
 import org.chromium.chrome.browser.dragdrop.ChromeDropDataAndroid;
@@ -35,13 +35,13 @@ import org.chromium.chrome.browser.tabmodel.TabGroupMetadata;
 import org.chromium.chrome.browser.tabmodel.TabGroupMetadataExtractor;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.components.messages.MessageDispatcherProvider;
 import org.chromium.ui.base.MimeTypeUtils;
 import org.chromium.ui.dragdrop.DragAndDropDelegate;
 import org.chromium.ui.dragdrop.DragDropGlobalState;
 import org.chromium.ui.dragdrop.DragDropGlobalState.TrackerToken;
 import org.chromium.ui.dragdrop.DragDropMetricUtils;
 import org.chromium.ui.dragdrop.DragDropMetricUtils.DragDropResult;
-import org.chromium.ui.widget.Toast;
 
 import java.util.Collections;
 import java.util.List;
@@ -236,15 +236,15 @@ public abstract class TabDragHandlerBase implements View.OnDragListener, Destroy
     }
 
     protected boolean isTabGroupDrop() {
-        return ChromeDragDropUtils.getTabGroupMetadataFromGlobalState(
-                        getDragDropGlobalState(/* dragEvent= */ null))
-                != null;
+        DragDropGlobalState globalState = getDragDropGlobalState(/* dragEvent= */ null);
+        assertNonNull(globalState);
+        return ChromeDragDropUtils.getTabGroupMetadataFromGlobalState(globalState) != null;
     }
 
     protected boolean isMultiTabDrop() {
-        return ChromeDragDropUtils.getTabsFromGlobalState(
-                        getDragDropGlobalState(/* dragEvent= */ null))
-                != null;
+        DragDropGlobalState globalState = getDragDropGlobalState(/* dragEvent= */ null);
+        assertNonNull(globalState);
+        return ChromeDragDropUtils.getTabsFromGlobalState(globalState) != null;
     }
 
     protected boolean doesBelongToCurrentModel(boolean draggedIncognito) {
@@ -361,15 +361,11 @@ public abstract class TabDragHandlerBase implements View.OnDragListener, Destroy
             DragDropMetricUtils.recordDragDropClosedWindow(
                     didCloseWindow, isTabGroupDrop, isMultiTabDrop);
         } else if (MultiWindowUtils.getInstanceCount() >= MultiWindowUtils.getMaxInstances()) {
-            Context context = getActivity().getWindow().getContext();
-            Toast.makeText(
-                            context,
-                            context.getResources()
-                                    .getString(
-                                            R.string.max_number_of_windows,
-                                            MultiWindowUtils.getMaxInstances()),
-                            Toast.LENGTH_LONG)
-                    .show();
+            assumeNonNull(mTabModelSelector);
+            assumeNonNull(mTabModelSelector.getCurrentTab());
+            var windowAndroid = mTabModelSelector.getCurrentTab().getWindowAndroid();
+            mMultiInstanceManager.showInstanceCreationLimitMessage(
+                    MessageDispatcherProvider.from(windowAndroid));
             ChromeDragDropUtils.recordTabOrGroupDragToCreateInstanceFailureCount();
             DragDropMetricUtils.recordDragDropResult(
                     DragDropResult.IGNORED_MAX_INSTANCES,

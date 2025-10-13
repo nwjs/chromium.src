@@ -34,12 +34,12 @@ namespace content {
 namespace {
 
 // Enable Zstd for cross-site prefetch (crbug.com/444393104).
-BASE_FEATURE(ZstdForCrossSiteSpeculationRulesPrefetch,
+BASE_FEATURE(kZstdForCrossSiteSpeculationRulesPrefetch,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Allow the variations header to be treated as CORS exempted for cross-site
 // prefetch (crbug.com/444264052).
-BASE_FEATURE(VariationsHeaderForCrossSiteSpeculationRulesPrefetch,
+BASE_FEATURE(kVariationsHeaderForCrossSiteSpeculationRulesPrefetch,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace

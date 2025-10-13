@@ -13,8 +13,10 @@
 #include "chrome/common/chrome_features.h"
 
 namespace tabs {
+using glic::GlicInstance;
 using glic::GlicKeyedService;
 using glic::GlicWindowController;
+using glic::Host;
 using glic::mojom::CurrentView;
 
 DEFINE_USER_DATA(GlicActorTaskIconController);
@@ -22,6 +24,7 @@ GlicActorTaskIconController::GlicActorTaskIconController(
     BrowserWindowInterface* browser,
     TabStripActionContainer* tab_strip_action_container)
     : profile_(browser->GetProfile()),
+      browser_(browser),
       tab_strip_action_container_(tab_strip_action_container),
       scoped_data_holder_(browser->GetUnownedUserDataHost(), *this) {
   if (base::FeatureList::IsEnabled(features::kGlicActorUi)) {
@@ -52,16 +55,24 @@ void GlicActorTaskIconController::RegisterTaskIconStateCallback() {
 void GlicActorTaskIconController::UpdateCurrentTaskIconUiState() {
   if (auto* manager =
           GlicActorTaskIconManagerFactory::GetForProfile(profile_)) {
-    OnStateUpdate(
-        GlicKeyedService::Get(profile_)->window_controller().state(),
-        GlicKeyedService::Get(profile_)->host().GetPrimaryCurrentView(),
-        manager->GetCurrentActorTaskIconState());
+    auto* glic_service = GlicKeyedService::Get(profile_);
+
+    // TODO(crbug.com/446734119): Instead ActorTask should hold a glic
+    // InstanceId and use that to retrieve the instance.
+    GlicInstance* instance = glic_service->GetInstanceForActiveTab(browser_);
+    if (!instance) {
+      return;
+    }
+
+    OnStateUpdate(instance->IsShowing(),
+                  instance->host().GetPrimaryCurrentView(),
+                  manager->GetCurrentActorTaskIconState());
   }
 }
 
 void GlicActorTaskIconController::OnStateUpdate(
-    GlicWindowController::State floaty_state,
-    CurrentView floaty_view,
+    bool is_showing,
+    CurrentView current_view,
     const ActorTaskIconState& actor_task_icon_state) {
   // If the task icon is inactive, hide it and perform no additional style
   // changes.
@@ -86,27 +97,21 @@ void GlicActorTaskIconController::OnStateUpdate(
   }
 
   // Determines highlight + tooltip styling.
-  switch (floaty_state) {
-    case GlicWindowController::State::kOpen:
-      if (floaty_view == CurrentView::kConversation) {
-        tab_strip_action_container_->UnhighlightGlicActorTaskIcon();
-        tab_strip_action_container_->HighlightGlicButton();
-      } else if (floaty_view == CurrentView::kActuation) {
-        tab_strip_action_container_->UnhighlightGlicButton();
-        tab_strip_action_container_->HighlightGlicActorTaskIcon();
-      }
-      tab_strip_action_container_->glic_actor_task_icon()
-          ->SetFloatyOpenTooltipText();
-      break;
-    case glic::GlicWindowController::State::kClosed:
+  if (is_showing) {
+    if (current_view == CurrentView::kConversation) {
       tab_strip_action_container_->UnhighlightGlicActorTaskIcon();
+      tab_strip_action_container_->HighlightGlicButton();
+    } else if (current_view == CurrentView::kActuation) {
       tab_strip_action_container_->UnhighlightGlicButton();
-      tab_strip_action_container_->glic_actor_task_icon()
-          ->SetFloatyClosedTooltipText();
-      break;
-    case glic::GlicWindowController::State::kWaitingForGlicToLoad:
-    case glic::GlicWindowController::State::kDetaching:
-      break;
+      tab_strip_action_container_->HighlightGlicActorTaskIcon();
+    }
+    tab_strip_action_container_->glic_actor_task_icon()
+        ->SetFloatyOpenTooltipText();
+  } else {
+    tab_strip_action_container_->UnhighlightGlicActorTaskIcon();
+    tab_strip_action_container_->UnhighlightGlicButton();
+    tab_strip_action_container_->glic_actor_task_icon()
+        ->SetFloatyClosedTooltipText();
   }
 }
 

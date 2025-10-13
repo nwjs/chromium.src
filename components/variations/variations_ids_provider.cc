@@ -65,7 +65,7 @@ bool VariationsHeaderKey::operator<(const VariationsHeaderKey& other) const {
 // function variations::CreateSimpleURLLoaderWithVariationsHeader().
 
 // static
-VariationsIdsProvider* VariationsIdsProvider::Create(Mode mode) {
+VariationsIdsProvider* VariationsIdsProvider::CreateInstance(Mode mode) {
   base::AutoLock lock(GetInstanceLock());
   DCHECK(!g_instance);
   g_instance = new VariationsIdsProvider(mode);
@@ -183,6 +183,13 @@ VariationsIdsProvider::ForceIdsResult VariationsIdsProvider::ForceVariationIds(
   return ForceIdsResult::SUCCESS;
 }
 
+VariationsIdsProvider::ForceIdsResult
+VariationsIdsProvider::ForceVariationIdsForTesting(
+    const std::vector<std::string>& variation_ids,
+    const std::string& command_line_variation_ids) {
+  return ForceVariationIds(variation_ids, command_line_variation_ids);
+}
+
 bool VariationsIdsProvider::ForceDisableVariationIds(
     const std::string& command_line_variation_ids) {
   base::AutoLock scoped_lock(lock_);
@@ -261,17 +268,20 @@ VariationsIdsProvider::~VariationsIdsProvider() {
 }
 
 // static
-void VariationsIdsProvider::CreateInstanceForTesting(Mode mode) {
+VariationsIdsProvider* VariationsIdsProvider::CreateInstanceForTesting(
+    Mode mode) {
   base::AutoLock lock(GetInstanceLock());
-  delete g_instance;
+  VariationsIdsProvider* previous_instance = g_instance;
   g_instance = new VariationsIdsProvider(mode);
+  return previous_instance;
 }
 
 // static
-void VariationsIdsProvider::DestroyInstanceForTesting() {
+void VariationsIdsProvider::DestroyInstanceForTesting(
+    VariationsIdsProvider* previous_instance) {
   base::AutoLock lock(GetInstanceLock());
   delete g_instance;
-  g_instance = nullptr;
+  g_instance = previous_instance;
 }
 
 std::string VariationsIdsProvider::GetVariationsString(

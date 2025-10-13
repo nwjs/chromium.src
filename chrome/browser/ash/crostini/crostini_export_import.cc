@@ -429,7 +429,9 @@ void CrostiniExportImport::AfterDiskImageOperation(
     CrostiniResult result) {
   auto it = status_trackers_.find(container_id);
   if (it == status_trackers_.end()) {
-    NOTREACHED() << container_id << " has no status_tracker to update";
+    LOG(WARNING) << container_id << " has no status_tracker to update";
+    std::move(callback).Run(result);
+    return;
   }
 
   if (result == CrostiniResult::SUCCESS) {
@@ -465,8 +467,17 @@ void CrostiniExportImport::AfterDiskImageOperation(
       default:
         NOTREACHED();
     }
+  } else if (result == CrostiniResult::DISK_IMAGE_BAD_IMAGE) {
+    base::ThreadPool::PostTask(
+        FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+        base::GetDeleteFileCallback(it->second->path()));
+    DCHECK(it->second->status() ==
+               CrostiniExportImportStatusTracker::Status::RUNNING ||
+           it->second->status() ==
+               CrostiniExportImportStatusTracker::Status::CANCELLING);
+    RemoveTracker(it)->SetStatusFailedBadImage();
   } else {
-    LOG(ERROR) << "Error exporting " << int(result);
+    LOG(ERROR) << "Error exporting " << static_cast<int>(result);
     base::ThreadPool::PostTask(
         FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
         base::GetDeleteFileCallback(it->second->path()));

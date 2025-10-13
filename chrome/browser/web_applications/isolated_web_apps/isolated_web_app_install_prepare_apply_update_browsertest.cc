@@ -18,7 +18,7 @@
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_apply_update_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_prepare_and_store_update_command.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_install_source.h"
+#include "chrome/browser/web_applications/isolated_web_apps/install/isolated_web_app_install_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_trust_checker.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/integrity_block_data_matcher.h"
@@ -58,8 +58,6 @@ class IsolatedWebAppInstallPrepareApplyUpdateCommandBrowserTest
                                        InstallIsolatedWebAppCommandError>;
   using PrepareAndStoreUpdateResult =
       IsolatedWebAppUpdatePrepareAndStoreCommandResult;
-  using ApplyUpdateResult =
-      base::expected<void, IsolatedWebAppApplyUpdateCommandError>;
 
   IsolatedWebAppInstallSource GetInstallSource(
       const base::FilePath& bundle_path) const {
@@ -106,9 +104,9 @@ class IsolatedWebAppInstallPrepareApplyUpdateCommandBrowserTest
     return future.Take();
   }
 
-  ApplyUpdateResult ApplyUpdate(
+  IsolatedWebAppApplyUpdateCommandResult ApplyUpdate(
       const web_package::SignedWebBundleId& web_bundle_id) {
-    base::test::TestFuture<ApplyUpdateResult> future;
+    base::test::TestFuture<IsolatedWebAppApplyUpdateCommandResult> future;
     provider()->scheduler().ApplyPendingIsolatedWebAppUpdate(
         IsolatedWebAppUrlInfo::CreateFromSignedWebBundleId(web_bundle_id),
         /*optional_keep_alive=*/nullptr,

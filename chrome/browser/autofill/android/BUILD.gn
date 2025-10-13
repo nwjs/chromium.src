@@ -9,7 +9,7 @@ java_cpp_enum("autofill_generated_enums") {
   sources = [
     "//chrome/browser/autofill/android/android_autofill_availability_status.h",
     "//chrome/browser/autofill/android/autofill_profile_bridge.h",
-    "//chrome/browser/autofill/android/save_update_address_profile_prompt_view.h",
+    "//chrome/browser/autofill/android/save_update_address_profile_prompt_mode.h",
   ]
 }
 
@@ -28,7 +28,6 @@ android_library("third_party_provider_java") {
 android_library("java") {
   sources = [
     "java/src/org/chromium/chrome/browser/autofill/AddressNormalizerFactory.java",
-    "java/src/org/chromium/chrome/browser/autofill/AndroidAutofillAccessibilityFieldTrial.java",
     "java/src/org/chromium/chrome/browser/autofill/AutofillAddress.java",
     "java/src/org/chromium/chrome/browser/autofill/AutofillClientProviderUtils.java",
     "java/src/org/chromium/chrome/browser/autofill/AutofillEditorBase.java",
@@ -71,7 +70,6 @@ android_library("java") {
     ":java_resources",
     ":third_party_provider_java",
     "//base:base_java",
-    "//base:service_loader_java",
     "//build/android:build_java",
     "//chrome/android:chrome_app_java_resources",
     "//chrome/browser/android/customtabs/branding:java",
@@ -294,6 +292,7 @@ robolectric_library("junit") {
     "//third_party/androidx:androidx_test_core_java",
     "//third_party/androidx:androidx_test_ext_junit_java",
     "//third_party/androidx:androidx_test_runner_java",
+    "//third_party/google-truth:google_truth_java",
     "//third_party/hamcrest:hamcrest_java",
     "//third_party/jni_zero:jni_zero_java",
     "//third_party/junit",

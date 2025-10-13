@@ -44,9 +44,10 @@ ContextualPanelModelServiceFactory::~ContextualPanelModelServiceFactory() {}
 
 std::unique_ptr<KeyedService>
 ContextualPanelModelServiceFactory::BuildServiceInstanceFor(
-    web::BrowserState* context) const {
-  ProfileIOS* profile = ProfileIOS::FromBrowserState(context);
-  std::map<ContextualPanelItemType, raw_ptr<ContextualPanelModel>> models;
+    ProfileIOS* profile) const {
+  std::map<ContextualPanelItemType,
+           raw_ptr<ContextualPanelModel, DanglingUntriaged>>
+      models;
 
   auto* sample_panel_model_factory =
       SamplePanelModelFactory::GetForProfile(profile);

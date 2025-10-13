@@ -31,6 +31,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
+import android.view.WindowManager;
+import android.view.inspector.WindowInspector;
 import android.widget.FrameLayout;
 import android.window.OnBackInvokedDispatcher;
 
@@ -150,6 +152,7 @@ import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManagerFa
 import org.chromium.chrome.browser.printing.TabPrinter;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.chrome.browser.profiles.ProfileManagerUtils;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.provider.PageContentProviderImpl;
 import org.chromium.chrome.browser.provider.PageContentProviderMetrics;
@@ -277,7 +280,8 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                 MenuOrKeyboardActionController,
                 CompositorViewHolder.Initializer,
                 TabModelInitializer,
-                ThemeResourceWrapperProvider {
+                ThemeResourceWrapperProvider,
+                UmaActivityObserver.UmaSessionAwareActivity {
     public static final String UNFOLD_LATENCY_BEGIN_TIMESTAMP = "unfold_latency_begin_timestamp";
     public static final String IS_FROM_RECREATING = "is_from_recreating";
 
@@ -424,6 +428,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     // Handling the dismissal of tab modal dialog.
     private TabModalLifetimeHandler mTabModalLifetimeHandler;
     private ViewGroup mBaseChromeLayout;
+    private boolean mIsTopResumedActivity;
 
     private @Nullable TabStateThemeResourceProvider mThemeResourceProvider;
 
@@ -1061,6 +1066,37 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         super.onWindowFocusChanged(hasFocus);
 
         Clipboard.getInstance().onWindowFocusChanged(hasFocus);
+
+        // If we've lost window focus but we're still top Resumed, then we've probably either
+        // entered the app switcher, or opened a dialog. When an app is swiped away from the app
+        // switcher, Android attempts to run onPause, but gives apps are very short deadline in
+        // which to save state and on slower devices we can fail to save tab state/flush UMA
+        // records to disk/etc. In order to give ourselves more time to save state in case the
+        // user swipes our task away, save state immediately upon entering the app switcher.
+        if (mNativeInitialized
+                && ChromeFeatureList.isEnabled(ChromeFeatureList.UMA_SESSION_CORRECTNESS_FIXES)
+                && !hasFocus
+                && mIsTopResumedActivity) {
+            boolean isShowingDialogWindow = false;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                for (View view : WindowInspector.getGlobalWindowViews()) {
+                    ViewGroup.LayoutParams params = view.getLayoutParams();
+                    // Activities will be of type BASE_APPLICATION, other windows are of type
+                    // APPLICATION.
+                    if (params instanceof WindowManager.LayoutParams
+                            && ((WindowManager.LayoutParams) params).type
+                                    == WindowManager.LayoutParams.TYPE_APPLICATION) {
+                        isShowingDialogWindow = true;
+                        break;
+                    }
+                }
+            }
+            // The ModalDialogManager doesn't capture all windows (like AlertDialogs), but will help
+            // mitigate unnecessary flushing on pre-Q devices.
+            if (!getModalDialogManagerSupplier().get().isShowing() && !isShowingDialogWindow) {
+                flushPersistentState();
+            }
+        }
     }
 
     @Override
@@ -1171,6 +1207,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     @Override
     public void onTopResumedActivityChangedWithNative(boolean isTopResumedActivity) {
+        mIsTopResumedActivity = isTopResumedActivity;
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.UMA_SESSION_CORRECTNESS_FIXES)) {
             if (isTopResumedActivity) {
                 startUmaSession();
@@ -1304,7 +1341,15 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         super.onPauseWithNative();
         if (!ChromeFeatureList.isEnabled(ChromeFeatureList.UMA_SESSION_CORRECTNESS_FIXES)) {
             endUmaSession();
+        } else {
+            flushPersistentState();
         }
+    }
+
+    @CallSuper
+    public void flushPersistentState() {
+        mUmaActivityObserver.flushUmaSession();
+        ProfileManagerUtils.flushPersistentDataForAllProfiles();
     }
 
     @Override
@@ -2499,6 +2544,17 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             return true;
         }
 
+        if (id == R.id.feedback_form) {
+            String url = currentTab != null ? currentTab.getUrl().getSpec() : "";
+            String helpContextId =
+                    HelpAndFeedbackLauncherImpl.getHelpContextIdFromUrl(
+                            this, url, getCurrentTabModel().isIncognitoBranded());
+            HelpAndFeedbackLauncherImpl.getForProfile(
+                            getTabModelSelector().getCurrentModel().getProfile())
+                    .showFeedback(this, url, helpContextId);
+            return true;
+        }
+
         if (id == R.id.open_history_menu_id) {
             if (currentTab != null && UrlUtilities.isNtpUrl(currentTab.getUrl())) {
                 NewTabPageUma.recordAction(NewTabPageUma.ACTION_OPENED_HISTORY_MANAGER);
@@ -2680,7 +2736,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         }
 
         if (id == R.id.reader_mode_prefs_id) {
-            DomDistillerUiUtils.openSettings(currentTab.getWebContents());
+            DomDistillerUiUtils.openDialogSettings(currentTab.getWebContents());
             return true;
         }
 

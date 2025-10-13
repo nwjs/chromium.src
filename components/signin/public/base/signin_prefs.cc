@@ -71,8 +71,6 @@ constexpr char kAutofillSignInPromoDismissCount[] =
 
 // Registers that the sign in occurred with an explicit user action from the
 // bubble that appears after installing an extension. False by default.
-// Note: this pref is only set to true when
-// `switches::kEnableExtensionsExplicitBrowserSignin` is enabled.
 constexpr char kExtensionsExplicitBrowserSigninEnabled[] =
     "ExtensionsExplicitBrowserSigninEnabled";
 
@@ -110,6 +108,9 @@ constexpr std::string_view kBookmarkBatchUploadPromoDismissCount =
 // The time at which the last Bookmark Batch Upload promo was dismissed.
 constexpr std::string_view kBookmarkBatchUploadPromoLastDismissTime =
     "BookmarkBatchUploadPromoLastDismissTime";
+
+constexpr std::string_view kPolicyDisclaimerLastRegistrationFailureTime =
+    "PolicyDisclaimerLastRegistrationFailureTime";
 
 }  // namespace
 
@@ -275,9 +276,6 @@ int SigninPrefs::GetAutofillSigninPromoDismissCount(
 
 void SigninPrefs::SetExtensionsExplicitBrowserSignin(const GaiaId& gaia_id,
                                                      bool enabled) {
-  // The pref can only be set to true if the
-  // `switches::kEnableExtensionsExplicitBrowserSignin` flag is enabled.
-  CHECK(!enabled || switches::IsExtensionsExplicitBrowserSigninEnabled());
   SetBooleanPrefForAccount(gaia_id, kExtensionsExplicitBrowserSigninEnabled,
                            enabled);
 }
@@ -302,6 +300,24 @@ bool SigninPrefs::GetBookmarksExplicitBrowserSignin(
     const GaiaId& gaia_id) const {
   return GetBooleanPrefForAccount(gaia_id,
                                   kBookmarksExplicitBrowserSigninEnabled);
+}
+
+void SigninPrefs::SetPolicyDisclaimerLastRegistrationFailureTime(
+    const GaiaId& gaia_id,
+    base::Time last_registration_failure_time) {
+  SetTimePref(last_registration_failure_time, gaia_id,
+              kPolicyDisclaimerLastRegistrationFailureTime);
+}
+
+void SigninPrefs::ClearPolicyDisclaimerLastRegistrationFailureTime(
+    const GaiaId& gaia_id) {
+  ClearPref(gaia_id, kPolicyDisclaimerLastRegistrationFailureTime);
+}
+
+std::optional<base::Time>
+SigninPrefs::GetPolicyDisclaimerLastRegistrationFailureTime(
+    const GaiaId& gaia_id) const {
+  return GetTimePref(gaia_id, kPolicyDisclaimerLastRegistrationFailureTime);
 }
 
 void SigninPrefs::IncrementHistorySyncPromoIdentityPillShownCount(

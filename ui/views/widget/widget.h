@@ -34,13 +34,14 @@
 #include "ui/display/types/display_constants.h"
 #include "ui/events/event_source.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
-#include "ui/gfx/native_window_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/native_theme/native_theme_observer.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/native_widget_delegate.h"
 #include "ui/views/window/client_view.h"
+#include "ui/views/window/frame_view.h"
 #include "ui/views/window/non_client_view.h"
 
 #if BUILDFLAG(IS_OZONE)
@@ -77,7 +78,6 @@ namespace views {
 
 class DesktopWindowTreeHost;
 class NativeWidget;
-class NonClientFrameView;
 class SublevelManager;
 class TooltipManager;
 class View;
@@ -328,11 +328,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // taking into account special levels due to |type|.
     ui::ZOrderLevel EffectiveZOrderLevel() const;
 
-    // Returns whether the widget should be initialized as headless by checking
-    // if |headless_mode| or the associated top level widget's |is_headless_|
-    // are set.
-    bool ShouldInitAsHeadless() const;
-
     // Sets the parent view using a parent Widget. This will set the `parent`
     // field correctly.
     void SetParent(Widget* parent_widget);
@@ -508,9 +503,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
     // If true then the widget uses software compositing.
     bool force_software_compositing = false;
-
-    // If set, the widget was created in headless mode.
-    bool headless_mode = false;
 
     // If set, the window size will follow the content preferred size.
     bool autosize = false;
@@ -1192,11 +1184,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   void set_frame_type(FrameType frame_type) { frame_type_ = frame_type; }
   FrameType frame_type() const { return frame_type_; }
 
-  // Creates an appropriate NonClientFrameView for this widget. The
+  // Creates an appropriate FrameView for this widget. The
   // WidgetDelegate is given the first opportunity to create one, followed by
   // the NativeWidget implementation. If both return NULL, a default one is
   // created.
-  virtual std::unique_ptr<NonClientFrameView> CreateNonClientFrameView();
+  virtual std::unique_ptr<FrameView> CreateFrameView();
 
   // Whether we should be using a native frame.
   bool ShouldUseNativeFrame() const;
@@ -1301,9 +1293,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // POPUP or MENU, and has a focus manager and input method object associated
   // with it. TYPE_CONTROL and TYPE_TOOLTIP is not considered top level.
   bool is_top_level() const { return is_top_level_; }
-
-  // True if widget was created in headless mode.
-  bool is_headless() const { return is_headless_; }
 
   // True if the window size will follow the content preferred size.
   bool is_autosized() const { return is_autosized_; }
@@ -1439,20 +1428,17 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Sets an override for `color_mode` when `GetColorProvider()` is requested.
   // e.g. if set to kDark, colors will always be for the dark theme.
   void SetColorModeOverride(
-      std::optional<ui::ColorProviderKey::ColorMode> color_mode,
-      std::optional<ui::ColorId> background_color);
+      std::optional<ui::ColorProviderKey::ColorMode> color_mode);
+
+  // Sets the background color for the widget. This color is used before the
+  // view paints anything.
+  void SetBackgroundColor(std::optional<ui::ColorId> background_color);
 
   // ui::ColorProviderSource:
   const ui::ColorProvider* GetColorProvider() const override;
   ui::RendererColorMap GetRendererColorMap(
       ui::ColorProviderKey::ColorMode color_mode,
       ui::ColorProviderKey::ForcedColors forced_colors) const override;
-
-  // Set the native theme from which this widget gets color from for testing.
-  void SetNativeThemeForTest(ui::NativeTheme* native_theme) {
-    SetNativeTheme(native_theme);
-    native_theme_set_for_testing_ = true;
-  }
 
   ui::ColorProviderKey GetColorProviderKeyForTesting() const;
 
@@ -1577,8 +1563,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // higher z-order).
   const View::Views& GetViewsWithLayersInZOrder();
 
-  // If a descendent of |root_view_| is focused, then clear the focus.
-  void ClearFocusFromWidget();
+  // Called when the focus manager will be destroyed, or detached.  If a
+  // descendent of |root_view_| is focused, then clear the focus.  If this is a
+  // child widget, it will notify `WillClearFocusManager` as they will lose the
+  // access to focus manager during destruction.
+  void ClearFocusManagerFromWidget();
 
   // Notifies the parent that a window-modal child's visibility changed.
   // This function is a no-op if the parent does not exist or if this widget is
@@ -1602,6 +1591,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // a non_client_view_ present or not. This will *replace* the current client
   // contents view, possibly removing and destroying that view.
   void SetClientContentsViewInternal(std::unique_ptr<View> view);
+
+  ui::ColorId GetBackgroundColorId() const;
 
   static DisableActivationChangeHandlingType
       g_disable_activation_change_handling_;
@@ -1729,9 +1720,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // If true, the mouse is currently down.
   bool is_mouse_button_pressed_ = false;
 
-  // If set, the widget was created in headless mode.
-  bool is_headless_ = false;
-
   // If set, the window size will follow the content preferred size.
   bool is_autosized_ = false;
 
@@ -1768,11 +1756,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // The native theme this widget is using.
   // If nullptr, defaults to use the regular native theme.
   raw_ptr<ui::NativeTheme> native_theme_ = nullptr;
-
-  // A flag that prevents the widget from updating its instance of
-  // `native_theme_`. This is necessary during testing as theme updates may
-  // trigger a reset of the explicitly set test theme.
-  bool native_theme_set_for_testing_ = false;
 
   // By default, widgets are assumed to correspond to windows. If a parent
   // widget is fullscreen, then the child widget is a popup which is not

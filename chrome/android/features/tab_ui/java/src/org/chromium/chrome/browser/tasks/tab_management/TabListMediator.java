@@ -244,7 +244,7 @@ class TabListMediator implements TabListNotificationHandler {
     /** Provides capability to asynchronously acquire {@link ShoppingPersistedTabData} */
     static class ShoppingPersistedTabDataFetcher {
         protected final Tab mTab;
-        protected final @Nullable Supplier<PriceWelcomeMessageController>
+        protected final @Nullable Supplier<@Nullable PriceWelcomeMessageController>
                 mPriceWelcomeMessageControllerSupplier;
 
         /**
@@ -253,9 +253,8 @@ class TabListMediator implements TabListNotificationHandler {
          */
         ShoppingPersistedTabDataFetcher(
                 Tab tab,
-                @Nullable
-                        Supplier<PriceWelcomeMessageController>
-                                priceWelcomeMessageControllerSupplier) {
+                @Nullable Supplier<@Nullable PriceWelcomeMessageController>
+                        priceWelcomeMessageControllerSupplier) {
             mTab = tab;
             mPriceWelcomeMessageControllerSupplier = priceWelcomeMessageControllerSupplier;
         }
@@ -330,7 +329,7 @@ class TabListMediator implements TabListNotificationHandler {
     private final @Nullable SelectionDelegateProvider mSelectionDelegateProvider;
     private final @Nullable GridCardOnClickListenerProvider mGridCardOnClickListenerProvider;
     private final @Nullable TabGridDialogHandler mTabGridDialogHandler;
-    private final @Nullable Supplier<PriceWelcomeMessageController>
+    private final @Nullable Supplier<@Nullable PriceWelcomeMessageController>
             mPriceWelcomeMessageControllerSupplier;
     private final @Nullable DataSharingTabManager mDataSharingTabManager;
     private final @Nullable Runnable mOnTabGroupCreation;
@@ -632,6 +631,12 @@ class TabListMediator implements TabListNotificationHandler {
                     model.set(
                             TabProperties.MEDIA_INDICATOR,
                             getTabGridMediaIndicator(representativeTab));
+                }
+
+                @Override
+                public void onTabPinnedStateChanged(Tab tab, boolean isPinned) {
+                    int index = mModelList.indexFromTabId(tab.getId());
+                    updateTab(index, tab, /* isUpdatingId= */ false, /* quickMode= */ false);
                 }
             };
 
@@ -1003,7 +1008,8 @@ class TabListMediator implements TabListNotificationHandler {
             @Nullable SelectionDelegateProvider selectionDelegateProvider,
             @Nullable GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
             @Nullable TabGridDialogHandler dialogHandler,
-            @Nullable Supplier<PriceWelcomeMessageController> priceWelcomeMessageControllerSupplier,
+            @Nullable Supplier<@Nullable PriceWelcomeMessageController>
+                    priceWelcomeMessageControllerSupplier,
             String componentName,
             @TabActionState int initialTabActionState,
             @Nullable DataSharingTabManager dataSharingTabManager,
@@ -1760,6 +1766,7 @@ class TabListMediator implements TabListNotificationHandler {
         model.set(TabProperties.SHOULD_SHOW_PRICE_DROP_TOOLTIP, false);
         model.set(TabProperties.TITLE, getLatestTitleForTab(tab, /* useDefault= */ true));
         model.set(TabProperties.MEDIA_INDICATOR, getTabGridMediaIndicator(tab));
+        model.set(TabProperties.IS_PINNED, tab.getIsPinned());
 
         bindTabActionStateProperties(model.get(TabProperties.TAB_ACTION_STATE), tab, model);
 
@@ -1799,14 +1806,17 @@ class TabListMediator implements TabListNotificationHandler {
             return representativeTab.getMediaState();
         }
         List<Tab> relatedTabs = getRelatedTabsForId(representativeTab.getId());
-        @MediaState int state;
+        // TODO(crbug.com/430072416): Add other media indicators and adjust priority.
+        @MediaState int stateToReturn = MediaState.NONE;
         for (Tab tab : relatedTabs) {
-            state = tab.getMediaState();
-            if (state != MediaState.NONE) {
-                return state;
+            @MediaState int state = tab.getMediaState();
+            if (state == MediaState.AUDIBLE) {
+                return MediaState.AUDIBLE;
+            } else if (state == MediaState.MUTED) {
+                stateToReturn = MediaState.MUTED;
             }
         }
-        return MediaState.NONE;
+        return stateToReturn;
     }
 
     /**
@@ -2167,6 +2177,7 @@ class TabListMediator implements TabListNotificationHandler {
                         .with(TabProperties.VISIBILITY, View.VISIBLE)
                         .with(TabProperties.USE_SHRINK_CLOSE_ANIMATION, false)
                         .with(TabProperties.MEDIA_INDICATOR, getTabGridMediaIndicator(tab))
+                        .with(TabProperties.IS_PINNED, tab.getIsPinned())
                         .build();
 
         if (!mActionsOnAllRelatedTabs || isInTabGroup) {

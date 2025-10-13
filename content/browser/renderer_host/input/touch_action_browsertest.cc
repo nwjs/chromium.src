@@ -364,7 +364,8 @@ class TouchActionBrowserTest : public ContentBrowserTest {
 
     ASSERT_OK_AND_ASSIGN(
         auto parsed_json,
-        base::JSONReader::ReadAndReturnValueWithError(pointer_actions_json));
+        base::JSONReader::ReadAndReturnValueWithError(
+            pointer_actions_json, base::JSON_PARSE_CHROMIUM_EXTENSIONS));
     ActionsParser actions_parser(std::move(parsed_json));
 
     ASSERT_TRUE(actions_parser.Parse());
@@ -403,7 +404,8 @@ class TouchActionBrowserTest : public ContentBrowserTest {
 
     UNSAFE_BUFFERS(ASSERT_OK_AND_ASSIGN(
         auto parsed_json,
-        base::JSONReader::ReadAndReturnValueWithError(pointer_actions_json)));
+        base::JSONReader::ReadAndReturnValueWithError(
+            pointer_actions_json, base::JSON_PARSE_CHROMIUM_EXTENSIONS)));
     ActionsParser actions_parser(std::move(parsed_json));
 
     ASSERT_TRUE(actions_parser.Parse());
@@ -991,8 +993,7 @@ class ScrollBeginObserver : public RenderWidgetHost::InputEventObserver {
     // inactive after view is removed from hierarchy.
     EXPECT_EQ(rwhv_android_->touch_selection_controller()->active_status(),
               ui::TouchSelectionController::ActiveStatus::INSERTION_ACTIVE);
-    ui::ViewAndroid* view_android = rwhv_android_->GetNativeView();
-    view_android->RemoveFromParent();
+    rwhv_android_->UpdateNativeViewTree(nullptr, nullptr);
     EXPECT_EQ(rwhv_android_->touch_selection_controller()->active_status(),
               ui::TouchSelectionController::ActiveStatus::INACTIVE);
   }

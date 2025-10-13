@@ -294,8 +294,22 @@ public class IntentHandler {
 
     public static final String EXTRA_CCT_EARLY_NAV = "org.chromium.chrome.browser.cct_early_nav";
 
+    /**
+     * Used to determine the {@link TipsNotificationFeatureType} that the tip is attempting to show.
+     */
+    public static final String EXTRA_TIPS_NOTIFICATION_FEATURE_TYPE =
+            "org.chromium.chrome.browser.tips_notification_feature_type";
+
     /** The package name for the Google Search App. */
     public static final String PACKAGE_GSA = GSAUtils.GSA_PACKAGE_NAME;
+
+    /** Action to launch the Chrome Item Picker UI, e.g.: tabs. */
+    public static final String EXTRA_OPEN_CHROME_ITEM_PICKER =
+            "org.chromium.chrome.browser.actions.open_chrome_item_picker";
+
+    /** Optional extra for the maximum number of items the user can select. */
+    public static final String EXTRA_ITEM_PICKER_MAX_SELECTABLE_ITEMS =
+            "org.chromium.chrome.browser.extras.item_picker_max_selectable_items";
 
     private static @Nullable Pair<Integer, String> sPendingReferrer;
     private static int sReferrerId;
@@ -379,46 +393,6 @@ public class IntentHandler {
         int SAMSUNG_LAUNCHER = 19;
         // Update ClientAppId in enums.xml when adding new items.
         int NUM_ENTRIES = 20;
-    }
-
-    /**
-     * Represents apps that launch Incognito CCT. DO NOT reorder items in this interface, because
-     * it's mirrored to UMA (as {@link IncognitoCctCallerId}). Values should be enumerated from 0.
-     * When removing items, comment them out and keep existing numeric values stable.
-     */
-    @IntDef({
-        IncognitoCctCallerId.OTHER_APPS,
-        IncognitoCctCallerId.GOOGLE_APPS,
-        IncognitoCctCallerId.OTHER_CHROME_FEATURES,
-        IncognitoCctCallerId.READER_MODE,
-        IncognitoCctCallerId.READ_LATER,
-        IncognitoCctCallerId.EPHEMERAL_TAB,
-        IncognitoCctCallerId.DOWNLOAD_HOME,
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface IncognitoCctCallerId {
-        int OTHER_APPS = 0;
-        int GOOGLE_APPS = 1;
-        // This should not be used, it's a fallback for Chrome features that didn't identify
-        // themselves. Please see {@link
-        // IncognitoCustomTabIntentDataProvider#addIncognitoExtrasForChromeFeatures}
-        int OTHER_CHROME_FEATURES = 2;
-
-        // Chrome Features
-        int READER_MODE = 3;
-        int READ_LATER = 4;
-
-        // An ephemeral custom tab without incognito branding.
-        int EPHEMERAL_TAB = 5;
-
-        // Chrome feature.
-        // The Download Home UI may launch a CCT to display a help page for a download.
-        // If the file was downloaded in an Incognito profile, the CCT for the help page should
-        // likewise be an Incognito tab.
-        int DOWNLOAD_HOME = 6;
-
-        // Update {@link IncognitoCctCallerId} in enums.xml when adding new items.
-        int NUM_ENTRIES = 7;
     }
 
     /** Intent extra to open an incognito tab. */
@@ -574,30 +548,30 @@ public class IntentHandler {
      * @param packageName String The application package name to map.
      * @return ExternalAppId representing the app.
      */
-    public static @ExternalAppId int mapPackageToExternalAppId(String packageName) {
-        if (packageName.equals(PACKAGE_PLUS)) {
+    public static @ExternalAppId int mapPackageToExternalAppId(@Nullable String packageName) {
+        if (PACKAGE_PLUS.equals(packageName)) {
             return ExternalAppId.PLUS;
-        } else if (packageName.equals(PACKAGE_GMAIL)) {
+        } else if (PACKAGE_GMAIL.equals(packageName)) {
             return ExternalAppId.GMAIL;
-        } else if (packageName.equals(PACKAGE_HANGOUTS)) {
+        } else if (PACKAGE_HANGOUTS.equals(packageName)) {
             return ExternalAppId.HANGOUTS;
-        } else if (packageName.equals(PACKAGE_MESSENGER)) {
+        } else if (PACKAGE_MESSENGER.equals(packageName)) {
             return ExternalAppId.MESSENGER;
-        } else if (packageName.equals(PACKAGE_YOUTUBE)) {
+        } else if (PACKAGE_YOUTUBE.equals(packageName)) {
             return ExternalAppId.YOUTUBE;
-        } else if (packageName.equals(PACKAGE_LINE)) {
+        } else if (PACKAGE_LINE.equals(packageName)) {
             return ExternalAppId.LINE;
-        } else if (packageName.equals(PACKAGE_WHATSAPP)) {
+        } else if (PACKAGE_WHATSAPP.equals(packageName)) {
             return ExternalAppId.WHATSAPP;
-        } else if (packageName.equals(PACKAGE_GSA)) {
+        } else if (PACKAGE_GSA.equals(packageName)) {
             return ExternalAppId.GSA;
-        } else if (packageName.equals(ContextUtils.getApplicationContext().getPackageName())) {
+        } else if (ContextUtils.getApplicationContext().getPackageName().equals(packageName)) {
             return ExternalAppId.CHROME;
-        } else if (packageName.startsWith(WEBAPK_PACKAGE_PREFIX)) {
+        } else if (assumeNonNull(packageName).startsWith(WEBAPK_PACKAGE_PREFIX)) {
             return ExternalAppId.WEBAPK;
-        } else if (packageName.equals(PACKAGE_YAHOO_MAIL)) {
+        } else if (PACKAGE_YAHOO_MAIL.equals(packageName)) {
             return ExternalAppId.YAHOO_MAIL;
-        } else if (packageName.equals(PACKAGE_VIBER)) {
+        } else if (PACKAGE_VIBER.equals(packageName)) {
             return ExternalAppId.VIBER;
         }
         return ExternalAppId.OTHER;
@@ -718,7 +692,8 @@ public class IntentHandler {
      * @param authority The authority to use.
      * @return Referrer with default policy that uses the valid android app scheme, or null.
      */
-    public static @Nullable Referrer constructValidReferrerForAuthority(String authority) {
+    public static @Nullable Referrer constructValidReferrerForAuthority(
+            @Nullable String authority) {
         if (TextUtils.isEmpty(authority)) return null;
         return new Referrer(
                 new Uri.Builder()

@@ -4,7 +4,6 @@
 <translation id="1000436330784933699">‏אפשר לפתוח את Lens כאן.</translation>
 <translation id="1042296835509784301">‏ייפתח שירות מנהל הסיסמאות ב-Chromium.</translation>
 <translation id="1047130070405668746">‏בוחרים באפשרות Chromium</translation>
-<translation id="1086486568852410168">‏חיפוש באמצעות Google Lens</translation>
 <translation id="1091252999271033193">‏כלומר, Chromium תמיד יבקש את האתר לנייד.</translation>
 <translation id="1115463765356382667">‏השלמת הפעולות המוצעות הבאות תעזור לך להשתמש ב-Chromium בדרך היעילה ביותר.</translation>
 <translation id="1185134272377778587">‏על Chromium</translation>
@@ -43,6 +42,7 @@
 <ph name="BEGIN_LINK" />למידע נוסף<ph name="END_LINK" /></translation>
 <translation id="1847960401032164406">‏מפות Google ב-Chromium</translation>
 <translation id="1867772173333403444">‏4. בוחרים באפשרות Chromium</translation>
+<translation id="1965068424387304464">‏טיפ ל-Chromium: שמירת סיסמאות</translation>
 <translation id="2006345422933397527">‏Chromium לא הצליח לחפש עדכונים. יש לבדוק את החיבור לאינטרנט.</translation>
 <translation id="2042889939382983733">‏הצגת ההיסטוריה ב-Chromium</translation>
 <translation id="2052320862053429062">‏Chromium בודק מדי פעם את הסיסמאות שלך ומשווה אותן לרשימות שהתפרסמו באינטרנט. כשהבדיקה הזו מתבצעת, הסיסמאות ושמות המשתמשים מוצפנים, כך שאיש לא יכול לקרוא אותם, כולל Google.</translation>
@@ -119,6 +119,7 @@
 <translation id="3816686541346279443">‏‫Chromium יציע לשמור את הסיסמה.</translation>
 <translation id="3827545470516145620">במכשיר הזה יש אבטחה ברמה רגילה</translation>
 <translation id="3833326979834193417">‏Chromium מפעיל בדיקת אבטחה באופן אוטומטי מדי יום כדי להגן עליך מפני פרצות באבטחת מידע, אתרים לא בטוחים ועוד. מידע נוסף על בדיקת האבטחה זמין בהגדרות.</translation>
+<translation id="3837584850181228767">‏טיפ ל-Chromium: הגרסה המשופרת של הגלישה הבטוחה</translation>
 <translation id="3845223911364528001">‏כדי להעלות את הקובץ, צריך לחזור ל-Chromium</translation>
 <translation id="3855938650519180865">‏מה חדש ב-Chromium</translation>
 <translation id="3886689467633467988">‏יש לך אפשרות להיכנס לאתר הזה ול-Chromium כדי שהסימניות, הסיסמאות ונתונים נוספים יופיעו בכל המכשירים שלך.</translation>

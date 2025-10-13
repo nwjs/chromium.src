@@ -28,6 +28,9 @@ source_set("picture_in_picture") {
     "//url",
   ]
 
+  if (is_mac || is_win || is_linux || is_chromeos) {
+    public_deps += [ "//components/webapps/isolated_web_apps:scheme" ]
+  }
   if (!is_android) {
     sources += [
       "auto_picture_in_picture_tab_strip_observer_helper.h",
@@ -190,6 +193,7 @@ if (!is_android) {
       "//chrome/browser",
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/devtools:test_support",
+      "//chrome/browser/preloading:test_support",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui",
       "//chrome/browser/ui/views/page_info",
@@ -203,6 +207,7 @@ if (!is_android) {
       "//components/viz/common",
       "//content/public/browser",
       "//content/public/common",
+      "//content/test:browsertest_support",
       "//content/test:test_support",
       "//media",
       "//net:test_support",

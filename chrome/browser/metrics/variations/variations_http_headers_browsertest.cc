@@ -183,7 +183,7 @@ class VariationHeaderSetter : public ChromeBrowserMainExtraParts {
   void PostEarlyInitialization() override {
     // Set up some fake variations.
     auto* variations_provider = VariationsIdsProvider::GetInstance();
-    variations_provider->ForceVariationIds(
+    variations_provider->ForceVariationIdsForTesting(
         {base::NumberToString(kGenericExperimentGroupId),
          "t" + base::NumberToString(kGenericExperimentGroupTriggerId)},
         "");
@@ -639,7 +639,8 @@ void CreateGoogleSignedInFieldTrial(VariationID id) {
       provider->GetClientDataHeaders(/*is_signed_in=*/true);
   mojom::VariationsHeadersPtr signed_out_headers =
       provider->GetClientDataHeaders(/*is_signed_in=*/false);
-
+  ASSERT_TRUE(signed_in_headers);
+  ASSERT_TRUE(signed_out_headers);
   EXPECT_NE(
       signed_in_headers->headers_map.at(mojom::GoogleWebVisibility::ANY),
       signed_out_headers->headers_map.at(mojom::GoogleWebVisibility::ANY));
@@ -666,7 +667,8 @@ void CreateFieldTrialsWithDifferentVisibilities() {
       provider->GetClientDataHeaders(/*is_signed_in=*/true);
   mojom::VariationsHeadersPtr signed_out_headers =
       provider->GetClientDataHeaders(/*is_signed_in=*/false);
-
+  ASSERT_TRUE(signed_in_headers);
+  ASSERT_TRUE(signed_out_headers);
   EXPECT_NE(signed_in_headers->headers_map.at(mojom::GoogleWebVisibility::ANY),
             signed_in_headers->headers_map.at(
                 mojom::GoogleWebVisibility::FIRST_PARTY));
@@ -698,8 +700,8 @@ void CreateFieldTrial(const base::FieldTrial::EntropyProvider& entropy_provider,
   for (int i = 1; i < 101; ++i) {
     const std::string group_name = base::StringPrintf("%d", i);
     if (with_google_web_experiment_ids) {
-      AssociateGoogleVariationID(GOOGLE_WEB_PROPERTIES_ANY_CONTEXT,
-                                 trial->trial_name(), group_name, i);
+      AssociateGoogleVariationIDForTesting(GOOGLE_WEB_PROPERTIES_ANY_CONTEXT,
+                                           trial->trial_name(), group_name, i);
     }
     trial->AppendGroup(group_name, 1);
   }
@@ -772,6 +774,7 @@ IN_PROC_BROWSER_TEST_F(VariationsHttpHeadersBrowserTest, UserSignedIn) {
   mojom::VariationsHeadersPtr headers =
       VariationsIdsProvider::GetInstance()->GetClientDataHeaders(
           /*is_signed_in=*/true);
+  ASSERT_TRUE(headers);
 
   const std::string variations_header_first_party =
       headers->headers_map.at(mojom::GoogleWebVisibility::FIRST_PARTY);
@@ -816,6 +819,7 @@ IN_PROC_BROWSER_TEST_F(VariationsHttpHeadersBrowserTest, UserNotSignedIn) {
   mojom::VariationsHeadersPtr headers =
       VariationsIdsProvider::GetInstance()->GetClientDataHeaders(
           /*is_signed_in=*/false);
+  ASSERT_TRUE(headers);
 
   const std::string variations_header_first_party =
       headers->headers_map.at(mojom::GoogleWebVisibility::FIRST_PARTY);
@@ -1068,6 +1072,7 @@ void VariationsHttpHeadersBrowserTest::GoogleWebVisibilityTopFrameTest(
   mojom::VariationsHeadersPtr signed_out_headers =
       VariationsIdsProvider::GetInstance()->GetClientDataHeaders(
           /*is_signed_in=*/false);
+  ASSERT_TRUE(signed_out_headers);
 
   const std::string expected_header_value =
       top_frame_is_first_party

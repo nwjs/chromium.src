@@ -20,10 +20,14 @@ import android.view.View;
 import android.widget.LinearLayout;
 
 import androidx.annotation.IdRes;
+import androidx.core.view.AccessibilityDelegateCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.slider.Slider;
 
+import org.chromium.base.MathUtils;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.R;
@@ -111,11 +115,15 @@ public class ReaderModePrefsView extends LinearLayout
     public void onFinishInflate() {
         super.onFinishInflate();
 
-        initializeFontButton(R.id.font_sans_serif, FontFamily.SANS_SERIF);
-        initializeFontButton(R.id.font_serif, FontFamily.SERIF);
-        initializeFontButton(R.id.font_monospace, FontFamily.MONOSPACE);
+        initializeFontButton(R.id.font_sans_serif, FontFamily.SANS_SERIF, 0);
+        initializeFontButton(R.id.font_serif, FontFamily.SERIF, 1);
+        initializeFontButton(R.id.font_monospace, FontFamily.MONOSPACE, 2);
 
-        mFontScalingSlider = findViewById(R.id.font_size);
+        View fontFamilyButtonContainer = findViewById(R.id.font_family_button_container);
+        setCollectionInfoAccessibilityDelegate(
+                fontFamilyButtonContainer, mFontFamilyButtons.size());
+
+        mFontScalingSlider = findViewById(R.id.font_size_slider);
         mFontScalingSlider.setValueFrom(FONT_SCALE_LOWER_BOUND);
         mFontScalingSlider.setValueTo(FONT_SCALE_UPPER_BOUND);
         mFontScalingSlider.setStepSize(FONT_SCALE_STEP_SIZE);
@@ -131,9 +139,12 @@ public class ReaderModePrefsView extends LinearLayout
                     }
                 });
 
-        initializeColorButton(R.id.light_mode, Theme.LIGHT);
-        initializeColorButton(R.id.dark_mode, Theme.DARK);
-        initializeColorButton(R.id.sepia_mode, Theme.SEPIA);
+        initializeColorButton(R.id.light_mode, Theme.LIGHT, 0);
+        initializeColorButton(R.id.sepia_mode, Theme.SEPIA, 1);
+        initializeColorButton(R.id.dark_mode, Theme.DARK, 2);
+
+        View themeContainer = findViewById(R.id.theme_container);
+        setCollectionInfoAccessibilityDelegate(themeContainer, mThemeButtons.size());
     }
 
     /**
@@ -150,10 +161,6 @@ public class ReaderModePrefsView extends LinearLayout
         SpannableString fontStyleNameString = new SpannableString(line2);
 
         fontStyleSignifierString.setSpan(
-                new TypefaceSpan(typeface), 0, line1.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        fontStyleNameString.setSpan(
-                new TypefaceSpan(typeface), 0, line2.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        fontStyleSignifierString.setSpan(
                 new TextAppearanceSpan(
                         getContext(), R.style.TextAppearance_ReaderModePrefsFontStyleSignifier),
                 0,
@@ -165,6 +172,11 @@ public class ReaderModePrefsView extends LinearLayout
                 0,
                 line2.length(),
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        // Maintain TypefaceSpan initialization after TextAppearance or it will be overridden.
+        fontStyleSignifierString.setSpan(
+                new TypefaceSpan(typeface), 0, line1.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        fontStyleNameString.setSpan(
+                new TypefaceSpan(typeface), 0, line2.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
         // Get font metrics for first line using mock TextPaint to set suitable line height.
         TextPaint mockTextPaint = new TextPaint();
@@ -211,7 +223,7 @@ public class ReaderModePrefsView extends LinearLayout
         onChangeTheme(mDistilledPagePrefs.getTheme());
     }
 
-    private void initializeColorButton(@IdRes int id, final int theme) {
+    private void initializeColorButton(@IdRes int id, final int theme, final int index) {
         Theme.validate(theme);
         MaterialButton button = findViewById(id);
         button.setOnClickListener(
@@ -220,6 +232,8 @@ public class ReaderModePrefsView extends LinearLayout
                     mDistilledPagePrefs.setUserPrefTheme(theme);
                 });
         mThemeButtons.put(theme, button);
+
+        setCollectionItemInfoAccessibilityDelegate(button, index);
     }
 
     @Override
@@ -267,9 +281,10 @@ public class ReaderModePrefsView extends LinearLayout
         // If user has previous preference saved at a non-step size interval, need to adjust to
         // closest increment.
         scaling =
-                Math.max(
+                MathUtils.clamp(
                         (Math.round(scaling / FONT_SCALE_STEP_SIZE) * FONT_SCALE_STEP_SIZE),
-                        FONT_SCALE_LOWER_BOUND);
+                        FONT_SCALE_LOWER_BOUND,
+                        FONT_SCALE_UPPER_BOUND);
 
         mFontScalingSlider.setValue(scaling);
 
@@ -286,7 +301,7 @@ public class ReaderModePrefsView extends LinearLayout
         }
     }
 
-    private void initializeFontButton(@IdRes int id, final int fontFamily) {
+    private void initializeFontButton(@IdRes int id, final int fontFamily, final int index) {
         FontFamily.validate(fontFamily);
         MaterialButton button = findViewById(id);
         String line1 = getContext().getString(R.string.font_style_signifier);
@@ -313,6 +328,8 @@ public class ReaderModePrefsView extends LinearLayout
         button.setOnClickListener(this);
         button.setTag(fontFamily);
         mFontFamilyButtons.put(fontFamily, button);
+
+        setCollectionItemInfoAccessibilityDelegate(button, index);
     }
 
     @Override
@@ -321,5 +338,45 @@ public class ReaderModePrefsView extends LinearLayout
         FontFamily.validate(fontFamily);
         ReaderModeMetrics.reportReaderModePrefsFontFamilyChanged(fontFamily);
         mDistilledPagePrefs.setFontFamily(fontFamily);
+    }
+
+    private void setCollectionInfoAccessibilityDelegate(View view, int columnCount) {
+        ViewCompat.setAccessibilityDelegate(
+                view,
+                new AccessibilityDelegateCompat() {
+                    @Override
+                    public void onInitializeAccessibilityNodeInfo(
+                            View host, AccessibilityNodeInfoCompat info) {
+                        super.onInitializeAccessibilityNodeInfo(host, info);
+                        info.setCollectionInfo(
+                                AccessibilityNodeInfoCompat.CollectionInfoCompat.obtain(
+                                        /* rowCount= */ 1,
+                                        /* columnCount= */ columnCount,
+                                        /* hierarchical= */ false,
+                                        AccessibilityNodeInfoCompat.CollectionInfoCompat
+                                                .SELECTION_MODE_SINGLE));
+                    }
+                });
+    }
+
+    private void setCollectionItemInfoAccessibilityDelegate(
+            MaterialButton button, final int index) {
+        ViewCompat.setAccessibilityDelegate(
+                button,
+                new AccessibilityDelegateCompat() {
+                    @Override
+                    public void onInitializeAccessibilityNodeInfo(
+                            View host, AccessibilityNodeInfoCompat info) {
+                        super.onInitializeAccessibilityNodeInfo(host, info);
+                        info.setCollectionItemInfo(
+                                AccessibilityNodeInfoCompat.CollectionItemInfoCompat.obtain(
+                                        /* rowIndex= */ 0,
+                                        /* rowSpan= */ 1,
+                                        /* columnIndex= */ index,
+                                        /* columnSpan= */ 1,
+                                        /* heading= */ false,
+                                        /* selected= */ ((MaterialButton) host).isChecked()));
+                    }
+                });
     }
 }

@@ -38,7 +38,7 @@
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_rep.h"
-#include "ui/gfx/native_window_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/menu_button.h"
@@ -1656,8 +1656,16 @@ void MenuController::SetSelection(MenuItemView* menu_item,
       pending_state_.submenu_open !=
           !!(selection_types & SELECTION_OPEN_SUBMENU);
 
+  auto this_ref = AsWeakPtr();
+
   if (pending_item_changed && pending_state_.item) {
     SetHotTrackedButton(nullptr);
+  }
+
+  // SetHotTrackedButton does some accessibility stuff that could conceivably
+  // cause `this` to be deleted, so protect against that.
+  if (!this_ref) {
+    return;
   }
 
   // Notify an accessibility focus event on all menu items except for the root.
@@ -1676,7 +1684,13 @@ void MenuController::SetSelection(MenuItemView* menu_item,
     // the focus appears to be elsewhere.
     menu_item->GetViewAccessibility().SetPopupFocusOverride();
   }
-
+  // Possible fix for https:://crbug.com/443019015, in case menu_controller is
+  // getting deleted as a side effect of accessibility code above. The crash
+  // happens when accessibility has been turned on around the same time as
+  // opening the menu.
+  if (!this_ref) {
+    return;
+  }
   // Notify the old path it isn't selected.
   MenuDelegate* current_delegate =
       current_path.empty() ? nullptr : current_path.front()->GetDelegate();

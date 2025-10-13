@@ -90,9 +90,13 @@ try_.orchestrator_builder(
         configs = [
             "ci/android-desktop-x64-compile-rel",
             "release_try_builder",
+            "use_clang_coverage",
+            "use_java_coverage",
+            "partial_code_coverage_instrumentation",
         ],
     ),
     compilator = "android-desktop-x64-rel-compilator",
+    coverage_test_types = ["unit", "overall"],
     experiments = {
         # crbug.com/40617829
         "chromium.enable_cleandead": 100,
@@ -102,6 +106,8 @@ try_.orchestrator_builder(
     # are addressed
     # use_orchestrator_pool = True,
     tryjob = try_.job(),
+    use_clang_coverage = True,
+    use_java_coverage = True,
 )
 
 try_.compilator_builder(
@@ -209,7 +215,20 @@ try_.builder(
     #branch_selector = branches.selector.ANDROID_BRANCHES,
     description_html = "Measures binary size of android-desktop on arm64.",
     executable = "recipe:binary_size_trybot",
-    gn_args = "ci/android-desktop-arm64-binary-size-generator",
+    gn_args = gn_args.config(
+        configs = [
+            "android_desktop",
+            "android_builder",
+            "arm64",
+            "chrome_with_codecs",
+            "remoteexec",
+            "minimal_symbols",
+            "official_optimize",
+            # TODO(crbug.com/433988303): Swap to stable.
+            "dev_channel",
+            "v8_release_branch",
+        ],
+    ),
     cores = 32,
     ssd = True,
     contact_team_email = "clank-engprod@google.com",
@@ -224,7 +243,8 @@ try_.builder(
             ],
             "compile_targets": [
                 "check_chrome_static_initializers",
-                "monochrome_64_32_apk",
+                "trichrome_64_minimal_apks",
+                "trichrome_library_64_apk",
                 "validate_expectations",
             ],
         },
@@ -238,7 +258,20 @@ try_.builder(
     #branch_selector = branches.selector.ANDROID_BRANCHES,
     description_html = "Measures binary size of android-desktop on x64.",
     executable = "recipe:binary_size_trybot",
-    gn_args = "ci/android-desktop-x64-binary-size-generator",
+    gn_args = gn_args.config(
+        configs = [
+            "android_desktop",
+            "android_builder",
+            "x64",
+            "chrome_with_codecs",
+            "remoteexec",
+            "minimal_symbols",
+            "official_optimize",
+            # TODO(crbug.com/433988303): Swap to stable.
+            "dev_channel",
+            "v8_release_branch",
+        ],
+    ),
     cores = 32,
     ssd = True,
     contact_team_email = "clank-engprod@google.com",
@@ -253,7 +286,8 @@ try_.builder(
             ],
             "compile_targets": [
                 "check_chrome_static_initializers",
-                "monochrome_64_32_apk",
+                "trichrome_64_minimal_apks",
+                "trichrome_library_64_apk",
                 "validate_expectations",
             ],
         },

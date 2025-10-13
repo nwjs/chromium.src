@@ -17,6 +17,7 @@
 #include "components/autofill/core/browser/form_structure_rationalization_engine.h"
 #include "components/autofill/core/browser/heuristic_source.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
+#include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
@@ -710,8 +711,9 @@ void FormStructureRationalizer::RationalizeDateFormatStrings(
                         << "Set format string of " << field.global_id()
                         << " to " << format_string;
     field.set_format_string_unless_overruled(
-        std::move(format_string),
-        AutofillField::FormatStringSource::kHeuristics);
+        AutofillFormatString(std::move(format_string),
+                             FormatString_Type::FormatString_Type_DATE),
+        AutofillFormatStringSource::kHeuristics);
   };
 
   auto get_autofill_ai_date_types = [](const AutofillField& field) {
@@ -732,11 +734,11 @@ void FormStructureRationalizer::RationalizeDateFormatStrings(
       continue;
     }
     switch (field.format_string_source()) {
-      case AutofillField::FormatStringSource::kUnset:
-      case AutofillField::FormatStringSource::kHeuristics:
+      case AutofillFormatStringSource::kUnset:
+      case AutofillFormatStringSource::kHeuristics:
         break;  // Breaks the switch, not the loop.
-      case AutofillField::FormatStringSource::kModelResult:
-      case AutofillField::FormatStringSource::kServer:
+      case AutofillFormatStringSource::kModelResult:
+      case AutofillFormatStringSource::kServer:
         continue;
     }
 
@@ -1082,16 +1084,13 @@ void FormStructureRationalizer::RationalizeByRationalizationEngine(
     const GeoIpCountryCode& client_country,
     const LanguageCode& language_code,
     LogManager* log_manager) {
-  auto to_form_field_data = [](const std::unique_ptr<AutofillField>& field)
-      -> raw_ptr<const FormFieldData> { return field.get(); };
-  ParsingContext context(base::ToVector(fields_, to_form_field_data),
-                         client_country, language_code,
+  ParsingContext context(fields_, client_country, language_code,
 #if BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
                          PatternFile::kDefault,
 #else
                          PatternFile::kLegacy,
 #endif
-                         GetActiveRegexFeatures());
+                         GetActiveRegexFeatures(), /*log_manager=*/nullptr);
 
   rationalization::ApplyRationalizationEngineRules(context, fields_,
                                                    log_manager);

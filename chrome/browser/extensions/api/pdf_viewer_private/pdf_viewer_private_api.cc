@@ -27,6 +27,8 @@
 #include "chrome/browser/save_to_drive/pdf_content_reader.h"
 #include "chrome/browser/save_to_drive/save_to_drive_event_dispatcher.h"
 #include "chrome/browser/save_to_drive/save_to_drive_flow.h"
+#include "chrome/browser/ui/hats/hats_service_factory.h"  // nogncheck
+#include "chrome/browser/ui/save_to_drive/get_account.h"
 #endif  // BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
 
 namespace extensions {
@@ -156,6 +158,20 @@ ExtensionFunction::ResponseAction PdfViewerPrivateSaveToDriveFunction::Run() {
   std::optional<SaveToDrive::Params> params =
       SaveToDrive::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
+  if (params->save_request_type !=
+      api::pdf_viewer_private::SaveRequestType::kNone) {
+    return RunSaveToDriveFlow(params->save_request_type);
+  }
+  return StopSaveToDriveFlow();
+#else
+  return RespondNow(Error("Not supported"));
+#endif  // BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
+}
+
+#if BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
+ExtensionFunction::ResponseAction
+PdfViewerPrivateSaveToDriveFunction::RunSaveToDriveFlow(
+    api::pdf_viewer_private::SaveRequestType request_type) {
   using SaveToDriveFlow = save_to_drive::SaveToDriveFlow;
 
   if (SaveToDriveFlow::GetForCurrentDocument(render_frame_host())) {
@@ -167,17 +183,30 @@ ExtensionFunction::ResponseAction PdfViewerPrivateSaveToDriveFunction::Run() {
     return RespondNow(Error("Failed to create event dispatcher"));
   }
   auto content_reader = std::make_unique<save_to_drive::PDFContentReader>(
-      render_frame_host(), ToMojomSaveRequestType(params->save_request_type));
-  save_to_drive::SaveToDriveFlow::CreateForCurrentDocument(
+      render_frame_host(), ToMojomSaveRequestType(request_type));
+  auto account_chooser = std::make_unique<save_to_drive::AccountChooser>();
+  HatsService* hats_service = HatsServiceFactory::GetForProfile(
+      Profile::FromBrowserContext(browser_context()),
+      /*create_if_necessary=*/true);
+  auto* flow = SaveToDriveFlow::Create(
       render_frame_host(), std::move(event_dispatcher),
-      std::move(content_reader));
-  auto* flow = SaveToDriveFlow::GetForCurrentDocument(render_frame_host());
+      std::move(content_reader), std::move(account_chooser), hats_service);
   flow->Run();
   return RespondNow(NoArguments());
-#else
-  return RespondNow(Error("Not supported"));
-#endif  // BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
 }
+
+ExtensionFunction::ResponseAction
+PdfViewerPrivateSaveToDriveFunction::StopSaveToDriveFlow() {
+  using SaveToDriveFlow = save_to_drive::SaveToDriveFlow;
+
+  auto* flow = SaveToDriveFlow::GetForCurrentDocument(render_frame_host());
+  if (!flow) {
+    return RespondNow(Error("Failed to get SaveToDriveFlow"));
+  }
+  flow->Stop();
+  return RespondNow(NoArguments());
+}
+#endif  // BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
 
 PdfViewerPrivateSetPdfDocumentTitleFunction::
     PdfViewerPrivateSetPdfDocumentTitleFunction() = default;

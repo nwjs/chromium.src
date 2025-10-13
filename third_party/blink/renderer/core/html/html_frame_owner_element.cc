@@ -435,12 +435,14 @@ void HTMLFrameOwnerElement::UpdateRequiredPolicy() {
   }
 }
 
-void HTMLFrameOwnerElement::UpdateDeferredFetchPolicy(const KURL& to_url) {
+void HTMLFrameOwnerElement::UpdateDeferredFetchPolicy(
+    scoped_refptr<const SecurityOrigin> to_origin) {
   if (!IsFetchLaterUseDeferredFetchPolicyEnabled()) {
     return;
   }
   frame_policy_.deferred_fetch_policy =
-      FetchLaterUtil::GetContainerDeferredFetchPolicyOnNavigation(this, to_url);
+      FetchLaterUtil::GetContainerDeferredFetchPolicyOnNavigation(this,
+                                                                  to_origin);
   DidChangeContainerPolicy();
 }
 
@@ -485,7 +487,7 @@ void HTMLFrameOwnerElement::FrameOwnerPropertiesChanged() {
   properties->color_scheme = GetColorScheme();
   properties->preferred_color_scheme = GetPreferredColorScheme();
   properties->nwfaketop = FastHasAttribute(html_names::kNwfaketopAttr);
-  properties->nwuseragent = nwuseragent().IsNull() ? WTF::g_empty_string : nwuseragent();
+  properties->nwuseragent = nwuseragent().IsNull() ? g_empty_string : nwuseragent();
 
   GetDocument()
       .GetFrame()

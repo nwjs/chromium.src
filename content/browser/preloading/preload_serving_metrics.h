@@ -34,7 +34,7 @@ class NavigationHandle;
 // `PrefetchContainerMetrics` is also used for `PreloadServingMetrics`. In this
 // case, the `PrefetchContainerMetrics` at the time of serving is copied
 // (indirectly) into `PreloadServingMetrics`.
-struct CONTENT_EXPORT PrefetchContainerMetrics {
+struct CONTENT_EXPORT PrefetchContainerMetrics final {
   PrefetchContainerMetrics();
   ~PrefetchContainerMetrics();
 
@@ -65,7 +65,7 @@ struct CONTENT_EXPORT PrefetchContainerMetrics {
 // https://chromium.googlesource.com/chromium/src/+/main/content/browser/preloading/preload_serving_metrics.md#Logs
 //
 // The members are filled by `PrefetchMatchResolver`.
-struct CONTENT_EXPORT PrefetchMatchMetrics {
+struct CONTENT_EXPORT PrefetchMatchMetrics final {
   PrefetchMatchMetrics();
   ~PrefetchMatchMetrics();
 
@@ -117,17 +117,7 @@ struct CONTENT_EXPORT PrefetchMatchMetrics {
 // https://chromium.googlesource.com/chromium/src/+/main/content/browser/preloading/preload_serving_metrics.md#Logs
 //
 // The members are filled by `PreloadServingMetrics`.
-struct CONTENT_EXPORT PreloadServingMetrics {
-  // Plumbs a feature param in //content to page load metrics observer.
-  static bool IsEnabled();
-  // Take `PreloadServingMetrics` from `PreloadServingMetricsHolder` of
-  // `NavigationHandle`.
-  //
-  // See
-  // https://chromium.googlesource.com/chromium/src/+/main/content/browser/preloading/preload_serving_metrics.md#life-of-PreloadServingMetrics
-  static std::unique_ptr<PreloadServingMetrics> TakeFromNavigationHandle(
-      NavigationHandle& navigation_handle);
-
+struct CONTENT_EXPORT PreloadServingMetrics final {
   PreloadServingMetrics();
   ~PreloadServingMetrics();
 
@@ -171,9 +161,11 @@ struct CONTENT_EXPORT PreloadServingMetrics {
 class CONTENT_EXPORT PreloadServingMetricsCapsuleImpl final
     : public PreloadServingMetricsCapsule {
  public:
-  static bool IsEnabled();
   // Take `PreloadServingMetrics` from `PreloadServingMetricsHolder` of
   // `NavigationHandle`.
+  //
+  // See
+  // https://chromium.googlesource.com/chromium/src/+/main/content/browser/preloading/preload_serving_metrics.md#life-of-PreloadServingMetrics
   static std::unique_ptr<PreloadServingMetricsCapsule> TakeFromNavigationHandle(
       NavigationHandle& navigation_handle);
 

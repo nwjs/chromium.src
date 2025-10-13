@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_action_callback.h"
+#include "chrome/browser/ui/views/user_education/impl/browser_user_education_context.h"
 #include "chrome/browser/user_education/ntp_promo_identifiers.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
@@ -36,8 +37,22 @@ using user_education::NtpPromoSpecification;
 
 namespace {
 
+using ContextPtr = const user_education::UserEducationContextPtr&;
+
+Profile* GetProfile(ContextPtr context) {
+  return context->AsA<BrowserUserEducationContext>()
+      ->GetBrowserView()
+      .GetProfile();
+}
+
 NtpPromoSpecification::Eligibility CheckSignInPromoEligibility(
-    Profile* profile) {
+    ContextPtr context) {
+  // TODO(webium): add user education context for WebUI browser.
+  if (!context) {
+    return NtpPromoSpecification::Eligibility::kIneligible;
+  }
+
+  auto* profile = GetProfile(context);
   if (!profile->GetPrefs()->GetBoolean(prefs::kSigninAllowed)) {
     return NtpPromoSpecification::Eligibility::kIneligible;
   }
@@ -69,31 +84,43 @@ void SignInPromoShown() {
           PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT);
 }
 
-void InvokeSignInPromo(BrowserWindowInterface* browser) {
+void InvokeSignInPromo(ContextPtr context) {
   // Note that this invokes a "from scratch" sign-in flow, even if the user is
   // already signed in on the Web. Later, we can evolve this if desired to
   // offer an alternate one-click sign-in flow for those other users.
   signin_ui_util::ShowSigninPromptFromPromo(
-      browser->GetProfile(), signin_metrics::AccessPoint::kNtpFeaturePromo);
+      GetProfile(context), signin_metrics::AccessPoint::kNtpFeaturePromo);
 }
 
 NtpPromoSpecification::Eligibility CheckExtensionsPromoEligibility(
-    Profile* profile) {
-  return extensions::util::AnyCurrentlyInstalledExtensionIsFromWebstore(profile)
+    ContextPtr context) {
+  // TODO(webium): add user education context for WebUI browser.
+  if (!context) {
+    return NtpPromoSpecification::Eligibility::kIneligible;
+  }
+  return extensions::util::AnyCurrentlyInstalledExtensionIsFromWebstore(
+             GetProfile(context))
              ? NtpPromoSpecification::Eligibility::kCompleted
              : NtpPromoSpecification::Eligibility::kEligible;
 }
 
-void InvokeExtensionsPromo(BrowserWindowInterface* browser) {
-  NavigateParams params(browser->GetProfile(),
-                        extension_urls::GetWebstoreLaunchURL(),
-                        ui::PAGE_TRANSITION_LINK);
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+void InvokeExtensionsPromo(ContextPtr context) {
+  // TODO(crbug.com/443062679): Use the BrowserWindowInterface version when it
+  // becomes available.
+  NavigateParams params(
+      context->AsA<BrowserUserEducationContext>()->GetBrowserView().browser(),
+      extension_urls::GetWebstoreLaunchURL(), ui::PAGE_TRANSITION_LINK);
+  params.disposition = WindowOpenDisposition::CURRENT_TAB;
   Navigate(&params);
 }
 
 NtpPromoSpecification::Eligibility CheckCustomizationPromoEligibility(
-    Profile* profile) {
+    ContextPtr context) {
+  // TODO(webium): add user education context for WebUI browser.
+  if (!context) {
+    return NtpPromoSpecification::Eligibility::kIneligible;
+  }
+  auto* profile = GetProfile(context);
   auto* background_service =
       NtpCustomBackgroundServiceFactory::GetForProfile(profile);
   auto* theme_service = ThemeServiceFactory::GetForProfile(profile);
@@ -109,7 +136,7 @@ NtpPromoSpecification::Eligibility CheckCustomizationPromoEligibility(
                     : NtpPromoSpecification::Eligibility::kEligible;
 }
 
-void InvokeCustomizationPromo(BrowserWindowInterface* browser) {
+void InvokeCustomizationPromo(ContextPtr context) {
   actions::ActionManager::Get()
       .FindAction(kActionSidePanelShowCustomizeChrome)
       ->InvokeAction(
@@ -142,7 +169,7 @@ void MaybeRegisterNtpPromos(user_education::NtpPromoRegistry& registry) {
   registry.AddPromo(NtpPromoSpecification(
       kNtpSignInPromoId,
       NtpPromoContent("account_circle", IDS_NTP_SIGN_IN_PROMO_WITH_BOOKMARKS,
-                      IDS_NTP_SIGN_IN_PROMO_ACTION_BUTTON),
+                      IDS_NTP_SIGN_IN_PROMO_WITH_BOOKMARKS),
       base::BindRepeating(&CheckSignInPromoEligibility),
       base::BindRepeating(&SignInPromoShown),
       base::BindRepeating(&InvokeSignInPromo),
@@ -154,7 +181,7 @@ void MaybeRegisterNtpPromos(user_education::NtpPromoRegistry& registry) {
   registry.AddPromo(NtpPromoSpecification(
       kNtpCustomizationPromoId,
       NtpPromoContent("palette", IDS_NTP_CUSTOMIZATION_PROMO,
-                      IDS_NTP_CUSTOMIZATION_PROMO_ACTION_BUTTON),
+                      IDS_NTP_CUSTOMIZATION_PROMO),
       base::BindRepeating(&CheckCustomizationPromoEligibility),
       /*show_callback=*/base::DoNothing(),
       base::BindRepeating(&InvokeCustomizationPromo),
@@ -165,7 +192,7 @@ void MaybeRegisterNtpPromos(user_education::NtpPromoRegistry& registry) {
   registry.AddPromo(NtpPromoSpecification(
       kNtpExtensionsPromoId,
       NtpPromoContent("my_extensions", IDS_NTP_EXTENSIONS_PROMO,
-                      IDS_NTP_EXTENSIONS_PROMO_ACTION_BUTTON),
+                      IDS_NTP_EXTENSIONS_PROMO),
       base::BindRepeating(&CheckExtensionsPromoEligibility),
       /*show_callback=*/base::DoNothing(),
       base::BindRepeating(&InvokeExtensionsPromo),

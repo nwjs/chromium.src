@@ -48,6 +48,15 @@ BASE_DECLARE_FEATURE(kSegmentationPlatformDeviceSwitcher);
 // Feature flag for enabling tab grouping action feature.
 BASE_DECLARE_FEATURE(kContextualPageActionTabGrouping);
 
+// Feature flag for enabling tab group throttling.
+BASE_DECLARE_FEATURE(kContextualPageActionTabGroupThrottling);
+
+extern const base::FeatureParam<bool>
+    kContextualPageActionTabGroupParamThrottleOnNewTab;
+
+extern const base::FeatureParam<bool>
+    kContextualPageActionTabGroupParamShowWhenNotClickedInLastDay;
+
 // Feature flag for enabling shopping user segment feature.
 BASE_DECLARE_FEATURE(kShoppingUserSegmentFeature);
 
@@ -202,6 +211,16 @@ BASE_DECLARE_FEATURE(kDefaultBrowserMagicStackIos);
 // The maximum number impressions for `kDefaultBrowserMagicStackIos` before the
 // card should be hidden.
 extern const base::FeatureParam<int> kMaxDefaultBrowserMagicStackIosImpressions;
+
+// Feature flag for enabling the tips notifications ranker.
+BASE_DECLARE_FEATURE(kAndroidTipsNotifications);
+
+// The prioritization of tips notifications based on trust and safety.
+extern const base::FeatureParam<bool> kTrustAndSafety;
+// The prioritization of tips notifications based on essential features.
+extern const base::FeatureParam<bool> kEssential;
+// The prioritization of tips notifications based on new features.
+extern const base::FeatureParam<bool> kNewFeatures;
 
 }  // namespace segmentation_platform::features
 

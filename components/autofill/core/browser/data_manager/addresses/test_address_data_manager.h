@@ -54,12 +54,12 @@ class TestAddressDataManager : public AddressDataManager {
 
  private:
   void RemoveProfileImpl(const std::string& guid,
-                         bool is_deduplication_initiated) override;
+                         bool non_permanent_account_profile_removal) override;
 
   std::optional<AddressCountryCode> default_country_code_;
   std::optional<bool> autofill_profile_enabled_;
   std::optional<bool> eligible_for_account_storage_;
-  TestInMemoryStrikeDatabase inmemory_strike_database_;
+  strike_database::TestInMemoryStrikeDatabase inmemory_strike_database_;
 };
 
 }  // namespace autofill

@@ -738,7 +738,7 @@ public class EdgeToEdgeControllerTest {
 
     @Test
     @Config(qualifiers = "xlarge")
-    @EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_TABLET)
+    @EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_TABLET + ":e2e_tablet_width_threshold/-1")
     public void enabledOnTabletWhenFeatureEnabled() {
         // Even these always-draw flags do not override the device abilities.
         EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
@@ -784,7 +784,7 @@ public class EdgeToEdgeControllerTest {
 
     @Test
     @Config(qualifiers = "sw600dp")
-    @EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_TABLET)
+    @EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_TABLET + ":e2e_tablet_width_threshold/-1")
     public void supportFormFactor() {
         assertTrue(DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity));
         assertTrue(
@@ -827,37 +827,6 @@ public class EdgeToEdgeControllerTest {
         EdgeToEdgeUtils.setHas3ButtonNavBarForTesting(false);
         mEdgeToEdgeControllerImpl.handleWindowInsets(mViewMock, SYSTEM_BARS_WINDOW_INSETS);
         watcher.assertExpected();
-    }
-
-    // Regression test for https://crbug.com/329875254.
-    @Test
-    @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN)
-    public void testViewportFitAfterListenerSet_ToNormal_BottomChinDisabled() {
-        when(mTab.isNativePage()).thenReturn(false);
-        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
-        mTabProvider.set(mTab);
-        verifyInteractions(mTab);
-        assertFalse("Shouldn't be toEdge.", mEdgeToEdgeControllerImpl.isPageOptedIntoEdgeToEdge());
-
-        // Simulate a viewport fit change to kick off WindowInsetConsumer being hooked up.
-        mEdgeToEdgeControllerImpl.getWebContentsObserver().viewportFitChanged(ViewportFit.COVER);
-        // Simulate another viewport fit change prior to #handleWindowInsets being called.
-        mEdgeToEdgeControllerImpl.getWebContentsObserver().viewportFitChanged(ViewportFit.CONTAIN);
-
-        // Simulate insets being available.
-        assertNotNull(mWindowInsetsListenerCaptor.getValue());
-        mWindowInsetsListenerCaptor
-                .getValue()
-                .onApplyWindowInsets(mViewMock, SYSTEM_BARS_WINDOW_INSETS);
-        assertFalse(
-                "Shouldn't be opted into edge-to-edge after toggling viewport-fit.",
-                mEdgeToEdgeControllerImpl.isPageOptedIntoEdgeToEdge());
-        assertFalse(
-                "Shouldn't be drawing edge-to-edge after toggling viewport-fit.",
-                mEdgeToEdgeControllerImpl.isDrawingToEdge());
-        verify(mOsWrapper, atLeastOnce())
-                .setPadding(any(), eq(0), eq(TOP_INSET), eq(0), eq(BOTTOM_INSET));
-        verify(mEdgeToEdgeManager, atLeastOnce()).setContentFitsWindowInsets(true);
     }
 
     @Test

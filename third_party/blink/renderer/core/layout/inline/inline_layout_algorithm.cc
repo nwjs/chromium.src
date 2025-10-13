@@ -1317,11 +1317,11 @@ const LayoutResult* InlineLayoutAlgorithm::Layout() {
     if (apply_fit_text_) {
       if (context_->IsMeasuringScale()) {
         // No fit-text handling here. We call MeasurePerBlockScale() later.
-      } else if (float scale = context_->MeasuredScale(); scale != 1.0f) {
-        // TODO(crbug.com/417306102): MeasurePerBlockScale() should compute
-        // adjusting_scal , and pass it here.
+      } else if (ParagraphScale scale = context_->MeasuredScale();
+                 scale.scale != 1.0f) {
         should_scale_line_height =
-            LineFitter(Node(), &line_info).FitLine(scale, 1.0f);
+            LineFitter(Node(), &line_info)
+                .FitLine(scale.scale, scale.additional_paint_time_scale);
       } else {
         should_scale_line_height =
             LineFitter(Node(), &line_info).MeasureAndFitLine();
@@ -1577,9 +1577,18 @@ InlineLayoutAlgorithm::DoesRemainderFitInLineWithoutEllipsis(
 
       const ShapeResult* shape_result = item.TextShapeResult();
       DCHECK(shape_result);
-      const ShapeResultView& shape_result_view = *ShapeResultView::Create(
-          shape_result, current.text_offset, item.EndOffset());
-      LayoutUnit width = shape_result_view.SnappedWidth().ClampNegativeToZero();
+      LayoutUnit width = shape_result->SnappedWidth().ClampNegativeToZero();
+      if (current.text_offset != item.StartOffset()) {
+        // When subpixel positioning is enabled, a ShapeResultView from the
+        // start to an offset, plus another from the offset to the end, don't
+        // necessarily add up to the same width as the original ShapeResult.
+        // In this case, the view that was added into the line was up to
+        // `current.text_offset`, so we subtract that width.
+        const ShapeResultView& shape_result_view = *ShapeResultView::Create(
+            shape_result, item.StartOffset(), current.text_offset);
+        width =
+            (width - shape_result_view.SnappedWidth()).ClampNegativeToZero();
+      }
       remaining_width -= width;
       switch (item.EndCollapseType()) {
         case InlineItem::kNotCollapsible:

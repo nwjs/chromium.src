@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.signin;
 
+import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.accounts.Account;
@@ -83,6 +84,11 @@ public class SigninFirstRunFragment extends Fragment
                         this,
                         PrivacyPreferencesManagerImpl.getInstance(),
                         new FullscreenSigninConfig(
+                                /* title= */ context.getString(R.string.signin_fre_title),
+                                /* subtitle= */ context.getString(R.string.signin_fre_subtitle),
+                                /* dismissText= */ context.getString(
+                                        R.string.signin_fre_dismiss_button),
+                                /* logoId= */ 0,
                                 /* shouldDisableSignin= */ DeviceInfo.isAutomotive()),
                         SigninAccessPoint.START_PAGE);
 
@@ -318,7 +324,9 @@ public class SigninFirstRunFragment extends Fragment
     /** Implements {@link FullscreenSigninCoordinator.Delegate}. */
     @Override
     public void displayDeviceLockPage(Account selectedAccount) {
-        Profile profile = ProfileProvider.getOrCreateProfile(getProfileSupplier().get(), false);
+        Profile profile =
+                ProfileProvider.getOrCreateProfile(
+                        assertNonNull(getProfileSupplier().get()), false);
         mDeviceLockCoordinator =
                 new DeviceLockCoordinator(
                         this,

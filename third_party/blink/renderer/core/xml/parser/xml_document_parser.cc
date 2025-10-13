@@ -932,8 +932,8 @@ static inline bool HandleNamespaceAttributes(
     AtomicString namespace_q_name = g_xmlns_atom;
     AtomicString namespace_uri = ToAtomicString(ns.uri);
     if (ns.prefix) {
-      namespace_q_name = AtomicString(
-          StrCat({WTF::g_xmlns_with_colon, ToAtomicString(ns.prefix)}));
+      namespace_q_name =
+          AtomicString(StrCat({g_xmlns_with_colon, ToAtomicString(ns.prefix)}));
     }
     std::optional<QualifiedName> parsed_name = Element::ParseAttributeName(
         xmlns_names::kNamespaceURI, namespace_q_name, exception_state);
@@ -1073,8 +1073,8 @@ void XMLDocumentParser::StartElementNs(
   std::optional<ThrowOnDynamicMarkupInsertionCountIncrementer>
       throw_on_dynamic_markup_insertions;
   if (!parsing_fragment_) {
-    if (HTMLConstructionSite::LookUpCustomElementDefinition(*document_, q_name,
-                                                            is)) {
+    if (HTMLConstructionSite::LookUpCustomElementDefinition(
+            *document_, q_name, is, document_->customElementRegistry())) {
       throw_on_dynamic_markup_insertions.emplace(document_);
       document_->GetAgent().event_loop()->PerformMicrotaskCheckpoint();
       reactions.emplace(isolate);

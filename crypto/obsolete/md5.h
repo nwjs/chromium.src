@@ -32,12 +32,20 @@ namespace autofill {
 crypto::obsolete::Md5 MakeMd5HasherForPasswordRequirementsSpec();
 }
 
+namespace blink {
+uint32_t MD5Hash32ForBackgroundTracingHelper(std::string_view string);
+}
+
 namespace bookmarks {
 class BookmarkCodec;
 }  // namespace bookmarks
 
 namespace cachetool {
 crypto::obsolete::Md5 MakeMd5HasherForCachetools();
+}
+
+namespace content {
+std::string Md5OfPixelsAsHexForWebTests(base::span<const uint8_t> pixels);
 }
 
 namespace drive {
@@ -119,7 +127,11 @@ class CRYPTO_EXPORT Md5 {
   friend Md5 drive::util::MakeMd5HasherForDriveApi();
   friend Md5 extensions::image_writer::MakeMd5HasherForImageWriter();
   friend Md5 cachetool::MakeMd5HasherForCachetools();
+  friend std::string content::Md5OfPixelsAsHexForWebTests(
+      base::span<const uint8_t> pixels);
   friend std::string remoting::GetHostHash();
+  friend uint32_t blink::MD5Hash32ForBackgroundTracingHelper(
+      std::string_view string);
 
   // TODO(b/298652869): get rid of these.
   friend Md5 ash::printing::MakeMd5HasherForPrinterConfigurer();

@@ -5,6 +5,7 @@
 #include "chrome/browser/themes/theme_service.h"
 
 #include <cmath>
+#include <memory>
 
 #include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_map.h"
@@ -13,6 +14,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/scoped_observation.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/test/task_environment.h"
@@ -39,6 +41,7 @@
 #include "components/color/color_mixers.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/themes/pref_names.h"
+#include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
@@ -54,7 +57,9 @@
 #include "ui/color/color_provider_manager.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
+#include "ui/native_theme/mock_os_settings_provider.h"
 #include "ui/native_theme/native_theme.h"
+#include "ui/native_theme/native_theme_observer.h"
 
 #if BUILDFLAG(IS_LINUX)
 #include "ui/linux/linux_ui.h"
@@ -127,6 +132,41 @@ class LinuxUiGetterImpl : public ui::LinuxUiGetter {
 }  // namespace
 
 namespace theme_service_internal {
+
+class ThemeUpdatedTest : public ::testing::Test,
+                         public ::testing::WithParamInterface<SystemTheme> {
+ public:
+#if BUILDFLAG(IS_LINUX)
+  // ::testing::Test:
+  void SetUp() override {
+    static bool initialized = false;
+    if (!initialized) {
+      // Ensures LinuxUi is configured on supported linux platforms.
+      auto* const linux_ui = ui::GetDefaultLinuxUi();
+      ASSERT_TRUE(linux_ui);
+      ui::LinuxUi::SetInstance(linux_ui);
+      initialized = true;
+    }
+
+    linux_ui_getter_ =
+        std::make_unique<LinuxUiGetterImpl>(GetParam() == SystemTheme::kCustom);
+  }
+#endif
+
+  Profile* profile() { return &profile_; }
+
+ private:
+  content::BrowserTaskEnvironment task_environment_;
+  TestingProfile profile_;
+#if BUILDFLAG(IS_LINUX)
+  std::unique_ptr<ui::LinuxUiGetter> linux_ui_getter_;
+#endif
+};
+
+INSTANTIATE_TEST_SUITE_P(,
+                         ThemeUpdatedTest,
+                         ::testing::Values(SystemTheme::kDefault,
+                                           SystemTheme::kCustom));
 
 class ThemeServiceTest : public extensions::ExtensionServiceTestBase {
  public:
@@ -205,14 +245,14 @@ class ThemeServiceTest : public extensions::ExtensionServiceTestBase {
 
 class ColorProviderTest : public ThemeServiceTest,
                           public testing::WithParamInterface<
-                              std::tuple<ui::NativeTheme::ColorScheme,
+                              std::tuple<ui::NativeTheme::PreferredColorScheme,
                                          ui::NativeTheme::PreferredContrast,
                                          SystemTheme>> {
  public:
   static std::string ParamInfoToString(
       ::testing::TestParamInfo<ParamType> param_info) {
-    std::string str = (GetColorScheme(param_info.param) ==
-                       ui::NativeTheme::ColorScheme::kDark)
+    std::string str = (GetPreferredColorScheme(param_info.param) ==
+                       ui::NativeTheme::PreferredColorScheme::kDark)
                           ? "Dark"
                           : "Light";
     if (GetPreferredContrast(param_info.param) ==
@@ -256,40 +296,12 @@ class ColorProviderTest : public ThemeServiceTest,
         GetSystemTheme() == SystemTheme::kCustom);
 #endif  // BUILDFLAG(IS_LINUX)
 
-    native_theme_ = ui::NativeTheme::GetInstanceForNativeUi();
-#if BUILDFLAG(IS_LINUX)
-    if (GetSystemTheme() == SystemTheme::kCustom) {
-      native_theme_ = ui::GetDefaultLinuxUiTheme()->GetNativeTheme();
-    }
-#endif
-    original_forced_colors_ = native_theme_->InForcedColorsMode();
-    original_preferred_contrast_ = native_theme_->GetPreferredContrast();
-    original_should_use_dark_colors_ = native_theme_->ShouldUseDarkColors();
-
-    bool use_dark_colors =
-        GetColorScheme() == ui::NativeTheme::ColorScheme::kDark;
+    os_settings_provider_.SetPreferredColorScheme(GetPreferredColorScheme());
+    os_settings_provider_.SetPreferredContrast(GetPreferredContrast());
 #if BUILDFLAG(IS_WIN)
-    const bool high_contrast =
-        GetPreferredContrast() == ui::NativeTheme::PreferredContrast::kMore;
-    if (high_contrast) {
-      use_dark_colors = false;
-    }
-    native_theme_->set_forced_colors(high_contrast);
+    os_settings_provider_.SetForcedColorsActive(
+        GetPreferredContrast() == ui::NativeTheme::PreferredContrast::kMore);
 #endif  // BUILDFLAG(IS_WIN)
-    native_theme_->SetPreferredContrast(GetPreferredContrast());
-    native_theme_->set_use_dark_colors(use_dark_colors);
-
-    // If native_theme_ has changed, call
-    // NativeTheme::NotifyOnNativeThemeUpdated to notify observers that the
-    // NativeTheme has been updated so that the ThemeService will know to update
-    // its ThemeSupplier to match the NativeTheme. The ColorProvider cache will
-    // also be reset.
-    if (original_forced_colors_ != native_theme_->InForcedColorsMode() ||
-        original_preferred_contrast_ != native_theme_->GetPreferredContrast() ||
-        original_should_use_dark_colors_ !=
-            native_theme_->ShouldUseDarkColors()) {
-      native_theme_->NotifyOnNativeThemeUpdated();
-    }
 
     // Update ThemeService to use the system theme if necessary.
     if (GetSystemTheme() == SystemTheme::kCustom) {
@@ -299,19 +311,10 @@ class ColorProviderTest : public ThemeServiceTest,
     }
   }
 
-  void TearDown() override {
-    // Restore the original NativeTheme parameters.
-    native_theme_->set_forced_colors(original_forced_colors_);
-    native_theme_->SetPreferredContrast(original_preferred_contrast_);
-    native_theme_->set_use_dark_colors(original_should_use_dark_colors_);
-    native_theme_->NotifyOnNativeThemeUpdated();
-    ThemeServiceTest::TearDown();
-  }
-
  protected:
-  static ui::NativeTheme::ColorScheme GetColorScheme(
+  static ui::NativeTheme::PreferredColorScheme GetPreferredColorScheme(
       const ParamType& param = GetParam()) {
-    return std::get<ui::NativeTheme::ColorScheme>(param);
+    return std::get<ui::NativeTheme::PreferredColorScheme>(param);
   }
 
   static ui::NativeTheme::PreferredContrast GetPreferredContrast(
@@ -336,14 +339,7 @@ class ColorProviderTest : public ThemeServiceTest,
   }
 
  private:
-  // Store the parameter values of the global NativeTheme for UI instance
-  // configured during SetUp() to check if an update should be propagated and
-  // to restore the NativeTheme to its original state in TearDown().
-  bool original_forced_colors_ = false;
-  ui::NativeTheme::PreferredContrast original_preferred_contrast_ =
-      ui::NativeTheme::PreferredContrast::kNoPreference;
-  bool original_should_use_dark_colors_ = false;
-  raw_ptr<ui::NativeTheme> native_theme_;
+  ui::MockOsSettingsProvider os_settings_provider_;
 #if BUILDFLAG(IS_LINUX)
   std::unique_ptr<ui::LinuxUiGetter> linux_ui_getter_;
 #endif
@@ -353,12 +349,31 @@ INSTANTIATE_TEST_SUITE_P(
     ,
     ColorProviderTest,
     ::testing::Combine(
-        ::testing::Values(ui::NativeTheme::ColorScheme::kLight,
-                          ui::NativeTheme::ColorScheme::kDark),
+        ::testing::Values(ui::NativeTheme::PreferredColorScheme::kLight,
+                          ui::NativeTheme::PreferredColorScheme::kDark),
         ::testing::Values(ui::NativeTheme::PreferredContrast::kNoPreference,
                           ui::NativeTheme::PreferredContrast::kMore),
         ::testing::Values(SystemTheme::kDefault, SystemTheme::kCustom)),
     ColorProviderTest::ParamInfoToString);
+
+TEST_P(ThemeUpdatedTest, NoUpdateOnCreation) {
+  // Monitor calls to `OnNativeThemeUpdated()`.
+  struct MockObserver : ui::NativeThemeObserver {
+    void OnNativeThemeUpdated(ui::NativeTheme* observed_theme) override {
+      ++call_count;
+    }
+
+    int call_count = 0;
+  } observer;
+  base::ScopedObservation<ui::NativeTheme, ui::NativeThemeObserver> observation(
+      &observer);
+  observation.Observe(ui::NativeTheme::GetInstanceForNativeUi());
+
+  // Creating the theme service should not synchronously trigger any NativeTheme
+  // notifications.
+  ThemeServiceFactory::GetForProfile(profile());
+  EXPECT_EQ(observer.call_count, 0);
+}
 
 // Installs then uninstalls a theme and makes sure that the ThemeService
 // reverts to the default theme after the uninstall.
@@ -609,7 +624,8 @@ TEST_P(ColorProviderTest, OmniboxContrast) {
   // TODO(crbug.com/41494383): Linux platform native dark mode colors aren't
   //                      sufficiently high contrast to pass.
   if (GetSystemTheme() == SystemTheme::kCustom &&
-      GetColorScheme() == ui::NativeTheme::ColorScheme::kDark) {
+      GetPreferredColorScheme() ==
+          ui::NativeTheme::PreferredColorScheme::kDark) {
     return;
   }
 #endif

@@ -176,15 +176,15 @@ class PDFiumEngine : public DocumentLoader::Client,
     // Parameters for the view. Their meaning depends on the `view` and their
     // number is defined by `num_params` but is at most `kMaxViewParams`. Note:
     // If a parameter stands for the x/y coordinates, it should be transformed
-    // into the corresponding in-screen coordinates before it's sent to the
+    // into the corresponding screen coordinates before it's sent to the
     // viewport.
     std::array<float, kMaxViewParams> params;
 
     // A string of parameters for view fit type XYZ in the format of "x,y,zoom",
-    // where x and y parameters are the in-screen coordinates and zoom is the
-    // zoom level. If a parameter is "null", then current value of that
-    // parameter in the viewport should be retained. Note: This string is empty
-    // if the view's fit type is not XYZ.
+    // where x and y parameters are the screen coordinates and zoom is the zoom
+    // level. If a parameter is "null", then current value of that parameter in
+    // the viewport should be retained. Note: This string is empty if the view's
+    // fit type is not XYZ.
     std::string xyz_params;
   };
 
@@ -275,8 +275,6 @@ class PDFiumEngine : public DocumentLoader::Client,
   virtual bool HasPermission(DocumentPermission permission) const;
 
   virtual void SelectAll();
-
-  virtual void ClearTextSelection();
 
   // Gets the list of DocumentAttachmentInfo from the document.
   virtual const std::vector<DocumentAttachmentInfo>&
@@ -474,7 +472,9 @@ class PDFiumEngine : public DocumentLoader::Client,
   virtual gfx::Transform GetCanonicalToPdfTransform(int page_index);
 
   // Returns all current text selection rects in PDF coordinates, indexed by
-  // their page indices. Virtual to support testing.
+  // their page indices. The rects have tighter bounds than normal, so they can
+  // be used with Ink Strokes to generate less highlight overlap.
+  // Virtual to support testing.
   virtual std::map<int, std::vector<PdfRect>> GetSelectionRectMap();
 
   // Returns whether `point` is within a selectable text area or within a link
@@ -506,12 +506,17 @@ class PDFiumEngine : public DocumentLoader::Client,
   void OnDocumentCanceled() override;
 
   // PdfCaretClient:
+  void ClearTextSelection() override;
+  void ExtendAndInvalidateSelectionByChar(
+      const PageCharacterIndex& index) override;
   uint32_t GetCharCount(uint32_t page_index) const override;
   std::vector<gfx::Rect> GetScreenRectsForCaret(
       const PageCharacterIndex& index) const override;
   void InvalidateRect(const gfx::Rect& rect) override;
+  bool IsSelecting() const override;
   bool IsSynthesizedNewline(const PageCharacterIndex& index) const override;
   bool PageIndexInBounds(int index) const override;
+  void StartSelection(const PageCharacterIndex& index) override;
 
   // `PdfAnnotationAgent::Container`:
   bool FindAndHighlightTextFragments(
@@ -554,7 +559,7 @@ class PDFiumEngine : public DocumentLoader::Client,
   }
 
   // Tells if the page is in `progressive_paints_`
-  bool IsPageScheduledForPaint(int page_index) const;
+  bool IsPageScheduledForPaint(uint32_t page_index) const;
 
   // Unloads the page if it is not visible or prevented from unloading.
   void MaybeUnloadPage(int page_index);
@@ -637,6 +642,16 @@ class PDFiumEngine : public DocumentLoader::Client,
     std::vector<gfx::Rect> GetVisibleChangeRects() const override;
   };
 
+  // Tracks and invalidates find result changes.
+  class FindResultChangeInvalidator : public ChangeInvalidator {
+   public:
+    explicit FindResultChangeInvalidator(PDFiumEngine* engine);
+    ~FindResultChangeInvalidator() override;
+
+   private:
+    std::vector<gfx::Rect> GetVisibleChangeRects() const override;
+  };
+
   // Tracks and invalidates text fragment highlight changes.
   class HighlightChangeInvalidator : public ChangeInvalidator {
    public:
@@ -671,8 +686,10 @@ class PDFiumEngine : public DocumentLoader::Client,
     PDFiumPage::Area area = PDFiumPage::NONSELECTABLE_AREA;
     int page_index = -1;
     int char_index = -1;
+    PdfRect char_bounds;
     int form_type = FPDF_FORMFIELD_UNKNOWN;
     PDFiumPage::LinkTarget target;
+    gfx::PointF pdf_point;
   };
 
   friend class FormFillerTest;
@@ -758,7 +775,7 @@ class PDFiumEngine : public DocumentLoader::Client,
   // Checks if a page is now available, and if so marks it as such and returns
   // true.  Otherwise, it will return false and will add the index to the given
   // array if it's not already there.
-  bool CheckPageAvailable(int index, std::vector<int>* pending);
+  bool CheckPageAvailable(uint32_t index, std::vector<uint32_t>* pending);
 
   // Helper function to get a given page's size in pixels.  Converting from
   // points to pixels are rounded down as part of generating integer values.
@@ -794,6 +811,10 @@ class PDFiumEngine : public DocumentLoader::Client,
   // Inserts a find result into `find_results_`, which is sorted.
   void AddFindResult(PDFiumRange result);
 
+  // Returns the current find selection, otherwise returns nullptr if there is
+  // no find selection.
+  const PDFiumRange* GetFindSelection() const;
+
   // Search a page ourself using ICU.
   void SearchUsingICU(const std::u16string& term,
                       bool case_sensitive,
@@ -817,7 +838,10 @@ class PDFiumEngine : public DocumentLoader::Client,
   ui::mojom::CursorType DetermineCursorType(PDFiumPage::Area area,
                                             int form_type) const;
 
-  bool ExtendSelection(int page_index, int char_index);
+  bool ExtendSelection(const PointData& point_data);
+
+  // Returns whether the text selection was extended to `index`.
+  bool ExtendSelectionByChar(const PageCharacterIndex& index);
 
   std::vector<uint8_t> PrintPagesAsRasterPdf(
       base::span<const int> page_indices,
@@ -832,7 +856,12 @@ class PDFiumEngine : public DocumentLoader::Client,
   void SetFormSelectedText(FPDF_FORMHANDLE form_handle, FPDF_PAGE page);
 
   // Returns information about `point` and the objects at that point.
+  // `point` is in device coordinates.
   PointData GetPointData(const gfx::PointF& point);
+
+  // Helper that returns `point_data.char_index`, possibly with an adjustment,
+  // based on the relative position of the point to the character.
+  int GetCharIndexBasedOnPointData(const PointData& point_data);
 
   void OnSingleClick(int page_index, int char_index);
   void OnMultipleClick(int click_count, int page_index, int char_index);
@@ -847,7 +876,7 @@ class PDFiumEngine : public DocumentLoader::Client,
 
   // Starts a progressive paint operation given a rectangle in screen
   // coordinates. Returns the index in `progressive_paints_`.
-  size_t StartPaint(int page_index, const gfx::Rect& dirty);
+  size_t StartPaint(uint32_t page_index, const gfx::Rect& dirty);
 
   // Continues a paint operation that was started earlier.  Returns true if the
   // paint is done, or false if it needs to be continued.
@@ -883,7 +912,7 @@ class PDFiumEngine : public DocumentLoader::Client,
 
   // Given a page index, returns the corresponding index in
   // `progressive_paints_`, or nullopt if it does not exist.
-  std::optional<size_t> GetProgressiveIndex(int page_index) const;
+  std::optional<size_t> GetProgressiveIndex(uint32_t page_index) const;
 
   // Creates a FPDF_BITMAP from a rectangle in screen coordinates.
   ScopedFPDFBitmap CreateBitmap(const gfx::Rect& rect,
@@ -917,12 +946,9 @@ class PDFiumEngine : public DocumentLoader::Client,
                  SkColor color,
                  std::vector<gfx::Rect>& highlighted_rects) const;
 
-  // Helper function to convert device coordinates to page coordinates.  If the
-  // page is not yet loaded, `page_x` and `page_y` will be set to 0.
-  void DeviceToPage(int page_index,
-                    const gfx::PointF& device_point,
-                    double* page_x,
-                    double* page_y);
+  // Helper function to convert device coordinates to PDF coordinates.  If the
+  // page is not yet loaded, returns (0, 0).
+  gfx::PointF DeviceToPdf(uint32_t page_index, const gfx::PointF& device_point);
 
   // Helper function to convert device coordinates to screen coordinates.
   // Normalizes `device_point` based on `position_` and `current_zoom_`.
@@ -1115,10 +1141,10 @@ class PDFiumEngine : public DocumentLoader::Client,
   std::vector<std::unique_ptr<PDFiumPage>> pages_;
 
   // The indexes of the pages currently visible.
-  std::vector<int> visible_pages_;
+  std::vector<uint32_t> visible_pages_;
 
   // The indexes of the pages pending download.
-  std::vector<int> pending_pages_;
+  std::vector<uint32_t> pending_pages_;
 
   // During handling of input events we don't want to unload any pages in
   // callbacks to us from PDFium, since the current page can change while PDFium
@@ -1146,11 +1172,9 @@ class PDFiumEngine : public DocumentLoader::Client,
   // True if left mouse button is currently being held down.
   bool mouse_left_button_down_ = false;
 
-  // True if middle mouse button is currently being held down.
-  bool mouse_middle_button_down_ = false;
-
-  // Last known position while performing middle mouse button pan.
-  gfx::PointF mouse_middle_button_last_position_;
+  // Last known position while performing middle mouse button pan, or
+  // std::nullopt if the middle mouse button is currently not held down.
+  std::optional<gfx::PointF> mouse_middle_button_last_position_;
 
   // The current text used for searching.
   std::u16string current_find_text_;
@@ -1227,12 +1251,12 @@ class PDFiumEngine : public DocumentLoader::Client,
   // Pending progressive paints.
   class ProgressivePaint {
    public:
-    ProgressivePaint(int page_index, const gfx::Rect& rect);
+    ProgressivePaint(uint32_t page_index, const gfx::Rect& rect);
     ProgressivePaint(ProgressivePaint&& that) noexcept;
     ProgressivePaint& operator=(ProgressivePaint&& that) noexcept;
     ~ProgressivePaint();
 
-    int page_index() const { return page_index_; }
+    uint32_t page_index() const { return page_index_; }
     const gfx::Rect& rect() const { return rect_; }
     FPDF_BITMAP bitmap() const { return bitmap_.get(); }
     bool painted() const { return painted_; }
@@ -1241,7 +1265,7 @@ class PDFiumEngine : public DocumentLoader::Client,
     void SetBitmapAndImageData(ScopedFPDFBitmap bitmap, SkBitmap image_data);
 
    private:
-    int page_index_;
+    uint32_t page_index_;
     gfx::Rect rect_;            // In screen coordinates.
     SkBitmap image_data_;       // Maintains reference while |bitmap_| exists.
     ScopedFPDFBitmap bitmap_;   // Must come after |image_data_|.

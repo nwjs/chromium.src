@@ -40,6 +40,10 @@ export class FakeReadingMode {
   darkTheme: number = 8;
   yellowTheme: number = 9;
   blueTheme: number = 10;
+  highContrastTheme: number = 11;
+  lowContrastTheme: number = 12;
+  sepiaLightTheme: number = 13;
+  sepiaDarkTheme: number = 14;
 
   // Enum values for highlight granularity.
   autoHighlighting: number = 0;
@@ -61,6 +65,7 @@ export class FakeReadingMode {
 
   // Whether the Read Aloud feature flag is enabled.
   isReadAloudEnabled: boolean = true;
+  imagesFeatureEnabled: boolean = false;
 
   // Returns true if the webpage corresponds to a Google Doc.
   isGoogleDocs: boolean = false;
@@ -81,6 +86,8 @@ export class FakeReadingMode {
 
   // If the speech tree has been initialized.
   isSpeechTreeInitialized: boolean = false;
+
+  requiresDistillation: boolean = false;
 
   private maxNodeId: number = 5;
 
@@ -210,6 +217,9 @@ export class FakeReadingMode {
     }
   }
 
+  // Called when there is no text content after building the tree but we're
+  // not showing the empty page either.
+  onNoTextContent() {}
 
   // Called when a user toggles links via the webui toolbar.
   onLinksEnabledToggled() {
@@ -255,6 +265,9 @@ export class FakeReadingMode {
   // Log when speech stops and why.
   logSpeechStop(_source: number) {}
 
+  // Log when the empty state page is shown.
+  logEmptyState(): void {}
+
   // Called when the highlight granularity is changed via the webui toolbar.
   turnedHighlightOn() {
     this.highlightGranularity = this.autoHighlighting;
@@ -280,6 +293,11 @@ export class FakeReadingMode {
   getLanguagesEnabledInPref(): string[] {
     return [...this.savedLanguagePref.values()];
   }
+
+  // Signals that a system voice was used during a speech playback session,
+  // which will be used to log the installation state of the TTS engine
+  // extension.
+  logExtensionState() {}
 
   // Called when a user makes a selection change. AnchorNodeID and
   // focusAXNodeID are AXNodeIDs which identify the anchor and focus AXNodes
@@ -423,10 +441,6 @@ export class FakeReadingMode {
     return 0;
   }
 
-  // Signal that the supported fonts should be updated i.e. that the brower's
-  // preferred language has changed.
-  updateFonts() {}
-
   getDisplayNameForLocale(_locale: string, _displayLocale: string): string {
     return '';
   }
@@ -460,4 +474,7 @@ export class FakeReadingMode {
 
   // Resets the granularity index.
   resetGranularityIndex() {}
+
+  // Logs the extension state.
+  logExtenstionState() {}
 }

@@ -22,6 +22,7 @@
 #include "components/autofill/core/browser/strike_databases/payments/test_strike_database.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/strike_database/strike_database_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -153,9 +154,14 @@ class SaveAndFillManagerImplTest : public testing::Test {
               result, u"context_token",
               create_valid_legal_message
                   ? std::make_unique<base::Value::Dict>(
-                        base::JSONReader::ReadDict(kLegalMessageLines).value())
+                        base::JSONReader::ReadDict(
+                            kLegalMessageLines,
+                            base::JSON_PARSE_CHROMIUM_EXTENSIONS)
+                            .value())
                   : std::make_unique<base::Value::Dict>(
-                        base::JSONReader::ReadDict(kInvalidLegalMessageLines)
+                        base::JSONReader::ReadDict(
+                            kInvalidLegalMessageLines,
+                            base::JSON_PARSE_CHROMIUM_EXTENSIONS)
                             .value()),
               supported_card_bin_ranges);
           return RequestId("11223344");
@@ -239,7 +245,7 @@ TEST_F(SaveAndFillManagerImplTest,
 TEST_F(SaveAndFillManagerImplTest, OnUserDidDecideOnLocalSave_Accepted) {
   // Disable StrikeDB check so it will not block feature prompt.
   base::test::ScopedFeatureList feature_list(
-      features::kDisableAutofillStrikeSystem);
+      strike_database::features::kDisableStrikeSystem);
   SaveAndFillStrikeDatabase save_and_fill_strike_database(strike_database_);
   // Add an existing strike.
   save_and_fill_strike_database.AddStrike();
@@ -624,7 +630,7 @@ TEST_F(SaveAndFillManagerImplTest,
 TEST_F(SaveAndFillManagerImplTest, OnUserDidDecideOnUploadSave_Accepted) {
   // Disable StrikeDB check so it will not block feature prompt.
   base::test::ScopedFeatureList feature_list(
-      features::kDisableAutofillStrikeSystem);
+      strike_database::features::kDisableStrikeSystem);
   SaveAndFillStrikeDatabase save_and_fill_strike_database(strike_database_);
   // Add an existing strike.
   save_and_fill_strike_database.AddStrike();
@@ -758,6 +764,10 @@ TEST_F(SaveAndFillManagerImplTest,
   save_and_fill_manager_impl_->OnSuggestionOffered();
   save_and_fill_manager_impl_->MaybeAddStrikeForSaveAndFill();
 
+  EXPECT_EQ(1, save_and_fill_strike_database.GetStrikes());
+
+  // Verifies that calling it again won't log another strike.
+  save_and_fill_manager_impl_->MaybeAddStrikeForSaveAndFill();
   EXPECT_EQ(1, save_and_fill_strike_database.GetStrikes());
 }
 

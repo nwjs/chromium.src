@@ -194,7 +194,9 @@ using net::test_server::RegisterDefaultHandlers;
 using testing::_;
 using testing::AnyOf;
 using testing::ElementsAre;
+using testing::HasSubstr;
 using testing::IsEmpty;
+using testing::Not;
 using testing::Optional;
 using testing::UnorderedElementsAre;
 
@@ -7471,6 +7473,58 @@ TEST_F(URLRequestTestHTTP, AuthWithNetworkAnonymizationKey) {
   }
 }
 
+TEST_F(URLRequestTestHTTP, EmbeddedAuthCredentialsRedacted) {
+  ASSERT_TRUE(http_test_server()->Start());
+  const std::string_view kUsername = "jiminy";
+  // Default password for "/auth-basic".
+  const std::string_view kPassword = "secret";
+
+  RecordingNetLogObserver redacted_net_log_observer(
+      NetLogCaptureMode::kDefault);
+
+  GURL url_without_credentials = http_test_server()->GetURL("/auth-basic");
+  GURL::Replacements replacements;
+  replacements.SetUsernameStr(kUsername);
+  replacements.SetPasswordStr(kPassword);
+  GURL url = url_without_credentials.ReplaceComponents(replacements);
+
+  TestDelegate d;
+  std::unique_ptr<URLRequest> req(default_context().CreateRequest(
+      url, DEFAULT_PRIORITY, &d, TRAFFIC_ANNOTATION_FOR_TESTS));
+  req->Start();
+  d.RunUntilComplete();
+  EXPECT_THAT(d.request_status(), IsOk());
+  ASSERT_TRUE(req->response_headers());
+  EXPECT_EQ(200, req->response_headers()->response_code());
+
+  // Make sure the NetLogObservers are hooked up properly.
+  EXPECT_GT(redacted_net_log_observer.GetSize(), 0u);
+  EXPECT_GT(net_log_observer_.GetSize(), 0u);
+
+  // Check that only the version of the URL with credentials redacted appears
+  // was passed to the NetLogObserver with the default capture mode.
+  std::string url_with_redacted_credentials =
+      url_without_credentials.spec() + " (credentials redacted)";
+  std::string observed_redacted_json = redacted_net_log_observer.GetJson();
+  EXPECT_THAT(observed_redacted_json, Not(HasSubstr(url.spec())));
+  EXPECT_THAT(observed_redacted_json, HasSubstr(url_with_redacted_credentials));
+  // Also search individually for the username and password. While this doesn't
+  // guarantee there's no code that logs the unredacted HTTP auth credentials,
+  // either embedded in the URLs or provided in some other way, it does provide
+  // some defence against it.
+  EXPECT_THAT(observed_redacted_json, Not(HasSubstr(kUsername)));
+  EXPECT_THAT(observed_redacted_json, Not(HasSubstr(kPassword)));
+
+  // Check that the NetLogObserver set to receive sensitive information
+  // never displays the redacted URL string (though at some layers, the URL
+  // may appear without credentials, it never logs the redacted message),
+  // and the full URL appears in at least some locations.
+  std::string observed_json = net_log_observer_.GetJson();
+  EXPECT_NE(observed_json.find(url.spec()), std::string::npos);
+  EXPECT_EQ(observed_json.find(url_with_redacted_credentials),
+            std::string::npos);
+}
+
 TEST_F(URLRequestTest, ReportCookieActivity) {
   EmbeddedTestServer test_server(EmbeddedTestServer::TYPE_HTTPS);
   RegisterDefaultHandlers(&test_server);
@@ -11460,7 +11514,10 @@ TEST_F(HTTPSCRLSetTest, CRLSetRevokedBySubject) {
   std::string common_name = test_server.GetCertificate()->subject().common_name;
 
   {
-    auto crl_set = CRLSet::ForTesting(false, nullptr, "", common_name, {});
+    auto crl_set = CRLSet::ForTesting(
+        /*is_expired=*/false, /*issuer_spki=*/nullptr, /*serial_number=*/{},
+        common_name,
+        /*acceptable_spki_hashes_for_cn=*/{});
     ASSERT_TRUE(crl_set);
     UpdateCertVerifier(crl_set);
 
@@ -11487,8 +11544,9 @@ TEST_F(HTTPSCRLSetTest, CRLSetRevokedBySubject) {
       test_server.GetCertificate()->cert_buffer(), &spki_hash_value));
   std::string spki_hash(base::as_string_view(spki_hash_value));
   {
-    auto crl_set =
-        CRLSet::ForTesting(false, nullptr, "", common_name, {spki_hash});
+    auto crl_set = CRLSet::ForTesting(
+        /*is_expired=*/false, /*issuer_spki=*/nullptr, /*serial_number=*/{},
+        common_name, {spki_hash});
     ASSERT_TRUE(crl_set);
     UpdateCertVerifier(crl_set);
 

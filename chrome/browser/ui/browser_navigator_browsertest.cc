@@ -26,6 +26,8 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/page_info/chrome_page_info_delegate.h"
 #include "chrome/browser/ui/search/ntp_test_utils.h"
 #include "chrome/browser/ui/singleton_tabs.h"
@@ -35,8 +37,6 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/captive_portal/core/buildflags.h"
 #include "components/content_settings/core/common/features.h"
-#include "components/omnibox/browser/omnibox_edit_model.h"
-#include "components/omnibox/browser/omnibox_view.h"
 #include "components/omnibox/browser/tab_matcher.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -1768,6 +1768,20 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
   }
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
   EXPECT_EQ(GURL(chrome::kChromeUIHistoryURL),
+            browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
+                       NavigateFromDefaultToTabsFromOtherDevicesInSameTab) {
+  {
+    content::LoadStopObserver observer(
+        browser()->tab_strip_model()->GetActiveWebContents());
+    chrome::ShowHistorySubPage(browser(), chrome::kChromeUIHistorySyncedTabs);
+    observer.Wait();
+  }
+  EXPECT_EQ(1, browser()->tab_strip_model()->count());
+  EXPECT_EQ(GURL(chrome::kChromeUIHistoryURL)
+                .Resolve(chrome::kChromeUIHistorySyncedTabs),
             browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
 }
 

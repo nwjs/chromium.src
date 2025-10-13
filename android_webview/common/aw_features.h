@@ -39,8 +39,7 @@ BASE_DECLARE_FEATURE(kWebViewUnreducedProductVersion);
 BASE_DECLARE_FEATURE(kWebViewUseRenderingHeuristic);
 BASE_DECLARE_FEATURE(kWebViewUseStartupTasksLogic);
 BASE_DECLARE_FEATURE(kWebViewUseStartupTasksLogicP2);
-BASE_DECLARE_FEATURE(kWebViewXRequestedWithHeaderControl);
-extern const base::FeatureParam<int> kWebViewXRequestedWithHeaderMode;
+BASE_DECLARE_FEATURE(kWebViewUseViewPositionObserverForInsets);
 BASE_DECLARE_FEATURE(kWebViewUseInitialNetworkStateAtStartup);
 BASE_DECLARE_FEATURE(kWebViewReduceUAAndroidVersionDeviceModel);
 BASE_DECLARE_FEATURE(kWebViewEnableCrash);
@@ -66,10 +65,13 @@ extern const base::FeatureParam<int> kWebViewCacheSizeLimitMaximum;
 extern const base::FeatureParam<double> kWebViewCodeCacheSizeLimitMultiplier;
 BASE_DECLARE_FEATURE(kWebViewConnectToComponentProviderInBackground);
 BASE_DECLARE_FEATURE(kAndroidMetricsAsyncMetricLogging);
-BASE_DECLARE_FEATURE(kWebViewUseBackgroundThreadForGms);
 BASE_DECLARE_FEATURE(kWebViewReducedSeedExpiration);
 BASE_DECLARE_FEATURE(kWebViewReducedSeedRequestPeriod);
 BASE_DECLARE_FEATURE(kWebViewEarlyStartupTracing);
+BASE_DECLARE_FEATURE(kWebViewEarlyPerfettoInit);
+BASE_DECLARE_FEATURE(kWebViewCacheBoundaryInterfaceMethods);
+BASE_DECLARE_FEATURE(kWebViewOptInToGmsBindServiceOptimization);
+
 }  // namespace android_webview::features
 
 #endif  // ANDROID_WEBVIEW_COMMON_AW_FEATURES_H_

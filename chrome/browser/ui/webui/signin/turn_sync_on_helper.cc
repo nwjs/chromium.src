@@ -34,7 +34,6 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/sync_startup_tracker.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/sync/profile_signin_confirmation_helper.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_helper.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/webui/signin/signin_ui_error.h"
@@ -55,6 +54,7 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/signin/public/identity_manager/tribool.h"
+#include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "components/unified_consent/unified_consent_service.h"
@@ -90,36 +90,6 @@ class TurnSyncOnHelperShutdownNotifierFactory
     DependsOn(policy::UserPolicySigninServiceFactory::GetInstance());
   }
   ~TurnSyncOnHelperShutdownNotifierFactory() override = default;
-};
-
-// User input handler for the signin confirmation dialog.
-class SigninDialogDelegate : public ui::ProfileSigninConfirmationDelegate {
- public:
-  explicit SigninDialogDelegate(signin::SigninChoiceCallback callback)
-      : callback_(std::move(callback)) {
-    DCHECK(callback_);
-  }
-  SigninDialogDelegate(const SigninDialogDelegate&) = delete;
-  SigninDialogDelegate& operator=(const SigninDialogDelegate&) = delete;
-  ~SigninDialogDelegate() override = default;
-
-  void OnCancelSignin() override {
-    DCHECK(callback_);
-    std::move(callback_).Run(signin::SIGNIN_CHOICE_CANCEL);
-  }
-
-  void OnContinueSignin() override {
-    DCHECK(callback_);
-    std::move(callback_).Run(signin::SIGNIN_CHOICE_CONTINUE);
-  }
-
-  void OnSigninWithNewProfile() override {
-    DCHECK(callback_);
-    std::move(callback_).Run(signin::SIGNIN_CHOICE_NEW_PROFILE);
-  }
-
- private:
-  signin::SigninChoiceCallback callback_;
 };
 
 struct CurrentTurnSyncOnHelperUserData : public base::SupportsUserData::Data {
@@ -210,6 +180,12 @@ TurnSyncOnHelper::TurnSyncOnHelper(
   DCHECK(profile_);
   // Should not start syncing if the profile is already authenticated
   DCHECK(!identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSync));
+
+  // This class should be unreachable if `kReplaceSyncPromosWithSignInPromos` is
+  // enabled.
+  CHECK(
+      !base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos),
+      base::NotFatalUntil::M144);
 
   // Cancel any existing helper.
   AttachToProfile();
@@ -366,7 +342,8 @@ void TurnSyncOnHelper::TurnSyncOnWithProfileMode(ProfileMode profile_mode) {
           TurnSyncOnHelperPolicyFetchTracker::CreateInstance(profile_,
                                                              account_info_);
       policy_fetch_tracker_->RegisterForPolicy(base::BindOnce(
-          &TurnSyncOnHelper::OnRegisteredForPolicy, base::Unretained(this)));
+          &TurnSyncOnHelper::OnRegisteredForPolicy, base::Unretained(this)),
+          /*is_registration_for_management_consistency_check=*/false);
       break;
     }
     case ProfileMode::NEW_PROFILE:

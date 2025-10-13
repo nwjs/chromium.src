@@ -40,6 +40,7 @@
 #include "net/base/request_priority.h"
 #include "net/dns/host_resolver.h"
 #include "net/dns/public/resolve_error_info.h"
+#include "net/http/alternate_protocol_usage.h"
 #include "net/http/alternative_service.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_request_info.h"
@@ -156,7 +157,8 @@ class Preconnector {
             stream_key.socket_tag(), stream_key.network_anonymization_key(),
             stream_key.secure_dns_policy(),
             stream_key.disable_cert_network_fetches(),
-            alternative_service_info_, allowed_alpns_, load_flags_, proxy_info_,
+            alternative_service_info_, AdvertisedAltSvcState::kUnknown,
+            allowed_alpns_, load_flags_, proxy_info_,
             NetLogWithSource::Make(
                 pool.http_network_session()->net_log(),
                 NetLogSourceType::HTTP_STREAM_JOB_CONTROLLER)),
@@ -297,7 +299,8 @@ class StreamRequester : public HttpStreamRequest::Delegate {
             stream_key.socket_tag(), stream_key.network_anonymization_key(),
             stream_key.secure_dns_policy(),
             stream_key.disable_cert_network_fetches(),
-            alternative_service_info_, allowed_alpns_, load_flags_, proxy_info_,
+            alternative_service_info_, AdvertisedAltSvcState::kUnknown,
+            allowed_alpns_, load_flags_, proxy_info_,
             NetLogWithSource::Make(
                 pool.http_network_session()->net_log(),
                 NetLogSourceType::HTTP_STREAM_JOB_CONTROLLER)),
@@ -616,7 +619,7 @@ class HttpStreamPoolAttemptManagerTest : public TestWithTaskEnvironment {
     return raw_client_maker;
   }
 
-  std::set<HostPortPair>& origins_to_force_quic_on() {
+  std::set<url::SchemeHostPort>& origins_to_force_quic_on() {
     return origins_to_force_quic_on_;
   }
 
@@ -627,7 +630,7 @@ class HttpStreamPoolAttemptManagerTest : public TestWithTaskEnvironment {
 
   SpdySessionDependencies session_deps_;
 
-  std::set<HostPortPair> origins_to_force_quic_on_;
+  std::set<url::SchemeHostPort> origins_to_force_quic_on_;
 
   ProofVerifyDetailsChromium verify_details_;
   std::vector<std::unique_ptr<QuicTestPacketMaker>> quic_client_makers_;
@@ -5769,7 +5772,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest,
 
 TEST_F(HttpStreamPoolAttemptManagerTest, OriginsToForceQuicOnOk) {
   origins_to_force_quic_on().insert(
-      HostPortPair::FromURL(GURL(kDefaultDestination)));
+      url::SchemeHostPort(GURL(kDefaultDestination)));
   InitializeSession();
 
   AddQuicData();
@@ -5787,7 +5790,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest, OriginsToForceQuicOnOk) {
 
 TEST_F(HttpStreamPoolAttemptManagerTest, OriginsToForceQuicOnExistingSession) {
   origins_to_force_quic_on().insert(
-      HostPortPair::FromURL(GURL(kDefaultDestination)));
+      url::SchemeHostPort(GURL(kDefaultDestination)));
   InitializeSession();
 
   AddQuicData();
@@ -5820,7 +5823,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest, OriginsToForceQuicOnExistingSession) {
 
 TEST_F(HttpStreamPoolAttemptManagerTest, OriginsToForceQuicOnFail) {
   origins_to_force_quic_on().insert(
-      HostPortPair::FromURL(GURL(kDefaultDestination)));
+      url::SchemeHostPort(GURL(kDefaultDestination)));
   InitializeSession();
 
   auto quic_data = std::make_unique<MockQuicData>(quic_version());
@@ -5840,7 +5843,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest, OriginsToForceQuicOnFail) {
 
 TEST_F(HttpStreamPoolAttemptManagerTest, OriginsToForceQuicOnPreconnectOk) {
   origins_to_force_quic_on().insert(
-      HostPortPair::FromURL(GURL(kDefaultDestination)));
+      url::SchemeHostPort(GURL(kDefaultDestination)));
   InitializeSession();
 
   AddQuicData();
@@ -5858,7 +5861,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest, OriginsToForceQuicOnPreconnectOk) {
 
 TEST_F(HttpStreamPoolAttemptManagerTest, OriginsToForceQuicOnPreconnectFail) {
   origins_to_force_quic_on().insert(
-      HostPortPair::FromURL(GURL(kDefaultDestination)));
+      url::SchemeHostPort(GURL(kDefaultDestination)));
   InitializeSession();
 
   auto quic_data = std::make_unique<MockQuicData>(quic_version());
@@ -5880,7 +5883,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest, QuicSessionGoneBeforeUsing) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(net::features::kAsyncQuicSession);
   origins_to_force_quic_on().insert(
-      HostPortPair::FromURL(GURL(kDefaultDestination)));
+      url::SchemeHostPort(GURL(kDefaultDestination)));
   InitializeSession();
 
   QuicTestPacketMaker* client_maker = CreateQuicClientPacketMaker();
@@ -7450,9 +7453,14 @@ TEST_F(HttpStreamPoolAttemptManagerTest,
   EXPECT_THAT(requester.result(), Optional(IsOk()));
 }
 
-// Regression test for crbug.com/415488524. A QUIC destination may be marked
-// broken after a successful QUIC session attempt. Ensure that a request
-// doesn't use QUIC in a such situation.
+// A QUIC destination may be marked broken after a successful QUIC session
+// attempt. In that case, we can still return a QUIC session to the destination.
+// If we want to avoid this, we could link the QuicSessionPool to the
+// HttpServerProperties record of which destinations have been marked as bad,
+// but it's a fairly innocuous case - any new request won't use QUIC, and the
+// current request will either (unexpectedly) succeed, or will fail due to
+// another kQuicProtocolError, notice QUIC has been marked as broken, since the
+// transaction started, and retry without QUIC.
 TEST_F(HttpStreamPoolAttemptManagerTest, QuicBrokenWhenSessionCreated) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(net::features::kAsyncQuicSession);
@@ -7465,10 +7473,10 @@ TEST_F(HttpStreamPoolAttemptManagerTest, QuicBrokenWhenSessionCreated) {
   MockConnectCompleter quic_completer;
   AddQuicData(/*host=*/kDefaultDestination, &quic_completer);
 
+  // The TCP connection attempt hangs.
   SequencedSocketData tcp_data;
+  tcp_data.set_connect_data(MockConnect(SYNCHRONOUS, ERR_IO_PENDING));
   socket_factory()->AddSocketDataProvider(&tcp_data);
-  SSLSocketDataProvider ssl(ASYNC, OK);
-  socket_factory()->AddSSLSocketDataProvider(&ssl);
 
   StreamRequester requester;
   requester.set_destination(kDefaultDestination)
@@ -7484,7 +7492,7 @@ TEST_F(HttpStreamPoolAttemptManagerTest, QuicBrokenWhenSessionCreated) {
   quic_completer.Complete(OK);
   requester.WaitForResult();
   EXPECT_THAT(requester.result(), Optional(IsOk()));
-  EXPECT_NE(requester.negotiated_protocol(), NextProto::kProtoQUIC);
+  EXPECT_EQ(requester.negotiated_protocol(), NextProto::kProtoQUIC);
 }
 
 TEST_F(HttpStreamPoolAttemptManagerTest, SpdyOkQuicOk) {

@@ -208,6 +208,10 @@ class ReadAnythingAppController
   int DarkTheme() const;
   int YellowTheme() const;
   int BlueTheme() const;
+  int HighContrastTheme() const;
+  int LowContrastTheme() const;
+  int SepiaLightTheme() const;
+  int SepiaDarkTheme() const;
   int AutoHighlighting() const;
   int WordHighlighting() const;
   int PhraseHighlighting() const;
@@ -259,6 +263,7 @@ class ReadAnythingAppController
   void OnFontChange(const std::string& font);
   void OnSpeechRateChange(double rate);
   void OnVoiceChange(const std::string& voice, const std::string& lang);
+  void LogExtensionState();
   void OnLanguagePrefChange(const std::string& lang, bool enabled);
   bool RequiresDistillation();
   void OnHighlightGranularityChanged(int granularity);
@@ -273,9 +278,10 @@ class ReadAnythingAppController
   std::vector<std::string> GetAllFonts() const;
   void OnScrolledToBottom();
   bool IsDocsLoadMoreButtonVisible() const;
-  void OnNoTextContent(bool previouslyHadContent);
+  void OnNoTextContent();
   void UpdateWordsSeen(int words_seen);
   void UpdateWordsHeard(int words_heard);
+  void LogEmptyState();
 
   // The language code that should be used to determine which voices are
   // supported for speech.

@@ -550,7 +550,7 @@ TEST_P(AnimationAnimationTestNoCompositing, SetStartTimeOnLimitedAnimation) {
 TEST_P(AnimationAnimationTestNoCompositing, StartTimePauseFinish) {
   NonThrowableExceptionState exception_state;
   animation->pause();
-  EXPECT_EQ("paused", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kPaused, animation->playState());
   EXPECT_TRUE(animation->pending());
   SimulateAwaitReady();
   EXPECT_FALSE(animation->pending());
@@ -564,11 +564,11 @@ TEST_P(AnimationAnimationTestNoCompositing, StartTimePauseFinish) {
 TEST_P(AnimationAnimationTestNoCompositing, FinishWhenPaused) {
   NonThrowableExceptionState exception_state;
   animation->pause();
-  EXPECT_EQ("paused", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kPaused, animation->playState());
   EXPECT_TRUE(animation->pending());
 
   SimulateFrame(10000);
-  EXPECT_EQ("paused", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kPaused, animation->playState());
   EXPECT_FALSE(animation->pending());
   animation->finish(exception_state);
   EXPECT_EQ(V8AnimationPlayState::Enum::kFinished, animation->playState());
@@ -579,7 +579,7 @@ TEST_P(AnimationAnimationTestNoCompositing, StartTimeFinishPause) {
   animation->finish(exception_state);
   EXPECT_TIME(-30000, GetStartTimeMs(animation));
   animation->pause();
-  EXPECT_EQ("paused", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kPaused, animation->playState());
   EXPECT_TRUE(animation->pending());
   SimulateAwaitReady();
   EXPECT_FALSE(animation->pending());
@@ -601,13 +601,13 @@ TEST_P(AnimationAnimationTestNoCompositing, PausePlay) {
   // Pause the animation at the 10s mark.
   SimulateFrame(10000);
   animation->pause();
-  EXPECT_EQ("paused", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kPaused, animation->playState());
   EXPECT_TRUE(animation->pending());
   EXPECT_TIME(10000, GetCurrentTimeMs(animation));
 
   // Resume playing the animation at the 20s mark.
   SimulateFrame(20000);
-  EXPECT_EQ("paused", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kPaused, animation->playState());
   EXPECT_FALSE(animation->pending());
   EXPECT_TIME(10000, GetCurrentTimeMs(animation));
   animation->play();
@@ -711,7 +711,7 @@ TEST_P(AnimationAnimationTestNoCompositing,
   animation->setPlaybackRate(0);
 
   SimulateFrame(1000);
-  EXPECT_EQ("paused", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kPaused, animation->playState());
   animation->play();
   EXPECT_EQ(V8AnimationPlayState::Enum::kRunning, animation->playState());
   EXPECT_TRUE(animation->pending());
@@ -965,7 +965,7 @@ TEST_P(AnimationAnimationTestNoCompositing, UpdatePlaybackRateWhilePaused) {
 
   // Pending playback rate on pending-paused animation is picked up after async
   // tick.
-  EXPECT_EQ("paused", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kPaused, animation->playState());
   EXPECT_TRUE(animation->pending());
   animation->updatePlaybackRate(2);
   EXPECT_EQ(1, animation->playbackRate());
@@ -1146,7 +1146,7 @@ TEST_P(AnimationAnimationTestNoCompositing, TimeToNextEffectWhenPaused) {
                    animation->TimeToEffectChange().value());
   animation->pause();
   EXPECT_TRUE(animation->pending());
-  EXPECT_EQ("paused", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kPaused, animation->playState());
   SimulateAwaitReady();
   EXPECT_FALSE(animation->pending());
   animation->Update(kTimingUpdateOnDemand);
@@ -1162,7 +1162,7 @@ TEST_P(AnimationAnimationTestNoCompositing,
   animation->setPlaybackRate(2);
   EXPECT_EQ(V8AnimationPlayState::Enum::kRunning, animation->playState());
   animation->cancel();
-  EXPECT_EQ("idle", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kIdle, animation->playState());
   EXPECT_FALSE(animation->pending());
   animation->Update(kTimingUpdateOnDemand);
   // This frame will fire the finish event event though no start time has been
@@ -1179,7 +1179,7 @@ TEST_P(AnimationAnimationTestNoCompositing,
   animation->setPlaybackRate(-3);
   EXPECT_EQ(V8AnimationPlayState::Enum::kRunning, animation->playState());
   animation->cancel();
-  EXPECT_EQ("idle", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kIdle, animation->playState());
   EXPECT_FALSE(animation->pending());
   animation->Update(kTimingUpdateOnDemand);
   EXPECT_EQ(std::nullopt, animation->TimeToEffectChange());
@@ -1191,7 +1191,7 @@ TEST_P(AnimationAnimationTestNoCompositing,
                    animation->TimeToEffectChange().value());
   EXPECT_EQ(V8AnimationPlayState::Enum::kRunning, animation->playState());
   animation->cancel();
-  EXPECT_EQ("idle", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kIdle, animation->playState());
   EXPECT_FALSE(animation->pending());
   animation->Update(kTimingUpdateOnDemand);
   EXPECT_EQ(std::nullopt, animation->TimeToEffectChange());
@@ -1225,7 +1225,7 @@ TEST_P(AnimationAnimationTestNoCompositing, HasLowerCompositeOrdering) {
 
 TEST_P(AnimationAnimationTestNoCompositing, PlayAfterCancel) {
   animation->cancel();
-  EXPECT_EQ("idle", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kIdle, animation->playState());
   EXPECT_FALSE(CurrentTimeIsSet(animation));
   EXPECT_FALSE(StartTimeIsSet(animation));
   animation->play();
@@ -1249,7 +1249,7 @@ TEST_P(AnimationAnimationTestNoCompositing, PlayBackwardsAfterCancel) {
   animation->setCurrentTime(MakeGarbageCollected<V8CSSNumberish>(15000),
                             ASSERT_NO_EXCEPTION);
   animation->cancel();
-  EXPECT_EQ("idle", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kIdle, animation->playState());
   EXPECT_FALSE(animation->pending());
   EXPECT_FALSE(CurrentTimeIsSet(animation));
   EXPECT_FALSE(StartTimeIsSet(animation));
@@ -1272,7 +1272,7 @@ TEST_P(AnimationAnimationTestNoCompositing, PlayBackwardsAfterCancel) {
 
 TEST_P(AnimationAnimationTestNoCompositing, ReverseAfterCancel) {
   animation->cancel();
-  EXPECT_EQ("idle", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kIdle, animation->playState());
   EXPECT_FALSE(animation->pending());
   EXPECT_FALSE(CurrentTimeIsSet(animation));
   EXPECT_FALSE(StartTimeIsSet(animation));
@@ -1296,7 +1296,7 @@ TEST_P(AnimationAnimationTestNoCompositing, ReverseAfterCancel) {
 TEST_P(AnimationAnimationTestNoCompositing, FinishAfterCancel) {
   NonThrowableExceptionState exception_state;
   animation->cancel();
-  EXPECT_EQ("idle", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kIdle, animation->playState());
   EXPECT_FALSE(CurrentTimeIsSet(animation));
   EXPECT_FALSE(StartTimeIsSet(animation));
 
@@ -1308,11 +1308,11 @@ TEST_P(AnimationAnimationTestNoCompositing, FinishAfterCancel) {
 
 TEST_P(AnimationAnimationTestNoCompositing, PauseAfterCancel) {
   animation->cancel();
-  EXPECT_EQ("idle", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kIdle, animation->playState());
   EXPECT_FALSE(CurrentTimeIsSet(animation));
   EXPECT_FALSE(StartTimeIsSet(animation));
   animation->pause();
-  EXPECT_EQ("paused", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kPaused, animation->playState());
   EXPECT_TRUE(animation->pending());
   EXPECT_TIME(0, GetCurrentTimeMs(animation));
   EXPECT_FALSE(StartTimeIsSet(animation));
@@ -1834,7 +1834,8 @@ TEST_P(AnimationAnimationTestCompositing,
       To<LayoutBoxModelObject>(GetLayoutObjectByElementId("scroller"));
   PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
   scrollable_area->SetScrollOffset(ScrollOffset(0, 20),
-                                   mojom::blink::ScrollType::kProgrammatic);
+                                   mojom::blink::ScrollType::kProgrammatic,
+                                   cc::ScrollSourceType::kAbsoluteScroll);
   ScrollTimelineOptions* options = ScrollTimelineOptions::Create();
   options->setSource(GetElementById("scroller"));
   ScrollTimeline* scroll_timeline =
@@ -1906,7 +1907,8 @@ TEST_P(AnimationAnimationTestCompositing,
       To<LayoutBoxModelObject>(GetLayoutObjectByElementId("scroller"));
   PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
   scrollable_area->SetScrollOffset(ScrollOffset(0, 100),
-                                   mojom::blink::ScrollType::kProgrammatic);
+                                   mojom::blink::ScrollType::kProgrammatic,
+                                   cc::ScrollSourceType::kAbsoluteScroll);
   ScrollTimelineOptions* options = ScrollTimelineOptions::Create();
   options->setSource(GetElementById("scroller"));
   ScrollTimeline* scroll_timeline =
@@ -1988,7 +1990,8 @@ TEST_P(AnimationAnimationTestNoCompositing, ScrollLinkedAnimationCreation) {
       To<LayoutBoxModelObject>(GetLayoutObjectByElementId("scroller"));
   PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
   scrollable_area->SetScrollOffset(ScrollOffset(0, 20),
-                                   mojom::blink::ScrollType::kProgrammatic);
+                                   mojom::blink::ScrollType::kProgrammatic,
+                                   cc::ScrollSourceType::kAbsoluteScroll);
   ScrollTimelineOptions* options = ScrollTimelineOptions::Create();
   options->setSource(GetElementById("scroller"));
   ScrollTimeline* scroll_timeline =
@@ -2015,7 +2018,8 @@ TEST_P(AnimationAnimationTestNoCompositing, ScrollLinkedAnimationCreation) {
 
   // Verify current time after scroll.
   scrollable_area->SetScrollOffset(ScrollOffset(0, 40),
-                                   mojom::blink::ScrollType::kProgrammatic);
+                                   mojom::blink::ScrollType::kProgrammatic,
+                                   cc::ScrollSourceType::kAbsoluteScroll);
   SimulateFrameForScrollAnimations();
   EXPECT_TIME(40, GetCurrentTimePercent(scroll_animation));
 }
@@ -2113,7 +2117,7 @@ TEST_P(AnimationAnimationTestNoCompositing,
   SimulateFrame(1000);
   EXPECT_TRUE(animation->Update(kTimingUpdateForAnimationFrame));
   animation->cancel();
-  EXPECT_EQ("idle", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kIdle, animation->playState());
   EXPECT_FALSE(animation->Update(kTimingUpdateForAnimationFrame));
 }
 
@@ -2223,7 +2227,7 @@ TEST_P(AnimationAnimationTestNoCompositing,
   EXPECT_EQ(V8AnimationPlayState::Enum::kRunning, animation->playState());
   SimulateFrame(2000);
   animation->cancel();
-  EXPECT_EQ("idle", animation->playState());
+  EXPECT_EQ(V8AnimationPlayState::Enum::kIdle, animation->playState());
   EXPECT_FALSE(animation->Update(kTimingUpdateForAnimationFrame));
   EXPECT_FALSE(animation->HasPendingActivity());
 }
@@ -2406,7 +2410,8 @@ TEST_P(AnimationAnimationTestCompositing,
   PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
   ASSERT_FALSE(UsesCompositedScrolling(*scroller));
   scrollable_area->SetScrollOffset(ScrollOffset(0, 20),
-                                   mojom::blink::ScrollType::kProgrammatic);
+                                   mojom::blink::ScrollType::kProgrammatic,
+                                   cc::ScrollSourceType::kAbsoluteScroll);
   ScrollTimelineOptions* options = ScrollTimelineOptions::Create();
   options->setSource(GetElementById("scroller"));
   ScrollTimeline* scroll_timeline =
@@ -2662,7 +2667,7 @@ TEST_P(AnimationAnimationTestCompositing,
   const HeapHashSet<WeakMember<AnimationTimeline>>& timelines =
       GetDocument().GetDocumentAnimations().GetTimelinesForTesting();
   EXPECT_TRUE(timelines.Contains(timeline));
-  AnimationTrigger* trigger;
+  TimelineTrigger* trigger;
   Animation* animation;
   {
     // Create an animation.
@@ -2681,12 +2686,14 @@ TEST_P(AnimationAnimationTestCompositing,
         MakeGarbageCollected<TimelineTrigger::RangeBoundary>(dummy_offset);
     trigger = MakeGarbageCollected<TimelineTrigger>(
         timeline,
-        AnimationTrigger::Behavior(AnimationTrigger::Behavior::Enum::kRepeat),
         dummy_range_boundary, dummy_range_boundary, dummy_range_boundary,
         dummy_range_boundary);
 
     // Attach the trigger to the animation.
-    trigger->addAnimation(animation, ASSERT_NO_EXCEPTION);
+    trigger->addAnimation(
+        animation, AtomicString(TimelineTriggerAction::kEnter),
+        V8AnimationTriggerBehavior(V8AnimationTriggerBehavior::Enum::kPlay),
+        ASSERT_NO_EXCEPTION);
     EXPECT_EQ(animation->CalculateAnimationPlayState(),
               V8AnimationPlayState::Enum::kPaused);
 
@@ -2770,7 +2777,7 @@ class ScriptedTimelineTriggerTest : public PageTestBase {
           rangeStart: "contain 0%",
           rangeEnd: "contain 100%"});
 
-        trigger.addAnimation(animation);
+        trigger.addAnimation(animation, "enter", "play-forwards");
       }
 
       setupTriggeredAnimation();

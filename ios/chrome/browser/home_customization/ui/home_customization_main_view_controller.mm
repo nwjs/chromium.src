@@ -5,12 +5,16 @@
 #import "ios/chrome/browser/home_customization/ui/home_customization_main_view_controller.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/metrics/histogram_functions.h"
+#import "base/metrics/user_metrics.h"
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/home_customization/ui/background_collection_configuration.h"
 #import "ios/chrome/browser/home_customization/ui/background_customization_configuration.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_cell.h"
+#import "ios/chrome/browser/home_customization/ui/home_customization_background_configuration_mutator.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_picker_cell.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_collection_configurator.h"
+#import "ios/chrome/browser/home_customization/ui/home_customization_enterprise_policy_cell.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_framing_coordinates.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_mutator.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_search_engine_logo_mediator_provider.h"
@@ -54,8 +58,15 @@
   // Collection of backgrounds to display in the collection view.
   BackgroundCollectionConfiguration* _backgroundCollectionConfiguration;
 
+  // Registration for the enterprise management info cell.
+  UICollectionViewCellRegistration* _enterprisePolicyCellRegistration;
+
   // The id of the selected background cell.
   NSString* _selectedBackgroundId;
+
+  // The number of times a background is selected from the recently used
+  // section.
+  int _recentBackgroundClickCount;
 }
 
 // Synthesized from HomeCustomizationViewControllerProtocol.
@@ -92,6 +103,13 @@
   [_collectionConfigurator configureNavigationBar];
 }
 
+- (void)viewWillDisappear:(BOOL)animated {
+  base::UmaHistogramCounts10000(
+      "IOS.HomeCustomization.Background.RecentlyUsed.ClickCount",
+      _recentBackgroundClickCount);
+  [super viewWillDisappear:animated];
+}
+
 #pragma mark - Private
 
 // Registers the different cells used by the collection view.
@@ -109,10 +127,8 @@
              cell.mutator = weakSelf.mutator;
            }];
 
-  // TODO(crbug.com/439549295): Update the UI to show a message when NTP
-  // customization is blocked by enterprise policy.
   if (IsNTPBackgroundCustomizationEnabled() &&
-      self.isNTPCustomBackgroundEnabledByPolicy) {
+      !self.customizationDisabledByPolicy) {
     _backgroundCellRegistration = [UICollectionViewCellRegistration
         registrationWithCellClass:[HomeCustomizationBackgroundCell class]
              configurationHandler:^(HomeCustomizationBackgroundCell* cell,
@@ -130,6 +146,19 @@
                                     NSString* itemIdentifier) {
                cell.mutator = weakSelf.mutator;
                cell.delegate = weakSelf.backgroundPickerPresentationDelegate;
+               cell.accessibilityLabel = l10n_util::GetNSString(
+                   IDS_IOS_HOME_CUSTOMIZATION_BACKGROUND_PICKER_ACCESSIBILITY_LABEL);
+             }];
+  }
+
+  if (IsNTPBackgroundCustomizationEnabled() &&
+      self.customizationDisabledByPolicy) {
+    _enterprisePolicyCellRegistration = [UICollectionViewCellRegistration
+        registrationWithCellClass:[HomeCustomizationEnterprisePolicyCell class]
+             configurationHandler:^(HomeCustomizationEnterprisePolicyCell* cell,
+                                    NSIndexPath* indexPath,
+                                    NSString* itemIdentifier) {
+               [cell configureCellWithMutator:weakSelf.mutator];
              }];
   }
 }
@@ -141,13 +170,11 @@
       [[NSDiffableDataSourceSnapshot alloc] init];
 
   if (IsNTPBackgroundCustomizationEnabled() &&
-      self.isNTPCustomBackgroundEnabledByPolicy) {
+      !self.customizationDisabledByPolicy) {
     // Create background customization section and add items to it.
     [snapshot
         appendSectionsWithIdentifiers:@[ kCustomizationSectionBackground ]];
     [snapshot appendItemsWithIdentifiers:[self identifiersForBackgroundCells]
-               intoSectionWithIdentifier:kCustomizationSectionBackground];
-    [snapshot appendItemsWithIdentifiers:@[ kBackgroundPickerCellIdentifier ]
                intoSectionWithIdentifier:kCustomizationSectionBackground];
   }
 
@@ -157,6 +184,15 @@
   [snapshot
       appendItemsWithIdentifiers:[self identifiersForToggleMap:self.toggleMap]
        intoSectionWithIdentifier:kCustomizationSectionMainToggles];
+
+  if (IsNTPBackgroundCustomizationEnabled() &&
+      self.customizationDisabledByPolicy) {
+    // Create an enterprise section with a message to users.
+    [snapshot
+        appendSectionsWithIdentifiers:@[ kCustomizationSectionEnterprise ]];
+    [snapshot appendItemsWithIdentifiers:@[ kEnterpriseCellIdentifier ]
+               intoSectionWithIdentifier:kCustomizationSectionEnterprise];
+  }
 
   return snapshot;
 }
@@ -177,6 +213,9 @@
       [self.diffableDataSource.snapshot
           indexOfSectionIdentifier:kCustomizationSectionBackground];
 
+  NSInteger enterpriseIdentifier = [self.diffableDataSource.snapshot
+      indexOfSectionIdentifier:kCustomizationSectionEnterprise];
+
   if (sectionIndex == mainTogglesIdentifier) {
     return [_collectionConfigurator
         verticalListSectionForLayoutEnvironment:layoutEnvironment];
@@ -184,6 +223,9 @@
     CHECK(IsNTPBackgroundCustomizationEnabled());
     return [_collectionConfigurator
         backgroundCellSectionForLayoutEnvironment:layoutEnvironment];
+  } else if (sectionIndex == enterpriseIdentifier) {
+    return [_collectionConfigurator
+        verticalListSectionForLayoutEnvironment:layoutEnvironment];
   }
   return nil;
 }
@@ -212,6 +254,12 @@
                                            forIndexPath:indexPath
                                                    item:itemIdentifier];
     }
+  } else if (kCustomizationSectionEnterprise == section) {
+    return [_collectionView
+        dequeueConfiguredReusableCellWithRegistration:
+            _enterprisePolicyCellRegistration
+                                         forIndexPath:indexPath
+                                                 item:itemIdentifier];
   }
   return nil;
 }
@@ -291,12 +339,31 @@
     didSelectItemAtIndexPath:(NSIndexPath*)indexPath {
   NSString* itemIdentifier =
       [self.diffableDataSource itemIdentifierForIndexPath:indexPath];
+
+  // Prevent background updates when a user clicks on an already selected cell.
+  if (_selectedBackgroundId == itemIdentifier) {
+    return;
+  }
+
   _selectedBackgroundId = itemIdentifier;
 
   id<BackgroundCustomizationConfiguration> backgroundConfiguration =
       _backgroundCollectionConfiguration.configurations[itemIdentifier];
 
-  [self.mutator applyBackgroundForConfiguration:backgroundConfiguration];
+  [self.customizationMutator
+      applyBackgroundForConfiguration:backgroundConfiguration];
+
+  _recentBackgroundClickCount += 1;
+
+  if (backgroundConfiguration.backgroundStyle ==
+      HomeCustomizationBackgroundStyle::kDefault) {
+    base::RecordAction(base::UserMetricsAction(
+        "IOS.HomeCustomization.Background.ResetDefault.Tapped"));
+    return;
+  }
+
+  base::RecordAction(base::UserMetricsAction(
+      "IOS.HomeCustomization.Background.RecentlyUsed.Tapped"));
 }
 
 - (void)collectionView:(UICollectionView*)collectionView
@@ -327,25 +394,35 @@
 
   if (backgroundConfiguration.backgroundStyle ==
       HomeCustomizationBackgroundStyle::kPreset) {
-    [self.mutator
+    void (^imageHandler)(UIImage*, NSError*) =
+        ^(UIImage* image, NSError* error) {
+          if (!error) {
+            // TODO(crbug.com/444505682): Handle error loading thumbnail image.
+          }
+          [backgroundCell updateBackgroundImage:image framingCoordinates:nil];
+        };
+    [self.customizationMutator
         fetchBackgroundCustomizationThumbnailURLImage:backgroundConfiguration
                                                           .thumbnailURL
-                                           completion:^(UIImage* image) {
-                                             [backgroundCell
-                                                 updateBackgroundImage:image
-                                                    framingCoordinates:nil];
-                                           }];
+                                           completion:imageHandler];
   } else if (backgroundConfiguration.backgroundStyle ==
              HomeCustomizationBackgroundStyle::kUserUploaded) {
     HomeCustomizationFramingCoordinates* framingCoordinates =
         backgroundConfiguration.userUploadedFramingCoordinates;
     __weak __typeof(self) weakSelf = self;
-    void (^imageHandler)(UIImage*) = ^(UIImage* image) {
+    void (^imageHandler)(UIImage*, UserUploadedImageError) = ^(
+        UIImage* image, UserUploadedImageError error) {
       [weakSelf handleLoadedUserUploadedImage:image
                            framingCoordinates:framingCoordinates
                                backgroundCell:backgroundCell];
+      if (!image) {
+        base::UmaHistogramEnumeration(
+            "IOS.HomeCustomization.Background.RecentlyUsed."
+            "ImageUserUploadedFetchError",
+            error);
+      }
     };
-    [self.mutator
+    [self.customizationMutator
         fetchBackgroundCustomizationUserUploadedImage:backgroundConfiguration
                                                           .userUploadedImagePath
                                            completion:imageHandler];
@@ -370,11 +447,16 @@
   [_diffableDataSource applySnapshot:snapshot animatingDifferences:YES];
 }
 
-- (void)
-    populateBackgroundCollectionConfiguration:
-        (BackgroundCollectionConfiguration*)backgroundCollectionConfiguration
+#pragma mark - HomeCustomizationBackgroundConfigurationConsumer
+
+- (void)setBackgroundCollectionConfigurations:
+            (NSArray<BackgroundCollectionConfiguration*>*)
+                backgroundCollectionConfigurations
                          selectedBackgroundId:(NSString*)selectedBackgroundId {
-  _backgroundCollectionConfiguration = backgroundCollectionConfiguration;
+  CHECK(backgroundCollectionConfigurations.count == 1);
+
+  _backgroundCollectionConfiguration =
+      backgroundCollectionConfigurations.firstObject;
   _selectedBackgroundId = selectedBackgroundId;
 
   // Recreate the snapshot with the new items to take into account all the
@@ -396,12 +478,26 @@
 // by the snapshot.
 - (NSArray<NSString*>*)identifiersForBackgroundCells {
   NSMutableArray<NSString*>* identifiers = [[NSMutableArray alloc] init];
+
+  NSUInteger indexAfterDefault = 0;
+
   for (NSString* key in _backgroundCollectionConfiguration.configurationOrder) {
-    if (![_backgroundCollectionConfiguration.configurations objectForKey:key]) {
+    id<BackgroundCustomizationConfiguration> configuration =
+        _backgroundCollectionConfiguration.configurations[key];
+    if (!configuration) {
       continue;
     }
+
     [identifiers addObject:key];
+
+    if (configuration.backgroundStyle ==
+        HomeCustomizationBackgroundStyle::kDefault) {
+      indexAfterDefault = identifiers.count;
+    }
   }
+
+  [identifiers insertObject:kBackgroundPickerCellIdentifier
+                    atIndex:indexAfterDefault];
 
   return [identifiers copy];
 }
@@ -468,7 +564,7 @@
   }
 
   NSDiffableDataSourceSnapshot* snapshot = [self.diffableDataSource snapshot];
-  [self.mutator
+  [self.customizationMutator
       deleteBackgroundFromRecentlyUsed:_backgroundCollectionConfiguration
                                            .configurations[identifier]];
   [snapshot deleteItemsWithIdentifiers:@[ identifier ]];

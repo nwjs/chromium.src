@@ -18,15 +18,16 @@
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "components/sync/base/user_selectable_type.h"
+#import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
+#import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_constants.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/popup_menu/ui_bundled/popup_menu_constants.h"
 #import "ios/chrome/browser/reading_list/ui_bundled/reading_list_app_interface.h"
 #import "ios/chrome/browser/reading_list/ui_bundled/reading_list_constants.h"
 #import "ios/chrome/browser/reading_list/ui_bundled/reading_list_egtest_utils.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_constants.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_constants.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
@@ -503,9 +504,7 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 
 // Tests that navigating back to an offline page is still displaying the error
 // page and don't mess the navigation stack.
-// TODO(crbug.com/435147625): Fix flakiness and reenable this test.
-// TODO(crbug.com/436256665): Fix flakiness and reenable this test.
-- (void)DISABLED_testNavigateBackToDistilledPage {
+- (void)testNavigateBackToDistilledPage {
   [ReadingListAppInterface forceConnectionToWifi];
   GURL distillablePageURL(self.testServer->GetURL(kDistillableURL));
   GURL nonDistillablePageURL(self.testServer->GetURL(kNonDistillableURL));
@@ -556,9 +555,7 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // Tests that sharing a web page to the Reading List results in a snackbar
 // appearing, and that the Reading List entry is present in the Reading List.
 // Loads offline version via context menu.
-// TODO(crbug.com/435147625): Fix flakiness and reenable this test.
-// TODO(crbug.com/436259173): Fix flakiness and reenable this test.
-- (void)DISABLED_testSavingToReadingListAndLoadDistilled {
+- (void)testSavingToReadingListAndLoadDistilled {
   [ReadingListAppInterface forceConnectionToWifi];
   GURL distillablePageURL(self.testServer->GetURL(kDistillableURL));
   GURL nonDistillablePageURL(self.testServer->GetURL(kNonDistillableURL));
@@ -613,8 +610,7 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 }
 
 // Tests that offline page does not request online resources.
-// TODO(crbug.com/436270360): Fix flakiness and reenable this test.
-- (void)DISABLED_testSavingToReadingListAndLoadDistilledNoOnlineResource {
+- (void)testSavingToReadingListAndLoadDistilledNoOnlineResource {
   self.serverServesRedImage = false;
   [ReadingListAppInterface forceConnectionToWifi];
   GURL distillablePageURL(self.testServer->GetURL(kDistillableURL));
@@ -795,11 +791,11 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // showing when not editing.
 - (void)testVisibleButtonsEditingModeEmptySelection {
 // TODO(crbug.com/429610821): Re-enable the test on iOS26.
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+
   if (base::ios::IsRunningOnIOS26OrLater()) {
     EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
   }
-#endif
+
   AddEntriesAndEnterEdit();
 
   AssertToolbarButtonNotVisibleWithID(kReadingListToolbarDeleteButtonID);
@@ -940,11 +936,10 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // Tests the deletion of all read entries.
 - (void)testDeleteAllReadEntries {
   // TODO(crbug.com/429610821): Re-enable the test on iOS26.
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+
   if (iOS26_OR_ABOVE()) {
     EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
   }
-#endif
 
   AddEntriesAndEnterEdit();
 
@@ -965,11 +960,10 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // Marks all unread entries as read.
 - (void)testMarkAllRead {
 // TODO(crbug.com/429610821): Re-enable the test on iOS26.
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+
   if (iOS26_OR_ABOVE()) {
     EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
   }
-#endif
 
   AddEntriesAndEnterEdit();
 
@@ -992,11 +986,10 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // Marks all read entries as unread.
 - (void)testMarkAllUnread {
   // TODO(crbug.com/429610821): Re-enable the test on iOS26.
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+
   if (iOS26_OR_ABOVE()) {
     EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
   }
-#endif
 
   AddEntriesAndEnterEdit();
 
@@ -1020,11 +1013,10 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // prevent crbug.com/1013708 and crbug.com/1246283 from regressing.
 - (void)testMarkAllUnreadLotOfEntry {
   // TODO(crbug.com/429610821): Re-enable the test on iOS26.
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+
   if (iOS26_OR_ABOVE()) {
     EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
   }
-#endif
 
   AddLotOfEntriesAndEnterEdit();
 
@@ -1041,11 +1033,10 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // Selects an unread entry and mark it as read.
 - (void)testMarkEntriesRead {
   // TODO(crbug.com/429610821): Re-enable the test on iOS26.
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+
   if (iOS26_OR_ABOVE()) {
     EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
   }
-#endif
 
   AddEntriesAndEnterEdit();
   TapEntry(kUnreadTitle);
@@ -1065,11 +1056,10 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // Selects an read entry and mark it as unread.
 - (void)testMarkEntriesUnread {
   // TODO(crbug.com/429610821): Re-enable the test on iOS26.
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+
   if (iOS26_OR_ABOVE()) {
     EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
   }
-#endif
 
   AddEntriesAndEnterEdit();
   TapEntry(kReadTitle);
@@ -1132,11 +1122,10 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
 // creating a crash (crbug.com/701956).
 - (void)testDeleteMultipleItems {
 // TODO(crbug.com/429610821): Re-enable the test on iOS26.
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+
   if (iOS26_OR_ABOVE()) {
     EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
   }
-#endif
 
   // Add entries.
   for (int i = 0; i < 11; i++) {
@@ -1263,8 +1252,9 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
       verifyOpenInIncognitoActionWithURL:distillablePageURL.GetContent()];
 }
 
+// TODO(crbug.com/446871565): This test is flaky.
 // Tests the Mark as Read/Unread context menu action for a reading list entry.
-- (void)testContextMenuMarkAsReadAndBack {
+- (void)FLAKY_testContextMenuMarkAsReadAndBack {
 #if TARGET_IPHONE_SIMULATOR
   // TODO(crbug.com/433982582): Flaky on an iPhone simulator.
   if ([ChromeEarlGrey isIPhoneIdiom]) {
@@ -1602,7 +1592,11 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey
       selectElementWithMatcher:grey_allOf(
-                                   grey_accessibilityID(kSigninSnackbarUndo),
+                                   grey_accessibilityID(
+                                       kSnackbarButtonAccessibilityId),
+                                   grey_accessibilityLabel(
+                                       l10n_util::GetNSString(
+                                           IDS_IOS_SIGNIN_SNACKBAR_UNDO)),
                                    grey_sufficientlyVisible(), nil)]
       performAction:grey_tap()];
   [SigninEarlGrey verifySignedOut];
@@ -1649,7 +1643,11 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey
       selectElementWithMatcher:grey_allOf(
-                                   grey_accessibilityID(kSigninSnackbarUndo),
+                                   grey_accessibilityID(
+                                       kSnackbarButtonAccessibilityId),
+                                   grey_accessibilityLabel(
+                                       l10n_util::GetNSString(
+                                           IDS_IOS_SIGNIN_SNACKBAR_UNDO)),
                                    grey_sufficientlyVisible(), nil)]
       performAction:grey_tap()];
   [SigninEarlGrey verifySignedOut];

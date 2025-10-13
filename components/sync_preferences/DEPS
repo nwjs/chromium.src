@@ -30,7 +30,8 @@ specific_include_rules = {
     "+components/omnibox",
     "+components/password_manager",
     "+components/payments",
-    "+components/plus_addresses",
+    "+components/plus_addresses/core/browser",
+    "+components/plus_addresses/core/common",
     "+components/privacy_sandbox",
     "+components/safe_browsing",
     "+components/saved_tab_groups/public",
@@ -39,5 +40,6 @@ specific_include_rules = {
     "+components/translate",
     "+components/variations",
     "+components/sharing_message",
+    "+components/sync_preferences/cross_device_pref_tracker",
   ]
 }

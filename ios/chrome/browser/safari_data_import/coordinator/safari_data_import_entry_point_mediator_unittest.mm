@@ -35,11 +35,21 @@ class SafariDataImportEntryPointMediatorTest : public PlatformTest {
     promos_manager_ = std::make_unique<MockPromosManager>();
     tracker_ = feature_engagement::CreateTestTracker();
     tracker_->AddOnInitializedCallback(BoolArgumentQuitClosure());
+    run_loop_.Run();
 
     mediator_ = [[SafariDataImportEntryPointMediator alloc]
          initWithUIBlockerTarget:scene_state_
                    promosManager:promos_manager_.get()
         featureEngagementTracker:tracker_.get()];
+
+    // Set a consistent start time for the mock clock to avoid midnight issues.
+    base::Time next_day = base::Time::Now() + base::Days(1);
+    base::Time::Exploded exploded;
+    next_day.LocalExplode(&exploded);
+    exploded.hour = 0;
+    base::Time mock_start_time;
+    EXPECT_TRUE(base::Time::FromLocalExploded(exploded, &mock_start_time));
+    task_environment_.FastForwardBy(mock_start_time - base::Time::Now());
   }
 
   ~SafariDataImportEntryPointMediatorTest() override {
@@ -61,26 +71,20 @@ class SafariDataImportEntryPointMediatorTest : public PlatformTest {
 };
 
 // Tests that the Safari import reminder is registered on request.
-// TODO(crbug.com/442365426): Test is flaky on device.
-#if !TARGET_OS_SIMULATOR
-#define MAYBE_TestRegisterSafariImportReminder \
-  DISABLED_TestRegisterSafariImportReminder
-#else
-#define MAYBE_TestRegisterSafariImportReminder TestRegisterSafariImportReminder
-#endif
 TEST_F(SafariDataImportEntryPointMediatorTest,
-       MAYBE_TestRegisterSafariImportReminder) {
+       TestRegisterSafariImportReminder) {
   EXPECT_CALL(*promos_manager_.get(),
               RegisterPromoForSingleDisplay(
                   promos_manager::Promo::SafariImportRemindMeLater));
   [mediator_ registerReminder];
   // Tests that reminder is displayed two days later.
-  task_environment_.FastForwardBy(base::Days(1.1));
+  task_environment_.FastForwardBy(base::Days(1) + base::Hours(1));
   EXPECT_FALSE(tracker_->ShouldTriggerHelpUI(
       feature_engagement::kIPHiOSSafariImportFeature));
-  task_environment_.FastForwardBy(base::Days(1.1));
+  task_environment_.FastForwardBy(base::Days(1));
   EXPECT_TRUE(tracker_->ShouldTriggerHelpUI(
       feature_engagement::kIPHiOSSafariImportFeature));
+  tracker_->Dismissed(feature_engagement::kIPHiOSSafariImportFeature);
 }
 
 // Tests that the reminder would not be displayed once the mediator marks Safari
@@ -91,7 +95,7 @@ TEST_F(SafariDataImportEntryPointMediatorTest,
   // Register reminder and test.
   tracker_->NotifyEvent(
       feature_engagement::events::kIOSSafariImportRemindMeLater);
-  task_environment_.FastForwardBy(base::Days(2.1));
+  task_environment_.FastForwardBy(base::Days(2) + base::Hours(1));
   EXPECT_FALSE(tracker_->ShouldTriggerHelpUI(
       feature_engagement::kIPHiOSSafariImportFeature));
 }

@@ -7542,7 +7542,8 @@ TEST_F(WebFrameTest, CompositorScrollIsUserScrollLongPage) {
   auto* scrollable_area = frame_impl->GetFrameView()->LayoutViewport();
 
   // Do a compositor scroll, verify that this is counted as a user scroll.
-  scrollable_area->DidCompositorScroll(gfx::PointF(0, 1));
+  scrollable_area->DidCompositorScroll(gfx::PointF(0, 1),
+                                       cc::ScrollSourceType::kNone);
   web_view_helper.GetWebView()
       ->MainFrameWidget()
       ->ApplyViewportChangesForTesting({gfx::Vector2dF(), gfx::Vector2dF(),
@@ -7555,7 +7556,8 @@ TEST_F(WebFrameTest, CompositorScrollIsUserScrollLongPage) {
   initial_scroll_state.was_scrolled_by_user = false;
 
   // The page scale 1.0f and scroll.
-  scrollable_area->DidCompositorScroll(gfx::PointF(0, 2));
+  scrollable_area->DidCompositorScroll(gfx::PointF(0, 2),
+                                       cc::ScrollSourceType::kNone);
   web_view_helper.GetWebView()
       ->MainFrameWidget()
       ->ApplyViewportChangesForTesting({gfx::Vector2dF(), gfx::Vector2dF(),
@@ -7567,7 +7569,8 @@ TEST_F(WebFrameTest, CompositorScrollIsUserScrollLongPage) {
   initial_scroll_state.was_scrolled_by_user = false;
 
   // No scroll event if there is no scroll delta.
-  scrollable_area->DidCompositorScroll(gfx::PointF(0, 2));
+  scrollable_area->DidCompositorScroll(gfx::PointF(0, 2),
+                                       cc::ScrollSourceType::kNone);
   web_view_helper.GetWebView()
       ->MainFrameWidget()
       ->ApplyViewportChangesForTesting({gfx::Vector2dF(), gfx::Vector2dF(),
@@ -7578,7 +7581,8 @@ TEST_F(WebFrameTest, CompositorScrollIsUserScrollLongPage) {
   client.Reset();
 
   // Non zero page scale and scroll.
-  scrollable_area->DidCompositorScroll(gfx::PointF(9, 15));
+  scrollable_area->DidCompositorScroll(gfx::PointF(9, 15),
+                                       cc::ScrollSourceType::kNone);
   web_view_helper.GetWebView()
       ->MainFrameWidget()
       ->ApplyViewportChangesForTesting({gfx::Vector2dF(), gfx::Vector2dF(),
@@ -12437,7 +12441,8 @@ TEST_F(WebFrameSimTest, HitTestWithIgnoreClippingAtNegativeOffset) {
   auto* frame_view = To<LocalFrame>(WebView().GetPage()->MainFrame())->View();
 
   frame_view->GetScrollableArea()->SetScrollOffset(
-      ScrollOffset(0, 600), mojom::blink::ScrollType::kProgrammatic);
+      ScrollOffset(0, 600), mojom::blink::ScrollType::kProgrammatic,
+      cc::ScrollSourceType::kNone);
   Compositor().BeginFrame();
 
   HitTestRequest request = HitTestRequest::kMove | HitTestRequest::kReadOnly |
@@ -12481,7 +12486,8 @@ TEST_F(WebFrameSimTest, TickmarksDocumentRelative) {
   auto* frame_view = To<LocalFrame>(WebView().GetPage()->MainFrame())->View();
 
   frame_view->GetScrollableArea()->SetScrollOffset(
-      ScrollOffset(3000, 1000), mojom::blink::ScrollType::kProgrammatic);
+      ScrollOffset(3000, 1000), mojom::blink::ScrollType::kProgrammatic,
+      cc::ScrollSourceType::kNone);
   auto options = mojom::blink::FindOptions::New();
   options->run_synchronously_for_testing = true;
   WebString search_text = WebString::FromUTF8("test");
@@ -12545,7 +12551,8 @@ TEST_F(WebFrameSimTest, FindInPageSelectNextMatch) {
   gfx::Rect box2_rect = box2->GetLayoutObject()->AbsoluteBoundingBoxRect();
 
   frame_view->GetScrollableArea()->SetScrollOffset(
-      ScrollOffset(3000, 1000), mojom::blink::ScrollType::kProgrammatic);
+      ScrollOffset(3000, 1000), mojom::blink::ScrollType::kProgrammatic,
+      cc::ScrollSourceType::kNone);
   auto options = mojom::blink::FindOptions::New();
   options->run_synchronously_for_testing = true;
   WebString search_text = WebString::FromUTF8("test");
@@ -12764,7 +12771,8 @@ TEST_F(WebFrameSimTest, TestScrollFocusedEditableElementIntoView) {
   gfx::Rect inputRect(200, 600, 100, 20);
 
   frame_view->GetScrollableArea()->SetScrollOffset(
-      ScrollOffset(0, 0), mojom::blink::ScrollType::kProgrammatic);
+      ScrollOffset(0, 0), mojom::blink::ScrollType::kProgrammatic,
+      cc::ScrollSourceType::kNone);
 
   ASSERT_EQ(gfx::Point(),
             frame_view->GetScrollableArea()->VisibleContentRect().origin());
@@ -12780,7 +12788,7 @@ TEST_F(WebFrameSimTest, TestScrollFocusedEditableElementIntoView) {
       ScrollOffset(WebView()
                        .FakePageScaleAnimationTargetPositionForTesting()
                        .OffsetFromOrigin()),
-      mojom::blink::ScrollType::kProgrammatic);
+      mojom::blink::ScrollType::kProgrammatic, cc::ScrollSourceType::kNone);
 
   EXPECT_TRUE(frame_view->GetScrollableArea()->VisibleContentRect().Contains(
       inputRect));
@@ -12812,7 +12820,7 @@ TEST_F(WebFrameSimTest, TestScrollFocusedEditableElementIntoView) {
       ScrollOffset(WebView()
                        .FakePageScaleAnimationTargetPositionForTesting()
                        .OffsetFromOrigin()),
-      mojom::blink::ScrollType::kProgrammatic);
+      mojom::blink::ScrollType::kProgrammatic, cc::ScrollSourceType::kNone);
 
   EXPECT_TRUE(frame_view->GetScrollableArea()->VisibleContentRect().Contains(
       inputRect));
@@ -12879,7 +12887,8 @@ TEST_F(WebFrameSimTest, TestScrollFocusedEditableInRootScroller) {
   WebView().AdvanceFocus(false);
 
   rs_controller.RootScrollerArea()->SetScrollOffset(
-      ScrollOffset(0, 300), mojom::blink::ScrollType::kProgrammatic);
+      ScrollOffset(0, 300), mojom::blink::ScrollType::kProgrammatic,
+      cc::ScrollSourceType::kNone);
 
   LocalFrameView* frame_view = frame->View();
   gfx::Rect inputRect(200, 700, 100, 20);
@@ -12902,7 +12911,8 @@ TEST_F(WebFrameSimTest, TestScrollFocusedEditableInRootScroller) {
           .OffsetFromOrigin());
 
   rs_controller.RootScrollerArea()->SetScrollOffset(
-      target_offset, mojom::blink::ScrollType::kProgrammatic);
+      target_offset, mojom::blink::ScrollType::kProgrammatic,
+      cc::ScrollSourceType::kNone);
 
   EXPECT_TRUE(frame_view->GetScrollableArea()->VisibleContentRect().Contains(
       inputRect));
@@ -13105,7 +13115,7 @@ TEST_F(WebFrameSimTest, DoubleTapZoomWhileScrolled) {
   // Center the target in the screen.
   frame_view->GetScrollableArea()->SetScrollOffset(
       ScrollOffset(2000 - 440, 3000 - 450),
-      mojom::blink::ScrollType::kProgrammatic);
+      mojom::blink::ScrollType::kProgrammatic, cc::ScrollSourceType::kNone);
   Element* target = GetDocument().QuerySelector(AtomicString("#target"));
   DOMRect* rect = target->GetBoundingClientRect();
   ASSERT_EQ(440, rect->left());
@@ -13125,7 +13135,8 @@ TEST_F(WebFrameSimTest, DoubleTapZoomWhileScrolled) {
     float new_scale = WebView().FakePageScaleAnimationPageScaleForTesting();
     visual_viewport.SetScale(new_scale);
     frame_view->GetScrollableArea()->SetScrollOffset(
-        new_offset, mojom::blink::ScrollType::kProgrammatic);
+        new_offset, mojom::blink::ScrollType::kProgrammatic,
+        cc::ScrollSourceType::kNone);
 
     EXPECT_FLOAT_EQ(1, visual_viewport.Scale());
     EXPECT_TRUE(frame_view->GetScrollableArea()->VisibleContentRect().Contains(
@@ -13204,7 +13215,8 @@ TEST_F(WebFrameSimTest, ScrollFocusedEditableIntoViewNoLayoutObject) {
 
   ScrollableArea* area = GetDocument().View()->LayoutViewport();
   area->SetScrollOffset(ScrollOffset(0, 0),
-                        mojom::blink::ScrollType::kProgrammatic);
+                        mojom::blink::ScrollType::kProgrammatic,
+                        cc::ScrollSourceType::kNone);
 
   ASSERT_TRUE(input->GetLayoutObject());
   ASSERT_EQ(input, WebView().FocusedElement());

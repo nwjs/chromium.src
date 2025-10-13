@@ -38,6 +38,7 @@
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "net/base/load_flags.h"
 #include "net/base/url_util.h"
+#include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -485,9 +486,8 @@ void TailoredSecurityService::SetTailoredSecurityBitForTesting(
 
   auto enable_tailored_security_service =
       base::Value::Dict().Set("history_recording_enabled", is_enabled);
-  std::string post_data;
-  base::JSONWriter::Write(enable_tailored_security_service, &post_data);
-  request->SetPostData(post_data);
+  request->SetPostData(
+      base::WriteJson(enable_tailored_security_service).value_or(""));
 
   request->Start();
   Request* request_ptr = request.get();
@@ -498,8 +498,8 @@ void TailoredSecurityService::SetTailoredSecurityBitForTesting(
 base::Value::Dict TailoredSecurityService::ReadResponse(Request* request) {
   base::Value::Dict result;
   if (request->GetResponseCode() == net::HTTP_OK) {
-    std::optional<base::Value> json_value =
-        base::JSONReader::Read(request->GetResponseBody());
+    std::optional<base::Value> json_value = base::JSONReader::Read(
+        request->GetResponseBody(), base::JSON_PARSE_CHROMIUM_EXTENSIONS);
     if (json_value && json_value.value().is_dict())
       result = std::move(json_value->GetDict());
     else

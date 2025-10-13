@@ -106,7 +106,17 @@ class IpProtectionCore {
   virtual bool ShouldRequestIncludeProbabilisticRevealToken(
       const GURL& request_url) = 0;
 
+  // Returns the status of the IP Protection Proxy.
   virtual IpProxyStatus GetIpProxyStatus() = 0;
+
+  // Check whether IP Protection Proxy has been bypassed
+  virtual bool IsProxyBypassed() = 0;
+
+  // Sets the bypass status for the IP Protection proxy.
+  virtual void SetBypassProxy(bool bypass_proxy) = 0;
+
+  // Signal that a token was demanded by the proxy delegate, for metrics.
+  virtual void RecordTokenDemand(size_t chain_index) = 0;
 };
 
 }  // namespace ip_protection

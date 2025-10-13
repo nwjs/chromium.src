@@ -52,6 +52,8 @@ CreateDmlContext(scoped_refptr<Adapter> adapter,
                  mojo::PendingAssociatedReceiver<mojom::WebNNContext> receiver,
                  WebNNContextProviderImpl* context_provider,
                  mojom::CreateContextOptionsPtr options,
+                 mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
+                 mojo::ScopedDataPipeProducerHandle read_tensor_producer,
                  const gpu::GpuFeatureInfo& gpu_feature_info,
                  gpu::CommandBufferId command_buffer_id,
                  std::unique_ptr<ScopedSequence> sequence,
@@ -66,8 +68,10 @@ CreateDmlContext(scoped_refptr<Adapter> adapter,
 
   return base::MakeRefCounted<ContextImplDml>(
       std::move(adapter), std::move(receiver), context_provider,
-      std::move(options), std::move(command_recorder), gpu_feature_info,
-      command_buffer_id, std::move(sequence), std::move(task_runner));
+      std::move(options), std::move(write_tensor_consumer),
+      std::move(read_tensor_producer), std::move(command_recorder),
+      gpu_feature_info, command_buffer_id, std::move(sequence),
+      std::move(task_runner));
 }
 
 }  // namespace
@@ -89,6 +93,8 @@ bool ShouldCreateDmlContext(const mojom::CreateContextOptions& options) {
 base::expected<scoped_refptr<WebNNContextImpl>, mojom::ErrorPtr>
 CreateContextFromOptions(
     mojom::CreateContextOptionsPtr options,
+    mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
+    mojo::ScopedDataPipeProducerHandle read_tensor_producer,
     const gpu::GpuFeatureInfo& gpu_feature_info,
     const gpu::GPUInfo& gpu_info,
     const gpu::SharedContextState* shared_context_state,
@@ -148,7 +154,8 @@ CreateContextFromOptions(
 
   return CreateDmlContext(
       std::move(adapter_creation_result.value()), std::move(receiver),
-      context_provider, std::move(options), gpu_feature_info, command_buffer_id,
+      context_provider, std::move(options), std::move(write_tensor_consumer),
+      std::move(read_tensor_producer), gpu_feature_info, command_buffer_id,
       std::move(sequence), std::move(task_runner));
 }
 

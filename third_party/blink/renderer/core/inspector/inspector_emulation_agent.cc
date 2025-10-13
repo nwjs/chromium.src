@@ -37,6 +37,7 @@
 #include "third_party/blink/renderer/platform/scheduler/public/thread_cpu_throttler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/virtual_time_controller.h"
 #include "third_party/blink/renderer/platform/theme/web_theme_engine_helper.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 namespace {
 enum DataSaverOverride {
@@ -193,7 +194,10 @@ void InspectorEmulationAgent::Restore() {
       default_background_color_override_rgba_.Get());
   if (status_or_rgba.ok())
     setDefaultBackgroundColorOverride(std::move(status_or_rgba).value());
-  setFocusEmulationEnabled(emulate_focus_.Get());
+  if (emulate_focus_.Get()) {
+    setFocusEmulationEnabled(true);
+  }
+
   if (emulate_auto_dark_mode_.Get())
     setAutoDarkModeOverride(auto_dark_mode_override_.Get());
   if (!timezone_id_override_.Get().IsNull())
@@ -264,7 +268,9 @@ protocol::Response InspectorEmulationAgent::disable() {
     setEmulatedVisionDeficiency(String("none"));
   setEmulatedOSTextScale(std::nullopt);
   setCPUThrottlingRate(1);
-  setFocusEmulationEnabled(false);
+  if (emulate_focus_.Get()) {
+    setFocusEmulationEnabled(false);
+  }
   if (emulate_auto_dark_mode_.Get()) {
     setAutoDarkModeOverride(std::nullopt);
   }
@@ -505,24 +511,10 @@ protocol::Response InspectorEmulationAgent::setFocusEmulationEnabled(
   protocol::Response response = AssertPage();
   if (!response.IsSuccess())
     return response;
-  if (enabled == emulate_focus_.Get()) {
-    return response;
-  }
   emulate_focus_.Set(enabled);
-  // During shutdown, the page and/or main frame might already be detached.
-  // We must guard against accessing a null document.
-  const Page* page = GetWebViewImpl()->GetPage();
-  if (!page) {
-    return response;
+  if (const Page* page = GetWebViewImpl()->GetPage()) {
+    page->GetFocusController().SetFocusEmulationEnabled(enabled);
   }
-
-  if (Frame* main_frame = page->MainFrame()) {
-    LocalFrame* local_main_frame = DynamicTo<LocalFrame>(main_frame);
-    if (local_main_frame && local_main_frame->GetDocument()) {
-      page->GetFocusController().SetFocusEmulationEnabled(enabled);
-    }
-  }
-
   return response;
 }
 
@@ -587,9 +579,9 @@ protocol::Response InspectorEmulationAgent::setVirtualTimePolicy(
       virtual_time_controller_.EnableVirtualTime(initial_time);
   virtual_time_controller_.SetVirtualTimePolicy(scheduler_policy);
   if (virtual_time_budget_ms.value_or(0) > 0) {
-    TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("renderer.scheduler", "VirtualTimeBudget",
-                                      TRACE_ID_LOCAL(this), "budget",
-                                      virtual_time_budget_ms.value());
+    TRACE_EVENT_BEGIN("renderer.scheduler", "VirtualTimeBudget",
+                      perfetto::Track::FromPointer(this), "budget",
+                      virtual_time_budget_ms.value());
     const base::TimeDelta budget_amount =
         base::Milliseconds(virtual_time_budget_ms.value());
     virtual_time_controller_.GrantVirtualTimeBudget(
@@ -671,8 +663,7 @@ protocol::Response InspectorEmulationAgent::setNavigatorOverrides(
 }
 
 void InspectorEmulationAgent::VirtualTimeBudgetExpired() {
-  TRACE_EVENT_NESTABLE_ASYNC_END0("renderer.scheduler", "VirtualTimeBudget",
-                                  TRACE_ID_LOCAL(this));
+  TRACE_EVENT_END("renderer.scheduler", perfetto::Track::FromPointer(this));
   // Disregard the event if the agent is disabled. Another agent may take care
   // of pausing the time in case of an in-process frame swap.
   if (!enabled_) {

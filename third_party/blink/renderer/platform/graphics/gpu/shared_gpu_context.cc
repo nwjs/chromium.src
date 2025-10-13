@@ -103,7 +103,8 @@ static void CreateContextProviderOnMainThread(
   }
 
   auto context_provider =
-      Platform::Current()->CreateRasterGraphicsContextProvider(WebURL());
+      Platform::Current()->CreateRasterGraphicsContextProvider(
+          WebURL(), Platform::RasterContextType::kSharedGpuContextWorker);
   if (context_provider) {
     *wrapper = std::make_unique<WebGraphicsContext3DProviderWrapper>(
         std::move(context_provider));
@@ -232,13 +233,21 @@ void SharedGpuContext::Reset() {
   this_ptr->context_provider_factory_.Reset();
 }
 
-bool SharedGpuContext::IsValidWithoutRestoring() {
+bool SharedGpuContext::IsValidWithoutRestoringForTesting() {
   SharedGpuContext* this_ptr = GetInstanceForCurrentThread();
   if (!this_ptr->context_provider_wrapper_)
     return false;
-  return this_ptr->context_provider_wrapper_->ContextProvider()
-             .ContextGL()
-             ->GetGraphicsResetStatusKHR() == GL_NO_ERROR;
+  auto* gl_context =
+      this_ptr->context_provider_wrapper_->ContextProvider().ContextGL();
+
+  if (gl_context) {
+    return gl_context->GetGraphicsResetStatusKHR() == GL_NO_ERROR;
+  }
+
+  auto* raster_interface =
+      this_ptr->context_provider_wrapper_->ContextProvider().RasterInterface();
+  CHECK(raster_interface);
+  return raster_interface->GetGraphicsResetStatusKHR() == GL_NO_ERROR;
 }
 
 bool SharedGpuContext::AllowSoftwareToAcceleratedCanvasUpgrade() {
@@ -264,4 +273,4 @@ bool SharedGpuContext::MaySupportImageChromium() {
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
-}  // blink
+}  // namespace blink

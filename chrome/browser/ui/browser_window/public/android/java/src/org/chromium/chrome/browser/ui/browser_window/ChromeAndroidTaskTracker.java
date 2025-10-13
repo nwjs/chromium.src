@@ -4,11 +4,12 @@
 
 package org.chromium.chrome.browser.ui.browser_window;
 
-import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.ui.base.ActivityWindowAndroid;
+
+import java.util.OptionalInt;
 
 /**
  * Tracks {@link ChromeAndroidTask}s.
@@ -18,6 +19,13 @@ import org.chromium.ui.base.ActivityWindowAndroid;
  */
 @NullMarked
 public interface ChromeAndroidTaskTracker {
+
+    /**
+     * The Intent extra key to store the id of a pending ChromeAndroidTask that will be adopted by
+     * the Activity launched from the Intent.
+     */
+    String EXTRA_PENDING_BROWSER_WINDOW_TASK_ID =
+            "org.chromium.chrome.browser.ui.browser_window.pending_task_id";
 
     /**
      * Returns a {@link ChromeAndroidTask} with the same Task ID as that of the given {@link
@@ -39,13 +47,26 @@ public interface ChromeAndroidTaskTracker {
      *     The types are defined in the native {@code BrowserWindowInterface::Type} enum.
      * @param activityWindowAndroid The {@link ActivityWindowAndroid} to be associated with the
      *     returned {@link ChromeAndroidTask}.
-     * @param profileSupplier Supplies the profile associated with the returned {@link
-     *     ChromeAndroidTask}.
+     * @param tabModel The tab model associated with the returned {@link ChromeAndroidTask}.
+     * @param pendingId The unique ID of the pending {@link ChromeAndroidTask} that the newly
+     *     created {@code ChromeActivity} should adopt. May be {@link OptionalInt#empty()} when the
+     *     activity is not associated with a pending {@link ChromeAndroidTask}.
      */
     ChromeAndroidTask obtainTask(
             @BrowserWindowType int browserWindowType,
             ActivityWindowAndroid activityWindowAndroid,
-            Supplier<Profile> profileSupplier);
+            TabModel tabModel,
+            OptionalInt pendingId);
+
+    /**
+     * Creates a pending {@link ChromeAndroidTask} that is not yet associated with an {@code
+     * Activity}.
+     *
+     * @param createParams The {@link AndroidBrowserWindowCreateParams} that will determine the
+     *     newly created {@code Activity}'s startup state.
+     * @return The pending {@link ChromeAndroidTask}.
+     */
+    ChromeAndroidTask createPendingTask(AndroidBrowserWindowCreateParams createParams);
 
     /**
      * Returns the {@link ChromeAndroidTask} with the given {@code taskId}.

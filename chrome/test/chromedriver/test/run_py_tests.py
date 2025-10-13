@@ -113,6 +113,9 @@ _OS_SPECIFIC_FILTER['linux'] = [
 _OS_SPECIFIC_FILTER['mac'] = [
     # Flaky: crbug.com/40651570
     'ChromeDriverTest.testActionsMultiTouchPoint',
+    # Flaky: https://crbug.com/446461733 (consistently times out on first attempt
+    # then succeeds on retry)
+    'ChromeDriverTest.testDoesntCrashOnClosingBrowserFromAsyncScript',
     # Flaky: https://crbug.com/1156576.
     'ChromeDriverTestLegacy.testContextMenuEventFired',
     # Flaky: https://crbug.com/1336871.
@@ -7524,6 +7527,12 @@ class RemoteBrowserTest(ChromeDriverBaseTest):
 class LaunchDesktopTest(ChromeDriverBaseTest):
   """Tests that launching desktop Chrome works."""
 
+  def testBrowserPIDReturnedInCapabilities(self):
+    """Browser PID should be returned for desktop clients in the chrome-specific
+    capability 'goog:processID'."""
+    driver = self.CreateDriver()
+    self.assertTrue(driver.capabilities['goog:processID'] > 0)
+
   def testExistingDevToolsPortFile(self):
     """If a DevTools port file already exists before startup, then we should
     ignore it and get our debug port number from the new file."""
@@ -7576,8 +7585,7 @@ class LaunchDesktopTest(ChromeDriverBaseTest):
     # the http client in the CommandExecutor has a relatively small timeout for
     # HTTP requests.
     # S/A: //chrome/teest/chromedriver/client/command_executor.py
-    self.assertIn('probably user data directory is already in use',
-                  str(exception))
+    self.assertIn('Chrome instance exited', str(exception))
 
   def testHelpfulErrorMessage_NormalExitIfTimedOut(self):
     """If Chrome times out to start, we should provide a useful error message.
@@ -8830,7 +8838,7 @@ class BidiTest(ChromeDriverBaseTestWithWebServer):
     expected_titles = [''] + ['iframes' for _ in range(0, 10)]
     self.assertListEqual(expected_titles, sorted(titles))
 
-  def testInsecureSertificatesNotAllowed(self):
+  def testInsecureCertificatesNotAllowed(self):
     driver = self.CreateDriver(
         web_socket_url=True,
         accept_insecure_certs=False)
@@ -8843,7 +8851,7 @@ class BidiTest(ChromeDriverBaseTestWithWebServer):
                                 'net::ERR_CERT_AUTHORITY_INVALID'):
       self.navigateTo(conn, self.GetHttpsUrlForFile('/%s.html' % page_name))
 
-  def testInsecureSertificatesAllowed(self):
+  def testInsecureCertificatesAllowed(self):
     driver = self.CreateDriver(
         web_socket_url=True,
         accept_insecure_certs=True)

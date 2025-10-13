@@ -179,7 +179,7 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
         window_bounds.x() != BoundsSpecification::kUnspecifiedPosition &&
         window_bounds.y() != BoundsSpecification::kUnspecifiedPosition;
     if (create_params.position == AppWindow::POS_MOUSE) {
-      gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
+      gfx::Point cursor_pos(display::Screen::Get()->GetCursorScreenPoint());
       window_bounds.set_origin(cursor_pos);
       widget()->SetBounds(window_bounds);
     } else {
@@ -203,7 +203,7 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
     if (create_params.position == AppWindow::POS_CENTER)
       widget()->CenterWindow(gfx::Size(640, 480));
     else if (create_params.position == extensions::AppWindow::POS_MOUSE) {
-      gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
+      gfx::Point cursor_pos(display::Screen::Get()->GetCursorScreenPoint());
       gfx::Rect bounds(cursor_pos, gfx::Size(640, 480));
       widget()->SetBounds(bounds);
     }
@@ -248,9 +248,9 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
   }
 }
 
-std::unique_ptr<views::NonClientFrameView>
+std::unique_ptr<views::FrameView>
 ChromeNativeAppWindowViews::CreateStandardDesktopAppFrame() {
-  return views::WidgetDelegateView::CreateNonClientFrameView(widget());
+  return views::WidgetDelegateView::CreateFrameView(widget());
 }
 
 bool ChromeNativeAppWindowViews::ShouldRemoveStandardFrame() {
@@ -332,8 +332,8 @@ ui::ImageModel ChromeNativeAppWindowViews::GetWindowIcon() {
   return ui::ImageModel();
 }
 
-std::unique_ptr<views::NonClientFrameView>
-ChromeNativeAppWindowViews::CreateNonClientFrameView(views::Widget* widget) {
+std::unique_ptr<views::FrameView> ChromeNativeAppWindowViews::CreateFrameView(
+    views::Widget* widget) {
   return (IsFrameless() || has_frame_color_) ? CreateNonStandardAppFrame()
                                              : CreateStandardDesktopAppFrame();
 }

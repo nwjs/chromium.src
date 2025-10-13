@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/time/time.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
@@ -359,6 +360,9 @@ using PassportEntityOptions = PassportEntityOptionsT<>;
 // base::Time in the database is seconds).
 EntityInstance GetPassportEntityInstance(PassportEntityOptions options = {});
 
+EntityInstance GetPassportEntityInstanceWithRandomGuid(
+    PassportEntityOptions options = {});
+
 template <typename = void>
 struct DriversLicenseOptionsT {
   const char16_t* name = u"Knecht Ruprecht";
@@ -378,6 +382,9 @@ struct DriversLicenseOptionsT {
 using DriversLicenseOptions = DriversLicenseOptionsT<>;
 
 EntityInstance GetDriversLicenseEntityInstance(
+    DriversLicenseOptions options = {});
+
+EntityInstance GetDriversLicenseEntityInstanceWithRandomGuid(
     DriversLicenseOptions options = {});
 
 template <typename = void>
@@ -401,6 +408,9 @@ struct VehicleOptionsT {
 using VehicleOptions = VehicleOptionsT<>;
 
 EntityInstance GetVehicleEntityInstance(VehicleOptions options = {});
+
+EntityInstance GetVehicleEntityInstanceWithRandomGuid(
+    VehicleOptions options = {});
 
 template <typename = void>
 struct NationalIdCardOptionsT {
@@ -453,6 +463,31 @@ using RedressNumberOptions = RedressNumberOptionsT<>;
 
 EntityInstance GetRedressNumberEntityInstance(
     RedressNumberOptions options = {});
+
+template <typename = void>
+struct FlightReservationOptionsT {
+  const char16_t* flight_number = u"AA123";
+  const char16_t* ticket_number = u"123123456";
+  const char16_t* confirmation_code = u"AB4KW5";
+  const char16_t* name = u"John Doe";
+  const char16_t* departure_airport = u"MUC";
+  const char16_t* arrival_airport = u"BEY";
+  std::string_view guid = "00000000-0000-4000-8000-500000000000";
+  std::string_view nickname = "FlightReservation";
+  std::string_view app_locale = "en-US";
+  base::Time date_modified = kJune2017;
+  EntityInstance::RecordType record_type = EntityInstance::RecordType::kLocal;
+  EntityInstance::AreAttributesReadOnly are_attributes_read_only =
+      EntityInstance::AreAttributesReadOnly(false);
+  int use_count = 0;
+};
+using FlightReservationOptions = FlightReservationOptionsT<>;
+
+EntityInstance GetFlightReservationEntityInstance(
+    FlightReservationOptions options = {});
+
+EntityInstance GetFlightReservationEntityInstanceWithRandomGuid(
+    FlightReservationOptions options = {});
 
 // Adds `possible_types` at the end of `possible_field_types`.
 void InitializePossibleTypes(std::vector<FieldTypeSet>& possible_field_types,
@@ -576,6 +611,21 @@ BnplIssuer GetTestUnlinkedBnplIssuer();
 // fake data using `id` as the `PaymentInstrumentCreationOption.id`.
 sync_pb::PaymentInstrumentCreationOption
 CreatePaymentInstrumentCreationOptionWithBnplIssuer(const std::string& id);
+
+// For the key metrics as used for different data types, this struct allows to
+// define expectations. The values are marked optional. `std::nullopt` means
+// that no value was recorded to the histogram.
+struct SingleSubmissionKeyMetricExpectations {
+  std::optional<bool> readiness;
+  std::optional<bool> acceptance;
+  std::optional<bool> assistance;
+  std::optional<bool> correctness;
+};
+
+void VerifySingleSubmissionKeyMetricExpectations(
+    const base::HistogramTester& histogram_tester,
+    absl::string_view form_type_name,
+    const SingleSubmissionKeyMetricExpectations& expectations);
 
 }  // namespace test
 }  // namespace autofill

@@ -28,33 +28,6 @@
   "content_shell.filter so that they can be run in blink_wpt_tests step.",
   "TODO(crbug.com/380755410): Find a way to do this systematically.",
 
-  {
-    "prefix": "align-surface-layer",
-    "platforms": [
-      "Linux",
-      "Mac",
-      "Win"
-    ],
-    "bases": [
-      "compositing/video/video-subpixel.html",
-      "http/tests/html/scaled-oopif-text-not-blurry.html",
-      "http/tests/html/scaled-oopif-scrollbar-both.html",
-      "http/tests/html/scaled-oopif-scrollbar-vertical.html",
-      "http/tests/html/scaled-oopif-scrollbar-horizontal.html",
-      "http/tests/html/translated-oopif-text-not-blurry.html",
-      "http/tests/html/translated-oopif-scrollbar-both.html",
-      "http/tests/html/translated-oopif-scrollbar-vertical.html",
-      "http/tests/html/translated-oopif-scrollbar-horizontal.html"
-    ],
-    "args": [
-      "--enable-features=AlignSurfaceLayerImplToPixelGrid"
-    ],
-    "owners": [
-      "wjmaclean@chromium.org",
-      "pdr@chromium.org"
-    ],
-    "expires": "Sep 1, 2025"
-  },
   "This suite tests some android features on Linux and should never expire.",
   {
     "prefix": "android",
@@ -264,23 +237,6 @@
     "expires": "Jan 1, 2026"
   },
   {
-    "prefix": "container-style-queries-range",
-    "owners": [
-      "moonira@google.com"
-    ],
-    "platforms": [
-      "Linux"
-    ],
-    "bases": [
-      "external/wpt/css/css-conditional/container-queries/",
-      "external/wpt/css/css-values/if-conditionals.html"
-    ],
-    "args": [
-      "--disable-features=CSSContainerStyleQueriesRange"
-    ],
-    "expires": "May 15, 2026"
-  },
-  {
     "prefix": "controls-refresh-hc",
     "owners": [
       "masonf@chromium.org",
@@ -400,7 +356,7 @@
     "args": [
       "--disable-features=BlockCrossPartitionBlobUrlFetching,EnforceNoopenerOnBlobURLNavigation"
     ],
-    "expires": "Sep 1, 2025",
+    "expires": "Mar 1, 2026",
     "owners": [
       "awillia@chromium.org"
     ]
@@ -444,22 +400,24 @@
     "owners": ["samomekarajr@microsoft.com", "almaher@microsoft.com", "javiercon@microsoft.com"]
   },
   {
-    "prefix": "css-gap-decorations-optimized",
-    "platforms": ["Linux"],
-    "bases": [
-      "external/wpt/css/css-gaps"],
-    "args": ["--enable-blink-features=CSSGapDecorationOptimized"],
-    "expires": "Sep 1, 2026",
-    "owners": ["samomekarajr@microsoft.com", "javiercon@microsoft.com"]
-  },
-  {
     "prefix": "computed-width-values-depend-on-style-values",
     "platforms": ["Linux"],
     "bases": [
       "external/wpt/css/css-typed-om/the-stylepropertymap/properties/border-width.html",
-      "external/wpt/css/css-typed-om/the-stylepropertymap/properties/outline-width.html"
+      "external/wpt/css/css-typed-om/the-stylepropertymap/properties/outline-width.html",
+      "fast/replaced/no-focus-ring-object.html",
+      "fast/replaced/no-focus-ring-embed.html",
+      "external/wpt/css/css-gaps/parsing",
+      "fast/css/getComputedStyle/getComputedStyle-column-rule.html",
+      "fast/css/getComputedStyle/getComputedStyle-outline-shorthand.html",
+      "external/wpt/css/css-multicol/animation/column-rule-width-interpolation.html",
+      "external/wpt/css/css-multicol/parsing/",
+      "external/wpt/css/css-ui/parsing/canonical-order-outline-sub-properties-001.html",
+      "external/wpt/css/css-ui/parsing/outline-width-computed.html",
+      "external/wpt/css/cssom/cssom-getPropertyValue-common-checks.html"
     ],
-    "args": ["--disable-blink-features=DecoupleComputedBorderWidthFromStyle"],
+    "args": ["--disable-blink-features=DecoupleComputedBorderWidthFromStyle",
+             "--disable-blink-features=DecoupleResolvedColumnRuleWidthFromStyle"],
     "expires": "Apr 30, 2026",
     "owners": ["samomekarajr@microsoft.com", "kbabbitt@microsoft.com"]
   },
@@ -618,7 +576,7 @@
     ],
     "exclusive_tests": "ALL",
     "args": [
-      "--enable-features=EnableBoundSessionCredentialsSoftwareKeysForManualTesting,DeviceBoundSessions:RefreshQuota/false,DeviceBoundSessionsOriginTrialFeedback",
+      "--enable-features=EnableBoundSessionCredentialsSoftwareKeysForManualTesting,DeviceBoundSessions:RefreshQuota/false/OriginTrialFeedback/true,DeviceBoundSessionsFederatedRegistration",
       "--disable-features=TrackingProtection3pcd"
     ],
     "expires": "never"
@@ -1022,6 +980,48 @@
     "expires": "Aug 1, 2026"
   },
   {
+    "prefix": "fedcm-flexible-tokens",
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "external/wpt/fedcm/fedcm-flexible-token/"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--enable-features=FedCmNonStringToken"
+    ],
+    "owners": [
+      "npm@chromium.org",
+      "cbiesinger@chromium.org",
+      "goto@chromium.org"
+    ],
+    "expires": "Aug 1, 2026"
+  },
+  {
+    "prefix": "fedcm-well-known-validation",
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "external/wpt/fedcm/fedcm-well-known-validation/"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--enable-features=FedCmWellKnownEndpointValidation,FedCmPreservePortsForTesting"
+    ],
+    "owners": [
+      "npm@chromium.org",
+      "cbiesinger@chromium.org",
+      "goto@chromium.org"
+    ],
+    "expires": "Aug 1, 2026"
+  },
+  {
     "prefix": "fedcm-third-party-iframe",
     "platforms": [
       "Linux",
@@ -1055,6 +1055,27 @@
     "exclusive_tests": "ALL",
     "args": [
       "--enable-features=FedCmIdPregistration"
+    ],
+    "owners": [
+      "npm@chromium.org",
+      "cbiesinger@chromium.org",
+      "goto@chromium.org"
+    ],
+    "expires": "Aug 1, 2026"
+  },
+  {
+    "prefix": "fedcm-error-attribute",
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "external/wpt/fedcm/fedcm-error-attribute"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--enable-features=FedCmErrorAttribute"
     ],
     "owners": [
       "npm@chromium.org",
@@ -1709,7 +1730,7 @@
       "Linux"
     ],
     "bases": [
-      "external/wpt/html/semantics/forms/the-select-element/customizable-select/select-parsing.tentative.html"
+      "external/wpt/html/semantics/forms/the-select-element/customizable-select/select-parsing.html"
     ],
     "args": [
       "--enable-features=InputClosesSelect,SelectParserRelaxation"
@@ -2423,7 +2444,7 @@
       "arichiv@chromium.org",
       "johannhof@chromium.org"
     ],
-    "expires": "Sep 1, 2025"
+    "expires": "Mar 1, 2026"
   },
   {
     "prefix": "permission-element",
@@ -2456,116 +2477,6 @@
       "permissions-core@google.com"
     ],
     "expires": "Jul 1, 2026"
-  },
-  {
-    "prefix": "pna-navigations-enabled",
-    "platforms": [
-      "Linux",
-      "Mac",
-      "win"
-    ],
-    "bases": [
-      "external/wpt/fetch/private-network-access"
-    ],
-    "args": [
-      "--enable-features=LocalNetworkAccessChecks,PrivateNetworkAccessForNavigations",
-      "--disable-features=LocalNetworkAccessChecks"
-    ],
-    "exclusive_tests": "ALL",
-    "owners": [
-      "cthomp@chromium.org",
-      "hchao@chromium.org",
-      "chrome-secure-web-and-net@chromium.org"
-    ],
-    "expires": "July 31, 2025"
-  },
-  {
-    "prefix": "pna-navigations-warning",
-    "platforms": [
-      "Linux",
-      "Mac",
-      "win"
-    ],
-    "bases": [
-      "external/wpt/fetch/private-network-access"
-    ],
-    "args": [
-      "--enable-features=PrivateNetworkAccessForNavigations,PrivateNetworkAccessForNavigationsWarningOnly",
-      "--disable-features=LocalNetworkAccessChecks"
-    ],
-    "exclusive_tests": "ALL",
-    "owners": [
-      "cthomp@chromium.org",
-      "hchao@chromium.org",
-      "chrome-secure-web-and-net@chromium.org"
-    ],
-    "expires": "July 31, 2025"
-  },
-  "All PNA tests are only tested exclusively in Virtual Test Suites as we move",
-  "over to LNA. All suites will be removed after PNA is removed.",
-  {
-    "prefix": "pna-only-force-lna-off",
-    "platforms": [
-      "Linux",
-      "Mac",
-      "Win"
-    ],
-    "bases": [
-      "external/wpt/fetch/private-network-access"
-    ],
-    "args": [
-      "--disable-features=LocalNetworkAccessChecks"
-    ],
-    "exclusive_tests": "ALL",
-    "owners": [
-      "cthomp@chromium.org",
-      "hchao@chromium.org",
-      "chrome-secure-web-and-net@chromium.org"
-    ],
-    "expires": "July 31, 2025"
-  },
-  {
-    "prefix": "pna-workers-disabled",
-    "platforms": [
-      "Linux",
-      "Mac",
-      "Win"
-    ],
-    "bases": [
-      "external/wpt/fetch/private-network-access"
-    ],
-    "args": [
-      "--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessForWorkers"
-    ],
-    "exclusive_tests": "ALL",
-    "owners": [
-      "cthomp@chromium.org",
-      "hchao@chromium.org",
-      "chrome-secure-web-and-net@chromium.org"
-    ],
-    "expires": "July 31, 2025"
-  },
-  {
-    "prefix": "pna-workers-enabled",
-    "platforms": [
-      "Linux",
-      "Mac",
-      "Win"
-    ],
-    "bases": [
-      "external/wpt/fetch/private-network-access"
-    ],
-    "args": [
-      "--enable-features=PrivateNetworkAccessForWorkers",
-      "--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessForWorkersWarningOnly"
-    ],
-    "exclusive_tests": "ALL",
-    "owners": [
-      "cthomp@chromium.org",
-      "hchao@chromium.org",
-      "chrome-secure-web-and-net@chromium.org"
-    ],
-    "expires": "July 31, 2025"
   },
   {
     "prefix": "port-bound-cookies",
@@ -2757,9 +2668,9 @@
     ],
     "owners": [
       "alexmt@chromium.org",
-      "dmcardle@chromium.org"
+      "linnan@chromium.org"
     ],
-    "expires": "Jul 1, 2025"
+    "expires": "Jul 1, 2026"
   },
   {
     "prefix": "private-aggregation-developer-mode",
@@ -2781,9 +2692,9 @@
     ],
     "owners": [
       "alexmt@chromium.org",
-      "dmcardle@chromium.org"
+      "linnan@chromium.org"
     ],
-    "expires": "Jul 1, 2025"
+    "expires": "Jul 1, 2026"
   },
   {
     "prefix": "produce-compile-hints",
@@ -2874,7 +2785,26 @@
     ],
     "expires": "Nov 29, 2025"
   },
-
+  {
+    "prefix": "run-snapshot-post-layout",
+    "owners": [
+      "futhark@chromium.org",
+      "flackr@chromium.org"
+    ],
+    "platforms": [
+      "Linux"
+    ],
+    "bases": [
+      "external/wpt/css/css-anchor-position/",
+      "external/wpt/css/css-conditional/container-queries/scroll-state/",
+      "external/wpt/scroll-animations/",
+      "fast/animation/scroll-animations/"
+    ],
+    "args": [
+      "--enable-blink-features=RunSnapshotPostLayoutStateSteps"
+    ],
+    "expires": "Jan 1, 2026"
+  },
   {
     "prefix": "sandbox-allow-same-site-none-cookies-3PC-blocked",
     "platforms": [
@@ -3005,7 +2935,7 @@
       "Win"
     ],
     "bases": [
-      "external/wpt/custom-elements/registries"
+      "external/wpt/custom-elements/"
     ],
     "args": [
       "--enable-blink-features=ScopedCustomElementRegistry"
@@ -3023,7 +2953,14 @@
       "external/wpt/audio-output",
       "external/wpt/webaudio/the-audio-api/the-mediaelementaudiosourcenode-interface/setSinkId-with-MediaElementAudioSourceNode.https.html"
     ],
-    "exclusive_tests": "ALL",
+    "exclusive_tests": [
+      "external/wpt/audio-output/enumerateDevices-with-selectAudioOutput.https.html",
+      "external/wpt/audio-output/removeTrack-after-setSinkId.https.html",
+      "external/wpt/audio-output/selectAudioOutput-permissions-policy.https.sub.html",
+      "external/wpt/audio-output/selectAudioOutput-sans-user-activation.https.html",
+      "external/wpt/audio-output/setSinkId-with-selectAudioOutput.https.html",
+      "external/wpt/webaudio/the-audio-api/the-mediaelementaudiosourcenode-interface/setSinkId-with-MediaElementAudioSourceNode.https.html"
+    ],
     "args": [
       "--enable-features=SelectAudioOutput"
     ],
@@ -4174,7 +4111,7 @@
     ],
     "exclusive_tests": "ALL",
     "args": [
-      "--enable-features=SharedStorageAPI,PrivacySandboxAdsAPIsOverride,Prerender2AllowActivationInBackground,LCPTimingPredictorPrerender2",
+      "--enable-features=SharedStorageAPI,PrivacySandboxAdsAPIsOverride,Prerender2AllowActivationInBackground,LCPTimingPredictorPrerender2,Prerender2CrossOriginIframes",
       "--disable-features=KeepAliveInBrowserMigration,Prerender2FallbackPrefetchSpecRules"
     ],
     "owners": [
@@ -4594,6 +4531,7 @@
       "synthetic_gestures",
       "transitions",
       "view-transition",
+      "wpt_internal/html/script-execution",
       "wpt_internal/scheduler/integration_tests",
       "wpt_internal/view-transition",
       "external/wpt/trusted-types/navigate-to-javascript-url-001.html",
@@ -4616,6 +4554,7 @@
       "external/wpt/scheduler/tentative/yield/yield-priority-idle-callbacks.html",
       "http/tests/devtools/isolated-code-cache",
       "external/wpt/css/css-view-transitions",
+      "wpt_internal/html/script-execution",
       "wpt_internal/scheduler/integration_tests",
       "wpt_internal/view-transition",
       "view-transition",

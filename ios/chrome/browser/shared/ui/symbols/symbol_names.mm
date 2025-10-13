@@ -142,6 +142,7 @@ NSString* const kChartLineDowntrendXYAxisSymbol =
     @"chart.line.downtrend.xyaxis";
 NSString* const kCircleSymbol = @"circle";
 NSString* const kCircleFillSymbol = @"circle.fill";
+NSString* const kGearshape2Symbol = @"gearshape.2";
 NSString* const kSyncEnabledSymbol = @"arrow.triangle.2.circlepath";
 NSString* const kDefaultBrowserSymbol = @"app.badge.checkmark";
 NSString* const kDefaultBrowseriOS14Symbol = @"app.badge";
@@ -326,6 +327,7 @@ NSString* const kTextSparkSymbol = @"text_spark";
 NSString* const kBuilding2Symbol = @"building.2";
 NSString* const kBookSymbol = @"book";
 NSString* const kKeySymbol = @"key";
+NSString* const kTextDocument = @"text.document";
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

@@ -7,7 +7,9 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
+#include "content/browser/webauth/default_authenticator_request_client_delegate.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/web_authentication_delegate.h"
@@ -208,6 +210,69 @@ GetTestPublicKeyCredentialCreationOptions();
 PublicKeyCredentialRequestOptionsPtr GetTestPublicKeyCredentialRequestOptions();
 
 GetCredentialOptionsPtr GetTestGetCredentialOptions();
+
+// TestAuthenticatorRequestDelegate is a test fake implementation of the
+// AuthenticatorRequestClientDelegate embedder interface.
+class TestAuthenticatorRequestDelegate
+    : public DefaultAuthenticatorRequestClientDelegate {
+ public:
+  TestAuthenticatorRequestDelegate(
+      RenderFrameHost* render_frame_host,
+      base::OnceClosure action_callbacks_registered_callback,
+      base::OnceClosure started_over_callback,
+      bool simulate_user_cancelled,
+      base::RepeatingCallback<void(bool)> enclave_discovered_callback,
+      base::RepeatingCallback<void(const base::flat_set<device::FidoTransportProtocol>&)>
+          transports_discovered_callback);
+
+  TestAuthenticatorRequestDelegate(const TestAuthenticatorRequestDelegate&) =
+      delete;
+  TestAuthenticatorRequestDelegate& operator=(
+      const TestAuthenticatorRequestDelegate&) = delete;
+
+  ~TestAuthenticatorRequestDelegate() override;
+
+  void RegisterActionCallbacks(
+      base::OnceClosure cancel_callback,
+      base::OnceClosure immediate_not_found_callback,
+      base::RepeatingClosure start_over_callback,
+      AccountPreselectedCallback account_preselected_callback,
+      PasswordSelectedCallback password_selected_callback,
+      device::FidoRequestHandlerBase::RequestCallback request_callback,
+      base::OnceClosure cancel_ui_timeout_callback,
+      base::RepeatingClosure bluetooth_adapter_power_on_callback,
+      base::RepeatingCallback<
+          void(device::FidoRequestHandlerBase::BlePermissionCallback)>
+          ble_status_callback) override;
+
+  void OnTransportAvailabilityEnumerated(
+      device::FidoRequestHandlerBase::TransportAvailabilityInfo transport_info)
+      override;
+
+  bool DoesBlockRequestOnFailure(InterestingFailureReason reason) override;
+
+  void ConfigureDiscoveries(
+      const url::Origin& origin,
+      const std::string& rp_id,
+      RequestSource request_source,
+      device::FidoRequestType request_type,
+      std::optional<device::ResidentKeyRequirement> resident_key_requirement,
+      device::UserVerificationRequirement user_verification_requirement,
+      std::optional<std::string_view> user_name,
+      base::span<const device::CableDiscoveryData> pairings_from_extension,
+      bool is_enclave_authenticator_available,
+      device::FidoDiscoveryFactory* fido_discovery_factory) override;
+
+  base::OnceClosure action_callbacks_registered_callback_;
+  base::OnceClosure cancel_callback_;
+  base::OnceClosure started_over_callback_;
+  base::OnceClosure start_over_callback_;
+  bool does_block_request_on_failure_ = false;
+  bool simulate_user_cancelled_ = false;
+  base::RepeatingCallback<void(bool)> enclave_discovered_callback_;
+  base::RepeatingCallback<void(const base::flat_set<device::FidoTransportProtocol>&)>
+      transports_discovered_callback_;
+};
 
 // TestWebAuthenticationRequestProxy is a test fake implementation of the
 // WebAuthenticationRequestProxy embedder interface.
@@ -423,6 +488,9 @@ class TestAuthenticatorContentBrowserClient : public ContentBrowserClient {
 
   // The set of transports allowed for a request.
   base::flat_set<device::FidoTransportProtocol> discovered_transports_;
+
+ private:
+  base::WeakPtrFactory<TestAuthenticatorContentBrowserClient> weak_factory_{this};
 };
 
 class AuthenticatorTestBase : public RenderViewHostTestHarness {

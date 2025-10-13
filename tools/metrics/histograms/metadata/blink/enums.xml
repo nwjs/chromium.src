@@ -81,6 +81,8 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Slow getImageData on GPU canvases"/>
 </enum>
 
+<!-- LINT.IfChange(CanvasHibernationEvent) -->
+
 <enum name="CanvasHibernationEvent">
   <int value="0" label="Scheduled"/>
   <int value="1"
@@ -89,13 +91,16 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Aborted due to visibility change"/>
   <int value="4" label="Aborted due to GPU Context loss"/>
   <int value="5" label="Aborted due to switch to unaccelerated rendering"/>
-  <int value="6" label="Aborted due to allocation failure"/>
-  <int value="7" label="Ended normally"/>
-  <int value="8" label="Ended with switch to background rendering"/>
-  <int value="9" label="Ended with fallback to software"/>
-  <int value="10" label="Ended with teardown"/>
-  <int value="11" label="Aborted because there was no surface"/>
+  <int value="6" label="Aborted due to allocation failure (obsolete)"/>
+  <int value="7" label="Aborted due to snapshot failure"/>
+  <int value="8" label="Ended normally"/>
+  <int value="9" label="Ended with switch to background rendering"/>
+  <int value="10" label="Ended with fallback to software"/>
+  <int value="11" label="Ended with teardown"/>
+  <int value="12" label="Aborted because there was no surface"/>
 </enum>
+
+<!-- LINT.ThenChange(//third_party/blink/renderer/platform/graphics/canvas_hibernation_handler.h:CanvasHibernationEvent) -->
 
 <enum name="CanvasOverdrawOp">
   <int value="0" label="None (should have 0 counts)"/>
@@ -116,39 +121,6 @@ chromium-metrics-reviews@google.com.
       label="(Obsolete) Has clear blend mode. Deprecated as of 2021-10."/>
   <int value="13" label="Has clip"/>
   <int value="14" label="Has transform and clip"/>
-</enum>
-
-<enum name="CanvasResourceProviderFlushReason">
-  <int value="0" label="None (should never happen)"/>
-  <int value="1" label="Testing (should never happen in prod)"/>
-  <int value="2" label="Non 2D Canvas"/>
-  <int value="3" label="Clear"/>
-  <int value="4" label="Hibernating"/>
-  <int value="5" label="OffscreenCanvas commit"/>
-  <int value="6" label="OffscreenCanvas push frame"/>
-  <int value="7" label="CreateImageBitmap"/>
-  <int value="8" label="GetImageData"/>
-  <int value="9" label="Volatile source image"/>
-  <int value="10" label="Canvas push frame"/>
-  <int value="11" label="Canvas push frame while printing"/>
-  <int value="12" label="Write pixels"/>
-  <int value="13" label="ToBlob"/>
-  <int value="14" label="CreateVideoFrame"/>
-  <int value="15" label="DrawImage"/>
-  <int value="16" label="DrawListener"/>
-  <int value="17" label="Paint"/>
-  <int value="18" label="Transfer"/>
-  <int value="19" label="Printing"/>
-  <int value="20" label="WebGPU external image"/>
-  <int value="21" label="Copy to SkBitmap"/>
-  <int value="22" label="WebGL texture upload"/>
-  <int value="23" label="CreatePattern"/>
-  <int value="24" label="Copy to clipboard"/>
-  <int value="25" label="Source image will change"/>
-  <int value="26" label="WebGPU texture upload"/>
-  <int value="27" label="ToDataURL"/>
-  <int value="28" label="GPU/CPU switch"/>
-  <int value="29" label="RecordingLimitExceeded"/>
 </enum>
 
 <enum name="CanvasResourceProviderType">
@@ -274,6 +246,7 @@ Called by update_document_policy_enum.py.-->
   <int value="13" label="DocumentDomain"/>
   <int value="14" label="IncludeJSCallStacksInCrashReports"/>
   <int value="15" label="ExpectNoLinkedResources"/>
+  <int value="16" label="NetworkEfficiencyGuardrails"/>
 </enum>
 
 <!-- LINT.IfChange(FeatureObserver) -->
@@ -5030,7 +5003,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="4524" label="AsyncClipboardAPIUnsanitizedRead"/>
   <int value="4525" label="OBSOLETE_WindowOpenFullscreenRequested"/>
   <int value="4526" label="OBSOLETE_FullscreenAllowedByWindowOpen"/>
-  <int value="4527" label="AttributeValueContainsLtOrGt"/>
+  <int value="4527" label="OBSOLETE_AttributeValueContainsLtOrGt"/>
   <int value="4528" label="OBSOLETE_V8ImportAssertionDeprecatedSyntax"/>
   <int value="4529" label="ImageCaptureBackgroundBlur"/>
   <int value="4530" label="PrivateNetworkAccessPreflightError"/>
@@ -5106,7 +5079,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="4596" label="ContainerQueryEvalUnknown"/>
   <int value="4597"
       label="OBSOLETE_EventTimingPresentationPromiseResolvedAfterReport"/>
-  <int value="4598" label="GetCoalescedEventsInInsecureContext"/>
+  <int value="4598" label="OBSOLETE_GetCoalescedEventsInInsecureContext"/>
   <int value="4599" label="CSPEESameOriginBlanketEnforcement"/>
   <int value="4601" label="SharedDictionaryUsed"/>
   <int value="4602" label="SharedDictionaryUsedForNavigation"/>
@@ -5715,8 +5688,9 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5125" label="V8PaymentManager_UserHint_AttributeGetter"/>
   <int value="5126" label="V8PaymentManager_UserHint_AttributeSetter"/>
   <int value="5127" label="PerformanceNavigationTimingConfidence"/>
-  <int value="5128" label="HttpParsersParseDateFromUTCStringDifferent"/>
-  <int value="5129" label="HttpParsersParseDateFromStringDifferent"/>
+  <int value="5128"
+      label="OBSOLETE_HttpParsersParseDateFromUTCStringDifferent"/>
+  <int value="5129" label="OBSOLETE_HttpParsersParseDateFromStringDifferent"/>
   <int value="5130" label="MediaQueryRangeSyntax"/>
   <int value="5131" label="ParseHTMLSafe"/>
   <int value="5132" label="SetHTMLSafe"/>
@@ -6286,6 +6260,25 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5651" label="V8WasmCustomDescriptors"/>
   <int value="5652" label="SRIIntegrityAttributeOnInlineScript"/>
   <int value="5653" label="CredentialsGetImmediateMediationWithPasswordsOnly"/>
+  <int value="5654" label="CSSAtRuleRoute"/>
+  <int value="5655" label="AbsposPositionTryFallbacksChange"/>
+  <int value="5656" label="MulticastControllerJoinGroupFunction"/>
+  <int value="5657" label="MulticastControllerLeaveGroupFunction"/>
+  <int value="5658" label="MulticastControllerJoinedGroupsAttribute"/>
+  <int value="5659" label="ContainerNameQueryFailedTreeScope"/>
+  <int value="5660" label="LocalNetworkAccessWebSocketResourceNotKnownPrivate"/>
+  <int value="5661" label="CSSPseudoElementUsesImplicitAnchor"/>
+  <int value="5662" label="LineClampByLinesOverflows"/>
+  <int value="5663" label="PointerRawUpdateEventsInInsecureContext"/>
+  <int value="5664" label="ReportToHeader"/>
+  <int value="5665" label="ReportingEndpointsHeader"/>
+  <int value="5666" label="OverscrollBehaviorWithOverflowHidden"/>
+  <int value="5667" label="WebCodecsAv1EncodingWithQP"/>
+  <int value="5668" label="ExternalSVGDocumentResources"/>
+  <int value="5669" label="IndexedDBGetAllRecords"/>
+  <int value="5670" label="ResolvedColumnRuleWidthWithNoneOrHiddenStyle"/>
+  <int value="5671" label="ResolvedOutlineWidthWithNoneOrHiddenStyle"/>
+  <int value="5672" label="ContextMenuEventDefaultPrevented"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -6438,6 +6431,7 @@ Called by update_permissions_policy_enum.py.-->
   <int value="139" label="LanguageModel"/>
   <int value="140" label="AriaNotify"/>
   <int value="141" label="DigitalCredentialsCreate"/>
+  <int value="142" label="MulticastInDirectSockets"/>
 </enum>
 
 <!-- LINT.IfChange(FedCmAccountChooserResult) -->
@@ -6524,6 +6518,16 @@ Called by update_permissions_policy_enum.py.-->
 </enum>
 
 <!-- LINT.ThenChange(//content/browser/webid/metrics.h:ContinueOnPopupStatus) -->
+
+<!-- LINT.IfChange(FedCmCrossSiteIframeType) -->
+
+<enum name="FedCmCrossSiteIframeType">
+  <int value="0" label="No value received"/>
+  <int value="1" label="Iframe is third party"/>
+  <int value="2" label="Iframe is same party"/>
+</enum>
+
+<!-- LINT.ThenChange(//content/browser/webid/metrics.h:CrossSiteIframeType) -->
 
 <!-- LINT.IfChange(FedCmCspStatus) -->
 
@@ -8006,8 +8010,8 @@ Called by update_use_counter_css.py.-->
   <int value="820" label="animation-trigger-range-end (obsolete)"/>
   <int value="821" label="animation-trigger-exit-range-start (obsolete)"/>
   <int value="822" label="animation-trigger-exit-range-end (obsolete)"/>
-  <int value="823" label="interest-show-delay"/>
-  <int value="824" label="interest-hide-delay"/>
+  <int value="823" label="interest-delay-start"/>
+  <int value="824" label="interest-delay-end"/>
   <int value="825" label="animation-trigger-range"/>
   <int value="826" label="animation-trigger-exit-range"/>
   <int value="827" label="interest-delay"/>
@@ -8060,12 +8064,16 @@ Called by update_use_counter_css.py.-->
   <int value="874" label="timeline-trigger-range-end"/>
   <int value="875" label="timeline-trigger-exit-range-start"/>
   <int value="876" label="timeline-trigger-exit-range-end"/>
-  <int value="877" label="timeline-trigger-timeline"/>
+  <int value="877" label="timeline-trigger-source"/>
   <int value="878" label="timeline-trigger"/>
   <int value="879" label="masonry"/>
   <int value="880" label="continue"/>
   <int value="881" label="max-lines"/>
   <int value="882" label="block-ellipsis"/>
+  <int value="883" label="overscroll-area"/>
+  <int value="884" label="overscroll-position"/>
+  <int value="885" label="font-language-override"/>
+  <int value="886" label="ruby-overhang"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom:CSSSampleId) -->
@@ -8589,6 +8597,18 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="397" label="DRAFT_WasmCustomDescriptors"/>
   <int value="398" label="FetchRequestStreams"/>
   <int value="399" label="TransferableStreams"/>
+  <int value="400" label="ReadableByteStreams"/>
+  <int value="401" label="DevicePosture"/>
+  <int value="402" label="WebxrAnchors"/>
+  <int value="403" label="WebxrAr"/>
+  <int value="404" label="WebxrCamera"/>
+  <int value="405" label="WebxrDepthSensing"/>
+  <int value="406" label="WebxrDomOverlays"/>
+  <int value="407" label="WebxrHandInput"/>
+  <int value="408" label="WebxrHitTest"/>
+  <int value="409" label="WebxrLightingEstimation"/>
+  <int value="410" label="Reporting"/>
+  <int value="411" label="FontLanguageOverride"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom:WebDXFeature) -->

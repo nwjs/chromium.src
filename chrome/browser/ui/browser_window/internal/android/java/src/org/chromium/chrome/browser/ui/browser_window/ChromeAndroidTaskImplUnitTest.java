@@ -26,8 +26,12 @@ import android.graphics.Insets;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.Window;
 import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowMetrics;
+
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -39,12 +43,19 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ActivityState;
+import org.chromium.base.ApplicationStatus;
 import org.chromium.base.FakeTimeTestRule;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.lifecycle.ConfigurationChangedObserver;
 import org.chromium.chrome.browser.lifecycle.TopResumedActivityChangedWithNativeObserver;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskImpl.State;
 
 import java.util.Arrays;
 
@@ -67,22 +78,25 @@ public class ChromeAndroidTaskImplUnitTest {
     }
 
     @Test
-    public void constructor_setsActivityWindowAndroid() {
+    public void constructor_withActivity_setsActivityWindowAndroid() {
         // Arrange.
         var activityWindowAndroid =
                 ChromeAndroidTaskUnitTestSupport.createMockActivityWindowAndroid(/* taskId= */ 1);
+        var profile = mock(Profile.class);
+        var tabModel = mock(TabModel.class);
+        when(tabModel.getProfile()).thenReturn(profile);
 
         // Act.
         var chromeAndroidTask =
                 new ChromeAndroidTaskImpl(
-                        BrowserWindowType.NORMAL, activityWindowAndroid, () -> mock(Profile.class));
+                        BrowserWindowType.NORMAL, activityWindowAndroid, tabModel);
 
         // Assert.
         assertEquals(activityWindowAndroid, chromeAndroidTask.getActivityWindowAndroid());
     }
 
     @Test
-    public void constructor_registersActivityLifecycleObservers() {
+    public void constructor_withActivity_registersActivityLifecycleObservers() {
         // Arrange & Act.
         var chromeAndroidTaskWithMockDeps =
                 ChromeAndroidTaskUnitTestSupport.createChromeAndroidTaskWithMockDeps(
@@ -100,18 +114,82 @@ public class ChromeAndroidTaskImplUnitTest {
     }
 
     @Test
-    public void getProfile_returnsProfileFromSupplier() {
-        // Arrange.
+    public void constructor_withActivity_setsTabModelRefAndRegistersTabModelObserver() {
+        // Arrange & Act.
         var chromeAndroidTaskWithMockDeps =
                 ChromeAndroidTaskUnitTestSupport.createChromeAndroidTaskWithMockDeps(
                         /* taskId= */ 1);
-        var chromeAndroidTask = chromeAndroidTaskWithMockDeps.mChromeAndroidTask;
+        var chromeAndroidTask =
+                (ChromeAndroidTaskImpl) chromeAndroidTaskWithMockDeps.mChromeAndroidTask;
+        var mockTabModel = chromeAndroidTaskWithMockDeps.mMockTabModel;
+
+        // Assert.
+        assertEquals(mockTabModel, chromeAndroidTask.getObservedTabModelForTesting());
+        verify(mockTabModel, times(1)).addObserver(chromeAndroidTask);
+    }
+
+    @Test
+    public void constructor_withCreateParams_pendingState() {
+        // Arrange.
+        var mockParams =
+                ChromeAndroidTaskUnitTestSupport.createMockAndroidBrowserWindowCreateParams();
+
+        // Act.
+        var task = new ChromeAndroidTaskImpl(/* pendingId= */ 1, mockParams);
+
+        // Assert.
+        assertEquals(mockParams.getWindowType(), task.getBrowserWindowType());
+        assertEquals(mockParams.getProfile(), task.getProfile());
+        assertEquals(State.PENDING, task.getState());
+        assertEquals(1, task.getPendingId().getAsInt());
+        assertTrue(task.getId().isEmpty());
+        assertNull(task.getActivityWindowAndroidForTesting());
+    }
+
+    @Test
+    public void getProfile_returnsInitialProfile() {
+        // Arrange.
+        var profile = mock(Profile.class);
+        var tabModel = mock(TabModel.class);
+        when(tabModel.getProfile()).thenReturn(profile);
+        var chromeAndroidTask =
+                new ChromeAndroidTaskImpl(
+                        BrowserWindowType.NORMAL,
+                        ChromeAndroidTaskUnitTestSupport.createMockActivityWindowAndroid(1),
+                        tabModel);
 
         // Act & Assert.
         assertEquals(
-                "The returned Profile should be the same as the one from the Supplier.",
-                chromeAndroidTaskWithMockDeps.mMockProfile,
+                "The returned Profile should be the same as the one from the constructor.",
+                profile,
                 chromeAndroidTask.getProfile());
+    }
+
+    @Test
+    public void didAddTab_withDifferentProfile_throwsAssertionError() {
+        // Arrange.
+        var initialProfile = mock(Profile.class, "InitialProfile");
+        var differentProfile = mock(Profile.class, "DifferentProfile");
+        var tabWithDifferentProfile = mock(Tab.class);
+        when(tabWithDifferentProfile.getProfile()).thenReturn(differentProfile);
+        var tabModel = mock(TabModel.class);
+        when(tabModel.getProfile()).thenReturn(initialProfile);
+
+        var chromeAndroidTask =
+                new ChromeAndroidTaskImpl(
+                        BrowserWindowType.NORMAL,
+                        ChromeAndroidTaskUnitTestSupport.createMockActivityWindowAndroid(1),
+                        tabModel);
+
+        // Act & Assert.
+        assertThrows(
+                AssertionError.class,
+                () ->
+                        chromeAndroidTask.didAddTab(
+                                tabWithDifferentProfile,
+                                TabLaunchType.FROM_CHROME_UI,
+                                TabCreationState.LIVE_IN_FOREGROUND,
+                                /* markedForSelection= */ true));
     }
 
     @Test
@@ -121,7 +199,7 @@ public class ChromeAndroidTaskImplUnitTest {
         var chromeAndroidTask = createChromeAndroidTask(taskId);
 
         // Act & Assert.
-        assertEquals(taskId, chromeAndroidTask.getId());
+        assertEquals(taskId, chromeAndroidTask.getId().getAsInt());
     }
 
     @Test
@@ -134,7 +212,28 @@ public class ChromeAndroidTaskImplUnitTest {
         // Act & Assert.
         assertThrows(
                 AssertionError.class,
-                () -> chromeAndroidTask.setActivityWindowAndroid(newActivityWindowAndroid));
+                () ->
+                        chromeAndroidTask.setActivityWindowAndroid(
+                                newActivityWindowAndroid, mock(TabModel.class)));
+    }
+
+    @Test
+    public void setActivityWindowAndroid_fromPendingState_setsIdAndState() {
+        // Arrange.
+        var mockParams =
+                ChromeAndroidTaskUnitTestSupport.createMockAndroidBrowserWindowCreateParams();
+        var task = new ChromeAndroidTaskImpl(/* pendingId= */ 1, mockParams);
+        int taskId = 2;
+        var activityWindowAndroid =
+                ChromeAndroidTaskUnitTestSupport.createMockActivityWindowAndroid(taskId);
+
+        // Act.
+        task.setActivityWindowAndroid(activityWindowAndroid, mock(TabModel.class));
+
+        // Assert.
+        assertEquals(taskId, task.getId().getAsInt());
+        assertTrue(task.getPendingId().isEmpty());
+        assertEquals(activityWindowAndroid, task.getActivityWindowAndroid());
     }
 
     @Test
@@ -147,7 +246,7 @@ public class ChromeAndroidTaskImplUnitTest {
         chromeAndroidTask.clearActivityWindowAndroid();
 
         // Act.
-        chromeAndroidTask.setActivityWindowAndroid(newActivityWindowAndroid);
+        chromeAndroidTask.setActivityWindowAndroid(newActivityWindowAndroid, mock(TabModel.class));
 
         // Assert.
         assertEquals(newActivityWindowAndroid, chromeAndroidTask.getActivityWindowAndroid());
@@ -165,13 +264,42 @@ public class ChromeAndroidTaskImplUnitTest {
 
         // Act.
         chromeAndroidTask.setActivityWindowAndroid(
-                newActivityWindowAndroidMocks.mMockActivityWindowAndroid);
+                newActivityWindowAndroidMocks.mMockActivityWindowAndroid, mock(TabModel.class));
 
         // Assert.
         verify(newActivityWindowAndroidMocks.mMockActivityLifecycleDispatcher, times(1))
                 .register(isA(TopResumedActivityChangedWithNativeObserver.class));
         verify(newActivityWindowAndroidMocks.mMockActivityLifecycleDispatcher, times(1))
                 .register(isA(ConfigurationChangedObserver.class));
+    }
+
+    @Test
+    public void
+            setActivityWindowAndroid_previousRefCleared_setsNewTabModelRefAndRegistersTabModelObserver() {
+        // Arrange.
+        int taskId = 1;
+        var chromeAndroidTaskWithMockDeps =
+                ChromeAndroidTaskUnitTestSupport.createChromeAndroidTaskWithMockDeps(taskId);
+        var chromeAndroidTask =
+                (ChromeAndroidTaskImpl) chromeAndroidTaskWithMockDeps.mChromeAndroidTask;
+        var oldMockTabModel = chromeAndroidTaskWithMockDeps.mMockTabModel;
+
+        var newActivityWindowAndroidMocks =
+                ChromeAndroidTaskUnitTestSupport.createActivityWindowAndroidMocks(taskId);
+        var newMockTabModel = mock(TabModel.class);
+
+        // Act.
+        chromeAndroidTask.clearActivityWindowAndroid();
+        chromeAndroidTask.setActivityWindowAndroid(
+                newActivityWindowAndroidMocks.mMockActivityWindowAndroid, newMockTabModel);
+
+        // Assert.
+        // Verify observer was removed from the old TabModel.
+        verify(oldMockTabModel, times(1)).removeObserver(chromeAndroidTask);
+
+        // Verify the new TabModel is being observed.
+        assertEquals(newMockTabModel, chromeAndroidTask.getObservedTabModelForTesting());
+        verify(newMockTabModel, times(1)).addObserver(chromeAndroidTask);
     }
 
     @Test
@@ -186,7 +314,9 @@ public class ChromeAndroidTaskImplUnitTest {
         // Act & Assert.
         assertThrows(
                 AssertionError.class,
-                () -> chromeAndroidTask.setActivityWindowAndroid(newActivityWindowAndroid));
+                () ->
+                        chromeAndroidTask.setActivityWindowAndroid(
+                                newActivityWindowAndroid, mock(TabModel.class)));
     }
 
     @Test
@@ -201,7 +331,9 @@ public class ChromeAndroidTaskImplUnitTest {
                 ChromeAndroidTaskUnitTestSupport.createMockActivityWindowAndroid(taskId);
         assertThrows(
                 AssertionError.class,
-                () -> chromeAndroidTask.setActivityWindowAndroid(newActivityWindowAndroid));
+                () ->
+                        chromeAndroidTask.setActivityWindowAndroid(
+                                newActivityWindowAndroid, mock(TabModel.class)));
     }
 
     @Test
@@ -235,6 +367,24 @@ public class ChromeAndroidTaskImplUnitTest {
                 .unregister(isA(TopResumedActivityChangedWithNativeObserver.class));
         verify(mockActivityLifecycleDispatcher, times(1))
                 .unregister(isA(ConfigurationChangedObserver.class));
+    }
+
+    @Test
+    public void clearActivityWindowAndroid_unregistersTabModelObserverAndClearTabModelRef() {
+        // Arrange.
+        var chromeAndroidTaskWithMockDeps =
+                ChromeAndroidTaskUnitTestSupport.createChromeAndroidTaskWithMockDeps(
+                        /* taskId= */ 1);
+        var chromeAndroidTask =
+                (ChromeAndroidTaskImpl) chromeAndroidTaskWithMockDeps.mChromeAndroidTask;
+        var mockTabModel = chromeAndroidTaskWithMockDeps.mMockTabModel;
+
+        // Act.
+        chromeAndroidTask.clearActivityWindowAndroid();
+
+        // Assert.
+        verify(mockTabModel, times(1)).removeObserver(chromeAndroidTask);
+        assertNull(chromeAndroidTask.getObservedTabModelForTesting());
     }
 
     @Test
@@ -279,12 +429,29 @@ public class ChromeAndroidTaskImplUnitTest {
     }
 
     @Test
-    public void getOrCreateNativeBrowserWindowPtr_returnsPtrValue() {
+    public void getOrCreateNativeBrowserWindowPtr_returnsPtrValueForAliveTask() {
         // Arrange.
         var chromeAndroidTaskWithMockDeps =
                 ChromeAndroidTaskUnitTestSupport.createChromeAndroidTaskWithMockDeps(
                         /* taskId= */ 1);
         var chromeAndroidTask = chromeAndroidTaskWithMockDeps.mChromeAndroidTask;
+
+        // Act.
+        long nativeBrowserWindowPtr = chromeAndroidTask.getOrCreateNativeBrowserWindowPtr();
+
+        // Assert.
+        assertEquals(
+                ChromeAndroidTaskUnitTestSupport.FAKE_NATIVE_ANDROID_BROWSER_WINDOW_PTR,
+                nativeBrowserWindowPtr);
+    }
+
+    @Test
+    public void getOrCreateNativeBrowserWindowPtr_returnsPtrValueForPendingTask() {
+        // Arrange.
+        ChromeAndroidTaskUnitTestSupport.createMockAndroidBrowserWindowNatives();
+        var mockParams =
+                ChromeAndroidTaskUnitTestSupport.createMockAndroidBrowserWindowCreateParams();
+        var chromeAndroidTask = new ChromeAndroidTaskImpl(/* pendingId= */ 1, mockParams);
 
         // Act.
         long nativeBrowserWindowPtr = chromeAndroidTask.getOrCreateNativeBrowserWindowPtr();
@@ -523,16 +690,16 @@ public class ChromeAndroidTaskImplUnitTest {
                         /* taskId= */ 1);
         var chromeAndroidTask =
                 (ChromeAndroidTaskImpl) chromeAndroidTaskWithMockDeps.mChromeAndroidTask;
+        var mockActivityWindowAndroid =
+                chromeAndroidTaskWithMockDeps
+                        .mActivityWindowAndroidMocks
+                        .mMockActivityWindowAndroid;
         var mockActivity = chromeAndroidTaskWithMockDeps.mActivityWindowAndroidMocks.mMockActivity;
         var mockWindowManager =
                 chromeAndroidTaskWithMockDeps.mActivityWindowAndroidMocks.mMockWindowManager;
 
-        // Mock isInDesktopWindowing() to return true.
-        var mockWindowMetrics = mock(WindowMetrics.class);
-        var mockWindowInsets = mock(WindowInsets.class);
-        when(mockWindowManager.getCurrentWindowMetrics()).thenReturn(mockWindowMetrics);
-        when(mockWindowMetrics.getWindowInsets()).thenReturn(mockWindowInsets);
-        when(mockWindowInsets.isVisible(WindowInsets.Type.captionBar())).thenReturn(true);
+        // Mock isInMultiWindowMode() to return true.
+        when(mockActivity.isInMultiWindowMode()).thenReturn(true);
 
         // Mock getMaximizedBounds().
         var mockMaxWindowMetrics = mock(WindowMetrics.class);
@@ -574,18 +741,22 @@ public class ChromeAndroidTaskImplUnitTest {
                         /* taskId= */ 1);
         var chromeAndroidTask =
                 (ChromeAndroidTaskImpl) chromeAndroidTaskWithMockDeps.mChromeAndroidTask;
+        var mockActivityWindowAndroid =
+                chromeAndroidTaskWithMockDeps
+                        .mActivityWindowAndroidMocks
+                        .mMockActivityWindowAndroid;
         var mockWindowManager =
                 chromeAndroidTaskWithMockDeps.mActivityWindowAndroidMocks.mMockWindowManager;
 
-        // Mock isInDesktopWindowing() to return true.
+        // Mock isInMultiWindowMode() to return true.
         var mockWindowMetrics = mock(WindowMetrics.class);
-        var mockWindowInsets = mock(WindowInsets.class);
-        when(mockWindowManager.getCurrentWindowMetrics()).thenReturn(mockWindowMetrics);
-        when(mockWindowMetrics.getWindowInsets()).thenReturn(mockWindowInsets);
-        when(mockWindowInsets.isVisible(WindowInsets.Type.captionBar())).thenReturn(true);
+        when(chromeAndroidTaskWithMockDeps.mActivityWindowAndroidMocks.mMockActivity
+                        .isInMultiWindowMode())
+                .thenReturn(true);
 
         // Mock getBounds() to return non-maximized bounds.
         var currentBounds = new Rect(0, 0, 800, 600);
+        when(mockWindowManager.getCurrentWindowMetrics()).thenReturn(mockWindowMetrics);
         when(mockWindowMetrics.getBounds()).thenReturn(currentBounds);
 
         // Mock getMaximizedBounds().
@@ -632,5 +803,81 @@ public class ChromeAndroidTaskImplUnitTest {
         var capturedBundle = bundleCaptor.getValue();
         Rect capturedBounds = capturedBundle.getParcelable(ActivityOptions.KEY_LAUNCH_BOUNDS);
         assertEquals(newBounds, capturedBounds);
+    }
+
+    @Test
+    @Config(sdk = Build.VERSION_CODES.R)
+    @SuppressLint("NewApi" /* @Config already specifies the required SDK */)
+    public void restore_restoresToPreviousBounds() {
+        // Arrange
+        int taskId = 1;
+        var chromeAndroidTaskWithMockDeps =
+                ChromeAndroidTaskUnitTestSupport.createChromeAndroidTaskWithMockDeps(taskId);
+        var chromeAndroidTask =
+                (ChromeAndroidTaskImpl) chromeAndroidTaskWithMockDeps.mChromeAndroidTask;
+        var mockActivityWindowAndroid =
+                chromeAndroidTaskWithMockDeps
+                        .mActivityWindowAndroidMocks
+                        .mMockActivityWindowAndroid;
+        var mockActivity = chromeAndroidTaskWithMockDeps.mActivityWindowAndroidMocks.mMockActivity;
+        var mockWindowManager =
+                chromeAndroidTaskWithMockDeps.mActivityWindowAndroidMocks.mMockWindowManager;
+        var mockWindow = mock(Window.class);
+        when(mockActivity.getWindow()).thenReturn(mockWindow);
+        var mockWindowInsetsController = mock(WindowInsetsController.class);
+        when(mockWindow.getInsetsController()).thenReturn(mockWindowInsetsController);
+        when(mockWindowInsetsController.getSystemBarsBehavior())
+                .thenReturn(WindowInsetsControllerCompat.BEHAVIOR_DEFAULT);
+
+        // Mock isRestoredInternalLocked() to return true before maximize().
+        // 1. Mock isMinimizedInternalLocked() to be false. (Assuming task is visible)
+        ApplicationStatus.onStateChangeForTesting(mockActivity, ActivityState.CREATED);
+        ApplicationStatus.onStateChangeForTesting(mockActivity, ActivityState.RESUMED);
+        assertFalse("Task is minimized", chromeAndroidTask.isMinimized());
+
+        // 2. Mock isMaximizedInternalLocked() to be false.
+        // Mock isInMultiWindowMode() to return true.
+        var mockWindowMetrics = mock(WindowMetrics.class);
+        when(mockWindowManager.getCurrentWindowMetrics()).thenReturn(mockWindowMetrics);
+        when(chromeAndroidTaskWithMockDeps.mActivityWindowAndroidMocks.mMockActivity
+                        .isInMultiWindowMode())
+                .thenReturn(true);
+
+        var restoredBounds = new Rect(0, 0, 800, 600);
+        when(mockWindowMetrics.getBounds()).thenReturn(restoredBounds);
+
+        var mockMaxWindowMetrics = mock(WindowMetrics.class);
+        var mockMaxWindowInsets = mock(WindowInsets.class);
+        when(mockWindowManager.getMaximumWindowMetrics()).thenReturn(mockMaxWindowMetrics);
+        when(mockMaxWindowMetrics.getWindowInsets()).thenReturn(mockMaxWindowInsets);
+        when(mockMaxWindowInsets.getInsets(WindowInsets.Type.tappableElement()))
+                .thenReturn(Insets.of(0, 0, 0, 0));
+        when(mockMaxWindowMetrics.getBounds()).thenReturn(new Rect(0, 0, 1920, 1080));
+        assertFalse("Task is maximized", chromeAndroidTask.isMaximized());
+
+        // 3. Mock isFullscreenInternalLocked() to be false.
+        when(mockMaxWindowInsets.isVisible(WindowInsets.Type.statusBars())).thenReturn(true);
+        assertFalse("Task is fullscreen", chromeAndroidTask.isFullscreen());
+
+        // Call maximize(). This should set mRestoredBounds to the current bounds.
+        chromeAndroidTask.maximize();
+
+        assertEquals(
+                "restored bounds should be set to the current bounds",
+                restoredBounds,
+                chromeAndroidTask.getRestoredBoundsForTesting());
+
+        // Act
+        chromeAndroidTask.restore();
+
+        // Assert
+        var intentCaptor = ArgumentCaptor.forClass(Intent.class);
+        var bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
+        verify(mockActivity, times(2))
+                .startActivity(intentCaptor.capture(), bundleCaptor.capture());
+
+        var capturedBundle = bundleCaptor.getValue();
+        Rect capturedBounds = capturedBundle.getParcelable(ActivityOptions.KEY_LAUNCH_BOUNDS);
+        assertEquals(restoredBounds, capturedBounds);
     }
 }

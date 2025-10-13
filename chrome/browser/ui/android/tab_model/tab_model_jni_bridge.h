@@ -49,7 +49,7 @@ class TabModelJniBridge : public TabModel {
   void AssociateWithBrowserWindow(JNIEnv* env,
                                   long native_android_browser_window);
   void TabAddedToModel(JNIEnv* env, TabAndroid* tab);
-  void DuplicateTabForTesting(JNIEnv* env, TabAndroid* tab);
+  TabAndroid* DuplicateTabForTesting(JNIEnv* env, TabAndroid* tab);
   void MoveTabToWindowForTesting(JNIEnv* env,
                                  TabAndroid* tab,
                                  long android_browser_window_ptr,
@@ -58,6 +58,8 @@ class TabModelJniBridge : public TabModel {
                                       const base::Token& group_id,
                                       long android_browser_window_ptr,
                                       int new_index);
+  void SetMuteSetting(JNIEnv* env, std::vector<TabAndroid*> tabs, bool mute);
+  jint GetSessionIdForTesting(JNIEnv* env);
 
   // TabModel::
   void AddTabListInterfaceObserver(TabListInterfaceObserver* observer) override;

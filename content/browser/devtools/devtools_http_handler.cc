@@ -407,6 +407,7 @@ DevToolsHttpHandler::~DevToolsHttpHandler() {
   connection_to_client_.clear();
   TerminateOnUI(std::move(thread_), std::move(server_wrapper_),
                 std::move(socket_factory_));
+  delegate_ = nullptr;
 }
 
 static std::string PathWithoutParams(const std::string& path) {
@@ -893,8 +894,7 @@ void DevToolsHttpHandler::SendJson(int connection_id,
     base::JSONWriter::WriteWithOptions(
         *value, base::JSONWriter::OPTIONS_PRETTY_PRINT, &json_value);
   }
-  std::string json_message;
-  base::JSONWriter::Write(base::Value(message), &json_message);
+  std::string json_message = base::WriteJson(base::Value(message)).value_or("");
 
   net::HttpServerResponseInfo response(status_code);
   response.AddHeader("Content-Security-Policy", "frame-ancestors 'none'");

@@ -49,12 +49,16 @@
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_client.h"
+#include "chrome/browser/ui/omnibox/omnibox_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -66,6 +70,8 @@
 #include "chrome/browser/ui/views/location_bar/omnibox_chip_button.h"
 #include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
 #include "chrome/browser/ui/views/location_bar/star_view.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_view_views.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_view_webui.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/page_action/action_ids.h"
 #include "chrome/browser/ui/views/page_action/page_action_container_view.h"
@@ -84,6 +90,7 @@
 #include "chrome/browser/ui/views/sharing_hub/sharing_hub_icon_view.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/views/user_education/browser_help_bubble.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/web_applications/link_capturing_features.h"
 #include "chrome/common/chrome_features.h"
@@ -99,10 +106,7 @@
 #include "components/lens/lens_features.h"
 #include "components/omnibox/browser/location_bar_model.h"
 #include "components/omnibox/browser/omnibox_client.h"
-#include "components/omnibox/browser/omnibox_controller.h"
-#include "components/omnibox/browser/omnibox_edit_model.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
-#include "components/omnibox/browser/omnibox_popup_view.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/omnibox_text_util.h"
 #include "components/omnibox/browser/vector_icons.h"
@@ -307,6 +311,20 @@ void LocationBarView::Init() {
       /*location_bar_view=*/this, font_list);
   omnibox_view_ = AddChildView(std::move(omnibox_view));
   omnibox_view_->Init();
+
+  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup)) {
+    omnibox_popup_view_ = std::make_unique<OmniboxPopupViewWebUI>(
+        /*omnibox_view=*/omnibox_view_, omnibox_view_->controller(),
+        /*location_bar_view=*/this);
+  } else {
+    omnibox_popup_view_ = std::make_unique<OmniboxPopupViewViews>(
+        /*omnibox_view=*/omnibox_view_, omnibox_view_->controller(),
+        /*location_bar_view=*/this);
+  }
+  popup_view_opened_subscription_ =
+      omnibox_popup_view_->AddOpenListener(base::BindRepeating(
+          &LocationBarView::OnPopupOpened, base::Unretained(this)));
+
   // LocationBarView directs mouse button events from
   // |omnibox_additional_text_view_| to |omnibox_view_| so that e.g., clicking
   // the former will focus the latter. In order to receive |ShowContextMenu()|
@@ -506,6 +524,16 @@ void LocationBarView::Init() {
 
 bool LocationBarView::IsInitialized() const {
   return is_initialized_;
+}
+
+void LocationBarView::OnPopupOpened() {
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  // It's not great for promos to overlap the omnibox if the user opens the
+  // drop-down after showing the promo. This especially causes issues on Mac and
+  // Linux due to z-order/rendering issues, see crbug.com/1225046 and
+  // crbug.com/332769403 for examples.
+  BrowserHelpBubble::MaybeCloseOverlappingHelpBubbles(this);
+#endif
 }
 
 int LocationBarView::GetBorderRadius() const {
@@ -1071,6 +1099,15 @@ WebContents* LocationBarView::GetWebContents() {
   return delegate_->GetWebContents();
 }
 
+std::optional<bubble_anchor_util::AnchorConfiguration>
+LocationBarView::GetChipAnchor() {
+  auto* chip = GetChipController()->chip();
+  if (chip->GetVisible()) {
+    return {{chip, chip, views::BubbleBorder::TOP_LEFT}};
+  }
+  return std::nullopt;
+}
+
 SkColor LocationBarView::GetIconLabelBubbleSurroundingForegroundColor() const {
   // If keyword mode is active, then override the "surrounding foreground color"
   // to ensure that the keyword mode separator has a distinct color. Otherwise,
@@ -1246,7 +1283,8 @@ void LocationBarView::RefreshBackground() {
   const bool is_caret_visible = omnibox_view_->model()->is_caret_visible();
   const bool input_in_progress =
       omnibox_view_->model()->user_input_in_progress();
-  const bool high_contrast = GetNativeTheme()->UserHasContrastPreference();
+  const bool high_contrast = GetNativeTheme()->preferred_contrast() ==
+                             ui::NativeTheme::PreferredContrast::kMore;
 
   const auto* const color_provider = GetColorProvider();
   SkColor normal = color_provider->GetColor(kColorLocationBarBackground);
@@ -1390,8 +1428,7 @@ OmniboxPopupView* LocationBarView::GetOmniboxPopupView() {
 }
 
 const OmniboxPopupView* LocationBarView::GetOmniboxPopupView() const {
-  DCHECK(omnibox_view_ && omnibox_view_->model());
-  return omnibox_view_->model()->get_popup_view();
+  return omnibox_popup_view_.get();
 }
 
 void LocationBarView::OnPageInfoBubbleClosed(

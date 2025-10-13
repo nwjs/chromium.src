@@ -49,6 +49,7 @@
 #import "ios/chrome/browser/settings/ui_bundled/tabs/tabs_settings_constants.h"
 #import "ios/chrome/browser/share_kit/model/test_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_constants.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_cell.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_item.h"
@@ -261,12 +262,10 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 }
 
 + (id<GREYMatcher>)buttonWithSecondaryColor {
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
   if (@available(iOS 26, *)) {
     return grey_allOf([self buttonWithForegroundColor:kSolidBlackColor],
                       [self buttonWithBackgroundColor:UIColor.clearColor], nil);
   }
-#endif
   return grey_allOf([self buttonWithForegroundColor:kBlueColor], nil);
 }
 
@@ -285,11 +284,9 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
       return NO;
     }
     UIButton* button = base::apple::ObjCCastStrict<UIButton>(element);
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
     if (@available(iOS 26, *)) {
       return CGColorEqualToColor(color.CGColor, button.tintColor.CGColor);
     }
-#endif
     return CGColorEqualToColor(
         color.CGColor, button.configuration.background.backgroundColor.CGColor);
   };
@@ -1178,11 +1175,7 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 }
 
 + (id<GREYMatcher>)swipeActionDeleteButton {
-#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
   NSString* buttonClass = @"_UISwipeActionDynamicButton";
-#else
-  NSString* buttonClass = @"UISwipeActionStandardButton";
-#endif
   return grey_allOf(
       [ChromeMatchersAppInterface
           buttonWithAccessibilityLabelID:IDS_IOS_DELETE_ACTION_TITLE],
@@ -1205,6 +1198,10 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 
 + (id<GREYMatcher>)fakeOmnibox {
   return grey_accessibilityID(ntp_home::FakeOmniboxAccessibilityID());
+}
+
++ (id<GREYMatcher>)snackbarViewMatcher {
+  return grey_accessibilityID(kSnackbarAccessibilityId);
 }
 
 + (id<GREYMatcher>)discoverHeaderLabel {
@@ -1393,13 +1390,12 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
   NSString* messageLabel =
       base::SysUTF16ToNSString(l10n_util::GetPluralStringFUTF16(
           IDS_IOS_TAB_GROUP_SNACKBAR_LABEL, tabGroupCount));
-  return grey_allOf(
-      grey_accessibilityID(@"MDCSnackbarMessageTitleAutomationIdentifier"),
-      grey_text(messageLabel), nil);
+  return grey_allOf([ChromeMatchersAppInterface snackbarViewMatcher],
+                    grey_descendant(grey_text(messageLabel)), nil);
 }
 
 + (id<GREYMatcher>)tabGroupSnackBarAction {
-  return grey_allOf(grey_kindOfClassName(@"M3CButton"),
+  return grey_allOf(grey_accessibilityID(kSnackbarButtonAccessibilityId),
                     grey_buttonTitle(l10n_util::GetNSString(
                         IDS_IOS_TAB_GROUP_SNACKBAR_ACTION)),
                     nil);

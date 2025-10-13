@@ -8,26 +8,19 @@
 
 namespace omnibox {
 
-BASE_FEATURE(kAimEnabled, "AimEnabled", base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kAimEnabled, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAimServerEligibilityEnabled,
-             "AimServerEligibilityEnabled",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAimServerEligibilityEnabled, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAimServerEligibilityEnabledEn,
-             "AimServerEligibilityEnabledEn",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAimServerEligibilityEnabledEn, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAimServerEligibilityChangedNotification,
-             "AimServerEligibilityChangedNotification",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAimServerRequestOnStartupEnabled,
-             "AimServerRequestOnStartupEnabled",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAimServerRequestOnIdentityChangeEnabled,
-             "AimServerRequestOnIdentityChangeEnabled",
              base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<bool> kRequestOnCookieJarChanges{
     &kAimServerRequestOnIdentityChangeEnabled, "request_on_cookie_jar_changes",

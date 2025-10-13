@@ -57,6 +57,8 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
       WebNNContextProviderImpl* context_provider,
       ContextProperties properties,
       mojom::CreateContextOptionsPtr options,
+      mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
+      mojo::ScopedDataPipeProducerHandle read_tensor_producer,
       gpu::CommandBufferId command_buffer_id,
       std::unique_ptr<ScopedSequence> sequence,
       scoped_refptr<gpu::SchedulerTaskRunner> task_runner);
@@ -65,7 +67,7 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
   WebNNContextImpl& operator=(const WebNNContextImpl&) = delete;
 
   virtual base::WeakPtr<WebNNContextImpl> AsWeakPtr()
-      VALID_CONTEXT_REQUIRED(sequence_checker_) = 0;
+      VALID_CONTEXT_REQUIRED(gpu_sequence_checker_) = 0;
 
   // Disassociates a `WebNNTensor` instance owned by this context by its handle.
   // Called when a `WebNNTensor` instance has a connection error. After this
@@ -141,6 +143,21 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
   // operations complete execution.
   gpu::SyncToken GenVerifiedSyncToken();
 
+  // Returns true if the data pipe consumer handle for WriteTensor() is valid.
+  bool HasValidWriteTensorConsumer() const;
+
+  // Returns true if the data pipe producer handle for ReadTensor() is valid.
+  bool HasValidReadTensorProducer() const;
+
+  // Reads data from either a BigBuffer or the data pipe into the provided span.
+  void ReadDataFromBigBufferOrDataPipe(mojo_base::BigBuffer src_buffer,
+                                       base::span<uint8_t> dst_span);
+
+  // Writes data from the given span into the data pipe producer if it is valid
+  // and return an empty BigBuffer, or into a new BigBuffer otherwise.
+  mojo_base::BigBuffer WriteDataToDataPipeOrBigBuffer(
+      base::span<const uint8_t> src_span);
+
  protected:
   ~WebNNContextImpl() override;
 
@@ -167,12 +184,10 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
   // for WebGPU interop. Backend subclasses should implement this to
   // asynchronously create a platform-specific tensor from a shared image.
   virtual base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
-  CreateTensorFromMailboxImpl(
+  CreateTensorFromSharedImageImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
       mojom::TensorInfoPtr tensor_info,
-      gpu::Mailbox mailbox) = 0;
-
-  SEQUENCE_CHECKER(sequence_checker_);
+      std::unique_ptr<gpu::WebNNTensorRepresentation> representation) = 0;
 
   // Owns this object.
   raw_ptr<WebNNContextProviderImpl> context_provider_;
@@ -224,9 +239,9 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
   // to another message pipe to wait on WebNN work.
   uint64_t last_sync_token_release_id_ = 0;
 
-  // Ensures ResetWithReason() runs on the correct sequence, even if OnLost()
-  // is called from another thread.
-  base::OnceCallback<void(const std::string&)> on_lost_callback_;
+  // Data pipe handles for transferring tensor data across processes.
+  mojo::ScopedDataPipeConsumerHandle write_tensor_consumer_;
+  mojo::ScopedDataPipeProducerHandle read_tensor_producer_;
 };
 
 }  // namespace webnn

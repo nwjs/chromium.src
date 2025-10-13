@@ -573,6 +573,8 @@ ios_builder(
         "ci/ios-catalyst",
     ],
     gn_args = "ci/ios-catalyst",
+    builderless = True,
+    cpu = cpu.ARM64,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -728,7 +730,7 @@ ios_builder(
     builderless = True,
     cpu = cpu.ARM64,
     contact_team_email = "cobalt-appletv@google.com",
-    xcode = xcode.x16betabots,
+    xcode = xcode.x26betabots,
 )
 
 ios_builder(

@@ -12,6 +12,8 @@
 
 #include "base/check.h"
 #include "base/containers/contains.h"
+#include "base/containers/map_util.h"
+#include "base/debug/crash_logging.h"
 #include "base/debug/stack_trace.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -630,10 +632,6 @@ void CompositorFrameSinkSupport::UpdateThreadIdsPostVerification(
   }
 }
 
-bool CompositorFrameSinkSupport::IsRoot() const {
-  return is_root_;
-}
-
 void CompositorFrameSinkSupport::DidNotProduceFrame(const BeginFrameAck& ack) {
   TRACE_EVENT(
       "viz,benchmark,graphics.pipeline", "Graphics.Pipeline",
@@ -861,7 +859,7 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
     const bool has_copy_request_against_prev_surface =
         frame.metadata.screenshot_destination.has_value() && prev_surface;
 
-    current_surface = surface_manager_->CreateSurface(
+    auto create_surface_return = surface_manager_->CreateSurface(
         weak_factory_.GetWeakPtr(), surface_info,
         has_copy_request_against_prev_surface ? last_created_surface_id_
                                               : SurfaceId());
@@ -901,11 +899,39 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
                                    /*capture_exact_id=*/true));
     }
 
-    if (!current_surface) {
+    if (!create_surface_return.has_value()) {
       TRACE_EVENT_INSTANT0("viz", "Surface belongs to another client",
                            TRACE_EVENT_SCOPE_THREAD);
+
+      static auto* const crash_key_local_surface_id =
+          base::debug::AllocateCrashKeyString(
+              "Local surface id", base::debug::CrashKeySize::Size32);
+      base::debug::SetCrashKeyString(crash_key_local_surface_id,
+                                     local_surface_id.ToString());
+
+      static auto* const crash_key_last_created_local_surface_id =
+          base::debug::AllocateCrashKeyString(
+              "Last created local surface id",
+              base::debug::CrashKeySize::Size32);
+      base::debug::SetCrashKeyString(
+          crash_key_last_created_local_surface_id,
+          last_created_surface_id_.local_surface_id().ToString());
+
+      static auto* const crash_key_prev_surface =
+          base::debug::AllocateCrashKeyString(
+              "Prev surface", base::debug::CrashKeySize::Size32);
+      base::debug::SetCrashKeyString(crash_key_prev_surface,
+                                     prev_surface ? "exist" : "not_exist");
+
+      static auto* const crash_key_create_surface_error =
+          base::debug::AllocateCrashKeyString(
+              "Create surface error", base::debug::CrashKeySize::Size32);
+      base::debug::SetCrashKeyString(crash_key_create_surface_error,
+                                     create_surface_return.error());
+
       return SubmitResult::SURFACE_OWNED_BY_ANOTHER_CLIENT;
     }
+    current_surface = create_surface_return.value();
     last_created_surface_id_ = SurfaceId(frame_sink_id_, local_surface_id);
 
     surface_manager_->SurfaceDamageExpected(current_surface->surface_id(),
@@ -1036,6 +1062,8 @@ void CompositorFrameSinkSupport::DidPresentCompositorFrame(
       received_frame_timestamp->second->start_prepare_to_draw();
   details.start_draw_layers =
       received_frame_timestamp->second->start_draw_layers();
+  details.submit_compositor_frame =
+      received_frame_timestamp->second->submit_compositor_frame();
 
   pending_received_frame_times_.erase(received_frame_timestamp);
 
@@ -1300,11 +1328,12 @@ CompositorFrameSinkSupport::GetRequestRegionProperties(
   // If we have a region capture crop ID, capture a subsection of the root
   // render pass.
   if (IsRegionCapture(sub_target)) {
-    const auto it = current_capture_bounds_.bounds().find(
-        std::get<RegionCaptureCropId>(sub_target));
-    if (it != current_capture_bounds_.bounds().end() && !it->second.IsEmpty() &&
-        gfx::Rect(out.root_render_pass_size).Contains(it->second)) {
-      out.render_pass_subrect = it->second;
+    const gfx::Rect* rect =
+        base::FindOrNull(current_capture_bounds_.bounds(),
+                         std::get<RegionCaptureCropId>(sub_target));
+    if (rect && !rect->IsEmpty() &&
+        gfx::Rect(out.root_render_pass_size).Contains(*rect)) {
+      out.render_pass_subrect = *rect;
       return out;
     }
 

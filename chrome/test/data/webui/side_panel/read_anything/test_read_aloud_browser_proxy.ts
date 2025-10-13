@@ -9,6 +9,8 @@ export class TestReadAloudModelBrowserProxy extends TestBrowserProxy implements
     ReadAloudModelBrowserProxy {
   private currentTextSegments_: Segment[] = [];
   private highlightsForCurrentSegmentIndex_: Segment[] = [];
+  private currentTextContent_: string = '';
+  private isInitialized_: boolean = false;
 
   constructor() {
     super([
@@ -21,6 +23,7 @@ export class TestReadAloudModelBrowserProxy extends TestBrowserProxy implements
       'moveSpeechBackwards',
       'isInitialized',
       'init',
+      'resetModel',
     ]);
   }
 
@@ -46,7 +49,7 @@ export class TestReadAloudModelBrowserProxy extends TestBrowserProxy implements
 
   getCurrentTextContent(): string {
     this.methodCalled('getCurrentTextContent');
-    return '';
+    return this.currentTextContent_;
   }
 
   getAccessibleText(text: string, maxSpeechLength: number): string {
@@ -68,10 +71,23 @@ export class TestReadAloudModelBrowserProxy extends TestBrowserProxy implements
 
   isInitialized(): boolean {
     this.methodCalled('isInitialized');
-    return false;
+    return this.isInitialized_;
   }
 
-  init(context: ReadAloudNode|string): void {
+  init(context: ReadAloudNode): void {
     this.methodCalled('init', context);
+    this.isInitialized_ = true;
+  }
+
+  resetModel(): void {
+    this.methodCalled('resetModel');
+  }
+
+  setCurrentTextContent(content: string) {
+    this.currentTextContent_ = content;
+  }
+
+  setInitialized(isInitialized: boolean) {
+    this.isInitialized_ = isInitialized;
   }
 }

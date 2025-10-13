@@ -3,8 +3,6 @@
 // found in the LICENSE file.
 
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_coordinator.h"
-
-#import <MaterialComponents/MaterialSnackbar.h>
 #import <stdint.h>
 
 #import "base/apple/foundation_util.h"
@@ -433,9 +431,7 @@ enum class PresentedState {
 
 - (void)dismissSnackbar {
   // Dismiss any bookmark related snackbar this controller could have presented.
-  [MDCSnackbarManager.defaultManager
-      dismissAndCallCompletionBlocksWithCategory:
-          bookmark_utils_ios::kBookmarksSnackbarCategory];
+  [self.snackbarCommandsHandler dismissAllSnackbars];
 }
 
 - (BOOL)canDismiss {

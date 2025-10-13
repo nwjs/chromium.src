@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/anchor_evaluator.h"
 #include "third_party/blink/renderer/core/css/css_anchor_query_enums.h"
+#include "third_party/blink/renderer/core/css/out_of_flow_data.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/layout/anchor_scope.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
@@ -98,7 +99,6 @@ class AnchorQueryBase : public GarbageCollectedMixin {
       return named_map_iterator_ == other.named_map_iterator_ &&
              implicit_map_iterator_ == other.implicit_map_iterator_;
     }
-    bool operator!=(const Iterator& other) const { return !operator==(other); }
 
     Iterator& operator++() {
       if (named_map_iterator_ != anchor_query_->named_anchors_.end())
@@ -321,6 +321,16 @@ class CORE_EXPORT AnchorEvaluatorImpl : public AnchorEvaluator {
     return display_locks_affected_by_anchors_;
   }
 
+  const OutOfFlowData::RememberedScrollOffsets* LastUsedScrollOffsets() {
+    return used_scroll_offsets_;
+  }
+  void ClearLastUsedScrollOffsets() { used_scroll_offsets_ = nullptr; }
+  void SetRememberedScrollOffsets(
+      const OutOfFlowData::RememberedScrollOffsets* offsets) {
+    remembered_scroll_offsets_ = offsets;
+  }
+  void ClearRememberedScrollOffsets() { remembered_scroll_offsets_ = nullptr; }
+
  private:
   // Unless nullptr is returned, the returned anchor reference is guaranteed to
   // have a valid LayoutObject.
@@ -440,6 +450,12 @@ class CORE_EXPORT AnchorEvaluatorImpl : public AnchorEvaluator {
   // A set of elements whose display locks' skipping status are potentially
   // impacted by anchors found by this evaluator.
   mutable GCedHeapHashSet<Member<Element>>* display_locks_affected_by_anchors_ =
+      nullptr;
+
+  const OutOfFlowData::RememberedScrollOffsets* remembered_scroll_offsets_ =
+      nullptr;
+
+  mutable OutOfFlowData::RememberedScrollOffsets* used_scroll_offsets_ =
       nullptr;
 };
 

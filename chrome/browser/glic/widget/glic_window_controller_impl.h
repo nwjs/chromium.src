@@ -20,6 +20,7 @@
 #include "chrome/browser/glic/host/glic_web_client_access.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_instance.h"
 #include "chrome/browser/glic/widget/glic_window_config.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/glic/widget/local_hotkey_manager.h"
@@ -56,9 +57,11 @@ class GlicWindowControllerImpl
     : public display::DisplayObserver,
       public GlicWindowController,
       public views::WidgetObserver,
+      public Host::EmbedderDelegate,
       public Host::Observer,
       public web_modal::WebContentsModalDialogManagerDelegate,
-      public web_modal::WebContentsModalDialogHost {
+      public web_modal::WebContentsModalDialogHost,
+      public GlicInstance {
  public:
   GlicWindowControllerImpl(const GlicWindowControllerImpl&) = delete;
   GlicWindowControllerImpl& operator=(const GlicWindowControllerImpl&) = delete;
@@ -78,31 +81,20 @@ class GlicWindowControllerImpl
                                    bool prevent_close,
                                    mojom::InvocationSource source) override;
   void FocusIfOpen() override;
-  void Attach() override;
-  void Detach() override;
   void Shutdown() override;
-  void Resize(const gfx::Size& size,
-              base::TimeDelta duration,
-              base::OnceClosure callback) override;
-  void EnableDragResize(bool enabled) override;
   void MaybeSetWidgetCanResize() override;
   gfx::Size GetSize() override;
-  void SetDraggableAreas(
-      const std::vector<gfx::Rect>& draggable_areas) override;
-  void SetMinimumWidgetSize(const gfx::Size& size) override;
   void Close() override;
   void CloseWithReason(views::Widget::ClosedReason reason) override;
   bool ActivateBrowser() override;
   void ShowTitleBarContextMenuAt(gfx::Point event_loc) override;
   bool ShouldStartDrag(const gfx::Point& initial_press_loc,
                        const gfx::Point& mouse_location) override;
-  const mojom::PanelState& GetPanelState() const override;
 
   void AddStateObserver(StateObserver* observer) override;
   void RemoveStateObserver(StateObserver* observer) override;
 
   bool IsActive() override;
-  bool IsShowing() const override;
   bool IsAttached() const override;
   bool IsDetached() const override;
   base::CallbackListSubscription AddWindowActivationChangedCallback(
@@ -124,9 +116,9 @@ class GlicWindowControllerImpl
   gfx::Rect GetInitialBounds(Browser* browser) override;
   void ShowDetachedForTesting() override;
   void SetPreviousPositionForTesting(gfx::Point position) override;
-  std::unique_ptr<GlicView> CreateGlicViewForSidePanel() override;
-  base::CallbackListSubscription RegisterFloatyStateChange(
-      FloatyStateChangeCallback callback) override;
+  std::unique_ptr<views::View> CreateViewForSidePanel(
+      tabs::TabInterface& tab) override;
+  void SidePanelShown(BrowserWindowInterface* browser) override;
 
   // views::WidgetObserver implementation, monitoring the glic window widget.
   void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
@@ -136,15 +128,40 @@ class GlicWindowControllerImpl
   void OnWidgetUserResizeStarted() override;
   void OnWidgetUserResizeEnded() override;
 
+  // Host::EmbedderDelegate implementation
+  const mojom::PanelState& GetPanelState() const override;
+  void Resize(const gfx::Size& size,
+              base::TimeDelta duration,
+              base::OnceClosure callback) override;
+  void SetDraggableAreas(
+      const std::vector<gfx::Rect>& draggable_areas) override;
+  void EnableDragResize(bool enabled) override;
+  void Attach() override;
+  void Detach() override;
+  void SetMinimumWidgetSize(const gfx::Size& size) override;
+  bool IsShowing() const override;
+  void SwitchConversation(
+      glic::mojom::ConversationInfoPtr info,
+      mojom::WebClientHandler::SwitchConversationCallback callback) override;
+
   // display::DisplayObserver implementation
   void OnDisplayMetricsChanged(const display::Display& display,
                                uint32_t changed_metrics) override;
 
-  Host& host() const override;
   HostManager& host_manager() override;
+  std::vector<GlicInstance*> GetInstances() override;
+  GlicInstance* GetInstanceForTab(tabs::TabInterface* tab) override;
+  void FindInstanceFromGlicContentsAndBindToTab(
+      content::WebContents* source_glic_web_contents,
+      tabs::TabInterface* tab_to_bind) override {}
+
+  // GlicInstance implementation
+  Host& host() override;
+  const InstanceId& id() const override;
+  base::CallbackListSubscription RegisterStateChange(
+      StateChangeCallback callback) override;
 
  private:
-
   // Sets the floating attributes of the glic window.
   //
   // When set to true, the glic window is set to have a `kFloatingWindow`
@@ -174,7 +191,12 @@ class GlicWindowControllerImpl
   // shows the glic window. If `browser` is non-nullptr then glic will be
   // attached to the browser. Otherwise glic will be detached.
   void Show(Browser* browser, mojom::InvocationSource source);
-
+  // Performs necessary set up and initialization before creating GlicWidget or
+  // GlicView. Must be called before it's shown.
+  // Returns true if successful and view creation can continue.
+  bool BeforeViewCreated(Browser* browser, mojom::InvocationSource source);
+  // Additional set up and initialization that runs after Glic is shown.
+  void AfterViewShown();
   void SetupAndShowGlicWidget(Browser* browser);
   void SetupGlicWidgetAccessibilityText();
 
@@ -204,9 +226,10 @@ class GlicWindowControllerImpl
   // display when shown.
   void MaybeResetPreviousPosition(const gfx::Size& target_size);
 
-  // Runs an animation to move glic to its target position.
-  // TODO(crbug.com/410629338): Reimplement attachment.
+  // Perform set up attaching panel to this browser.
   void AttachToBrowser(Browser& browser, AttachChangeReason reason);
+  // Like `AttachToBrowser` but also explicitly requests to open the side panel.
+  void AttachToBrowserAndShow(Browser& browser, AttachChangeReason reason);
 
   // Keep part of glic window within the visible region.
   void AdjustPositionIfNeeded();
@@ -265,7 +288,7 @@ class GlicWindowControllerImpl
   gfx::Size GetMaximumDialogSize() override;
   gfx::NativeView GetHostView() const override;
   gfx::Point GetDialogPosition(const gfx::Size& dialog_size) override;
-  bool ShouldDialogBoundsConstrainedByHost() override;
+  bool ShouldConstrainDialogBoundsByHost() override;
   void AddObserver(web_modal::ModalDialogHostObserver* observer) override;
   void RemoveObserver(web_modal::ModalDialogHostObserver* observer) override;
 
@@ -279,9 +302,9 @@ class GlicWindowControllerImpl
   // Check if the invocation source matches the entry point for the given view.
   bool InvocationSourceMatchesCurrentView(mojom::InvocationSource source);
 
-  using FloatyStateChangeCallbackList =
-      base::RepeatingCallbackList<void(State, mojom::CurrentView view)>;
-  FloatyStateChangeCallbackList floaty_state_change_callback_list_;
+  using StateChangeCallbackList =
+      base::RepeatingCallbackList<void(bool, mojom::CurrentView view)>;
+  StateChangeCallbackList state_change_callback_list_;
 
   // Observes the glic widget.
   base::ScopedObservation<views::Widget, views::WidgetObserver>
@@ -302,6 +325,7 @@ class GlicWindowControllerImpl
   void HandleWindowDragWithOffset(gfx::Vector2d mouse_offset);
 
   const raw_ptr<Profile> profile_;
+  Host host_;
   std::unique_ptr<HostManager> host_manager_;
 
   // Exists when the glic panel is open and in window mode.
@@ -381,6 +405,7 @@ class GlicWindowControllerImpl
   raw_ptr<GlicKeyedService> glic_service_;  // Owns this.
   raw_ptr<GlicEnabling> enabling_;
   base::ScopedObservation<Host, Host::Observer> host_observation_{this};
+  const InstanceId id_;
 
   base::WeakPtrFactory<GlicWindowControllerImpl> weak_ptr_factory_{this};
 };

@@ -32,12 +32,11 @@
 #include "chrome/browser/chromeos/policy/dlp/test/mock_dlp_rules_manager.h"
 #include "chrome/browser/download/download_dir_util.h"
 #include "chrome/browser/enterprise/connectors/analysis/mock_file_transfer_analysis_delegate.h"
+#include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
 #include "chrome/browser/enterprise/connectors/test/fake_content_analysis_delegate.h"
 #include "chrome/browser/enterprise/connectors/test/fake_files_request_handler.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/dbus/dlp/dlp_client.h"
@@ -708,36 +707,51 @@ class FileTransferConnectorFilesAppBrowserTestBase {
 
       if (base::FeatureList::IsEnabled(
               policy::kUploadRealtimeReportingEventsUsingProto)) {
-        chrome::cros::reporting::proto::DlpSensitiveDataEvent expected_event;
-        expected_event.set_url("");
-        expected_event.set_tab_url("");
-        expected_event.set_source(*source_volume_name);
-        expected_event.set_destination(*destination_volume_name);
+        std::vector<chrome::cros::reporting::proto::DlpSensitiveDataEvent>
+            expected_events;
 
-        expected_event.set_content_type("image/jpeg");
-        expected_event.set_content_size(886);
-        expected_event.set_trigger(chrome::cros::reporting::proto::
-                                       DataTransferEventTrigger::FILE_TRANSFER);
-        expect_proceed_warning_reports
-            ? expected_event.set_clicked_through(true)
-            : expected_event.set_clicked_through(false);
+        for (const auto& file_name : file_names) {
+          chrome::cros::reporting::proto::DlpSensitiveDataEvent expected_event;
+          expected_event.set_url("");
+          expected_event.set_tab_url("");
+          expected_event.set_source(*source_volume_name);
+          expected_event.set_destination(*destination_volume_name);
 
-        chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule;
-        triggered_rule.set_rule_name("rule");
-        *expected_event.add_triggered_rule_info() = triggered_rule;
+          expected_event.set_content_type("image/jpeg");
+          expected_event.set_content_size(886);
+          expected_event.set_trigger(
+              chrome::cros::reporting::proto::DataTransferEventTrigger::
+                  FILE_TRANSFER);
+          expect_proceed_warning_reports
+              ? expected_event.set_clicked_through(true)
+              : expected_event.set_clicked_through(false);
 
-        if (expect_proceed_warning_reports &&
-            options.bypass_requires_justification) {
-          expected_event.set_user_justification(
-              base::UTF16ToUTF8(kUserJustification));
+          chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule;
+          triggered_rule.set_rule_name("rule");
+          if (base::Contains(file_name, "blocked")) {
+            triggered_rule.set_action(
+                chrome::cros::reporting::proto::TriggeredRuleInfo::BLOCK);
+          } else if (base::Contains(file_name, "warned")) {
+            triggered_rule.set_action(
+                chrome::cros::reporting::proto::TriggeredRuleInfo::WARN);
+          }
+          *expected_event.add_triggered_rule_info() = triggered_rule;
+
+          if (expect_proceed_warning_reports &&
+              options.bypass_requires_justification) {
+            expected_event.set_user_justification(
+                base::UTF16ToUTF8(kUserJustification));
+          }
+
+          expected_event.set_profile_identifier(
+              profile->GetPath().AsUTF8Unsafe());
+          expected_event.set_profile_user_name(kUserName);
+
+          expected_events.emplace_back(expected_event);
         }
 
-        expected_event.set_profile_identifier(
-            profile->GetPath().AsUTF8Unsafe());
-        expected_event.set_profile_user_name(kUserName);
-
         validator_->ExpectSensitiveDataEvents(
-            std::move(expected_event), file_names, shas, expected_results,
+            std::move(expected_events), file_names, shas, expected_results,
             expected_scan_ids);
       } else {
         validator_->ExpectSensitiveDataEvents(

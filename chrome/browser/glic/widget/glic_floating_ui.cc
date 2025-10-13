@@ -5,11 +5,23 @@
 #include "chrome/browser/glic/widget/glic_floating_ui.h"
 
 #include "base/notimplemented.h"
+#include "chrome/browser/glic/widget/glic_inactive_floating_ui.h"
 
 namespace glic {
 
 GlicFloatingUi::GlicFloatingUi() = default;
 GlicFloatingUi::~GlicFloatingUi() = default;
+
+std::unique_ptr<views::View> GlicFloatingUi::CreateView() {
+  // TODO: implement CreateView. This should set up the contents for the
+  // floating UI and be called from the constructor.
+  NOTIMPLEMENTED();
+  return std::make_unique<views::View>();
+}
+
+Host::EmbedderDelegate* GlicFloatingUi::GetHostEmbedderDelegate() {
+  return this;
+}
 
 const mojom::PanelState& GlicFloatingUi::GetPanelState() const {
   NOTIMPLEMENTED();
@@ -46,6 +58,24 @@ void GlicFloatingUi::SetMinimumWidgetSize(const gfx::Size& size) {
 bool GlicFloatingUi::IsShowing() const {
   NOTIMPLEMENTED();
   return false;
+}
+
+void GlicFloatingUi::Show() {
+  NOTIMPLEMENTED();
+}
+
+void GlicFloatingUi::Close() {
+  NOTIMPLEMENTED();
+}
+
+std::unique_ptr<GlicUiEmbedder> GlicFloatingUi::CreateInactiveEmbedder() const {
+  return GlicInactiveFloatingUi::From(*this);
+}
+
+void GlicFloatingUi::SwitchConversation(
+    glic::mojom::ConversationInfoPtr info,
+    mojom::WebClientHandler::SwitchConversationCallback callback) {
+  NOTIMPLEMENTED();
 }
 
 }  // namespace glic

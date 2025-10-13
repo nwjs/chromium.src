@@ -1136,6 +1136,79 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
       EnsureNotPresent(STGEverythingMenu::kTabGroup));
 }
 
+class SavedTabGroupContextMenuFeatureInteractiveTest
+    : public SavedTabGroupInteractiveTestBase {
+ public:
+  SavedTabGroupContextMenuFeatureInteractiveTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kTabGroupMenuImprovements);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SavedTabGroupContextMenuFeatureInteractiveTest,
+                       CheckContextMenuShowsOnLeftClick) {
+  browser()->tab_strip_model()->AddToNewGroup({0});
+
+  RunTestSequence(
+      // Show the bookmarks bar where the buttons will be displayed.
+      FinishTabstripAnimations(), ShowBookmarksBar(),
+      // Ensure the group was saved when created.
+      EnsurePresent(kSavedTabGroupButtonElementId), FinishTabstripAnimations(),
+      PressButton(kSavedTabGroupButtonElementId),
+      EnsurePresent(STGTabsMenuModel::kOpenGroup),
+      EnsurePresent(STGTabsMenuModel::kDeleteGroupMenuItem),
+      EnsurePresent(STGTabsMenuModel::kMoveGroupToNewWindowMenuItem),
+      EnsurePresent(STGTabsMenuModel::kToggleGroupPinStateMenuItem),
+      EnsurePresent(STGTabsMenuModel::kTabsTitleItem),
+      EnsurePresent(STGTabsMenuModel::kTab));
+}
+
+class SavedTabGroupEverythingMenuMoreEntryPointsFeature
+    : public SavedTabGroupInteractiveTestBase {
+ public:
+  SavedTabGroupEverythingMenuMoreEntryPointsFeature() {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kTabGroupMenuMoreEntryPoints);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SavedTabGroupEverythingMenuMoreEntryPointsFeature,
+                       CheckCreateNewTabGroupInEverythingMenuHasSubmenu) {
+  browser()->tab_strip_model()->AddToNewGroup({0});
+
+  RunTestSequence(
+      // Show the bookmarks bar where the buttons will be displayed.
+      FinishTabstripAnimations(), ShowBookmarksBar(),
+      // Ensure the group was saved when created.
+      EnsurePresent(kSavedTabGroupButtonElementId), FinishTabstripAnimations(),
+      EnsurePresent(kSavedTabGroupOverflowButtonElementId),
+      PressButton(kSavedTabGroupOverflowButtonElementId),
+      SelectMenuItem(STGEverythingMenu::kTabGroup),
+      EnsurePresent(STGTabsMenuModel::kOpenGroup),
+      EnsurePresent(STGTabsMenuModel::kMoveGroupToNewWindowMenuItem),
+      EnsurePresent(STGTabsMenuModel::kToggleGroupPinStateMenuItem),
+      EnsurePresent(STGTabsMenuModel::kDeleteGroupMenuItem),
+      EnsurePresent(STGTabsMenuModel::kTabsTitleItem),
+      EnsurePresent(STGTabsMenuModel::kTab));
+}
+
+IN_PROC_BROWSER_TEST_F(SavedTabGroupEverythingMenuMoreEntryPointsFeature,
+                       CheckCreateNewTabGroupPresentInAppMenuEverythingMenu) {
+  RunTestSequence(FinishTabstripAnimations(),
+                  EnsurePresent(kToolbarAppMenuButtonElementId),
+                  PressButton(kToolbarAppMenuButtonElementId),
+                  EnsurePresent(AppMenuModel::kCreateNewTabGroupTopLevel),
+                  WaitForShow(AppMenuModel::kTabGroupsMenuItem),
+                  SelectMenuItem(AppMenuModel::kTabGroupsMenuItem),
+                  EnsurePresent(STGEverythingMenu::kCreateNewTabGroup));
+}
+
 #if !BUILDFLAG(IS_CHROMEOS)
 // TODO(crbug.com/438799035): This test is flaky on chromeos when waiting for
 // the favicon to load. Figure out why amd re-enable.

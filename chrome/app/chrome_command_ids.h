@@ -108,6 +108,8 @@
 #define IDC_FOCUS_NEXT_TAB_GROUP      34102
 #define IDC_FOCUS_PREV_TAB_GROUP      34103
 #define IDC_CLOSE_TAB_GROUP           34104
+#define IDC_GROUP_UNGROUPED_TABS      34105
+#define IDC_CREATE_NEW_TAB_GROUP_TOP_LEVEL 34106
 
 // Page-related commands
 #define IDC_BOOKMARK_THIS_TAB           35000
@@ -295,6 +297,7 @@
 #define IDC_FIND_EXTENSIONS  40295
 #define IDC_SHOW_SEARCH_TOOLS  40296
 #define IDC_SHOW_COMMENTS_SIDE_PANEL  40297
+#define IDC_RECENT_TABS_SEE_DEVICE_TABS  40298
 
 // Spell-check
 // Insert any additional suggestions before _LAST; these have to be consecutive.

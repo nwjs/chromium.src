@@ -8,6 +8,7 @@
 #include "ui/base/interaction/element_tracker.h"
 
 // Please keep this list alphabetized.
+DEFINE_ELEMENT_IDENTIFIER_VALUE(kActionItemZoomElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kAddCurrentTabToReadingListElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kAiModePageActionIconElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(
@@ -133,6 +134,7 @@ DEFINE_ELEMENT_IDENTIFIER_VALUE(kAutoTabGroupButtonElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kTabDeclutterButtonElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kTabSearchBubbleElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kTabSearchButtonElementId);
+DEFINE_ELEMENT_IDENTIFIER_VALUE(kTabSearchContainerElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kTabStripActionContainerElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kTabStripElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kTabStripRegionElementId);
@@ -165,9 +167,8 @@ DEFINE_ELEMENT_IDENTIFIER_VALUE(kToolbarTabCounterButtonElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kTopContainerElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kUserNotesSidePanelWebViewElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kVerticalTabStripRegionElementId);
+DEFINE_ELEMENT_IDENTIFIER_VALUE(kVerticalTabStripTopContainerElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kWebUIIPHDemoElementIdentifier);
-
-DEFINE_ELEMENT_IDENTIFIER_VALUE(kActionItemZoomElementId);
 
 DEFINE_CUSTOM_ELEMENT_EVENT_TYPE(kBrowserThemeChangedEventId);
 DEFINE_CUSTOM_ELEMENT_EVENT_TYPE(kLensSidePanelSearchBoxFocusedEventId);

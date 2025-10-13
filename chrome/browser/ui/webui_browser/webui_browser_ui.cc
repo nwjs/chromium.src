@@ -10,14 +10,18 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_service_register.h"
+#include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_service_feature.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
 #include "chrome/browser/ui/webui/searchbox/searchbox_handler.h"
 #include "chrome/browser/ui/webui_browser/bookmark_bar_page_handler.h"
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
+#include "chrome/browser/ui/webui_browser/webui_browser_extensions_container.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_page_handler.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_side_panel_ui.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/branded_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/grit/tab_strip_api_resources_map.h"
 #include "chrome/grit/webui_browser_resources.h"
 #include "chrome/grit/webui_browser_resources_map.h"
@@ -26,9 +30,37 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/webui/tracked_element/tracked_element_handler.h"
 #include "ui/webui/webui_util.h"
+
+namespace {
+
+std::string SidePanelEntryIdToTitle(SidePanelEntryId id) {
+  // TODO(webium): Ideally, the titles should be added to SIDE_PANEL_ENTRY_IDS
+  // macros in chrome/browser/ui/views/side_panel/side_panel_entry_id.h, and
+  // then this conversion function would be written in that same file,
+  // analogously to the other functions it contains. But it appears that some
+  // of the entry  ids there are stale and no longer have a matching generated
+  // IDS_*_TITLE string that we can include.
+  //
+  // Since we are currently only explicitly supporting three side panel types,
+  // we do the id to title conversion here manually to minimize modification to
+  // existing code.
+  switch (id) {
+    case SidePanelEntryId::kCustomizeChrome:
+      return l10n_util::GetStringUTF8(IDS_SIDE_PANEL_CUSTOMIZE_CHROME_TITLE);
+    case SidePanelEntryId::kReadingList:
+      return l10n_util::GetStringUTF8(IDS_READ_LATER_TITLE);
+    case SidePanelEntryId::kBookmarks:
+      return l10n_util::GetStringUTF8(IDS_BOOKMARK_MANAGER_TITLE);
+    default:
+      NOTREACHED();
+  }
+}
+
+}  // namespace
 
 WebUIBrowserUIConfig::WebUIBrowserUIConfig()
     : DefaultWebUIConfig(content::kChromeUIScheme,
@@ -59,6 +91,16 @@ WebUIBrowserUI::WebUIBrowserUI(content::WebUI* web_ui)
                               IDR_WEBUI_BROWSER_WEBUI_BROWSER_HTML);
   source->AddResourcePaths(kTabStripApiResources);
 
+  static constexpr webui::LocalizedString kStrings[] = {
+      // Localized strings (alphabetical order).
+      {"appMenuTooltip", IDS_APPMENU_TOOLTIP},
+      {"tooltipExtensionsButton", IDS_TOOLTIP_EXTENSIONS_BUTTON},
+      {"tooltipNewTab", IDS_TOOLTIP_NEW_TAB},
+      {"tooltipReload", IDS_TOOLTIP_RELOAD},
+      {"tooltipStop", IDS_TOOLTIP_STOP},
+  };
+  source->AddLocalizedStrings(kStrings);
+
   SearchboxHandler::SetupWebUIDataSource(source, Profile::FromWebUI(web_ui));
 }
 
@@ -77,12 +119,19 @@ void WebUIBrowserUI::BindInterface(
 }
 
 void WebUIBrowserUI::BindInterface(
+    mojo::PendingReceiver<extensions_bar::mojom::PageHandlerFactory> receiver) {
+  extensions_bar_page_factory_receiver_.reset();
+  extensions_bar_page_factory_receiver_.Bind(std::move(receiver));
+}
+
+void WebUIBrowserUI::BindInterface(
     mojo::PendingReceiver<searchbox::mojom::PageHandler> pending_page_handler) {
   content::WebUI* webui = web_ui();
   content::WebContents* web_contents = webui->GetWebContents();
   realbox_handler_ = std::make_unique<RealboxHandler>(
-      std::move(pending_page_handler), Profile::FromWebUI(webui), web_contents,
-      &metrics_reporter_, /*omnibox_controller=*/nullptr);
+      std::move(pending_page_handler), /*query_controller=*/nullptr,
+      /*composebox_metrics_recorder=*/nullptr, Profile::FromWebUI(webui),
+      web_contents, &metrics_reporter_);
 }
 
 void WebUIBrowserUI::BindInterface(
@@ -98,11 +147,12 @@ void WebUIBrowserUI::BindInterface(
 
 void WebUIBrowserUI::BindInterface(
     mojo::PendingReceiver<tabs_api::mojom::TabStripService> receiver) {
-  auto* tab_strip_service =
-      browser_->browser_window_features()->tab_strip_service();
-  CHECK(tab_strip_service) << "Browser missing TabStripService, did you enable "
-                              "TabStripBrowserApi feature flag?";
-  tab_strip_service->Accept(std::move(receiver));
+  auto* tab_strip_service_feature =
+      browser_->browser_window_features()->tab_strip_service_feature();
+  CHECK(tab_strip_service_feature)
+      << "Browser missing TabStripService, did you enable "
+         "TabStripBrowserApi feature flag?";
+  tab_strip_service_feature->Accept(std::move(receiver));
 }
 
 void WebUIBrowserUI::BindInterface(
@@ -113,6 +163,12 @@ void WebUIBrowserUI::BindInterface(
   tracked_element_handler_ = std::make_unique<ui::TrackedElementHandler>(
       web_ui()->GetWebContents(), std::move(receiver), context,
       GetKnownElementIdentifiers());
+}
+
+void WebUIBrowserUI::BindInterface(
+    mojo::PendingReceiver<color_change_listener::mojom::PageHandler> receiver) {
+  color_provider_handler_ = std::make_unique<ui::ColorChangeHandler>(
+      web_ui()->GetWebContents(), std::move(receiver));
 }
 
 base::WeakPtr<WebUIBrowserUI> WebUIBrowserUI::GetWeakPtr() {
@@ -137,10 +193,20 @@ void WebUIBrowserUI::CreatePageHandler(
           std::move(receiver), std::move(page), web_ui(), browser_);
 }
 
+void WebUIBrowserUI::CreatePageHandler(
+    mojo::PendingRemote<extensions_bar::mojom::Page> page,
+    mojo::PendingReceiver<extensions_bar::mojom::PageHandler> receiver) {
+  static_cast<WebUIBrowserExtensionsContainer*>(
+      browser_window()->GetExtensionsContainer())
+      ->Bind(std::move(page), std::move(receiver));
+}
+
 const std::vector<ui::ElementIdentifier>&
 WebUIBrowserUI::GetKnownElementIdentifiers() const {
   static const std::vector<ui::ElementIdentifier> kKnownElementIdentifiers{
-      kToolbarAppMenuButtonElementId, kToolbarAvatarButtonElementId};
+      kContentsContainerViewElementId, kExtensionsMenuButtonElementId,
+      kLocationBarElementId,           kLocationIconElementId,
+      kToolbarAppMenuButtonElementId,  kToolbarAvatarButtonElementId};
   return kKnownElementIdentifiers;
 }
 
@@ -165,12 +231,12 @@ void WebUIBrowserUI::ShowSidePanel(SidePanelEntryKey side_panel_entry_key) {
       guest_contents::GuestContentsHandle::CreateForWebContents(web_contents);
 
   // Notify JS.
-  page_->ShowSidePanel(guest_handle->id());
+  page_->ShowSidePanel(guest_handle->id(),
+                       SidePanelEntryIdToTitle(side_panel_entry_key.id()));
 }
 
 void WebUIBrowserUI::CloseSidePanel() {
-  // TODO(webium): Create side panel and call page_->CloseSidePanel()
-  NOTIMPLEMENTED();
+  page_->CloseSidePanel();
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(WebUIBrowserUI)

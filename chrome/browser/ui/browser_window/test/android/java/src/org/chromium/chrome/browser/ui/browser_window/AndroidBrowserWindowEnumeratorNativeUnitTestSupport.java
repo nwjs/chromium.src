@@ -4,10 +4,16 @@
 
 package org.chromium.chrome.browser.ui.browser_window;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import org.jni_zero.CalledByNative;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+
+import java.util.OptionalInt;
 
 /** Supports {@code android_browser_window_enumerator_unittest.cc}. */
 @NullMarked
@@ -19,10 +25,15 @@ final class AndroidBrowserWindowEnumeratorNativeUnitTestSupport {
     private static long createBrowserWindow(int taskId, Profile profile) {
         var mockActivityWindowAndroid =
                 ChromeAndroidTaskUnitTestSupport.createMockActivityWindowAndroid(taskId);
+        var tabModel = mock(TabModel.class);
+        when(tabModel.getProfile()).thenReturn(profile);
         var chromeAndroidTask =
                 ChromeAndroidTaskTrackerImpl.getInstance()
                         .obtainTask(
-                                BrowserWindowType.NORMAL, mockActivityWindowAndroid, () -> profile);
+                                BrowserWindowType.NORMAL,
+                                mockActivityWindowAndroid,
+                                tabModel,
+                                OptionalInt.empty());
         return chromeAndroidTask.getOrCreateNativeBrowserWindowPtr();
     }
 

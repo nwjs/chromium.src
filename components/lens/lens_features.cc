@@ -15,12 +15,9 @@
 
 namespace lens::features {
 
-BASE_FEATURE(kLensStandalone,
-             "LensStandalone",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kLensStandalone, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlay,
-             "LensOverlay",
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
              base::FEATURE_DISABLED_BY_DEFAULT
 #else
@@ -28,134 +25,95 @@ BASE_FEATURE(kLensOverlay,
 #endif
 );
 
-BASE_FEATURE(kLensOverlayTranslateButton,
-             "LensOverlayTranslateButton",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayTranslateButton, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlayTranslateLanguages,
-             "LensOverlayTranslateLanguages",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayTranslateLanguages, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayImageContextMenuActions,
-             "LensOverlayImageContextMenuActions",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayContextualSearchbox,
-             "LensOverlayContextualSearchbox",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlaySuggestionsMigration,
-             "LensOverlaySuggestionsMigration",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayLatencyOptimizations,
-             "LensOverlayLatencyOptimizations",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlayRoutingInfo,
-             "LensOverlayRoutingInfo",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayRoutingInfo, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlaySurvey,
-             "LensOverlaySurvey",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlaySurvey, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlaySidePanelOpenInNewTab,
-             "LensOverlaySidePanelOpenInNewTab",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlaySimplifiedSelection,
-             "LensOverlaySimplifiedSelection",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kLensOverlayVisualSelectionUpdates,
-             "LensOverlayVisualSelectionUpdates",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayUpdatedClientContext,
-             "LensOverlayUpdatedClientContext",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensSearchSidePanelNewFeedback,
-             "LensSearchSidePanelNewFeedback",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kLensSearchSidePanelNewFeedback, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the Lens Overlay omnibox entry point. This is a separate feature from
 // kLensOverlay so that the omnibox entry point can be disabled without a
 // dependency on the rest of the Lens Overlay features. This means if can be
 // experimented with independently.
-BASE_FEATURE(kLensOverlayOmniboxEntryPoint,
-             "LensOverlayOmniboxEntryPoint",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayOmniboxEntryPoint, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlayUploadChunking,
-             "LensOverlayUploadChunking",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayUploadChunking, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayRecontextualizeOnQuery,
-             "LensOverlayRecontextualizeOnQuery",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlayCornerSliders,
-             "LensOverlayCornerSliders",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayCornerSliders, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensSearchProtectedPage,
-             "LensSearchProtectedPage",
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
              base::FEATURE_ENABLED_BY_DEFAULT);
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
-BASE_FEATURE(kLensOverlayEduActionChip,
-             "LensOverlayEduActionChip",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayEduActionChip, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensSearchSidePanelDefaultWidthChange,
-             "LensSearchSidePanelDefaultWidthChange",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayKeyboardSelection, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlayKeyboardSelection,
-             "LensOverlayKeyboardSelection",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kLensOverlayPermissionBubbleAlt,
-             "LensOverlayPermissionBubbleAlt",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kLensOverlayBackToPage,
-             "LensOverlayBackToPage",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayPermissionBubbleAlt, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensSearchNotFoundOnPageToast,
              "kLensSearchNotFoundOnPageToast",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlayStraightToSrp,
-             "LensOverlayStraightToSrp",
+BASE_FEATURE(kLensOverlayStraightToSrp, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensSearchAimM3, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensSearchReinvocationAffordance,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensSearchAimM3,
-             "LensSearchAimM3",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kLensOverlayEntrypointLabelAlt,
-             "LensOverlayEntrypointLabelAlt",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayEntrypointLabelAlt, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayTextSelectionContextMenuEntrypoint,
-             "LensOverlayTextSelectionContextMenuEntrypoint",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlayForceEmptyCsbQuery,
-             "LensOverlayForceEmptyCsbQuery",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayForceEmptyCsbQuery, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensSidePanelEnableWebviewResults,
-             "LensSidePanelEnableWebviewResults",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kLensAimSuggestions, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensSearchZeroStateCsb, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensVideoCitations, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensUpdatedFeedbackEntrypoint,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<int> kLensUpdatedFeedbackToastTimeoutMs{
+    &kLensUpdatedFeedbackEntrypoint, "feedback-toast-timeout-ms", 3000};
 const base::FeatureParam<int> kLensOverlayMinRamMb{&kLensOverlay, "min_ram_mb",
                                                    /*default=value=*/-1};
 const base::FeatureParam<std::string> kActivityUrl{
@@ -332,12 +290,8 @@ constexpr base::FeatureParam<bool> kEnableEarlyInteractionOptimization{
     &kLensOverlayLatencyOptimizations, "enable-early-interaction-optimization",
     true};
 
-constexpr base::FeatureParam<bool> kEnableEarlyStartQueryFlowOptimization{
-    &kLensOverlayLatencyOptimizations,
-    "enable-early-start-query-flow-optimization", true};
-
 constexpr base::FeatureParam<bool> kUseInnerTextAsContext{
-    &kLensOverlayContextualSearchbox, "use-inner-text-as-context", true};
+    &kLensOverlayContextualSearchbox, "use-inner-text-as-context", false};
 
 constexpr base::FeatureParam<bool> kUseApcAsContext{
     &kLensOverlayContextualSearchbox, "use-apc-as-context", true};
@@ -449,22 +403,6 @@ constexpr base::FeatureParam<base::TimeDelta> kSupportedLanguagesCacheTimeoutMs{
 constexpr base::FeatureParam<int> kRecentLanguagesAmount{
     &kLensOverlayTranslateLanguages, "recent-languages-amount", 5};
 
-constexpr base::FeatureParam<int>
-    kLensOverlaySimplifiedSelectionTextReceivedTimeout{
-        &kLensOverlaySimplifiedSelection, "simplified-text-received-timeout",
-        2000};
-constexpr base::FeatureParam<int>
-    kLensOverlaySimplifiedSelectionCopyTextReceivedTimeout{
-        &kLensOverlaySimplifiedSelection, "copy-text-received-timeout", 500};
-constexpr base::FeatureParam<int>
-    kLensOverlaySimplifiedSelectionTranslateTextReceivedTimeout{
-        &kLensOverlaySimplifiedSelection, "translate-text-received-timeout",
-        500};
-constexpr base::FeatureParam<bool>
-    kLensOverlaySimplifiedSelectionShouldCopyAsImage{
-        &kLensOverlaySimplifiedSelection, "copy-command-copies-as-image",
-        false};
-
 constexpr base::FeatureParam<bool>
     kLensOverlayVisualSelectionUpdatesEnableDynamicTheme{
         &kLensOverlayVisualSelectionUpdates, "enable-dynamic-theme", false};
@@ -568,8 +506,8 @@ const base::FeatureParam<std::string>
 const base::FeatureParam<bool> kLensOverlayEduActionChipDisabledByGlic{
     &kLensOverlayEduActionChip, "disabled-by-glic", true};
 
-constexpr base::FeatureParam<int> kLensSearchSidePanelDefaultWidth{
-    &kLensSearchSidePanelDefaultWidthChange, "lens-panel-default-width", 440};
+const base::FeatureParam<int> kLensOverlayEduActionChipMaxShownCount{
+    &kLensOverlayEduActionChip, "max-shown-count", 3};
 
 constexpr base::FeatureParam<std::string> kLensOverlayStraightToSrpQuery{
     &kLensOverlayStraightToSrp, "query", ""};
@@ -605,6 +543,9 @@ constexpr base::FeatureParam<bool>
     kLensOverlayTextSelectionContextMenuEntrypointContextualize{
         &kLensOverlayTextSelectionContextMenuEntrypoint, "contextualize",
         false};
+
+constexpr base::FeatureParam<std::string> kZeroStateCsbQuery{
+    &kLensSearchZeroStateCsb, "zero-state-csb-query", ""};
 
 std::string GetHomepageURLForLens() {
   return kHomepageURLForLens.Get();
@@ -934,11 +875,6 @@ bool IsLensOverlayEarlyInteractionOptimizationEnabled() {
          kEnableEarlyInteractionOptimization.Get();
 }
 
-bool IsLensOverlayEarlyStartQueryFlowOptimizationEnabled() {
-  return base::FeatureList::IsEnabled(kLensOverlayLatencyOptimizations) &&
-         kEnableEarlyStartQueryFlowOptimization.Get();
-}
-
 base::TimeDelta GetLensOverlaySurveyResultsTime() {
   return kLensOverlaySurveyResultsTime.Get();
 }
@@ -1001,26 +937,6 @@ double GetUploadProgressBarShowHeuristic() {
 
 bool ShouldAutoFocusSearchbox() {
   return kAutoFocusSearchbox.Get();
-}
-
-bool IsSimplifiedSelectionEnabled() {
-  return base::FeatureList::IsEnabled(kLensOverlaySimplifiedSelection);
-}
-
-int GetSimplifiedSelectionTextReceivedTimeout() {
-  return kLensOverlaySimplifiedSelectionTextReceivedTimeout.Get();
-}
-
-int GetCopyTextReceivedTimeout() {
-  return kLensOverlaySimplifiedSelectionCopyTextReceivedTimeout.Get();
-}
-
-int GetTranslateTextReceivedTimeout() {
-  return kLensOverlaySimplifiedSelectionTranslateTextReceivedTimeout.Get();
-}
-
-bool GetShouldCopyAsImage() {
-  return kLensOverlaySimplifiedSelectionShouldCopyAsImage.Get();
 }
 
 bool IsLensOverlayVisualSelectionUpdatesEnabled() {
@@ -1125,6 +1041,10 @@ bool GetShouldComposeboxContextualizeOnFocus() {
          kContextualizeOnFocus.Get();
 }
 
+bool GetAimSuggestionsEnabled() {
+  return base::FeatureList::IsEnabled(kLensAimSuggestions);
+}
+
 bool ShouldCloseOverlayOnAimTransition() {
   return base::FeatureList::IsEnabled(kLensSearchAimM3) &&
          kCloseOverlayOnAimTransition.Get();
@@ -1138,6 +1058,10 @@ bool GetEnableFloatingGForHeader() {
 bool GetEnableClientSideHeader() {
   return base::FeatureList::IsEnabled(kLensSearchAimM3) &&
          kEnableClientSideHeader.Get();
+}
+
+bool GetEnableLensButtonInSearchbox() {
+  return base::FeatureList::IsEnabled(kLensSearchReinvocationAffordance);
 }
 
 bool ShouldUseAltLoadingHintWeb() {
@@ -1227,12 +1151,8 @@ bool IsLensOverlayEduActionChipDisabledByGlic() {
   return kLensOverlayEduActionChipDisabledByGlic.Get();
 }
 
-bool IsLensSearchSidePanelDefaultWidthChangeEnabled() {
-  return base::FeatureList::IsEnabled(kLensSearchSidePanelDefaultWidthChange);
-}
-
-int GetLensSearchSidePanelDefaultWidth() {
-  return kLensSearchSidePanelDefaultWidth.Get();
+int GetLensOverlayEduActionChipMaxShownCount() {
+  return kLensOverlayEduActionChipMaxShownCount.Get();
 }
 
 bool IsLensOverlayKeyboardSelectionEnabled() {
@@ -1241,10 +1161,6 @@ bool IsLensOverlayKeyboardSelectionEnabled() {
 
 bool IsLensOverlayPermissionBubbleAltEnabled() {
   return base::FeatureList::IsEnabled(kLensOverlayPermissionBubbleAlt);
-}
-
-bool IsLensOverlayBackToPageEnabled() {
-  return base::FeatureList::IsEnabled(kLensOverlayBackToPage);
 }
 
 bool IsLensSearchNotFoundOnPageToastEnabled() {
@@ -1274,6 +1190,30 @@ bool IsLensOverlayForceEmptyCsbQueryEnabled() {
 
 bool IsLensSidePanelWebviewResultsEnabled() {
   return base::FeatureList::IsEnabled(kLensSidePanelEnableWebviewResults);
+}
+
+bool IsLensSearchZeroStateCsbEnabled() {
+  return base::FeatureList::IsEnabled(kLensSearchZeroStateCsb);
+}
+
+std::string GetZeroStateCsbQuery() {
+  return IsLensSearchZeroStateCsbEnabled() ? kZeroStateCsbQuery.Get() : "";
+}
+
+bool IsLensVideoCitationsEnabled() {
+  return base::FeatureList::IsEnabled(kLensVideoCitations);
+}
+
+bool IsLensUpdatedFeedbackEnabled() {
+  return base::FeatureList::IsEnabled(kLensUpdatedFeedbackEntrypoint);
+}
+
+int GetLensUpdatedFeedbackToastTimeoutMs() {
+  if (!IsLensUpdatedFeedbackEnabled()) {
+    return 0;
+  }
+
+  return kLensUpdatedFeedbackToastTimeoutMs.Get();
 }
 
 }  // namespace lens::features

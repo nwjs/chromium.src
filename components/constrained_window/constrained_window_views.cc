@@ -21,7 +21,7 @@
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
-#include "ui/gfx/native_window_types.h"
+#include "ui/gfx/native_ui_types.h"
 #include "ui/views/bubble/bubble_dialog_model_host.h"
 #include "ui/views/widget/native_widget.h"
 #include "ui/views/widget/widget.h"
@@ -290,7 +290,7 @@ views::Widget* CreateWebModalDialogViews(views::WidgetDelegate* dialog,
   // Use desktop widget so that it is not constrained by the boundary of the
   // host window.
   dialog->set_use_desktop_widget_override(
-      !dialog_host->ShouldDialogBoundsConstrainedByHost());
+      !dialog_host->ShouldConstrainDialogBoundsByHost());
 
   views::Widget* widget = views::DialogDelegate::CreateDialogWidget(
       dialog, gfx::NativeWindow(), dialog_host->GetHostView());

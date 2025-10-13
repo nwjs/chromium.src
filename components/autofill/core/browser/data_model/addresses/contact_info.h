@@ -34,7 +34,7 @@ class NameInfo : public FormGroup {
                                                      ALTERNATIVE_FULL_NAME,
                                                      ALTERNATIVE_GIVEN_NAME,
                                                      ALTERNATIVE_FAMILY_NAME};
-  NameInfo();
+  explicit NameInfo(bool alternative_names_supported);
   NameInfo(const NameInfo& info);
   NameInfo(std::unique_ptr<NameFull> name,
            std::unique_ptr<AlternativeFullName> alternative_name);
@@ -86,11 +86,11 @@ class NameInfo : public FormGroup {
   std::u16string GetRawInfo(FieldType type) const override;
 
   void SetRawInfoWithVerificationStatus(FieldType type,
-                                        const std::u16string& value,
+                                        std::u16string_view value,
                                         VerificationStatus status) override;
   bool SetInfoWithVerificationStatus(const AutofillType& type,
-                                     const std::u16string& value,
-                                     const std::string& app_locale,
+                                     std::u16string_view value,
+                                     std::string_view app_locale,
                                      VerificationStatus status) override;
   // Return the verification status of a structured name value.
   VerificationStatus GetVerificationStatus(FieldType type) const override;
@@ -128,8 +128,8 @@ class NameInfo : public FormGroup {
   // `full_name` is "john quincy public" because full_name hold by `this` can be
   // derived from `full_name` by using the middle initial. Note that the reverse
   // is not true, "john quincy public" is not a name variant of "john q public".
-  bool IsNameVariantOf(const std::u16string& full_name,
-                       const std::string& app_locale) const;
+  bool IsNameVariantOf(std::u16string_view full_name,
+                       std::string_view app_locale) const;
 
   // Returns the storable type of `type`, if it exists.
   // It should only be used for `FieldTypeGroup::kName` types.
@@ -167,10 +167,20 @@ class NameInfo : public FormGroup {
   // This node is unique by definition.
   AddressComponent* GetRootForType(FieldType type);
 
+  // Returns if the `alternative_name_` tree exists.
+  bool IsAlternativeNameSupported() const;
+
+  // Returns true if `this` and `other` have matching support for alternative
+  // names (i.e. both support them, or neither supports them), returns false
+  // otherwise.
+  bool HaveSimilarAlternativeNameSupport(const NameInfo& other) const;
+
   // This data structures store structured representation of the name and
   // alternative (e.g. phonetic) name.
   const std::unique_ptr<NameFull> name_;
-  const std::unique_ptr<AlternativeFullName> alternative_name_;
+  // Exists only if `this` supports alternative names. Currently it is
+  // only used for japanese profiles.
+  std::unique_ptr<AlternativeFullName> alternative_name_;
 };
 
 class EmailInfo : public FormGroup {
@@ -191,11 +201,11 @@ class EmailInfo : public FormGroup {
                          std::string_view app_locale) const override;
   std::u16string GetRawInfo(FieldType type) const override;
   void SetRawInfoWithVerificationStatus(FieldType type,
-                                        const std::u16string& value,
+                                        std::u16string_view value,
                                         VerificationStatus status) override;
   bool SetInfoWithVerificationStatus(const AutofillType& type,
-                                     const std::u16string& value,
-                                     const std::string& app_locale,
+                                     std::u16string_view value,
+                                     std::string_view app_locale,
                                      const VerificationStatus status) override;
   VerificationStatus GetVerificationStatus(FieldType type) const override;
 
@@ -223,11 +233,11 @@ class CompanyInfo : public FormGroup {
                          std::string_view app_locale) const override;
   std::u16string GetRawInfo(FieldType type) const override;
   void SetRawInfoWithVerificationStatus(FieldType type,
-                                        const std::u16string& value,
+                                        std::u16string_view value,
                                         VerificationStatus status) override;
   bool SetInfoWithVerificationStatus(const AutofillType& type,
-                                     const std::u16string& value,
-                                     const std::string& locale,
+                                     std::u16string_view value,
+                                     std::string_view locale,
                                      VerificationStatus status) override;
 
   VerificationStatus GetVerificationStatus(FieldType type) const override;
@@ -239,8 +249,8 @@ class CompanyInfo : public FormGroup {
  private:
   // FormGroup:
   FieldTypeSet GetSupportedTypes() const override;
-  void GetMatchingTypes(const std::u16string& text,
-                        const std::string& app_locale,
+  void GetMatchingTypes(std::u16string_view text,
+                        std::string_view app_locale,
                         FieldTypeSet* matching_types) const override;
 
   std::u16string company_name_;

@@ -90,8 +90,8 @@ const char kFrameIsRefresh[] = "WebRTC.DesktopCapture.FrameIsRefresh.Screen";
 // content of frames should affect the updated region part of each frame.
 std::unique_ptr<webrtc::BasicDesktopFrame> CreateBasicFrame(
     const webrtc::DesktopSize& size) {
-  std::unique_ptr<webrtc::BasicDesktopFrame> frame(
-      new webrtc::BasicDesktopFrame(size));
+  auto frame =
+      std::make_unique<webrtc::BasicDesktopFrame>(size, webrtc::FOURCC_ARGB);
   DCHECK_EQ(frame->size().width() * webrtc::DesktopFrame::kBytesPerPixel,
             frame->stride());
   UNSAFE_TODO(memset(frame->data(), kFakePixelValue,
@@ -111,6 +111,7 @@ class InvertedDesktopFrame : public webrtc::DesktopFrame {
       : webrtc::DesktopFrame(
             frame->size(),
             -frame->stride(),
+            frame->pixel_format(),
             UNSAFE_TODO(frame->data() +
                         (frame->size().height() - 1) * frame->stride()),
             frame->shared_memory()) {
@@ -138,6 +139,7 @@ class UnpackedDesktopFrame : public webrtc::DesktopFrame {
       : webrtc::DesktopFrame(
             frame->size(),
             frame->stride() * 2,
+            frame->pixel_format(),
             new uint8_t[frame->stride() * 2 * frame->size().height()],
             nullptr) {
     set_device_scale_factor(frame->device_scale_factor());
@@ -320,7 +322,9 @@ class DesktopCaptureDeviceTest : public testing::Test {
 };
 
 // Capturer implementation for Fuchsia is not fully functional.
-#if !BUILDFLAG(IS_FUCHSIA)
+// TODO(crbug.com/445218901): Capturer implementation for Android needs user
+// input to work.
+#if !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_ANDROID)
 TEST_F(DesktopCaptureDeviceTest, Capture) {
   std::unique_ptr<webrtc::DesktopCapturer> capturer(
       desktop_capture::CreateScreenCapturer(
@@ -368,7 +372,7 @@ TEST_F(DesktopCaptureDeviceTest, Capture) {
 
   EXPECT_EQ(format.frame_size.GetArea() * 4, frame_size);
 }
-#endif  // !BUILDFLAG(IS_FUCHSIA)
+#endif  // !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_ANDROID)
 
 // Test that screen capturer behaves correctly if the source frame size changes
 // but the caller cannot cope with variable resolution output.
@@ -530,7 +534,8 @@ TEST_F(DesktopCaptureDeviceTest, UnpackedFrame) {
 
   int frame_size = 0;
   output_frame_ = std::make_unique<webrtc::BasicDesktopFrame>(
-      webrtc::DesktopSize(kTestFrameWidth1, kTestFrameHeight1));
+      webrtc::DesktopSize(kTestFrameWidth1, kTestFrameHeight1),
+      webrtc::FOURCC_ARGB);
 
   std::unique_ptr<media::MockVideoCaptureDeviceClient> client(
       CreateMockVideoCaptureDeviceClient());
@@ -579,7 +584,8 @@ TEST_F(DesktopCaptureDeviceTest, InvertedFrame) {
 
   int frame_size = 0;
   output_frame_ = std::make_unique<webrtc::BasicDesktopFrame>(
-      webrtc::DesktopSize(kTestFrameWidth1, kTestFrameHeight1));
+      webrtc::DesktopSize(kTestFrameWidth1, kTestFrameHeight1),
+      webrtc::FOURCC_ARGB);
 
   std::unique_ptr<media::MockVideoCaptureDeviceClient> client(
       CreateMockVideoCaptureDeviceClient());

@@ -9,6 +9,7 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
 #include "base/android/scoped_java_ref.h"
+#include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "chrome/browser/ui/browser_window/internal/jni/AndroidBaseWindow_jni.h"
 #include "ui/android/window_android.h"
@@ -70,7 +71,11 @@ gfx::NativeWindow AndroidBaseWindow::GetNativeWindow() const {
 }
 
 gfx::Rect AndroidBaseWindow::GetRestoredBounds() const {
-  NOTREACHED();
+  std::vector<int> sizes = Java_AndroidBaseWindow_getRestoredBounds(
+      AttachCurrentThread(), java_android_base_window_);
+  gfx::Rect bounds = gfx::Rect(
+      /*x=*/sizes[0], /*y=*/sizes[1], /*width=*/sizes[2], /*height=*/sizes[3]);
+  return bounds;
 }
 
 ui::mojom::WindowShowState AndroidBaseWindow::GetRestoredState() const {
@@ -129,7 +134,8 @@ void AndroidBaseWindow::Minimize() {
 }
 
 void AndroidBaseWindow::Restore() {
-  NOTREACHED();
+  Java_AndroidBaseWindow_restore(AttachCurrentThread(),
+                                 java_android_base_window_);
 }
 
 void AndroidBaseWindow::SetBounds(const gfx::Rect& bounds) {
@@ -139,7 +145,7 @@ void AndroidBaseWindow::SetBounds(const gfx::Rect& bounds) {
 }
 
 void AndroidBaseWindow::FlashFrame(bool flash) {
-  NOTREACHED();
+  // As of Sep 16, 2025, Android OS didn't support |FlashFrame|.
 }
 
 ui::ZOrderLevel AndroidBaseWindow::GetZOrderLevel() const {
@@ -147,5 +153,7 @@ ui::ZOrderLevel AndroidBaseWindow::GetZOrderLevel() const {
 }
 
 void AndroidBaseWindow::SetZOrderLevel(ui::ZOrderLevel order) {
-  NOTREACHED();
+  // Android doesn't support |SetZOrderLevel|.
+  // Per documentation of |ui::ZOrderLevel|, Android ZOrderLevel should always
+  // be |ui::ZOrderLevel::kNormal|.
 }

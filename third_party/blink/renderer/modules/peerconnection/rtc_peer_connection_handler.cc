@@ -185,13 +185,19 @@ class CreateSessionDescriptionRequest
 
     auto tracker = tracker_.Lock();
     if (tracker && handler_) {
-      std::string value;
+      StringBuilder result;
       if (desc) {
+        std::string value;
         desc->ToString(&value);
-        value = "type: " + desc->type() + ", sdp: " + value;
+        auto json = std::make_unique<JSONObject>();
+        json->SetString("type", String::FromUTF8(desc->type()));
+        if (!value.empty()) {
+          json->SetString("sdp", String::FromUTF8(value));
+        }
+        json->WriteJSON(&result);
       }
-      tracker->TrackSessionDescriptionCallback(
-          handler_.get(), action_, "OnSuccess", String::FromUTF8(value));
+      tracker->TrackSessionDescriptionCallback(handler_.get(), action_,
+                                               "OnSuccess", result.ToString());
       tracker->TrackSessionId(handler_.get(),
                               String::FromUTF8(desc->session_id()));
     }
@@ -604,10 +610,8 @@ class RTCPeerConnectionHandler::Observer
 
   void OnIceCandidate(const IceCandidate* candidate) override {
     DCHECK(native_peer_connection_);
-    std::string sdp;
-    if (!candidate->ToString(&sdp)) {
-      NOTREACHED() << "OnIceCandidate: Could not get SDP string.";
-    }
+    std::string sdp = candidate->ToString();
+   DCHECK(!sdp.empty());
     // The generated candidate may have been added to the pending or current
     // local description, take a snapshot and surface them to the main thread.
     // Remote descriptions are also surfaced because
@@ -850,8 +854,7 @@ bool RTCPeerConnectionHandler::Initialize(
     const webrtc::PeerConnectionInterface::RTCConfiguration&
         server_configuration,
     WebLocalFrame* frame,
-    ExceptionState& exception_state,
-    RTCRtpTransport* rtp_transport) {
+    ExceptionState& exception_state) {
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
   DCHECK(dependency_factory_);
 
@@ -905,8 +908,7 @@ bool RTCPeerConnectionHandler::Initialize(
   peer_connection_observer_ =
       MakeGarbageCollected<Observer>(weak_factory_.GetWeakPtr(), task_runner_);
   native_peer_connection_ = dependency_factory_->CreatePeerConnection(
-      configuration_, frame_, peer_connection_observer_, exception_state,
-      rtp_transport);
+      configuration_, frame_, peer_connection_observer_, exception_state);
   if (!native_peer_connection_.get()) {
     LOG(ERROR) << "Failed to initialize native PeerConnection.";
     return false;
@@ -927,8 +929,7 @@ bool RTCPeerConnectionHandler::InitializeForTest(
     const webrtc::PeerConnectionInterface::RTCConfiguration&
         server_configuration,
     PeerConnectionTracker* peer_connection_tracker,
-    ExceptionState& exception_state,
-    RTCRtpTransport* rtp_transport) {
+    ExceptionState& exception_state) {
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
   DCHECK(dependency_factory_);
 
@@ -941,8 +942,7 @@ bool RTCPeerConnectionHandler::InitializeForTest(
       MakeGarbageCollected<Observer>(weak_factory_.GetWeakPtr(), task_runner_);
 
   native_peer_connection_ = dependency_factory_->CreatePeerConnection(
-      configuration_, nullptr, peer_connection_observer_, exception_state,
-      rtp_transport);
+      configuration_, nullptr, peer_connection_observer_, exception_state);
   if (!native_peer_connection_.get()) {
     LOG(ERROR) << "Failed to initialize native PeerConnection.";
     return false;
@@ -2171,7 +2171,7 @@ RTCPeerConnectionHandler::CreateOrUpdateTransceiver(
     // Create a new transceiver, including a sender and a receiver.
     transceiver = std::make_unique<blink::RTCRtpTransceiverImpl>(
         native_peer_connection_, track_adapter_map_,
-        std::move(transceiver_state), encoded_insertable_streams_,
+        std::move(transceiver_state),
         dependency_factory_->CreateDecodeMetronome());
     rtp_transceivers_.push_back(transceiver->ShallowCopy());
     DCHECK(FindSender(blink::RTCRtpSenderImpl::getId(webrtc_sender.get())) ==

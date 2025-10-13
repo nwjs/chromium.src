@@ -4,14 +4,16 @@
 
 #include "chrome/browser/ui/views/save_to_drive/account_chooser_view.h"
 
+#include "build/branding_buildflags.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/save_to_drive/account_chooser_radio_group_view.h"
 #include "chrome/browser/ui/views/save_to_drive/account_chooser_util.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/omnibox/browser/vector_icons.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/scroll_view.h"
@@ -31,6 +33,7 @@ AccountChooserView::AccountChooserView(
     const std::vector<AccountInfo>& accounts,
     std::optional<CoreAccountId> primary_account_id)
     : parent_dialog_(parent_dialog) {
+  SetProperty(views::kElementIdentifierKey, kTopViewId);
   SetOrientation(views::LayoutOrientation::kVertical);
   header_view_ = AddChildView(CreateHeaderView(accounts));
   body_view_ = AddChildView(CreateBodyView(accounts, primary_account_id));
@@ -63,25 +66,32 @@ std::unique_ptr<views::View> AccountChooserView::CreateBodyMultiAccount(
 
 std::unique_ptr<views::View> AccountChooserView::CreateBodySingleAccount(
     const AccountInfo& account) {
-  return views::Builder<views::FlexLayoutView>()
-      .SetProperty(
-          views::kFlexBehaviorKey,
-          views::FlexSpecification(views::LayoutOrientation::kHorizontal,
-                                   views::MinimumFlexSizeRule::kPreferred,
-                                   views::MaximumFlexSizeRule::kUnbounded))
-      .SetOrientation(views::LayoutOrientation::kVertical)
-      .AddChildren(
-          views::Builder<views::Separator>(),
-          views::Builder<views::FlexLayoutView>()
-              .SetOrientation(views::LayoutOrientation::kVertical)
-              .SetInteriorMargin(gfx::Insets::VH(
-                  /*vertical=*/ChromeLayoutProvider::Get()->GetDistanceMetric(
-                      DISTANCE_EXTENSIONS_MENU_BUTTON_MARGIN),
-                  /*horizontal=*/0))
-              .AddChildren(
-                  views::Builder<views::View>(CreateAccountRow(account))),
-          views::Builder<views::Separator>())
-      .Build();
+  auto single_account_row =
+      views::Builder<views::FlexLayoutView>()
+          .SetProperty(
+              views::kFlexBehaviorKey,
+              views::FlexSpecification(views::LayoutOrientation::kHorizontal,
+                                       views::MinimumFlexSizeRule::kPreferred,
+                                       views::MaximumFlexSizeRule::kUnbounded))
+          .SetOrientation(views::LayoutOrientation::kVertical)
+          .SetFocusBehavior(
+              views::BoxLayoutView::FocusBehavior::ACCESSIBLE_ONLY)
+          .AddChildren(views::Builder<views::Separator>(),
+                       views::Builder<views::FlexLayoutView>()
+                           .SetOrientation(views::LayoutOrientation::kVertical)
+                           .SetInteriorMargin(gfx::Insets::VH(
+                               /*vertical=*/ChromeLayoutProvider::Get()
+                                   ->GetDistanceMetric(
+                                       DISTANCE_EXTENSIONS_MENU_BUTTON_MARGIN),
+                               /*horizontal=*/0))
+                           .AddChildren(views::Builder<views::View>(
+                               CreateAccountRow(account))),
+                       views::Builder<views::Separator>())
+          .Build();
+  single_account_row->GetViewAccessibility().SetRole(ax::mojom::Role::kRow);
+  single_account_row->GetViewAccessibility().SetName(
+      base::StrCat({account.full_name, " ", account.email}));
+  return single_account_row;
 }
 
 std::unique_ptr<views::View> AccountChooserView::CreateBodyView(
@@ -105,15 +115,21 @@ std::unique_ptr<views::View> AccountChooserView::CreateDriveLogoView() {
   drive_logo_view->SetBetweenChildSpacing(
       ChromeLayoutProvider::Get()->GetDistanceMetric(
           DISTANCE_EXTENSIONS_MENU_LABEL_ICON_SPACING));
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   drive_logo_view->AddChildView(
       std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
-          omnibox::kDriveLogoIcon, ui::kColorIcon,
+          vector_icons::kGoogleDriveIcon, ui::kColorIcon,
           ChromeLayoutProvider::Get()->GetDistanceMetric(
               DISTANCE_TOAST_BUBBLE_ICON_SIZE))));
-  drive_logo_view->AddChildView(std::make_unique<views::Label>(
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+
+  auto drive_label = std::make_unique<views::Label>(
       l10n_util::GetStringUTF16(IDS_ACCOUNT_CHOOSER_DRIVE),
       views::style::CONTEXT_DIALOG_BODY_TEXT,
-      views::style::STYLE_BODY_3_MEDIUM));
+      views::style::STYLE_BODY_3_MEDIUM);
+  drive_label->SetEnabledColor(ui::kColorSysOnSurfaceSubtle);
+  drive_logo_view->AddChildView(std::move(drive_label));
   return drive_logo_view;
 }
 
@@ -142,8 +158,11 @@ std::unique_ptr<views::View> AccountChooserView::CreateFooterView() {
           &AccountChooserViewDelegate::OnAddAccountButtonClicked,
           base::Unretained(parent_dialog_)),
       l10n_util::GetStringUTF16(IDS_ACCOUNT_CHOOSER_ADD_ACCOUNT));
+  use_other_account_button->SetProperty(views::kElementIdentifierKey,
+                                        kAddAccountButtonId);
   use_other_account_button->SetStyle(ui::ButtonStyle::kDefault);
   use_other_account_button->SetAppearDisabledInInactiveWidget(true);
+  use_other_account_button->SetFocusBehavior(FocusBehavior::ALWAYS);
   add_account_button_container->AddChildView(
       std::move(use_other_account_button));
   // Ensure the button is left-aligned.
@@ -155,14 +174,13 @@ std::unique_ptr<views::View> AccountChooserView::CreateFooterView() {
 
   // Add the "Cancel" button.
   auto cancel_button = std::make_unique<views::MdTextButton>(
-      base::BindRepeating(
-          &AccountChooserViewDelegate::OnFlowCancelled,
-          base::Unretained(parent_dialog_),
-          static_cast<int32_t>(
-              views::Widget::ClosedReason::kCancelButtonClicked)),
+      base::BindRepeating(&AccountChooserViewDelegate::OnFlowCancelled,
+                          base::Unretained(parent_dialog_)),
       l10n_util::GetStringUTF16(IDS_CANCEL));
+  cancel_button->SetProperty(views::kElementIdentifierKey, kCancelButtonId);
   cancel_button->SetStyle(ui::ButtonStyle::kTonal);
   cancel_button->SetAppearDisabledInInactiveWidget(true);
+  cancel_button->SetFocusBehavior(FocusBehavior::ALWAYS);
   footer->AddChildView(std::move(cancel_button));
 
   // Add the "Save" button.
@@ -171,8 +189,10 @@ std::unique_ptr<views::View> AccountChooserView::CreateFooterView() {
       base::BindOnce(&AccountChooserViewDelegate::OnSaveButtonClicked,
                      base::Unretained(parent_dialog_)),
       l10n_util::GetStringUTF16(IDS_SAVE));
+  save_button->SetProperty(views::kElementIdentifierKey, kSaveButtonId);
   save_button->SetStyle(ui::ButtonStyle::kProminent);
   save_button->SetAppearDisabledInInactiveWidget(true);
+  save_button->SetFocusBehavior(FocusBehavior::ALWAYS);
   footer->AddChildView(std::move(save_button));
 
   return footer;
@@ -206,8 +226,11 @@ std::unique_ptr<views::Label> AccountChooserView::CreateTitleLabel(
     const std::vector<AccountInfo>& accounts) {
   auto title_label = std::make_unique<views::Label>(
       GetTitle(accounts), views::style::CONTEXT_DIALOG_TITLE,
-      views::style::STYLE_HEADLINE_4_BOLD);
+      views::style::STYLE_HEADLINE_4);
+  title_label->SetEnabledColor(ui::kColorSysOnSurface);
   SetLabelProperties(title_label.get());
+  title_label->GetViewAccessibility().SetName(l10n_util::GetStringUTF16(
+      IDS_ACCOUNT_CHOOSER_HEADER_ACCESSIBILITY_LABEL));
   return title_label;
 }
 
@@ -215,6 +238,7 @@ std::unique_ptr<views::StyledLabel> AccountChooserView::CreateSubtitleLabel() {
   auto subtitle_label = std::make_unique<views::StyledLabel>();
 
   subtitle_label->SetDefaultTextStyle(views::style::STYLE_BODY_3);
+  subtitle_label->SetDefaultEnabledColorId(ui::kColorSysOnSurface);
   subtitle_label->SetTextContext(views::style::CONTEXT_DIALOG_TITLE);
 
   std::u16string saved_from_chrome =
@@ -239,6 +263,9 @@ std::unique_ptr<views::View> AccountChooserView::CreateTitleView(
     const std::vector<AccountInfo>& accounts) {
   auto title_view = std::make_unique<views::FlexLayoutView>();
   title_view->SetCrossAxisAlignment(views::LayoutAlignment::kCenter);
+  title_view->GetViewAccessibility().SetRole(ax::mojom::Role::kRegion);
+  title_view->GetViewAccessibility().SetName(l10n_util::GetStringUTF16(
+      IDS_ACCOUNT_CHOOSER_HEADER_ACCESSIBILITY_LABEL));
 
   auto title_container = std::make_unique<views::FlexLayoutView>();
   title_container->SetProperty(
@@ -301,4 +328,9 @@ void AccountChooserView::UpdateHeaderView(
 
 BEGIN_METADATA(AccountChooserView)
 END_METADATA
+
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AccountChooserView, kTopViewId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AccountChooserView, kAddAccountButtonId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AccountChooserView, kCancelButtonId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AccountChooserView, kSaveButtonId);
 }  // namespace save_to_drive

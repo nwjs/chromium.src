@@ -68,6 +68,23 @@ omnibox::NTPComposeboxConfig GetNTPComposeboxConfig() {
       l10n_util::GetStringUTF8(IDS_NTP_COMPOSE_PLACEHOLDER_TEXT));
   composebox->set_is_pdf_upload_enabled(true);
 
+  auto* placeholder_config = composebox->mutable_placeholder_config();
+  placeholder_config->set_change_text_animation_interval_ms(4000);
+  placeholder_config->set_fade_text_animation_duration_ms(250);
+
+  placeholder_config->add_placeholders(
+      omnibox::NTPComposeboxConfig_PlaceholderConfig_Placeholder_ASK);
+  placeholder_config->add_placeholders(
+      omnibox::NTPComposeboxConfig_PlaceholderConfig_Placeholder_PLAN);
+  placeholder_config->add_placeholders(
+      omnibox::NTPComposeboxConfig_PlaceholderConfig_Placeholder_COMPARE);
+  placeholder_config->add_placeholders(
+      omnibox::NTPComposeboxConfig_PlaceholderConfig_Placeholder_RESEARCH);
+  placeholder_config->add_placeholders(
+      omnibox::NTPComposeboxConfig_PlaceholderConfig_Placeholder_TEACH);
+  placeholder_config->add_placeholders(
+      omnibox::NTPComposeboxConfig_PlaceholderConfig_Placeholder_WRITE);
+
   // Attempt to parse the config proto from the feature parameter if it is set.
   omnibox::NTPComposeboxConfig fieldtrial_config;
   if (!kConfigParam.Get().empty()) {
@@ -121,9 +138,7 @@ bool IsNtpComposeboxEnabled(Profile* profile) {
       AimEligibilityServiceFactory::GetForProfile(profile), kNtpComposebox);
 }
 
-BASE_FEATURE(kNtpComposebox,
-             "NtpComposebox",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNtpComposebox, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<std::string> kConfigParam(&kNtpComposebox,
                                                    "ConfigParam",
@@ -150,13 +165,41 @@ const base::FeatureParam<bool> kShowComposeboxImageSuggestions(
 const base::FeatureParam<bool> kShowContextMenu(&kNtpComposebox,
                                                 "ShowContextMenu",
                                                 false);
+const base::FeatureParam<bool> kShowContextMenuTabPreviews(
+    &kNtpComposebox,
+    "ShowContextMenuTabPreviews",
+    false);
+
+const base::FeatureParam<bool> kShowContextMenuDescription(
+    &kNtpComposebox,
+    "ShowContextMenuDescription",
+    true);
+
+const base::FeatureParam<bool> kShowToolsAndModels(&kNtpComposebox,
+                                                   "ShowToolsAndModels",
+                                                   false);
+
 const base::FeatureParam<int> kContextMenuMaxTabSuggestions(
     &kNtpComposebox,
     "ContextMenuMaxTabSuggestions",
     5);
-const base::FeatureParam<int> kMaxNumFiles(&kNtpComposebox,
-                                            "MaxNumFiles",
-                                            1);
+
+const base::FeatureParam<RealboxLayoutMode>::Option
+    kRealboxLayoutModeOptions[] = {
+        {RealboxLayoutMode::kDefault, kRealboxLayoutModeDefault},
+        {RealboxLayoutMode::kTall, kRealboxLayoutModeTall},
+        {RealboxLayoutMode::kCompact, kRealboxLayoutModeCompact}};
+const base::FeatureParam<RealboxLayoutMode> kRealboxLayoutMode(
+    &kNtpComposebox,
+    "RealboxLayoutMode",
+    RealboxLayoutMode::kDefault,
+    &kRealboxLayoutModeOptions);
+
+const base::FeatureParam<int> kMaxNumFiles(&kNtpComposebox, "MaxNumFiles", 1);
+
+const base::FeatureParam<bool> kCyclingPlaceholders(&kNtpComposebox,
+                                                    "CyclingPlaceholders",
+                                                    false);
 
 FeatureConfig::FeatureConfig() : config(GetNTPComposeboxConfig()) {}
 
@@ -165,5 +208,17 @@ FeatureConfig::FeatureConfig(FeatureConfig&&) = default;
 FeatureConfig& FeatureConfig::operator=(const FeatureConfig&) = default;
 FeatureConfig& FeatureConfig::operator=(FeatureConfig&&) = default;
 FeatureConfig::~FeatureConfig() = default;
+
+std::string_view RealboxLayoutModeToString(
+    RealboxLayoutMode realbox_layout_mode) {
+  switch (realbox_layout_mode) {
+    case RealboxLayoutMode::kDefault:
+      return kRealboxLayoutModeDefault;
+    case RealboxLayoutMode::kTall:
+      return kRealboxLayoutModeTall;
+    case RealboxLayoutMode::kCompact:
+      return kRealboxLayoutModeCompact;
+  }
+}
 
 }  // namespace ntp_composebox

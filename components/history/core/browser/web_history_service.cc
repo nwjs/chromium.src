@@ -30,6 +30,7 @@
 #include "google_apis/gaia/gaia_urls.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "net/base/url_util.h"
+#include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "net/http/http_util.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -363,8 +364,8 @@ std::optional<base::Value::Dict> WebHistoryService::ReadResponse(
   if (request->GetResponseCode() != net::HTTP_OK) {
     return std::nullopt;
   }
-  std::optional<base::Value> value =
-      base::JSONReader::Read(request->GetResponseBody());
+  std::optional<base::Value> value = base::JSONReader::Read(
+      request->GetResponseBody(), base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   if (value && value->is_dict()) {
     return std::move(*value).TakeDict();
   }
@@ -415,8 +416,7 @@ void WebHistoryService::ExpireHistory(
     }
   }
   delete_request.Set("del", std::move(deletions));
-  std::string post_data;
-  base::JSONWriter::Write(delete_request, &post_data);
+  std::string post_data = base::WriteJson(delete_request).value_or("");
 
   GURL url(kHistoryDeleteHistoryUrl);
 

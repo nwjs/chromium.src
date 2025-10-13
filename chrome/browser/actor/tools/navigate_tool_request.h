@@ -21,6 +21,7 @@ class NavigateToolRequest : public TabToolRequest {
   NavigateToolRequest(tabs::TabHandle tab_handle, GURL url);
   ~NavigateToolRequest() override;
 
+  bool RequiresUrlCheckInCurrentTab() const override;
   void Apply(ToolRequestVisitorFunctor& f) const override;
 
   // ToolRequest
@@ -29,6 +30,9 @@ class NavigateToolRequest : public TabToolRequest {
   std::string JournalEvent() const override;
 
   std::optional<url::Origin> AssociatedOriginGrant() const override;
+
+  std::optional<ObservationDelayController::PageStabilityConfig>
+  GetObservationPageStabilityConfig() const override;
 
  private:
   GURL url_;

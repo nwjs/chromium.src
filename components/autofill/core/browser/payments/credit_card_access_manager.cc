@@ -1297,7 +1297,12 @@ void CreditCardAccessManager::FetchLocalCard() {
 #endif
 
   // Check if we need to authenticate the user before filling the local card.
-  if (payments_data_manager().IsPaymentMethodsMandatoryReauthEnabled()) {
+  if (auto* mandatory_reauth_manager =
+          autofill_client()
+              .GetPaymentsAutofillClient()
+              ->GetOrCreatePaymentsMandatoryReauthManager();
+      mandatory_reauth_manager &&
+      payments_data_manager().IsPaymentMethodsMandatoryReauthEnabled()) {
     // `StartDeviceAuthenticationForFilling()` will asynchronously trigger
     // the re-authentication flow, so we should avoid calling `Reset()`
     // until the re-authentication flow is complete.
@@ -1421,7 +1426,12 @@ void CreditCardAccessManager::OnRiskBasedAuthenticationResponseReceived(
 
 void CreditCardAccessManager::OnNonInteractiveAuthenticationSuccess(
     CreditCard::RecordType record_type) {
-  if (payments_data_manager().IsPaymentMethodsMandatoryReauthEnabled()) {
+  if (auto* mandatory_reauth_manager =
+          autofill_client()
+              .GetPaymentsAutofillClient()
+              ->GetOrCreatePaymentsMandatoryReauthManager();
+      mandatory_reauth_manager &&
+      payments_data_manager().IsPaymentMethodsMandatoryReauthEnabled()) {
     // On some operating systems (for example, macOS and Windows), the
     // device authentication prompt freezes Chrome. Thus we can only trigger
     // the prompt after the progress dialog has been closed, which we can do
@@ -1773,7 +1783,7 @@ void CreditCardAccessManager::OnCreditCardFetched(
     bool card_was_fetched_from_cache) {
   auto* form_data_importer = autofill_client().GetFormDataImporter();
   CHECK(form_data_importer);
-  auto context = form_data_importer->fetched_payments_data_context();
+  auto& context = form_data_importer->fetched_payments_data_context();
   context.fetched_card_instrument_id = card.instrument_id();
   context.card_was_fetched_from_cache = card_was_fetched_from_cache;
   std::move(on_credit_card_fetched_callback_).Run(card);

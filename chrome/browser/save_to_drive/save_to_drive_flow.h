@@ -10,6 +10,7 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/common/extensions/api/pdf_viewer_private.h"
 #include "content/public/browser/document_user_data.h"
 
 struct AccountInfo;
@@ -18,20 +19,14 @@ namespace content {
 class RenderFrameHost;
 }  // namespace content
 
-namespace extensions::api::pdf_viewer_private {
-struct SaveToDriveProgress;
-}  // namespace extensions::api::pdf_viewer_private
+class HatsService;
 
 namespace save_to_drive {
 
+class AccountChooser;
 class ContentReader;
 class DriveUploader;
 class SaveToDriveEventDispatcher;
-
-// Invoked when the account chooser is closed with the account info if an
-// account is chosen, or `std::nullopt` if the account chooser is canceled.
-using AccountChooserCallback =
-    base::OnceCallback<void(std::optional<AccountInfo>)>;
 
 // This class is responsible for orchastrating the entire save to Drive flow
 // on the browser process from showing the account chooser, reading the file
@@ -41,16 +36,37 @@ using AccountChooserCallback =
 // This flow should only be called on the UI thread.
 class SaveToDriveFlow : public content::DocumentUserData<SaveToDriveFlow> {
  public:
+  using CreateCallback = base::RepeatingCallback<SaveToDriveFlow*(
+      content::RenderFrameHost* render_frame_host,
+      std::unique_ptr<SaveToDriveEventDispatcher> event_dispatcher,
+      std::unique_ptr<ContentReader> content_reader,
+      std::unique_ptr<AccountChooser> account_chooser,
+      HatsService* hats_service)>;
+
+  // Factory method to create a new instance of `SaveToDriveFlow`. This is
+  // used to allow for creating a mock flow in tests through
+  // `SetCreateCallbackForTesting`.
+  static SaveToDriveFlow* Create(
+      content::RenderFrameHost* render_frame_host,
+      std::unique_ptr<SaveToDriveEventDispatcher> event_dispatcher,
+      std::unique_ptr<ContentReader> content_reader,
+      std::unique_ptr<AccountChooser> account_chooser,
+      HatsService* hats_service);
+
+  // Sets the callback to create a new instance of `SaveToDriveFlow`. This
+  // is used to create a mock flow in tests.
+  static void SetCreateCallbackForTesting(CreateCallback* callback);
+
   SaveToDriveFlow(const SaveToDriveFlow&) = delete;
   SaveToDriveFlow& operator=(const SaveToDriveFlow&) = delete;
   ~SaveToDriveFlow() override;
 
-  // Starts the save to Drive flow.
-  void Run();
+  // Starts the save to Drive flow. Marked virtual for testing.
+  virtual void Run();
 
   // Cleans up the flow and its resources. This is called when the flow is
-  // aborted or completed.
-  void Stop();
+  // aborted or completed. Marked virtual for testing.
+  virtual void Stop();
 
   class TestApi {
    public:
@@ -64,37 +80,50 @@ class SaveToDriveFlow : public content::DocumentUserData<SaveToDriveFlow> {
     const DriveUploader* drive_uploader() const;
     // It will never return `nullptr' before the `flow_` runs.
     const SaveToDriveEventDispatcher* event_dispatcher() const;
-    // Simulates the account chooser being closed with an `AccountInfo`.
-    // `std::nullopt` means the account chooser was canceled. It only simulates
-    // the action for the first call to the account chooser following it.
-    void SimulateAccountChooserAction(std::optional<AccountInfo> account_info);
+    // It will never return `nullptr` before the `flow_` runs.
+    content::RenderFrameHost* rfh();
 
    private:
     base::WeakPtr<SaveToDriveFlow> flow_;
   };
 
+ protected:
+  SaveToDriveFlow(content::RenderFrameHost* render_frame_host,
+                  std::unique_ptr<SaveToDriveEventDispatcher> event_dispatcher,
+                  std::unique_ptr<ContentReader> content_reader,
+                  std::unique_ptr<AccountChooser> account_chooser,
+                  HatsService* hats_service);
+
  private:
   friend class content::DocumentUserData<SaveToDriveFlow>;
   friend class TestApi;
 
-  SaveToDriveFlow(content::RenderFrameHost* render_frame_host,
-                  std::unique_ptr<SaveToDriveEventDispatcher> event_dispatcher,
-                  std::unique_ptr<ContentReader> content_reader);
+  struct SaveToDriveAccountInfo {
+    // The email of the account that is chosen to save the PDF to Drive. It is
+    // used to construct the URL to open the file in Drive or manage the quota.
+    std::string email;
 
-  void ShowAccountChooser(AccountChooserCallback callback);
+    // Whether the account is a managed account. It is used to determine whether
+    // the account is a dasher account and show the correct manage storage URL.
+    bool is_managed = false;
+  };
   void OnAccountChosen(std::optional<AccountInfo> account_info);
   void OnOpenContent(AccountInfo account_info, bool success);
   void OnUploadProgress(
       extensions::api::pdf_viewer_private::SaveToDriveProgress progress);
+  void ShowHatsSurveyWithDelay();
 
   std::unique_ptr<SaveToDriveEventDispatcher> event_dispatcher_;
   std::unique_ptr<ContentReader> content_reader_;
   std::unique_ptr<DriveUploader> drive_uploader_;
+  std::unique_ptr<AccountChooser> account_chooser_;
+  raw_ptr<HatsService> hats_service_ = nullptr;
 
-  // Used for testing to simulate the account chooser being closed with an
-  // account info. `nullptr` means it was not set, while `std::nullopt` means
-  // the account chooser was canceled.
-  std::unique_ptr<std::optional<AccountInfo>> account_info_for_testing_;
+  // This is set when an account is chosen.
+  std::optional<SaveToDriveAccountInfo> save_to_drive_account_info_;
+  // This is set after the upload starts.
+  std::optional<extensions::api::pdf_viewer_private::SaveToDriveProgress>
+      upload_progress_;
 
   base::WeakPtrFactory<SaveToDriveFlow> weak_ptr_factory_{this};
 

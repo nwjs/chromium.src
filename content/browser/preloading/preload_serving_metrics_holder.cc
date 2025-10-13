@@ -4,6 +4,9 @@
 
 #include "content/browser/preloading/preload_serving_metrics_holder.h"
 
+#include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
+
 namespace content {
 
 base::RepeatingCallback<void(std::unique_ptr<PreloadServingMetrics>)>&
@@ -26,7 +29,7 @@ void PreloadServingMetricsHolder::SetDestructorCallbackForTesting(
 PreloadServingMetricsHolder::PreloadServingMetricsHolder(
     NavigationHandle& handle)
     : preload_serving_metrics_(std::make_unique<PreloadServingMetrics>()) {
-  CHECK(PreloadServingMetrics::IsEnabled());
+  CHECK(PreloadServingMetricsCapsule::IsFeatureEnabled());
 }
 
 PreloadServingMetricsHolder::~PreloadServingMetricsHolder() {
@@ -39,7 +42,20 @@ PreloadServingMetricsHolder::~PreloadServingMetricsHolder() {
 void PreloadServingMetricsHolder::AddPrefetchMatchMetrics(
     std::unique_ptr<PrefetchMatchMetrics> prefetch_match_metrics) {
   CHECK(prefetch_match_metrics);
-  CHECK(preload_serving_metrics_);
+
+  // Do nothing if `PreloadServingMetrics` is already taken.
+  //
+  // This happens if a prerender that is potentially matching to a prefetch
+  // while the prefetch is blocking the prerender.
+  // `PrerenderHost::OnWillBeCancelled()` took the `PreloadServingMetrics`, and
+  // this path is reached when something of the prefetch is updated and unblocks
+  // the prerender.
+  //
+  // For more details, see
+  // https://docs.google.com/document/d/1ITMr_qyysUPIMZpLkmpQABwtVseMBduRqxHGZxIJ1R0/edit?resourcekey=0-ccZ-G6JV4WO-1bP4TiNvjQ&tab=t.x99jls7s2xug
+  if (!preload_serving_metrics_) {
+    return;
+  }
 
   preload_serving_metrics_->prefetch_match_metrics_list.push_back(
       std::move(prefetch_match_metrics));

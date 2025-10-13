@@ -40,6 +40,7 @@
 #include "ui/events/base_event_utils.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/view.h"
+#include "ui/views/view_utils.h"
 
 class FakeTabDeclutterObserver : public TabDeclutterObserver {
  public:
@@ -127,10 +128,8 @@ class TabDeclutterControllerBrowserTest : public InProcessBrowserTest {
           kTabStripActionContainerElementId);
     }
 
-    auto* tab_strip_region_view =
-        BrowserView::GetBrowserViewForBrowser(browser())
-            ->tab_strip_region_view();
-    return tab_strip_region_view->tab_search_container_for_testing();
+    return BrowserElementsViews::From(browser())->GetViewAs<TabSearchContainer>(
+        kTabSearchContainerElementId);
   }
 
  protected:
@@ -314,9 +313,8 @@ IN_PROC_BROWSER_TEST_F(TabDeclutterControllerBrowserTest,
                        ->close_button_for_testing();
   } else {
     TabSearchContainer* tab_search_container =
-        BrowserView::GetBrowserViewForBrowser(browser())
-            ->tab_strip_region_view()
-            ->tab_search_container_for_testing();
+        BrowserElementsViews::From(browser())->GetViewAs<TabSearchContainer>(
+            kTabSearchContainerElementId);
     EXPECT_TRUE(tab_search_container->tab_declutter_button()->GetVisible());
     close_button = tab_search_container->tab_declutter_button()
                        ->close_button_for_testing();
@@ -446,6 +444,11 @@ IN_PROC_BROWSER_TEST_F(TabDeclutterControllerBrowserTest,
 
   EXPECT_GE(fake_observer.unused_tabs_processed_count(), 1);
   EXPECT_EQ(fake_observer.trigger_declutter_ui_visibility_count(), 0);
+
+  // Reset focused_tab_strip_model_for_testing_ to eliminate reliance on browser
+  // list ordering during destruction.
+  resource_coordinator::GetTabLifecycleUnitSource()
+      ->SetFocusedTabStripModelForTesting(nullptr);
 }
 
 class TabDeclutterControllerDuplicateTabsTest

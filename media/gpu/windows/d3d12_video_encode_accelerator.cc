@@ -87,7 +87,8 @@ class VideoEncodeDelegateFactory
   VideoEncodeAccelerator::SupportedProfiles GetSupportedProfiles(
       ID3D12VideoDevice3* video_device,
       const std::vector<D3D12_VIDEO_ENCODER_CODEC>& codecs) override {
-    return D3D12VideoEncodeDelegate::GetSupportedProfiles(video_device, codecs);
+    return D3D12VideoEncodeDelegate::GetSupportedProfiles(
+        video_device, gpu_workarounds_, codecs);
   }
 
  private:
@@ -424,8 +425,8 @@ EncoderStatus D3D12VideoEncodeAccelerator::Initialize(
   error_occurred_ = false;
   encoder_task_runner_->PostTask(
       FROM_HERE, BindOnce(&D3D12VideoEncodeAccelerator::InitializeTask,
-                          encoder_weak_this_, config));
-  return {EncoderStatus::Codes::kOk};
+                          encoder_weak_this_, config, std::move(profiles)));
+  return EncoderStatus::Codes::kOk;
 }
 
 void D3D12VideoEncodeAccelerator::Encode(scoped_refptr<VideoFrame> frame,
@@ -500,7 +501,9 @@ size_t D3D12VideoEncodeAccelerator::GetSharedHandleCacheSizeForTesting() const {
   return shared_handle_cache_.size();
 }
 
-void D3D12VideoEncodeAccelerator::InitializeTask(const Config& config) {
+void D3D12VideoEncodeAccelerator::InitializeTask(
+    const Config& config,
+    const SupportedProfiles& profiles) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
 
   copy_command_queue_ = D3D12CopyCommandQueueWrapper::Create(device_.Get());
@@ -530,11 +533,6 @@ void D3D12VideoEncodeAccelerator::InitializeTask(const Config& config) {
   num_frames_in_flight_ =
       kMinNumFramesInFlight + encoder_->GetMaxNumOfRefFrames();
 
-  child_task_runner_->PostTask(
-      FROM_HERE,
-      BindOnce(&Client::RequireBitstreamBuffers, client_, num_frames_in_flight_,
-               config.input_visible_size, bitstream_buffer_size_));
-
   // Set the fps allocation for the first spatial layer
   encoder_info_.fps_allocation[0] =
       GetFpsAllocation(encoder_->GetNumTemporalLayers());
@@ -544,9 +542,29 @@ void D3D12VideoEncodeAccelerator::InitializeTask(const Config& config) {
   encoder_info_.number_of_manual_reference_buffers =
       num_of_manual_reference_buffers;
 
+  auto profile_it = std::ranges::find(profiles, config.output_profile,
+                                      &SupportedProfile::profile);
+  if (profile_it != std::ranges::end(profiles)) {
+    encoder_info_.gpu_supported_pixel_formats =
+        profile_it->gpu_supported_pixel_formats;
+    encoder_info_.supports_gpu_shared_images =
+        profile_it->supports_gpu_shared_images;
+  } else {
+    encoder_info_.supports_gpu_shared_images = false;
+    encoder_info_.gpu_supported_pixel_formats.clear();
+  }
+
   child_task_runner_->PostTask(
       FROM_HERE,
       BindOnce(&Client::NotifyEncoderInfoChange, client_, encoder_info_));
+
+  // Must be called after NotifyEncoderInfoChange() to avoid readback
+  // on first frame when shared image encoding is enabled. See
+  // https://crbug.com/441011637 for more details.
+  child_task_runner_->PostTask(
+      FROM_HERE,
+      BindOnce(&Client::RequireBitstreamBuffers, client_, num_frames_in_flight_,
+               config.input_visible_size, bitstream_buffer_size_));
 }
 
 void D3D12VideoEncodeAccelerator::UseOutputBitstreamBufferTask(

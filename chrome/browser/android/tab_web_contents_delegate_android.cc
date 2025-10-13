@@ -39,7 +39,6 @@
 #include "chrome/browser/safe_browsing/safe_browsing_navigation_observer_manager_factory.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
-#include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/browser/ui/blocked_content/chrome_popup_navigation_delegate.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
@@ -399,9 +398,10 @@ WebContents* TabWebContentsDelegateAndroid::AddNewContents(
     ScopedJavaLocalRef<jobject> jwindow_features =
         JNI_TabWebContentsDelegateAndroidImpl_CreateJavaWindowFeatures(
             env, window_features);
-
+    ScopedJavaLocalRef<jobject> jurl =
+        url::GURLAndroid::FromNativeGURL(env, target_url);
     handled = Java_TabWebContentsDelegateAndroidImpl_addNewContents(
-        env, obj, jsource, jnew_contents, static_cast<jint>(disposition),
+        env, obj, jsource, jnew_contents, jurl, static_cast<jint>(disposition),
         jwindow_features, user_gesture);
   }
 

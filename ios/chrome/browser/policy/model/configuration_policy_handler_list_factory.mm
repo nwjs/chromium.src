@@ -25,6 +25,8 @@
 #import "components/enterprise/browser/reporting/common_pref_names.h"
 #import "components/enterprise/connectors/core/connectors_prefs.h"
 #import "components/enterprise/connectors/core/enterprise_connectors_policy_handler.h"
+#import "components/enterprise/data_controls/core/browser/data_controls_policy_handler.h"
+#import "components/enterprise/data_controls/core/browser/prefs.h"
 #import "components/enterprise/idle/idle_timeout_policy_handler.h"
 #import "components/history/core/common/pref_names.h"
 #import "components/lens/lens_overlay_permission_utils.h"
@@ -185,6 +187,12 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { policy::key::kNTPCustomBackgroundEnabled,
     prefs::kNTPCustomBackgroundEnabledByPolicy,
     base::Value::Type::BOOLEAN },
+  { policy::key::kIncognitoModeBlocklist,
+    policy::policy_prefs::kIncognitoModeBlocklist,
+    base::Value::Type::LIST },
+  { policy::key::kIncognitoModeAllowlist,
+    policy::policy_prefs::kIncognitoModeAllowlist,
+    base::Value::Type::LIST },
 };
 // clang-format on
 
@@ -300,6 +308,11 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
 
   handlers->AddHandler(std::make_unique<policy::DataRegionPolicyHandler>(
       policy::key::kChromeDataRegionSetting, prefs::kChromeDataRegionSetting));
+
+  handlers->AddHandler(
+      std::make_unique<data_controls::DataControlsPolicyHandler>(
+          policy::key::kDataControlsRules,
+          data_controls::kDataControlsRulesPref, chrome_schema));
 
   return handlers;
 }

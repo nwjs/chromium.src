@@ -6,18 +6,16 @@
 
 #import "base/feature_list.h"
 
-BASE_FEATURE(kAutofillBottomSheetNewBlur,
-             "AutofillBottomSheetNewBlur",
+BASE_FEATURE(kAutofillBottomSheetNewBlur, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kStatelessFormSuggestionController,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(StatelessFormSuggestionController,
+BASE_FEATURE(kStatelessFormSuggestionControllerWithRequestDeduping,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(StatelessFormSuggestionControllerWithRequestDeduping,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(ThrottleFormInputAccessorySuggestionRefresh,
+BASE_FEATURE(kThrottleFormInputAccessorySuggestionRefresh,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(FormInputAccessorySkipInputViewReloadInBackground,
+BASE_FEATURE(kFormInputAccessorySkipInputViewReloadInBackground,
              base::FEATURE_ENABLED_BY_DEFAULT);

@@ -347,12 +347,15 @@ google::protobuf::RepeatedPtrField<std::string> CollectFrameUrls(
 #if BUILDFLAG(FULL_SAFE_BROWSING)
 bool IsResumableUpload(
     const safe_browsing::BinaryUploadService::Request& request) {
-  // Currently resumable upload doesn't support paste or LBUS. If one day we do,
-  // we should update the logic here as well.
-  return !safe_browsing::IsConsumerScanRequest(request) &&
-         request.cloud_or_local_settings().is_cloud_analysis() &&
-         request.content_analysis_request().analysis_connector() !=
-             enterprise_connectors::AnalysisConnector::BULK_DATA_ENTRY;
+  if (safe_browsing::IsConsumerScanRequest(request) ||
+      !request.cloud_or_local_settings().is_cloud_analysis()) {
+    return false;
+  }
+  // Use the Resumable request protocol only for image pastes and
+  // non-paste requests.
+  return request.content_analysis_request().analysis_connector() !=
+             enterprise_connectors::AnalysisConnector::BULK_DATA_ENTRY ||
+         request.image_paste();
 }
 #endif  // BUILDFLAG(FULL_SAFE_BROWSING)
 
@@ -546,23 +549,17 @@ void ReportDataMaskingEvent(
     reporting_client->ReportEvent(std::move(event), settings.value());
   } else {
     base::Value::Dict event;
-    event.Set(extensions::SafeBrowsingPrivateEventRouter::kKeyUrl,
-              data_masking_event.url);
-    event.Set(extensions::SafeBrowsingPrivateEventRouter::kKeyTabUrl,
-              std::move(data_masking_event.url));
-    event.Set(extensions::SafeBrowsingPrivateEventRouter::kKeyEventResult,
+    event.Set(kKeyUrl, data_masking_event.url);
+    event.Set(kKeyTabUrl, std::move(data_masking_event.url));
+    event.Set(kKeyEventResult,
               EventResultToString(data_masking_event.event_result));
 
     base::Value::List triggered_rule_info;
     triggered_rule_info.reserve(data_masking_event.triggered_rule_info.size());
     for (auto& rule : data_masking_event.triggered_rule_info) {
       base::Value::Dict triggered_rule;
-      triggered_rule.Set(
-          extensions::SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleId,
-          std::move(rule.rule_id));
-      triggered_rule.Set(
-          extensions::SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleName,
-          std::move(rule.rule_name));
+      triggered_rule.Set(kKeyTriggeredRuleId, std::move(rule.rule_id));
+      triggered_rule.Set(kKeyTriggeredRuleName, std::move(rule.rule_name));
 
       base::Value::List matched_detectors;
       for (auto& detector : rule.matched_detectors) {
@@ -577,8 +574,7 @@ void ReportDataMaskingEvent(
 
       triggered_rule_info.Append(std::move(triggered_rule));
     }
-    event.Set(extensions::SafeBrowsingPrivateEventRouter::kKeyTriggeredRuleInfo,
-              std::move(triggered_rule_info));
+    event.Set(kKeyTriggeredRuleInfo, std::move(triggered_rule_info));
 
     reporting_client->ReportRealtimeEvent(
         enterprise_connectors::kKeySensitiveDataEvent,

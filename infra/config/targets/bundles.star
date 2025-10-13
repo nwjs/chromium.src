@@ -2,9 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This file contains bundle definitions, which are groupings of targets that can
-# be referenced by other bundles or by builders. Bundles cannot be used in
-# //testing/buildbot
+"""Bundle declarations
+
+Bundles are groupings of tests and/or compile targets that can be referenced by
+builders or other bundles. Bundles cannot be referenced in //testing/buildbot.
+"""
 
 load("@chromium-luci//targets.star", "targets")
 
@@ -445,6 +447,7 @@ targets.bundle(
     name = "android_desktop_gtests",
     targets = [
         "android_browsertests",
+        "chrome_public_test_apk",
         "chrome_public_test_apk_desktop",
         "chrome_public_unit_test_apk",
         "extensions_unittests",
@@ -458,9 +461,29 @@ targets.bundle(
         "x86-64",
     ],
     per_test_modifications = {
-        "chrome_public_test_apk_desktop": targets.mixin(
+        "chrome_public_test_apk": targets.mixin(
+            args = [
+                # Tests on devices with large form factor are typically slower.
+                # Double the timeout threshold to reduce test flakiness.
+                # TODO(crbug.com/444753297): Remove this config.
+                "--timeout-scale=2.0",
+            ],
+            # Due to the capacity concern, this suite will run as ci_only.
             ci_only = True,
+            swarming = targets.swarming(
+                shards = 30,
+            ),
+            # TODO(crbug.com/444482498): Remove the experiment after the suite
+            # is green.
             experiment_percentage = 100,
+        ),
+        "chrome_public_test_apk_desktop": targets.mixin(
+            args = [
+                # Tests on devices with large form factor are typically slower.
+                # Double the timeout threshold to reduce test flakiness.
+                # TODO(crbug.com/444753297): Remove this config.
+                "--timeout-scale=2.0",
+            ],
         ),
         "chrome_public_unit_test_apk": targets.mixin(
             swarming = targets.swarming(
@@ -1762,6 +1785,7 @@ targets.bundle(
         "media_base_junit_tests",
         "module_installer_junit_tests",
         "net_junit_tests",
+        "one_time_tokens_junit_tests",
         "paint_preview_junit_tests",
         "password_manager_junit_tests",
         "services_junit_tests",
@@ -1910,6 +1934,17 @@ targets.bundle(
             ],
         ),
         "net_junit_tests": targets.per_test_modification(
+            remove_mixins = [
+                "chromium_pixel_2_q",
+                "emulator-4-cores",
+                "nougat-x86-emulator",
+                "oreo-x86-emulator",
+                "pie-x86-emulator",
+                "10-x86-emulator",
+                "16-x64-emulator",
+            ],
+        ),
+        "one_time_tokens_junit_tests": targets.per_test_modification(
             remove_mixins = [
                 "chromium_pixel_2_q",
                 "emulator-4-cores",
@@ -2702,7 +2737,7 @@ targets.bundle(
     ],
     per_test_modifications = {
         "enterprise_companion_integration_tests": [
-            "updater-default-pool",
+            "updater-tests-pool",
         ],
         "enterprise_companion_tests": [
             "updater-default-pool",
@@ -2718,10 +2753,10 @@ targets.bundle(
     ],
     per_test_modifications = {
         "enterprise_companion_integration_tests": [
-            "updater-mac-pool",
+            "updater-tests-pool",
         ],
         "enterprise_companion_tests": [
-            "updater-mac-pool",
+            "updater-tests-pool",
         ],
     },
 )
@@ -4205,7 +4240,7 @@ targets.bundle(
 targets.bundle(
     name = "gpu_fyi_lacros_release_gtests",
     targets = [
-        "gpu_memory_buffer_impl_tests_suite",
+        "mappable_buffer_tests_suite",
     ],
 )
 
@@ -4247,7 +4282,7 @@ targets.bundle(
         "gpu_angle_unit_gtests",
         "gpu_common_gtests_passthrough",
         "gpu_desktop_specific_gtests",
-        "gpu_memory_buffer_impl_tests_suite",
+        "mappable_buffer_tests_suite",
         "gpu_vulkan_gtests",
     ],
 )
@@ -4460,32 +4495,6 @@ targets.bundle(
 )
 
 targets.bundle(
-    name = "gpu_memory_buffer_impl_tests_suite",
-    targets = [
-        "gpu_memory_buffer_impl_tests",
-    ],
-    per_test_modifications = {
-        "gpu_memory_buffer_impl_tests": targets.mixin(
-            args = [
-                "--enable-gpu",
-                "--use-gpu-in-tests",
-                "--gtest_filter=*GpuMemoryBufferImplTest*",
-            ],
-            lacros_args = [
-                "--ozone-platform=wayland",
-                "--xvfb",
-                "--no-xvfb",
-                "--use-weston",
-                "--weston-use-gl",
-            ],
-            linux_args = [
-                "--no-xvfb",
-            ],
-        ),
-    },
-)
-
-targets.bundle(
     name = "gpu_nexus5x_telemetry_tests",
     targets = [
         "gpu_common_and_optional_telemetry_tests",
@@ -4519,7 +4528,7 @@ targets.bundle(
 )
 
 targets.bundle(
-    name = "gpu_pixel_2_telemetry_tests",
+    name = "gpu_pixel_02_telemetry_tests",
     targets = [
         "gpu_validating_telemetry_tests",
         "gpu_webgl_conformance_gles_passthrough_telemetry_tests",
@@ -4529,7 +4538,7 @@ targets.bundle(
 )
 
 targets.bundle(
-    name = "gpu_pixel_4_telemetry_tests",
+    name = "gpu_pixel_04_telemetry_tests",
     targets = [
         "gpu_common_and_optional_telemetry_tests",
         "gpu_passthrough_ganesh_telemetry_tests",
@@ -4544,7 +4553,7 @@ targets.bundle(
 )
 
 targets.bundle(
-    name = "gpu_pixel_6_telemetry_tests",
+    name = "gpu_pixel_06_telemetry_tests",
     targets = [
         "gpu_common_and_optional_telemetry_tests",
         "gpu_passthrough_ganesh_telemetry_tests",
@@ -4560,6 +4569,18 @@ targets.bundle(
         "gpu_webgl_conformance_gles_passthrough_graphite_telemetry_tests",
         "gpu_webgl_conformance_validating_ganesh_telemetry_tests",
         "gpu_webgl_conformance_validating_graphite_telemetry_tests",
+    ],
+)
+
+targets.bundle(
+    name = "gpu_pixel_10_telemetry_tests",
+    targets = [
+        "gpu_common_and_optional_telemetry_tests",
+        "gpu_passthrough_telemetry_tests",
+        "gpu_webrtc_telemetry_test",
+        "gpu_webcodecs_telemetry_test",
+        "gpu_webgl2_conformance_gles_passthrough_telemetry_tests",
+        "gpu_webgl_conformance_gles_passthrough_telemetry_tests",
     ],
 )
 
@@ -5253,6 +5274,7 @@ targets.bundle(
 
 # This suite is a union of ios_simulator_tests and
 # ios_simulator_full_configs_tests.
+# TODO(crbug.com/442375894): Add back ios26 variants after ARM migration is complete.
 targets.bundle(
     name = "ios_code_coverage_tests",
     targets = [
@@ -5261,7 +5283,7 @@ targets.bundle(
             variants = [
                 "SIM_IPHONE_14_17_5",
                 "SIM_IPHONE_15_18_2",
-                "SIM_IPHONE_16_26_0",
+                #"SIM_IPHONE_16_26_0",
             ],
         ),
         targets.bundle(
@@ -5272,10 +5294,10 @@ targets.bundle(
             variants = [
                 "SIM_IPAD_PRO_6TH_GEN_17_5",
                 "SIM_IPAD_PRO_7TH_GEN_18_2",
-                "SIM_IPAD_PRO_7TH_GEN_26_0",
+                #"SIM_IPAD_PRO_7TH_GEN_26_0",
                 "SIM_IPHONE_14_17_5",
                 "SIM_IPHONE_15_18_2",
-                "SIM_IPHONE_16_26_0",
+                #"SIM_IPHONE_16_26_0",
             ],
         ),
         targets.bundle(
@@ -5286,10 +5308,10 @@ targets.bundle(
             variants = [
                 "SIM_IPAD_PRO_6TH_GEN_17_5",
                 "SIM_IPAD_PRO_7TH_GEN_18_2",
-                "SIM_IPAD_PRO_7TH_GEN_26_0",
+                #"SIM_IPAD_PRO_7TH_GEN_26_0",
                 "SIM_IPHONE_14_17_5",
                 "SIM_IPHONE_15_18_2",
-                "SIM_IPHONE_16_26_0",
+                #"SIM_IPHONE_16_26_0",
             ],
         ),
         targets.bundle(
@@ -5297,10 +5319,10 @@ targets.bundle(
             variants = [
                 "SIM_IPAD_PRO_6TH_GEN_17_5",
                 "SIM_IPAD_PRO_7TH_GEN_18_2",
-                "SIM_IPAD_PRO_7TH_GEN_26_0",
+                #"SIM_IPAD_PRO_7TH_GEN_26_0",
                 "SIM_IPHONE_14_17_5",
                 "SIM_IPHONE_15_18_2",
-                "SIM_IPHONE_16_26_0",
+                #"SIM_IPHONE_16_26_0",
             ],
         ),
     ],
@@ -5546,14 +5568,32 @@ targets.bundle(
             targets = "ios_eg2_cq_tests",
             mixins = [
                 "xcodebuild_sim_runner",
+                "mac_15_vm_optional",
             ],
             variants = [
-                "SIM_IPAD_PRO_6TH_GEN_17_5",
                 "SIM_IPAD_PRO_7TH_GEN_18_2",
-                "SIM_IPAD_PRO_7TH_GEN_26_0",
                 "SIM_IPHONE_14_17_5",
                 "SIM_IPHONE_15_18_2",
+            ],
+        ),
+        targets.bundle(
+            targets = "ios_eg2_cq_tests",
+            mixins = [
+                "xcodebuild_sim_runner",
+            ],
+            variants = [
+                "SIM_IPAD_PRO_7TH_GEN_26_0",
                 "SIM_IPHONE_16_26_0",
+            ],
+        ),
+        targets.bundle(
+            targets = "ios_eg2_tests",
+            mixins = [
+                "xcodebuild_sim_runner",
+                "mac_15_vm_optional",
+            ],
+            variants = [
+                "SIM_IPHONE_15_18_2",
             ],
         ),
         targets.bundle(
@@ -5562,9 +5602,6 @@ targets.bundle(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_PRO_7TH_GEN_18_2",
-                "SIM_IPAD_PRO_7TH_GEN_26_0",
-                "SIM_IPHONE_15_18_2",
                 "SIM_IPHONE_16_26_0",
             ],
         ),
@@ -6162,6 +6199,32 @@ targets.bundle(
             swarming = targets.swarming(
                 shards = 7,
             ),
+        ),
+    },
+)
+
+targets.bundle(
+    name = "mappable_buffer_tests_suite",
+    targets = [
+        "mappable_buffer_tests",
+    ],
+    per_test_modifications = {
+        "mappable_buffer_tests": targets.mixin(
+            args = [
+                "--enable-gpu",
+                "--use-gpu-in-tests",
+                "--gtest_filter=*MappableBufferTest*",
+            ],
+            lacros_args = [
+                "--ozone-platform=wayland",
+                "--xvfb",
+                "--no-xvfb",
+                "--use-weston",
+                "--weston-use-gl",
+            ],
+            linux_args = [
+                "--no-xvfb",
+            ],
         ),
     },
 )
@@ -6798,7 +6861,7 @@ targets.bundle(
         targets.bundle(
             targets = "tvos_tests",
             variants = [
-                "SIM_APPLE_TV_4K_3RD_GENERATION_18_5",
+                "SIM_APPLE_TV_4K_3RD_GENERATION_26_0",
             ],
         ),
     ],
@@ -6871,7 +6934,7 @@ targets.bundle(
             "updater-default-pool",
         ],
         "updater_tests_system": [
-            "updater-mac-pool",
+            "updater-tests-pool",
         ],
     },
 )

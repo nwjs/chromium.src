@@ -192,6 +192,7 @@ AdsPageLoadMetricsObserver::CreateIfNeeded(
     heavy_ad_intervention::HeavyAdService* heavy_ad_service,
     history::HistoryService* history_service,
     const ApplicationLocaleGetter& application_locale_getter,
+    bool is_in_foreground,
     bool is_incognito) {
   // TODO(bokan): ContentSubresourceFilterThrottleManager is now associated
   // with a FrameTree. When AdsPageLoadMetricsObserver becomes aware of MPArch
@@ -204,7 +205,7 @@ AdsPageLoadMetricsObserver::CreateIfNeeded(
 
   return std::make_unique<AdsPageLoadMetricsObserver>(
       heavy_ad_service, history_service, application_locale_getter,
-      is_incognito);
+      is_in_foreground, is_incognito);
 }
 
 // static
@@ -270,6 +271,7 @@ AdsPageLoadMetricsObserver::AdsPageLoadMetricsObserver(
     heavy_ad_intervention::HeavyAdService* heavy_ad_service,
     history::HistoryService* history_service,
     const ApplicationLocaleGetter& application_locale_getter,
+    bool is_in_foreground,
     bool is_incognito,
     base::TickClock* clock,
     heavy_ad_intervention::HeavyAdBlocklist* blocklist)
@@ -283,7 +285,7 @@ AdsPageLoadMetricsObserver::AdsPageLoadMetricsObserver(
       heavy_ad_threshold_noise_provider_(
           std::make_unique<HeavyAdThresholdNoiseProvider>(
               heavy_ad_privacy_mitigations_enabled_ /* use_noise */)),
-      page_ad_density_tracker_(clock),
+      page_ad_density_tracker_(is_in_foreground, clock),
       is_incognito_(is_incognito) {
   // Manual setting of the heavy ad blocklist should be used only as a
   // convenience for tests that don't create HeavyAdService.
@@ -620,6 +622,18 @@ void AdsPageLoadMetricsObserver::OnDidFinishSubFrameNavigation(
   UpdateAdFrameData(navigation_handle, is_adframe, should_ignore_detected_ad);
 
   ProcessOngoingNavigationResource(navigation_handle);
+}
+
+AdsPageLoadMetricsObserver::ObservePolicy AdsPageLoadMetricsObserver::OnHidden(
+    const mojom::PageLoadTiming& timing) {
+  page_ad_density_tracker_.OnHidden();
+  return CONTINUE_OBSERVING;
+}
+
+AdsPageLoadMetricsObserver::ObservePolicy
+AdsPageLoadMetricsObserver::OnShown() {
+  page_ad_density_tracker_.OnShown();
+  return CONTINUE_OBSERVING;
 }
 
 void AdsPageLoadMetricsObserver::FrameReceivedUserActivation(
@@ -1443,14 +1457,26 @@ void AdsPageLoadMetricsObserver::MaybeTriggerHeavyAdIntervention(
   issue->details->heavy_ad_issue_details = std::move(heavy_ad_details);
   render_frame_host->ReportInspectorIssue(std::move(issue));
 
-  // Report to all child frames that will be unloaded. Once all reports are
-  // queued, the frame will be unloaded. Because the IPC messages are ordered
-  // wrt to each frames unload, we do not need to wait before loading the
-  // error page. Reports will be added to ReportingObserver queues
-  // synchronously when the IPC message is handled, which guarantees they will
-  // be available in the the unload handler.
+  // Report to the embedder frame and all child frames that will be unloaded.
+  // Once all reports are queued, the frame will be unloaded. Because the IPC
+  // messages are ordered wrt to each frames unload, we do not need to wait
+  // before loading the error page. Reports will be added to ReportingObserver
+  // queues synchronously when the IPC message is handled, which guarantees they
+  // will be available in the the unload handler.
   std::string report_message =
       GetHeavyAdReportMessage(*frame_data, action == HeavyAdAction::kUnload);
+
+  static constexpr char kReportId[] = "HeavyAdIntervention";
+
+  if (base::FeatureList::IsEnabled(
+          heavy_ad_intervention::features::
+              kHeavyAdInterventionSendReportToEmbedder)) {
+    if (auto* parent = render_frame_host->GetParent()) {
+      parent->SendInterventionReport(kReportId, report_message,
+                                     /*child_frame=*/render_frame_host);
+    }
+  }
+
   render_frame_host->ForEachRenderFrameHostWithAction(
       [&report_message,
        &page = render_frame_host->GetPage()](content::RenderFrameHost* frame) {
@@ -1459,9 +1485,9 @@ void AdsPageLoadMetricsObserver::MaybeTriggerHeavyAdIntervention(
         if (&page != &frame->GetPage()) {
           return content::RenderFrameHost::FrameIterationAction::kSkipChildren;
         }
-        static constexpr char kReportId[] = "HeavyAdIntervention";
         if (frame->IsRenderFrameLive()) {
-          frame->SendInterventionReport(kReportId, report_message);
+          frame->SendInterventionReport(kReportId, report_message,
+                                        /*child_frame=*/nullptr);
         }
         return content::RenderFrameHost::FrameIterationAction::kContinue;
       });

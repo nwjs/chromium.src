@@ -26,12 +26,13 @@ class WebUIBrowserSidePanelUI : public SidePanelUIBase {
   void Toggle(SidePanelEntryKey key,
               SidePanelOpenTrigger open_trigger) override;
   void OpenInNewTab() override;
-  void UpdatePinState() override;
   content::WebContents* GetWebContentsForTest(SidePanelEntryId id) override;
   void DisableAnimationsForTesting() override;
   void SetNoDelaysForTesting(bool no_delays_for_testing) override;
 
   content::WebContents* GetWebContentsForId(SidePanelEntryId entry_id) const;
+
+  void OnSidePanelClosed();
 
  private:
   // SidePanelUIBase:

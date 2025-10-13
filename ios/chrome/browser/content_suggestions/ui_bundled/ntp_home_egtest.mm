@@ -17,9 +17,9 @@
 #import "components/signin/internal/identity_manager/account_capabilities_constants.h"
 #import "components/signin/public/base/signin_switches.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
+#import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/signin_promo_view_constants.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/cells/content_suggestions_cells_constants.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_constants.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/new_tab_page_app_interface.h"
@@ -32,7 +32,7 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/popup_menu/ui_bundled/popup_menu_constants.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_constants.h"
-#import "ios/chrome/browser/search_engine_choice/ui_bundled/search_engine_choice_earl_grey_ui_test_util.h"
+#import "ios/chrome/browser/search_engine_choice/test/search_engine_choice_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_app_interface.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_app_interface.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_table_view_controller_constants.h"
@@ -212,11 +212,8 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
         feature_engagement::kIPHWhatsNewUpdatedFeature.name));
   }
 
-  if ([self isRunningTest:@selector(testSignInSignOutScrolledToTop)]) {
-    config.features_disabled.push_back(kIdentityDiscAccountMenu);
-  } else if ([self isRunningTest:@selector
-                   (testSignInSignOutScrolledToTop_AccountMenu)]) {
-    config.features_enabled.push_back(kIdentityDiscAccountMenu);
+  if ([self isRunningTest:@selector
+            (testSignInSignOutScrolledToTop_AccountMenu)]) {
     config.features_enabled.push_back(
         switches::kEnableErrorBadgeOnIdentityDisc);
   }
@@ -1204,48 +1201,6 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   // Verify safety check module title is visible.
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
                                           safety_check::kSafetyCheckViewID)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-}
-
-// Test that signing in and signing out results in the NTP scrolled to the top
-// and not in some unexpected layout state.
-- (void)testSignInSignOutScrolledToTop {
-// TODO(crbug.com/40903244): test failing on ipad device
-#if !TARGET_OS_SIMULATOR
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_SKIPPED(@"This test doesn't pass on iPad device.");
-  }
-#endif
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPLogo()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
-  FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:identity];
-  [SigninEarlGrey signinWithFakeIdentity:identity];
-  GREYWaitForAppToIdle(@"App failed to idle");
-
-  // Verify Identity Disc is visible since it is the top-most element and should
-  // be showing now.
-  [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityLabel(l10n_util::GetNSStringF(
-                                   IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL,
-                                   base::SysNSStringToUTF16(
-                                       identity.userFullName),
-                                   base::SysNSStringToUTF16(
-                                       identity.userEmail)))]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPLogo()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
-  [SigninEarlGreyUI signOut];
-
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPLogo()]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 

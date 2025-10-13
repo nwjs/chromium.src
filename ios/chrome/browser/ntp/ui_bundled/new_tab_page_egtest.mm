@@ -10,8 +10,8 @@
 #import "components/policy/policy_constants.h"
 #import "components/signin/public/base/signin_switches.h"
 #import "components/strings/grit/components_strings.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
+#import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
+#import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/ntp_home_constant.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
@@ -140,7 +140,6 @@ void VerifyMIAButtonVisible(bool mia_button_visible) {
   if ([self isRunningTest:@selector(DISABLED_testErrorBadge)]) {
     config.features_enabled.push_back(
         switches::kEnableErrorBadgeOnIdentityDisc);
-    config.features_disabled.push_back(kIdentityDiscAccountMenu);
   }
 
   if ([self isRunningTest:@selector(testNewTabShowsMIAEntryPointInline)]) {

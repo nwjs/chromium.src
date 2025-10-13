@@ -5,22 +5,27 @@
 #include "cc/metrics/compositor_frame_reporting_controller.h"
 
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/test/test_trace_processor.h"
 #include "base/time/time.h"
+#include "cc/base/features.h"
 #include "cc/metrics/event_metrics.h"
 #include "cc/metrics/frame_sequence_metrics.h"
 #include "cc/metrics/frame_sequence_tracker_collection.h"
 #include "cc/scheduler/commit_earlyout_reason.h"
+#include "cc/scheduler/scheduler.h"
 #include "components/viz/common/frame_timing_details.h"
 #include "components/viz/common/quads/compositor_frame_metadata.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -38,10 +43,13 @@ using SmoothEffectDrivingThread = FrameInfo::SmoothEffectDrivingThread;
 class TestCompositorFrameReportingController
     : public CompositorFrameReportingController {
  public:
-  TestCompositorFrameReportingController()
-      : CompositorFrameReportingController(/*should_report_histograms=*/true,
-                                           /*should_report_ukm=*/false,
-                                           /*layer_tree_host_id=*/1) {}
+  explicit TestCompositorFrameReportingController(
+      bool is_trees_in_viz_client = false)
+      : CompositorFrameReportingController(
+            /*should_report_histograms=*/true,
+            /*should_report_ukm=*/false,
+            /*layer_tree_host_id=*/1,
+            /*is_trees_in_viz_client=*/is_trees_in_viz_client) {}
 
   TestCompositorFrameReportingController(
       const TestCompositorFrameReportingController& controller) = delete;
@@ -113,6 +121,10 @@ class TestCompositorFrameReportingController
         count += reporter->owned_partial_update_dependents_size_for_testing();
     }
     return count;
+  }
+
+  void trees_in_viz_client(bool new_value) {
+    set_trees_in_viz_client_for_testing(new_value);
   }
 };
 
@@ -284,6 +296,17 @@ class CompositorFrameReportingControllerTest : public testing::Test {
         ui::EventType::kGestureScrollBegin, input_type,
         /*is_inertial=*/false, event_time, arrived_in_browser_main_timestamp,
         &test_tick_clock_));
+  }
+
+  std::unique_ptr<EventMetrics> CreateScrollEndEventMetrics(
+      ui::ScrollInputType input_type,
+      bool is_inertial) {
+    const base::TimeTicks event_time = AdvanceNowByMs(10);
+    const base::TimeTicks arrived_in_browser_main_timestamp = AdvanceNowByMs(3);
+    AdvanceNowByMs(10);
+    return SetupEventMetrics(ScrollEventMetrics::CreateForTesting(
+        ui::EventType::kGestureScrollEnd, input_type, is_inertial, event_time,
+        arrived_in_browser_main_timestamp, &test_tick_clock_));
   }
 
   std::unique_ptr<EventMetrics> CreateScrollUpdateEventMetrics(
@@ -985,6 +1008,180 @@ TEST_F(CompositorFrameReportingControllerTest, BlinkBreakdown) {
   histogram_tester.ExpectTotalCount(
       "CompositorLatency2.SendBeginMainFrameToCommit.BeginMainSentToStarted",
       1);
+}
+
+TEST_F(CompositorFrameReportingControllerTest, VizBreakdown) {
+  base::HistogramTester histogram_tester;
+
+  SimulateSubmitCompositorFrame({});
+  viz::FrameTimingDetails viz_details = BuildVizBreakdown();
+  reporting_controller_.DidPresentCompositorFrame(*current_token_, viz_details);
+
+  // Check that the viz timestamps were set corresponding to the values
+  // in BuildVizBreakdown.
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.EndActivateToSubmitCompositorFrame", 10, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitCompositorFrameToPresentationCompositorFrame."
+      "SubmitToReceiveCompositorFrame",
+      1, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitCompositorFrameToPresentationCompositorFrame."
+      "ReceivedCompositorFrameToStartDraw",
+      2, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitCompositorFrameToPresentationCompositorFrame."
+      "StartDrawToSwapStart",
+      3, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitCompositorFrameToPresentationCompositorFrame."
+      "SwapStartToSwapEnd",
+      4, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitCompositorFrameToPresentationCompositorFrame."
+      "SwapEndToPresentationCompositorFrame",
+      5, 1);
+
+  // Expect the total latency to be equal to the sum of the stages.
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitCompositorFrameToPresentationCompositorFrame",
+      1 + 2 + 3 + 4 + 5, 1);
+}
+
+class TreesInVizClientCompositorFrameReportingControllerTest
+    : public CompositorFrameReportingControllerTest {
+ public:
+  TreesInVizClientCompositorFrameReportingControllerTest() {
+    reporting_controller_.trees_in_viz_client(true);
+    scoped_feature_list_.InitAndEnableFeature(features::kTreesInViz);
+  }
+
+  void SimulateSubmitCompositorFrameWithTreesInVizTimingDetails(
+      EventMetricsSet events_metrics) {
+    if (!reporting_controller_.ReportersForTesting()
+             [CompositorFrameReportingController::PipelineStage::kActivate]) {
+      CompositorFrameReportingControllerTest::SimulateActivate();
+    }
+    CHECK(reporting_controller_.ReportersForTesting()
+              [CompositorFrameReportingController::PipelineStage::kActivate]);
+    submit_time_ = AdvanceNowByMs(7);
+    ++current_token_;
+    SubmitInfo submit_info = {*current_token_, submit_time_};
+    submit_info.events_metrics = std::move(events_metrics);
+    submit_info.trees_in_viz_submit_time = AdvanceNowByMs(11);
+    reporting_controller_.DidSubmitCompositorFrame(submit_info, current_id_,
+                                                   last_activated_id_);
+  }
+
+  void SimulatePresentCompositorFrameWithTreesInVizTimingDetails() {
+    SimulateSubmitCompositorFrameWithTreesInVizTimingDetails({});
+    viz::FrameTimingDetails details = {};
+    // Optional TreesInViz - related timestamps.
+    details.start_update_display_tree =
+        AdvanceNowByMs(35);  // Pretend it took a long time
+    details.start_prepare_to_draw = AdvanceNowByMs(2);
+    details.start_draw_layers = AdvanceNowByMs(3);
+    details.submit_compositor_frame = AdvanceNowByMs(5);
+
+    // Older timestamps
+    details.received_compositor_frame_timestamp = AdvanceNowByMs(6);
+    details.draw_start_timestamp = AdvanceNowByMs(7);
+    details.swap_timings.swap_start = AdvanceNowByMs(8);
+    details.swap_timings.swap_end = AdvanceNowByMs(9);
+
+    details.presentation_feedback.timestamp = AdvanceNowByMs(10);
+    reporting_controller_.DidPresentCompositorFrame(*current_token_, details);
+  }
+
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(TreesInVizClientCompositorFrameReportingControllerTest,
+       ValidateTreesInVizAbortedFrame) {
+  // base::HistogramTester histogram_tester;
+  reporting_controller_.WillBeginImplFrame(args_, /*will_throttle_main=*/false);
+  reporting_controller_.WillBeginMainFrame(args_);
+
+  // Pretend that we submitted the UpdateDisplayTree.
+  SubmitInfo submit_info = {1u, AdvanceNowByMs(10)};
+  submit_info.trees_in_viz_submit_time = AdvanceNowByMs(13);
+
+  // Abort the main frame. This sets the impl_frame_finish_time.
+  reporting_controller_.BeginMainFrameAborted(
+      current_id_, CommitEarlyOutReason::kFinishedNoUpdates);
+
+  // We ge some feedbacks at some later time because we ended up using the
+  // update tree to produce a frame. Should run without crashing.
+  reporting_controller_.DidSubmitCompositorFrame(submit_info, current_id_,
+                                                 last_activated_id_);
+}
+
+TEST_F(TreesInVizClientCompositorFrameReportingControllerTest,
+       ValidateTreesInVizBreakdown) {
+  base::HistogramTester histogram_tester;
+
+  // This function will simulate stepping through the entire CFRC flow,
+  // with timestamps added to the stages relevant for TreesInViz.
+  SimulatePresentCompositorFrameWithTreesInVizTimingDetails();
+
+  // TreesInViz should introduce the following breakdowns
+  // CC-only stages
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.EndActivateToSubmitUpdateDisplayTree."
+      "EndActivateToDrawLayers",
+      7, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.EndActivateToSubmitUpdateDisplayTree."
+      "DrawLayersToSubmitUpdateDisplayTree",
+      11, 1);
+  // CC -> Viz RPC
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
+      "SendUpdateDisplayTreeToRecieveUpdateDisplayTree",
+      35, 1);
+  // Viz-only stages
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
+      "RecieveUpdateDisplayTreeToStartPrepareToDraw",
+      2, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
+      "StartPrepareToDrawToStartDrawLayers",
+      3, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
+      "StartDrawLayersToSubmitCompositorFrame",
+      5, 1);
+
+  // Stages not introduced by TreesInViz should remain accurate.
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
+      "SubmitToReceiveCompositorFrame",
+      6, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
+      "ReceivedCompositorFrameToStartDraw",
+      7, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
+      "StartDrawToSwapStart",
+      8, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
+      "SwapStartToSwapEnd",
+      9, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame."
+      "SwapEndToPresentationCompositorFrame",
+      10, 1);
+
+  // The sum of these values should sum to the total of the stage breakdown.
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.EndActivateToSubmitUpdateDisplayTree", 7 + 11, 1);
+  histogram_tester.ExpectUniqueSample(
+      "CompositorLatency2.SubmitUpdateDisplayTreeToPresentationCompositorFrame",
+      35 + 2 + 3 + 5 + 6 + 7 + 8 + 9 + 10, 1);
 }
 
 // If the presentation of the frame happens before deadline.
@@ -2790,6 +2987,106 @@ TEST_F(CompositorFrameReportingControllerTest, JankyThrottledScrolledFrame) {
               "20", "0", "2", "86000", "84000", "86000"},
           std::vector<std::string>{"0", "[NULL]", "[NULL]", "[NULL]", "[NULL]",
                                    "[NULL]", "[NULL]", "[NULL]", "[NULL]"}));
+}
+
+/*
+Test that the controller emits both the v1 and v4 per-scroll jank metrics when
+it encounters a scroll end event.
+vsync   |       |       |       |       |       |
+input  GSU1    GSU2    GSE
+        |       |       |
+F1:     |---------------|
+F2:             |---------------|
+F3:                     |---------------x (throttled)
+F4:                                      -------|
+*/
+TEST_F(CompositorFrameReportingControllerTest,
+       EmitsPerScrollJankMetricsAtEndOfScroll) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatureStates({
+      {features::kEmitPerScrollJankV1MetricAtEndOfScroll, true},
+      {features::kEmitPerScrollJankV4MetricAtEndOfScroll, true},
+  });
+
+  base::HistogramTester histogram_tester;
+
+  std::unique_ptr<EventMetrics> scroll_update1_metrics =
+      CreateScrollUpdateEventMetrics(
+          ui::ScrollInputType::kWheel, /*is_inertial=*/false,
+          ScrollUpdateEventMetrics::ScrollUpdateType::kStarted, std::nullopt);
+  base::TimeTicks scroll_update1_generation_ts =
+      scroll_update1_metrics->GetDispatchStageTimestamp(
+          EventMetrics::DispatchStage::kGenerated);
+
+  std::unique_ptr<EventMetrics> scroll_update2_metrics =
+      CreateScrollUpdateEventMetrics(
+          ui::ScrollInputType::kWheel, /*is_inertial=*/false,
+          ScrollUpdateEventMetrics::ScrollUpdateType::kContinued, std::nullopt);
+  base::TimeTicks scroll_update2_generation_ts =
+      scroll_update2_metrics->GetDispatchStageTimestamp(
+          EventMetrics::DispatchStage::kGenerated);
+
+  std::unique_ptr<EventMetrics> scroll_end_metrics =
+      CreateScrollEndEventMetrics(ui::ScrollInputType::kWheel,
+                                  /*is_inertial=*/false);
+  base::TimeTicks scroll_end_generation_ts =
+      scroll_end_metrics->GetDispatchStageTimestamp(
+          EventMetrics::DispatchStage::kGenerated);
+
+  base::TimeDelta vsync_interval =
+      scroll_update2_generation_ts - scroll_update1_generation_ts;
+  args_.interval = vsync_interval;
+
+  SimulateBeginImplFrame();  // BF1
+  reporting_controller_.OnFinishImplFrame(current_id_,
+                                          /*waiting_for_main=*/true);
+  EventMetrics::List metrics_list_1;
+  metrics_list_1.push_back(std::move(scroll_update1_metrics));
+  SimulateSubmitCompositorFrame({{}, std::move(metrics_list_1), {}});
+
+  viz::FrameTimingDetails details_1 = {};
+  details_1.presentation_feedback.timestamp =
+      scroll_update1_generation_ts + 2 * vsync_interval;
+  reporting_controller_.DidPresentCompositorFrame(*current_token_,
+                                                  details_1);  // PF1
+
+  SimulateBeginImplFrame();  // BF2
+  reporting_controller_.OnFinishImplFrame(current_id_,
+                                          /*waiting_for_main=*/true);
+  EventMetrics::List metrics_list_2;
+  metrics_list_2.push_back(std::move(scroll_update2_metrics));
+  SimulateSubmitCompositorFrame({{}, std::move(metrics_list_2), {}});
+
+  viz::FrameTimingDetails details_2 = {};
+  details_2.presentation_feedback.timestamp =
+      scroll_update2_generation_ts + 2 * vsync_interval;
+  reporting_controller_.DidPresentCompositorFrame(*current_token_,
+                                                  details_2);  // PF2
+
+  SimulateBeginImplFrame();  // BF3
+  reporting_controller_.OnFinishImplFrame(current_id_,
+                                          /*waiting_for_main=*/true);
+  AdvanceNowByMs(10);
+  reporting_controller_.DidNotProduceFrame(current_id_,
+                                           FrameSkippedReason::kDrawThrottled);
+
+  SimulateBeginImplFrame();  // BF4
+  reporting_controller_.OnFinishImplFrame(current_id_,
+                                          /*waiting_for_main=*/true);
+  EventMetrics::List metrics_list_4;
+  metrics_list_4.push_back(std::move(scroll_end_metrics));
+  SimulateSubmitCompositorFrame({{}, std::move(metrics_list_4), {}});
+
+  viz::FrameTimingDetails details_4 = {};
+  details_4.presentation_feedback.timestamp =
+      scroll_end_generation_ts + 3 * vsync_interval;
+  reporting_controller_.DidPresentCompositorFrame(*current_token_,
+                                                  details_4);  // PF4
+
+  histogram_tester.ExpectTotalCount(
+      "Event.ScrollJank.DelayedFramesPercentage.PerScroll", 1);
+  histogram_tester.ExpectTotalCount(
+      "Event.ScrollJank.DelayedFramesPercentage4.PerScroll", 1);
 }
 
 // A simple test that ensures the vsync_interval is copied onto the

@@ -67,6 +67,7 @@ struct MasterPrefs {
   std::string suppress_default_browser_prompt_for_version;
   base::Value::Dict import_bookmarks_dict;
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+  std::string initial_extensions_provider_name;
   base::Value::List initial_extensions;
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 #if BUILDFLAG(IS_MAC)
@@ -104,11 +105,6 @@ void ResetCachedSentinelDataForTesting();
 // |import_bookmarks_path| is not empty.
 void AutoImport(Profile* profile,
                 const std::string& import_bookmarks_path);
-
-// Schedules importing bookmarks from Initial Preferences on First Run after
-// BookmarkModel loads.
-void StartBookmarksImportFromDict(Profile* profile,
-                                  base::Value::Dict bookmarks_dict);
 
 // Does remaining first run tasks. This can pop the first run consent dialog on
 // linux. |make_chrome_default_for_user| is the value of

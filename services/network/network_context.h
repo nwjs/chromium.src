@@ -274,6 +274,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       mojo::PendingReceiver<mojom::TrustTokenQueryAnswerer> receiver,
       const url::Origin& top_frame_origin) override;
   void GetIpProxyStatus(GetIpProxyStatusCallback callback) override;
+  void SetBypassIpProtectionProxy(bool bypass_proxy) override;
   void ClearTrustTokenData(mojom::ClearDataFilterPtr filter,
                            base::OnceClosure done) override;
   void ClearTrustTokenSessionOnlyData(
@@ -299,6 +300,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void ComputeHttpCacheSize(base::Time start_time,
                             base::Time end_time,
                             ComputeHttpCacheSizeCallback callback) override;
+  void NotifyBrowserIdle() override;
   void NotifyExternalCacheHit(const GURL& url,
                               const std::string& http_method,
                               const net::NetworkIsolationKey& key,
@@ -326,8 +328,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
                               ClearDomainReliabilityCallback callback) override;
   void CloseAllConnections(CloseAllConnectionsCallback callback) override;
   void CloseIdleConnections(CloseIdleConnectionsCallback callback) override;
-  void SetNetworkConditions(const base::UnguessableToken& throttling_profile_id,
-                            mojom::NetworkConditionsPtr conditions) override;
+  void SetNetworkConditions(
+      const base::UnguessableToken& throttling_profile_id,
+      std::vector<mojom::MatchedNetworkConditionsPtr> conditions) override;
   void EnableDurableMessageCollector(
       const base::UnguessableToken& throttling_profile_id,
       mojo::PendingReceiver<network::mojom::DurableMessageCollector> receiver)
@@ -358,6 +361,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       mojom::RestrictedUDPSocketParamsPtr params,
       mojo::PendingReceiver<mojom::RestrictedUDPSocket> receiver,
       mojo::PendingRemote<mojom::UDPSocketListener> listener,
+      bool allow_multicast,
       mojom::NetworkContext::CreateRestrictedUDPSocketCallback callback)
       override;
   void CreateTCPServerSocket(
@@ -398,6 +402,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       std::vector<mojom::HttpHeaderPtr> additional_headers,
       int32_t process_id,
       const url::Origin& origin,
+      network::mojom::ClientSecurityStatePtr client_security_state,
       uint32_t options,
       const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
       mojo::PendingRemote<mojom::WebSocketHandshakeClient> handshake_client,
@@ -561,9 +566,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
           preload_handle) override;
   void HasPreloadedSharedDictionaryInfoForTesting(
       HasPreloadedSharedDictionaryInfoForTestingCallback callback) override;
-  void ResourceSchedulerClientVisibilityChanged(
-      const base::UnguessableToken& client_token,
-      bool visible) override;
   void FlushCachedClientCertIfNeeded(
       const net::HostPortPair& host,
       const scoped_refptr<net::X509Certificate>& certificate) override;
@@ -873,7 +875,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   // a pointer to and must be defined after `ip_protection_core_`.
   std::unique_ptr<ip_protection::IpProtectionCore> ip_protection_core_;
 
-  // Used only when network::features::kCompressionDictionaryTransportBackend is
+  // Used only when network::features::kCompressionDictionaryTransport is
   // enabled.
   // Note: `url_request_context_owner_` indirectly holds a pointer to
   // `shared_dictionary_manager_` via URLRequestContext and HttpCache and

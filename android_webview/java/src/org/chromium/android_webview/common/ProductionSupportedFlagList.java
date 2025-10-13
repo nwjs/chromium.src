@@ -192,7 +192,6 @@ public final class ProductionSupportedFlagList {
                         + " is an active scroll or a touch interaction). This effectively removes"
                         + " back-pressure in this case. This can result in wasted work and "
                         + " contention, but should regularize the timing of client rendering."),
-        Flag.baseFeature(GpuFeatures.USE_GLES2_FOR_OOP_R, "Force Skia context to use es2 only."),
         Flag.baseFeature(
                 NetFeatures.USE_NEW_ALPS_CODEPOINT_QUIC,
                 "Enables using the new ALPS codepoint to negotiate application settings for QUIC."),
@@ -270,11 +269,12 @@ public final class ProductionSupportedFlagList {
                 AutofillFeatures.AUTOFILL_IMPROVE_CITY_FIELD_CLASSIFICATION,
                 "Reduces city field false positive classifications"),
         Flag.baseFeature(
+                AutofillFeatures.AUTOFILL_DISALLOW_MORE_HYPHEN_LIKE_LABELS,
+                "Disallows labels that only contain em dashes, minuses, fullwidth hyphens and other"
+                        + " special characters."),
+        Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_IGNORE_CHECKABLE_ELEMENTS,
                 "Does not extract checkboxes and radio buttons"),
-        Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_OPTIMIZE_FORM_EXTRACTION,
-                "Makes Autofill spend less time on extracting forms."),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_ENABLE_LOYALTY_CARDS_FILLING,
                 "When enabled, Autofill will offer support for filling the user's loyalty cards"
@@ -408,11 +408,6 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 ContentFeatures.GIN_JAVA_BRIDGE_MOJO_SKIP_CLEAR_OBJECTS_ON_MAIN_DOCUMENT_READY,
                 "Skips clearing objects on main document ready."),
-        Flag.baseFeature(
-                AwFeatures.WEBVIEW_X_REQUESTED_WITH_HEADER_CONTROL,
-                "Restricts insertion of XRequestedWith header on outgoing requests "
-                        + "to those that have been allow-listed through the appropriate "
-                        + "developer API."),
         Flag.baseFeature(
                 AwFeatures.WEBVIEW_REDUCE_UA_ANDROID_VERSION_DEVICE_MODEL,
                 "Enables reduce webview user-agent android version and device model."),
@@ -562,6 +557,13 @@ public final class ProductionSupportedFlagList {
                 "When enabled, WebView can write data in background during system tracing."),
         Flag.baseFeature(UiAndroidFeatures.ANDROID_HDR, "Enables HDR support"),
         Flag.baseFeature(
+                UiAndroidFeatures.ANDROID_USE_CORRECT_DISPLAY_WORK_AREA,
+                "Enable accounting system UI for computing the display work area."),
+        Flag.baseFeature(
+                UiAndroidFeatures.ANDROID_USE_DISPLAY_TOPOLOGY,
+                "Enables usage of the display topology API to obtain information about all"
+                        + " displays."),
+        Flag.baseFeature(
                 UiAndroidFeatures.DEPRECATED_EXTERNAL_PICKER_FUNCTION,
                 "Deprecates old external file picker function."),
         Flag.baseFeature("ThreadGroupSemaphore"),
@@ -596,9 +598,6 @@ public final class ProductionSupportedFlagList {
                 VizFeatures.ON_BEGIN_FRAME_THROTTLE_VIDEO,
                 "Enables throttling OnBeginFrame for video frame sinks"
                         + "with a preferred framerate defined."),
-        Flag.baseFeature(
-                BaseFeatures.COLLECT_ANDROID_FRAME_TIMELINE_METRICS,
-                "Report frame metrics to Google, if metrics reporting has been enabled."),
         Flag.baseFeature(
                 PermissionsAndroidFeatureList.BLOCK_MIDI_BY_DEFAULT,
                 "This flag won't block MIDI by default in WebView. In fact "
@@ -914,11 +913,6 @@ public final class ProductionSupportedFlagList {
                 ContentFeatures.IGNORE_DUPLICATE_NAVS,
                 "Ignore duplicate navigations, keeping the older navigations instead."),
         Flag.baseFeature("OverrideAPIKey"),
-        Flag.baseFeature(
-                "RustyPng", "When enabled, uses Rust `png` crate to decode and encode PNG images."),
-        Flag.baseFeature(
-                BlinkFeatures.ESCAPE_LT_GT_IN_ATTRIBUTES,
-                "When enabled, less-than and greater-than characters in attributes are escaped."),
         Flag.baseFeature("CacheStylusSettings", "Cache stylus related settings."),
         Flag.baseFeature(
                 "AsyncFastCheckout", "When enabled, run FastCheckoutTabHelper asynchronously."),
@@ -1045,8 +1039,6 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature("ServiceWorkerBackgroundUpdateForServiceWorkerScopeCache"),
         Flag.baseFeature("ServiceWorkerBackgroundUpdateForFindRegistrationForClientUrl"),
         Flag.baseFeature(
-                "ServiceWorkerBackgroundUpdateForRegisteredStorageKeysFieldTrialControlled"),
-        Flag.baseFeature(
                 AwFeatures.WEBVIEW_CONNECT_TO_COMPONENT_PROVIDER_IN_BACKGROUND,
                 "Connect to the non-embedded components provider from a background thread."),
         Flag.baseFeature("PrefetchUseContentRefactor"),
@@ -1127,10 +1119,6 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 AwFeatures.WEBVIEW_USE_RENDERING_HEURISTIC,
                 "Apply smoothing Skia options when WebView detects it's running on a TV device."),
-        Flag.commandLine(
-                AwSwitches.WEBVIEW_USE_BACKGROUND_THREAD_FOR_GMS,
-                "Tells the Google Service, GMS, to use a background thread for its Service bind and"
-                        + " connection calls."),
         Flag.baseFeature(
                 UiBaseFeatures.SEND_EMPTY_GESTURE_SCROLL_UPDATE,
                 "Send GestureScrollUpdates together with TouchMoves, including empty GSUs for 0"
@@ -1140,6 +1128,38 @@ public final class ProductionSupportedFlagList {
                 "Enables early startup tracing. This flag takes effect on subsequent application"
                     + " startups: After enabling this flag, applications must be started and then"
                     + " restarted for tracing to apply."),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_EARLY_PERFETTO_INIT,
+                "Initializes Perfetto as early as possible, right after native library load. "
+                        + "After enabling this flag, applications must be started and then "
+                        + "restarted for tracing to apply."),
+        Flag.baseFeature(
+                BaseFeatures.LIBRARY_PREFETCHER_MADVISE,
+                "Use madvise MADV_WILLNEED to prefetch the native library. This replaces the "
+                        + "default mechanism of pre-reading the memory from a forked process."),
+        Flag.baseFeature(
+                BaseFeatures.EFFECTIVE_BINDING_STATE,
+                "Use effective binding state to manage child process bindings."),
+        Flag.baseFeature(
+                CcFeatures.OVERSCROLL_BEHAVIOR_RESPECTED_ON_ALL_SCROLL_CONTAINERS,
+                "Enables overscroll-behavior to be respected on all scroll containers."),
+        Flag.baseFeature(
+                BlinkFeatures.SEPARATE_DEFER_MODULE_SCRIPT_TASKS,
+                "Enables yielding to the event loop between executing deferred module scripts to"
+                        + " improve responsiveness."),
+        Flag.baseFeature(
+                BaseFeatures.USE_IS_UNBOUND_CHECK,
+                "Use ChildServiceConnectionController.isUnbound() instead of isConnected() to check"
+                        + " the connection state in ChildProcessConnection."),
+        Flag.baseFeature(
+                "ProbeStylusWritingInBackground",
+                "Offload probing of stylus writing support to a background thread."),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_CACHE_BOUNDARY_INTERFACE_METHODS,
+                "Use a cache for reflective method instances in the AndroidX boundary interface"),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_OPT_IN_TO_GMS_BIND_SERVICE_OPTIMIZATION,
+                "Opt-in WebView to GMSCore's bindService optimizations"),
         // Add new commandline switches and features above. The final entry should have a
         // trailing comma for cleaner diffs.
     };

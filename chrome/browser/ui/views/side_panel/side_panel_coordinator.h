@@ -49,9 +49,7 @@ class View;
 // into a single unified side panel.
 // Existence and value of registries' active_entry() determines which entry is
 // visible for a given tab where the order of precedence is contextual
-// registry's active_entry() then global registry's. These values are reset when
-// the side panel is closed and |last_active_global_entry_id_| is used to
-// determine what entry is seen when the panel is reopened.
+// registry's active_entry() then global registry's.
 class SidePanelCoordinator final : public SidePanelUIBase,
                                    public views::ViewObserver,
                                    public PinnedToolbarActionsModel::Observer,
@@ -70,7 +68,7 @@ class SidePanelCoordinator final : public SidePanelUIBase,
   void Toggle(SidePanelEntryKey key,
               SidePanelUtil::SidePanelOpenTrigger open_trigger) override;
   void OpenInNewTab() override;
-  void UpdatePinState() override;
+
   void SetNoDelaysForTesting(bool no_delays_for_testing) override;
 
   // Returns the web contents in a side panel if one exists.
@@ -80,8 +78,6 @@ class SidePanelCoordinator final : public SidePanelUIBase,
   // Re-runs open new tab URL check and sets button state to enabled/disabled
   // accordingly.
   void UpdateNewTabButtonState();
-
-  void UpdateHeaderPinButtonState();
 
   SidePanelEntry* GetCurrentSidePanelEntryForTesting();
 
@@ -116,6 +112,9 @@ class SidePanelCoordinator final : public SidePanelUIBase,
                            ShowEmptyUserNoteSidePanel);
   FRIEND_TEST_ALL_PREFIXES(UserNoteUICoordinatorTest,
                            PopulateUserNoteSidePanel);
+
+  void UpdatePinState();
+  void UpdateHeaderPinButtonState();
 
   void OnClosed();
 
@@ -159,7 +158,7 @@ class SidePanelCoordinator final : public SidePanelUIBase,
   std::unique_ptr<views::View> CreateHeader();
 
   void NotifyPinnedContainerOfActiveStateChange(SidePanelEntryKey key,
-                                                bool is_active);
+                                                bool show_active_in_toolbar);
 
   void MaybeQueuePinPromo();
   void ShowPinPromo();

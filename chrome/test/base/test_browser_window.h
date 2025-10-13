@@ -106,6 +106,7 @@ class TestBrowserWindow : public BrowserWindow, public BrowserListObserver {
       BookmarkBar::AnimateChangeType change_type) override {}
   void TemporarilyShowBookmarkBar(base::TimeDelta duration) override {}
   void UpdateDevTools(content::WebContents* inspected_web_contents) override {}
+  bool CanDockDevTools() const override;
   void UpdateLoadingAnimations(bool is_visible) override {}
   void SetStarredState(bool is_starred) override {}
   void OnActiveTabChanged(content::WebContents* old_contents,
@@ -202,7 +203,7 @@ class TestBrowserWindow : public BrowserWindow, public BrowserListObserver {
       bool show_signin_button) override;
 #if BUILDFLAG(IS_CHROMEOS)
   views::Button* GetSharingHubIconButton() override;
-  void ToggleMultitaskMenu() const override;
+  void ToggleMultitaskMenu() override;
 #else
   sharing_hub::SharingHubBubbleView* ShowSharingHubBubble(
       share::ShareAttempt attempt) override;
@@ -286,7 +287,7 @@ class TestBrowserWindow : public BrowserWindow, public BrowserListObserver {
   bool IsClosed() const { return is_closed_; }
 
  protected:
-  void DestroyBrowser() override {}
+  void DeleteBrowserWindow() final;
 
  private:
   class TestLocationBar : public LocationBar {
@@ -306,6 +307,8 @@ class TestBrowserWindow : public BrowserWindow, public BrowserListObserver {
     LocationBarTesting* GetLocationBarForTesting() override;
     LocationBarModel* GetLocationBarModel() override;
     content::WebContents* GetWebContents() override;
+    std::optional<bubble_anchor_util::AnchorConfiguration> GetChipAnchor()
+        override;
     void OnChanged() override {}
     void OnPopupVisibilityChanged() override {}
     void UpdateWithoutTabRestore() override {}

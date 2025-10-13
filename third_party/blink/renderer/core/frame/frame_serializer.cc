@@ -37,6 +37,7 @@
 #include "services/network/public/cpp/resource_request.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/web/web_frame_serializer.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_observable_array_css_style_sheet.h"
 #include "third_party/blink/renderer/core/css/css_font_face_rule.h"
 #include "third_party/blink/renderer/core/css/css_font_face_src_value.h"
 #include "third_party/blink/renderer/core/css/css_image_value.h"
@@ -113,7 +114,7 @@
 namespace blink {
 
 namespace internal {
-// TODO(crbug.com/363289333): Try to add this functionality to wtf::String.
+// TODO(crbug.com/363289333): Try to add this functionality to blink::String.
 String ReplaceAllCaseInsensitive(
     String source,
     const String& from,
@@ -980,8 +981,8 @@ function main(metadata) {
   }
 
   void AppendAttributeValue(const String& attribute_value) {
-    MarkupFormatter::AppendAttributeValue(
-        markup_, attribute_value, IsA<HTMLDocument>(document_), *document_);
+    MarkupFormatter::AppendAttributeValue(markup_, attribute_value,
+                                          IsA<HTMLDocument>(document_));
   }
 
   void AppendRewrittenAttribute(const Element& element,
@@ -1215,6 +1216,7 @@ function main(metadata) {
       case CSSRule::kNestedDeclarationsRule:
       case CSSRule::kMediaRule:
       case CSSRule::kMixinRule:
+      case CSSRule::kRouteRule:
       case CSSRule::kSupportsRule:
       case CSSRule::kContainerRule:
       case CSSRule::kLayerBlockRule:
