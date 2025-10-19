@@ -739,15 +739,16 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       TabStripUserGestureDetails(
           TabStripUserGestureDetails::GestureType::kNone));
 
-  new_window->window()->SetMinimumSize(gfx::Size(min_width, min_height));
-  new_window->window()->SetMaximumSize(gfx::Size(max_width, max_height));
+  Browser* b = new_window->GetBrowserForMigrationOnly();
+  b->window()->SetMinimumSize(gfx::Size(min_width, min_height));
+  b->window()->SetMaximumSize(gfx::Size(max_width, max_height));
 #if defined(OS_LINUX) || defined(OS_WIN)
   if (!resizable)
-    new_window->window()->SetResizable(false);
+    b->window()->SetResizable(false);
 #endif
 
   if (create_params.initial_show_state == ui::mojom::WindowShowState::kFullscreen) {
-    BrowserWidget* frame2 = BrowserView::GetBrowserViewForBrowser(new_window)->browser_widget();
+    BrowserWidget* frame2 = BrowserView::GetBrowserViewForBrowser(b)->browser_widget();
     frame2->SetFullscreen(true);
   }
 

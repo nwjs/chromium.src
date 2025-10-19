@@ -527,8 +527,8 @@ gfx::Insets BrowserFrameViewMac::GetCaptionButtonInsets(
 }
 // LINT.ThenChange(//chrome/browser/ui/views/frame/immersive_mode_controller_mac.mm:MacTabStripInsets)
 
-gfx::Size BrowserNonClientFrameViewMac::GetMaximumSize() const {
-  gfx::Size client_size = frame()->client_view()->GetMaximumSize();
+gfx::Size BrowserFrameViewMac::GetMaximumSize() const {
+  gfx::Size client_size = browser_widget()->client_view()->GetMaximumSize();
   return client_size;
 }
 
