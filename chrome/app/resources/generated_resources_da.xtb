@@ -3885,6 +3885,7 @@ Du kan administrere indstillingerne for denne konto ved at installere Family Lin
 <translation id="3656328935986149999">Markørens hastighed</translation>
 <translation id="3656701180077048004">Tilføjer en forsinkelse mellem, hvornår du trykker på en tast, og hvornår den aktiveres</translation>
 <translation id="3658871634334445293">TrackPoint-acceleration</translation>
+<translation id="3659483399659250379">Tilføj en fane og meget mere</translation>
 <translation id="3659929705630080526">Du har angivet en forkert adgangskode for mange gange. Prøv igen senere</translation>
 <translation id="3661106764436337772">Skriv hurtigere og med større selvsikkerhed</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{Der blev fundet 1 eksisterende adgangskode}one{Der blev fundet {NUM_PASSWORDS} eksisterende adgangskode}other{Der blev fundet {NUM_PASSWORDS} eksisterende adgangskoder}}</translation>
@@ -4014,7 +4015,6 @@ Du kan administrere indstillingerne for denne konto ved at installere Family Lin
 <translation id="3735039640698208086">Når du afspiller lyd...</translation>
 <translation id="3735740477244556633">Sortér efter</translation>
 <translation id="3735827758948958091">Du kan ikke åbne <ph name="FILE_NAMES" />, når du benytter en forbrugsbaseret forbindelse</translation>
-<translation id="3736575924150462398">Tilføj faner eller mere</translation>
 <translation id="3737058101969549870">Vil du holde eksisterende browserdata adskilt fra denne nye profil?</translation>
 <translation id="3738632186060045350"><ph name="DEVICE_TYPE" />-data slettes om 24 timer</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
@@ -4644,6 +4644,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4151503145138736576">Der er ingen offlinelagerplads at rydde</translation>
 <translation id="4152011295694446843">Her finder du dine bogmærker</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 fane}one{# faner}other{# faner}}</translation>
+<translation id="4153858337812834972">Seneste faner</translation>
 <translation id="4154658846204884961">Komet</translation>
 <translation id="4154664944169082762">Fingeraftryk</translation>
 <translation id="4156297721709710037"><ph name="WINDOW_TITLE" /> – venstre visning</translation>
@@ -7782,6 +7783,7 @@ Flere kontakter kan tildeles denne handling.</translation>
 <translation id="6391131092053186625">Din enheds IMEI er <ph name="IMEI_NUMBER" />. Dette nummer kan bruges til at aktivere tjenesten.</translation>
 <translation id="6393156038355142111">Foreslå en stærk adgangskode</translation>
 <translation id="6393550101331051049">Har tilladelse til at vise usikkert indhold</translation>
+<translation id="6394634179843537518">Tilføj fil</translation>
 <translation id="6395423953133416962">Send <ph name="BEGIN_LINK1" />systemoplysninger<ph name="END_LINK1" /> og <ph name="BEGIN_LINK2" />metrics<ph name="END_LINK2" /></translation>
 <translation id="6397586889873084061">Ja. Adskil mine private data fra min skoleprofil (anbefales)</translation>
 <translation id="6398715114293939307">Fjern Google Play Butik</translation>
@@ -9321,7 +9323,6 @@ Du har # andre kompromitterede adgangskoder. Google Adgangs­kode­admin­istrat
 <translation id="747114903913869239">Fejl: Udvidelsen kunne ikke afkodes</translation>
 <translation id="7471520329163184433">Langsommere</translation>
 <translation id="747312361841682912">Slet de viste data</translation>
-<translation id="7473555040328423550">Tilføj fane</translation>
 <translation id="7473891865547856676">Nej tak</translation>
 <translation id="7474043404939621342">Tilpas din værktøjslinje</translation>
 <translation id="747459581954555080">Gendan alle</translation>
@@ -11388,7 +11389,7 @@ Dette kan omfatte oplysninger om installeret software, filer, din browser, enhed
 <translation id="8871043459130124414">Kører kun, når du har klikket på udvidelsen</translation>
 <translation id="8871551568777368300">Fastgjort af administratoren</translation>
 <translation id="8871696467337989339">Du benytter en ikke-understøttet kommandolinjemarkering: <ph name="BAD_FLAG" />. Det går ud over stabiliteten og sikkerheden.</translation>
-<translation id="8871974300055371298">Indstillinger for indhold</translation>
+<translation id="8871974300055371298">Indholdsindstillinger</translation>
 <translation id="8872155268274985541">Den eksterne opdateringsmanifestfil for terminalen er ugyldig. Terminalappen kunne ikke opdateres. Fjern USB-stikket.</translation>
 <translation id="8872506776304248286">Åbn i app</translation>
 <translation id="8872774989979382243">Lyden er slået fra. Slå lyden til.</translation>
@@ -11901,7 +11902,6 @@ Dette kan omfatte oplysninger om installeret software, filer, din browser, enhed
 <translation id="9215293857209265904">"<ph name="EXTENSION_NAME" />" er tilføjet</translation>
 <translation id="9215742531438648683">Afinstaller Google Play Butik</translation>
 <translation id="9218430445555521422">Angiv som standard</translation>
-<translation id="9218536722110863203">Upload fil</translation>
 <translation id="9218842937876577955"><ph name="APP_NAME" /> (ikke-understøttet app)</translation>
 <translation id="9219572436491982747">Data, der sendes til Google, kan blive gennemgået af menneskelige kontrollanter med henblik på at forbedre Chromes AI-teknologi</translation>
 <translation id="9219741625496141320">Browserdataene blev automatisk slettet</translation>

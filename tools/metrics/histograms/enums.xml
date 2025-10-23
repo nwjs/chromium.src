@@ -8436,6 +8436,7 @@ from previous Chrome versions.
   <int value="-2041208747" label="StorageBuckets:enabled"/>
   <int value="-2041091005" label="OmniboxDomainSuggestions:enabled"/>
   <int value="-2040899483" label="TabGroupParityAndroid:disabled"/>
+  <int value="-2040695258" label="WebUIOmniboxFullPopup:disabled"/>
   <int value="-2040471724" label="CrOSComponent:disabled"/>
   <int value="-2040360427" label="DesktopScreenshots:disabled"/>
   <int value="-2040154722" label="TimeOfDayScreenSaver:enabled"/>
@@ -14606,6 +14607,7 @@ from previous Chrome versions.
   <int value="161008398" label="NearbyKeepAliveFix:disabled"/>
   <int value="161694478" label="OmniboxNewAnswerLayout:enabled"/>
   <int value="161706692" label="ContextualPageActionPriceTracking:disabled"/>
+  <int value="165007022" label="MigrateAccountManagerDelegate:enabled"/>
   <int value="165429419" label="DrawNativeEdgeToEdge:disabled"/>
   <int value="165912610"
       label="PrivateNetworkAccessForWorkersWarningOnly:enabled"/>
@@ -14632,6 +14634,7 @@ from previous Chrome versions.
   <int value="175254474" label="SpectreVariant2Mitigation:enabled"/>
   <int value="175564245"
       label="ZeroCopyRBPPartialRasterWithGpuCompositor:disabled"/>
+  <int value="175884656" label="NtpRealboxNext:enabled"/>
   <int value="176284157" label="HistoryOptInEntryPoints:enabled"/>
   <int value="176329316" label="MediaAppImageMantisReimagine:disabled"/>
   <int value="176401620" label="TabGroupParityAndroid:enabled"/>
@@ -15309,6 +15312,7 @@ from previous Chrome versions.
   <int value="408190863" label="OmniboxDisableInstantExtendedLimit:disabled"/>
   <int value="408469366"
       label="NtpHistoryClustersModuleSuggestionChipHeader:disabled"/>
+  <int value="408854471" label="WebUIOmniboxFullPopup:enabled"/>
   <int value="409097421" label="EnablePixAccountLinking:enabled"/>
   <int value="409174264" label="camera-super-res-override"/>
   <int value="409566604" label="IntentPickerPWAPersistence:enabled"/>
@@ -17523,6 +17527,7 @@ from previous Chrome versions.
   <int value="1212186655" label="EnableDuplicateDownloadDialog:enabled"/>
   <int value="1212314391"
       label="EnableSupervisedUserSkipParentApprovalToInstallExtensions:disabled"/>
+  <int value="1212361100" label="MigrateAccountManagerDelegate:disabled"/>
   <int value="1212526465" label="MediaAppPdfInInk:disabled"/>
   <int value="1213886096" label="EnableOidcProfileRemoteCommands:disabled"/>
   <int value="1214219155" label="gamepad-polling-interval"/>
@@ -18663,6 +18668,7 @@ from previous Chrome versions.
       label="SupportMultipleServerRequestsForPixPayments:enabled"/>
   <int value="1604335827"
       label="AutofillUpstreamAllowAdditionalEmailDomains:enabled"/>
+  <int value="1604497846" label="NtpRealboxNext:disabled"/>
   <int value="1604893983" label="VizForWebView:disabled"/>
   <int value="1604914671" label="eol-reset-dismissed-prefs"/>
   <int value="1605398303" label="MacSystemMediaPermissionsInfoUI:enabled"/>

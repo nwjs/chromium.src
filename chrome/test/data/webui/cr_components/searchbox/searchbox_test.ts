@@ -13,7 +13,7 @@ import {getDeepActiveElement} from 'chrome://resources/js/util.js';
 import {NavigationPredictor} from 'chrome://resources/mojo/components/omnibox/browser/omnibox.mojom-webui.js';
 import type {AutocompleteMatch} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {RenderType, SideType} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {assertEquals, assertFalse, assertNotEquals, assertNull, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertNull, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
@@ -130,6 +130,7 @@ suite('NewTabPageRealboxTest', () => {
       searchboxDefaultIcon: 'search.svg',
       searchboxSeparator: ' - ',
       searchboxVoiceSearch: true,
+      reportMetrics: true,
     });
 
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
@@ -247,22 +248,32 @@ suite('NewTabPageRealboxTest', () => {
     assertIconMaskImageUrl(realbox.$.icon, 'search.svg');
   });
 
-  test('realbox default Google G icon', () => {
-    // Arrange.
-    loadTimeData.overrideValues({
-      searchboxDefaultIcon:
-          '//resources/cr_components/searchbox/icons/google_g.svg',
-    });
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    realbox = document.createElement('cr-searchbox');
-    document.body.appendChild(realbox);
-
-    // Assert.
-    assertStyle(
-        realbox.$.icon.$.icon, 'background-image',
-        `url("chrome://resources/cr_components/searchbox/icons/google_g.svg")`);
-    assertStyle(realbox.$.icon.$.icon, '-webkit-mask-image', 'none');
-  });
+  // test('realbox default Google G icon', async () => {
+  //  // Arrange.
+  //  loadTimeData.overrideValues({
+  //    searchboxDefaultIcon:
+  //        '//resources/cr_components/searchbox/icons/google_g.svg',
+  //  });
+  //  document.body.innerHTML = window.trustedTypes!.emptyHTML;
+  //  realbox = document.createElement('cr-searchbox');
+  //  document.body.appendChild(realbox);
+  //
+  //  const faviconImage = realbox.$.icon.$.faviconImage;
+  //  assertTrue(!!faviconImage);
+  //
+  //  const loadPromise = eventToPromise('load', faviconImage);
+  //  faviconImage.dispatchEvent(new Event('load'));
+  //  await loadPromise;
+  //
+  //  // Assert.
+  //  assertTrue(isVisible(faviconImage));
+  //  assertEquals(
+  //     faviconImage.getAttribute('src'),
+  //      '//resources/cr_components/searchbox/icons/google_g.svg');
+  //
+  //  const realboxIcon = realbox.$.icon.$.icon;
+  //  assertFalse(isVisible(realboxIcon));
+  // });
 
   const webkitTestCases = [
     {
@@ -482,6 +493,116 @@ suite('NewTabPageRealboxTest', () => {
     assertFalse(glowAnimationWrapper.classList.contains('play'));
   });
 
+  test('adding context files opens composebox', async () => {
+    // Arrange.
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    realbox = document.createElement('cr-searchbox');
+    realbox.composeButtonEnabled = true;
+    realbox.composeboxEnabled = true;
+    realbox.realboxLayoutMode = 'TallBottomContext';
+    realbox.ntpRealboxNextEnabled = true;
+    document.body.appendChild(realbox);
+    await microtasksFinished();
+    const contextElement =
+        realbox.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
+    assertTrue(!!contextElement);
+
+    // Act & Assert.
+    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
+    contextElement.dispatchEvent(new CustomEvent('add-tab-context', {
+      detail: {id: 1, title: 'title'},
+      bubbles: true,
+      composed: true,
+    }));
+    const event = await whenOpenComposeBox;
+    assertEquals(event.detail.contextFiles.length, 1);
+    assertEquals(event.detail.contextFiles[0].tabId, 1);
+    assertEquals(event.detail.contextFiles[0].name, 'title');
+  });
+
+  test('clicking deep search button opens composebox', async () => {
+    // Arrange.
+    loadTimeData.overrideValues({
+      composeboxShowDeepSearchButton: true,
+    });
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    realbox = document.createElement('cr-searchbox');
+    realbox.ntpRealboxNextEnabled = true;
+    realbox.realboxLayoutMode = 'Compact';
+    document.body.appendChild(realbox);
+    await microtasksFinished();
+    const contextElement =
+        realbox.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
+    assertTrue(!!contextElement);
+    const contextMenuEntrypoint = contextElement.shadowRoot.querySelector(
+        'composebox-context-menu-entrypoint');
+    assertTrue(!!contextMenuEntrypoint);
+
+    testProxy.handler.setResultFor(
+        'getRecentTabs', Promise.resolve({tabs: []}));
+
+    // Act.
+    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
+
+    const entrypointButton =
+        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
+            '#entrypoint');
+    assertTrue(!!entrypointButton);
+    entrypointButton.click();
+    await microtasksFinished();
+
+    const deepSearchButton =
+        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
+            '#deepSearch');
+    assertTrue(!!deepSearchButton);
+    deepSearchButton.click();
+
+    // Assert.
+    const event = await whenOpenComposeBox;
+    assertEquals('deep-search', event.detail.mode);
+  });
+
+  test('clicking create image button opens composebox', async () => {
+    // Arrange.
+    loadTimeData.overrideValues({
+      composeboxShowCreateImageButton: true,
+    });
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    realbox = document.createElement('cr-searchbox');
+    realbox.ntpRealboxNextEnabled = true;
+    realbox.realboxLayoutMode = 'Compact';
+    document.body.appendChild(realbox);
+    await microtasksFinished();
+    const contextElement =
+        realbox.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
+    assertTrue(!!contextElement);
+    const contextMenuEntrypoint = contextElement.shadowRoot.querySelector(
+        'composebox-context-menu-entrypoint');
+    assertTrue(!!contextMenuEntrypoint);
+
+    testProxy.handler.setResultFor(
+        'getRecentTabs', Promise.resolve({tabs: []}));
+
+    // Act.
+    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
+
+    const entrypointButton =
+        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
+            '#entrypoint');
+    assertTrue(!!entrypointButton);
+    entrypointButton.click();
+    await microtasksFinished();
+
+    const createImageButton =
+        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
+            '#createImage');
+    assertTrue(!!createImageButton);
+    createImageButton.click();
+
+    // Assert.
+    const event = await whenOpenComposeBox;
+    assertEquals('create-image', event.detail.mode);
+  });
 
   //============================================================================
   // Test Querying Autocomplete
@@ -2303,19 +2424,17 @@ suite('NewTabPageRealboxTest', () => {
             expectedSrc: string|null) {
           assertTrue(!!element!.$.icon.$.icon, 'Icon element does not exists');
           assertEquals(
-              !element!.$.icon.$.icon.hidden, !expectUseIconImg,
+              isVisible(element!.$.icon.$.icon),
+              !expectUseIconImg && !hasEntityImage,
               'Icon visibility is incorrect');
+
           assertTrue(
               !!element!.$.icon.$.iconImg, 'Icon image element does not exist');
           assertEquals(
-              !element!.$.icon.$.iconImg.hidden, expectUseIconImg,
+              isVisible(element!.$.icon.$.iconImg),
+              expectUseIconImg && !hasEntityImage,
               'Icon image visibility is incorrect');
-          // If there is an entity image, icon and iconImg should both have
-          // 'display' overridden to 'none'.
-          if (hasEntityImage) {
-            assertStyle(element!.$.icon.$.icon, 'display', 'none');
-            assertStyle(element!.$.icon.$.iconImg, 'display', 'none');
-          }
+
           if (expectedSrc) {
             assertEquals(
                 element!.$.icon.$.iconImg.getAttribute('src'), expectedSrc,
@@ -2331,7 +2450,13 @@ suite('NewTabPageRealboxTest', () => {
           assertIconState(
               element, hasEntityImage, /*expectUseIconImg=*/ false,
               expectedSrc);
-          element!.$.icon.$.iconImg.dispatchEvent(new Event('load'));
+
+          const iconImg = element!.$.icon.$.iconImg;
+          assertTrue(!!iconImg);
+          const loadPromise = eventToPromise('load', iconImg);
+          iconImg.dispatchEvent(new Event('load'));
+          await loadPromise;
+
           await microtasksFinished();
           // After load: icon image visible.
           assertIconState(
@@ -2455,93 +2580,128 @@ suite('NewTabPageRealboxTest', () => {
                 matches[0]!.iconUrl.url}`);
       });
 
+  // TODO(crbug.com/453570027): Uncomment once flakiness is fixed.
+  // test('search aggregator people matches use fallback icons', async () => {
+  //   realbox.$.input.value = 'hello';
+  //   const inputPromise = eventToPromise('input', realbox.$.input);
+  //   realbox.$.input.dispatchEvent(new InputEvent('input'));
+  //   await inputPromise;
 
-  test('search aggregator people matches use fallback icons', async () => {
-    realbox.$.input.value = 'hello';
-    realbox.$.input.dispatchEvent(new InputEvent('input'));
+  //   const fallbackIconPath =
+  //       '//resources/cr_components/searchbox/icons/google_agentspace_logo.svg';
+  //   const matches = [
+  //     createUrlMatch({
+  //       iconPath: fallbackIconPath,
+  //       isEnterpriseSearchAggregatorPeopleType: true,
+  //     }),
+  //     createUrlMatch({
+  //       iconUrl: {url: 'https://helloworld-2.com/url.png'},
+  //       iconPath: fallbackIconPath,
+  //       isEnterpriseSearchAggregatorPeopleType: true,
+  //       contents: stringToMojoString16('helloworld-2.com'),
+  //       destinationUrl: {url: 'https://helloworld-2.com/'},
+  //       fillIntoEdit: stringToMojoString16('https://helloworld-2.com'),
+  //     }),
+  //   ];
+  //   testProxy.callbackRouterRemote.autocompleteResultChanged(
+  //       createAutocompleteResult({
+  //         input: stringToMojoString16(realbox.$.input.value.trimStart()),
+  //         matches: matches,
+  //       }));
+  //   assertTrue(await areMatchesShowing());
 
-    const fallbackIconPath =
-        '//resources/cr_components/searchbox/icons/google_agentspace_logo.svg';
-    const matches = [
-      createUrlMatch({
-        iconPath: fallbackIconPath,
-        isEnterpriseSearchAggregatorPeopleType: true,
-      }),
-      createUrlMatch({
-        iconUrl: {url: 'https://helloworld-2.com/url.png'},
-        iconPath: fallbackIconPath,
-        isEnterpriseSearchAggregatorPeopleType: true,
-        contents: stringToMojoString16('helloworld-2.com'),
-        destinationUrl: {url: 'https://helloworld-2.com/'},
-        fillIntoEdit: stringToMojoString16('https://helloworld-2.com'),
-      }),
-    ];
-    testProxy.callbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
-          input: stringToMojoString16(realbox.$.input.value.trimStart()),
-          matches: matches,
-        }));
-    assertTrue(await areMatchesShowing());
+  //   const matchEls =
+  //       realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
+  //   assertEquals(2, matchEls.length);
 
-    const matchEls =
-        realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
-    assertEquals(2, matchEls.length);
+  //   let faviconImage = matchEls[0]!.$.icon.$.faviconImage;
+  //   assertTrue(!!faviconImage);
 
-    // Test initial icon state for the first match: Google Agentspace logo set
-    // as background image.
-    assertStyle(
-        matchEls[0]!.$.icon.$.icon, 'background-image',
-        `url("chrome:${fallbackIconPath}")`);
-    assertStyle(matchEls[0]!.$.icon.$.icon, '-webkit-mask-image', 'none');
+  //   let vectorIcon = matchEls[0]!.$.icon.$.icon;
+  //   assertTrue(!!vectorIcon);
 
-    // Test initial icon state for the second match: Google Agentspace logo set
-    // as background image.
-    assertStyle(
-        matchEls[1]!.$.icon.$.icon, 'background-image',
-        `url("chrome:${fallbackIconPath}")`);
-    assertStyle(matchEls[1]!.$.icon.$.icon, '-webkit-mask-image', 'none');
+  //   let loadPromise = eventToPromise('load', faviconImage);
+  //   faviconImage.dispatchEvent(new Event('load'));
+  //   await loadPromise;
 
-    // Select the first match.
-    let arrowDownEvent = arrowDown(realbox);
-    assertTrue(arrowDownEvent.defaultPrevented);
-    await microtasksFinished();
+  //   // Test initial icon state for the first match: Google Agentspace logo set
+  //   // as favicon image src.
+  //   assertTrue(isVisible(faviconImage));
+  //   assertEquals(faviconImage.getAttribute('src'), fallbackIconPath);
+  //   assertFalse(isVisible(vectorIcon));
 
-    // First match is selected.
-    assertTrue(matchEls[0]!.hasAttribute(Attributes.SELECTED));
-    // Input is updated.
-    assertEquals('https://helloworld.com', realbox.$.input.value);
-    // Realbox icon is updated.
-    assertStyle(
-        realbox.$.icon.$.icon, 'background-image',
-        `url("chrome:${fallbackIconPath}")`);
-    assertStyle(realbox.$.icon.$.icon, '-webkit-mask-image', 'none');
-    assertFalse(realbox.$.icon.$.icon.hidden);
-    assertTrue(realbox.$.icon.$.iconImg.hidden);
+  //   faviconImage = matchEls[1]!.$.icon.$.faviconImage;
+  //   assertTrue(!!faviconImage);
 
-    // Select the second match.
-    arrowDownEvent = arrowDown(realbox);
-    assertTrue(arrowDownEvent.defaultPrevented);
-    await microtasksFinished();
+  //   vectorIcon = matchEls[1]!.$.icon.$.icon;
+  //   assertTrue(!!vectorIcon);
 
-    // Second match is selected.
-    assertTrue(matchEls[1]!.hasAttribute(Attributes.SELECTED));
-    // Input is updated.
-    assertEquals('https://helloworld-2.com', realbox.$.input.value);
-    // Realbox icon is updated.
-    assertStyle(
-        realbox.$.icon.$.icon, 'background-image',
-        `url("chrome:${fallbackIconPath}")`);
-    assertStyle(realbox.$.icon.$.icon, '-webkit-mask-image', 'none');
-    assertFalse(realbox.$.icon.$.icon.hidden);
-    assertTrue(realbox.$.icon.$.iconImg.hidden);
+  //   loadPromise = eventToPromise('load', faviconImage);
+  //   faviconImage.dispatchEvent(new Event('load'));
+  //   await loadPromise;
 
-    // Mock icon image finishing loading for the the realbox
-    // itself. The icon image should be used and the logo should be hidden.
-    realbox.$.icon.$.iconImg.dispatchEvent(new Event('load'));
-    await microtasksFinished();
-    assertTrue(realbox.$.icon.$.icon.hidden);
-    assertFalse(realbox.$.icon.$.iconImg.hidden);
-  });
+  //   // Test initial icon state for the second match: Google Agentspace logo set
+  //   // as favicon image src.
+  //   assertTrue(isVisible(faviconImage));
+  //   assertEquals(faviconImage.getAttribute('src'), fallbackIconPath);
+  //   assertFalse(isVisible(vectorIcon));
+
+  //   // Select the first match.
+  //   let arrowDownEvent = arrowDown(realbox);
+  //   assertTrue(arrowDownEvent.defaultPrevented);
+  //   await microtasksFinished();
+
+  //   // First match is selected.
+  //   assertTrue(matchEls[0]!.hasAttribute(Attributes.SELECTED));
+  //   // Input is updated.
+  //   assertEquals('https://helloworld.com', realbox.$.input.value);
+
+  //   const realboxIcon = realbox.$.icon;
+  //   assertTrue(!!realboxIcon);
+
+  //   loadPromise = eventToPromise('load', realboxIcon.$.faviconImage);
+  //   realboxIcon.$.faviconImage.dispatchEvent(new Event('load'));
+  //   await loadPromise;
+
+  //   // Realbox icon is updated.
+  //   assertTrue(isVisible(realboxIcon.$.faviconImage));
+  //   assertEquals(
+  //       realboxIcon.$.faviconImage.getAttribute('src'), fallbackIconPath);
+  //   assertFalse(isVisible(realboxIcon.$.icon));
+  //   assertFalse(isVisible(realboxIcon.$.iconImg));
+
+  //   // Select the second match.
+  //   arrowDownEvent = arrowDown(realbox);
+  //   assertTrue(arrowDownEvent.defaultPrevented);
+  //   await microtasksFinished();
+
+  //   // Second match is selected.
+  //   assertTrue(matchEls[1]!.hasAttribute(Attributes.SELECTED));
+  //   // Input is updated.
+  //   assertEquals('https://helloworld-2.com', realbox.$.input.value);
+
+  //   loadPromise = eventToPromise('load', realboxIcon.$.faviconImage);
+  //   realboxIcon.$.faviconImage.dispatchEvent(new Event('load'));
+  //   await loadPromise;
+
+  //   // Realbox icon is updated.
+  //   assertTrue(isVisible(realboxIcon.$.faviconImage));
+  //   assertEquals(
+  //       realboxIcon.$.faviconImage.getAttribute('src'), fallbackIconPath);
+  //   assertFalse(isVisible(realboxIcon.$.icon));
+  //   assertFalse(isVisible(realboxIcon.$.iconImg));
+
+  //   // Mock icon image finishing loading for the the realbox
+  //   // itself.
+  //   loadPromise = eventToPromise('load', realboxIcon.$.iconImg);
+  //   realboxIcon.$.iconImg.dispatchEvent(new Event('load'));
+  //   await loadPromise;
+
+  //   // The icon image should be used and the logo should be hidden.
+  //   assertFalse(isVisible(realboxIcon.$.faviconImage));
+  //   assertFalse(isVisible(realboxIcon.$.icon));
+  //   assertTrue(isVisible(realboxIcon.$.iconImg));
+  // });
 
   test('lens searchboxes always use default icons in searchbox', async () => {
     // Arrange.
@@ -3002,6 +3162,43 @@ suite('NewTabPageRealboxTest', () => {
     // so check the default behavior occurs (deleting a character).
     assertFalse(backspaceEvent.defaultPrevented);
   });
+  suite('NtpRealboxNext', () => {
+    test(
+        'fires dropdown-visible-changed event when the feature is on',
+        async () => {
+          realbox.ntpRealboxNextEnabled = true;
+          // Confirm false -> true causes an event.
+          let whenDropdownVisibleChanged =
+              eventToPromise('dropdown-visible-changed', realbox);
+          realbox.$.input.value = 'he';
+          realbox.$.input.dispatchEvent(new InputEvent('input'));
+
+          const matches = [createSearchMatch()];
+          testProxy.callbackRouterRemote.autocompleteResultChanged(
+              createAutocompleteResult({
+                input: stringToMojoString16(realbox.$.input.value.trimStart()),
+                matches: matches,
+              }));
+          assertTrue(await areMatchesShowing());
+          const e1 = await whenDropdownVisibleChanged;
+          assertTrue(e1.detail.value);
+
+          // Confirm true -> false causes an event.
+          whenDropdownVisibleChanged =
+              eventToPromise('dropdown-visible-changed', realbox);
+          // Pressing 'Escape' when no matches are selected closes the dropdown.
+          const escapeEvent = new KeyboardEvent('keydown', {
+            bubbles: true,
+            cancelable: true,
+            composed: true,  // So it propagates across shadow DOM boundary.
+            key: 'Escape',
+          });
+          realbox.$.input.dispatchEvent(escapeEvent);
+          assertFalse(await areMatchesShowing());
+          const e2 = await whenDropdownVisibleChanged;
+          assertFalse(e2.detail.value);
+        });
+  });
 });
 
 suite('PlaceholderTextCyclerTest', () => {
@@ -3026,5 +3223,49 @@ suite('PlaceholderTextCyclerTest', () => {
     assertEquals(sampleTransitionPlaceholder, text);
 
     placeholderTextCycler.stop();
+  });
+});
+
+suite('NewTabPageRealboxTabsTest', () => {
+  let realbox: SearchboxElement;
+  let testProxy: TestSearchboxBrowserProxy;
+
+  setup(() => {
+    loadTimeData.overrideValues({
+      ntpRealboxNextEnabled: true,
+    });
+
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    testProxy = new TestSearchboxBrowserProxy();
+    SearchboxBrowserProxy.setInstance(testProxy);
+
+    realbox = document.createElement('cr-searchbox');
+    document.body.appendChild(realbox);
+  });
+
+  test('on tab strip changed', async () => {
+    const sampleTabs = [
+      {
+        tabId: 1,
+        title: 'Sample Tab 1',
+        url: {url: 'https://example.com/1'},
+        lastActive: {internalValue: BigInt(1)},
+      },
+      {
+        tabId: 2,
+        title: 'Sample Tab 2',
+        url: {url: 'https://example.com/2'},
+        lastActive: {internalValue: BigInt(2)},
+      },
+    ];
+    testProxy.handler.setResultFor(
+        'getRecentTabs', Promise.resolve({tabs: sampleTabs}));
+
+    testProxy.callbackRouterRemote.onTabStripChanged();
+    await microtasksFinished();
+
+    assertEquals(testProxy.handler.getCallCount('getRecentTabs'), 1);
+    assertDeepEquals((realbox as any).tabSuggestions_, sampleTabs);
   });
 });

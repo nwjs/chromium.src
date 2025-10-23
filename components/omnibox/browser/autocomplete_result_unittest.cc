@@ -2836,7 +2836,7 @@ TEST_F(AutocompleteResultTest, Desktop_TwoColumnRealbox) {
                        /*can_show_contextual_suggestions=*/false,
                        /*mia_enabled=*/false, /*is_incognito=*/false);
 
-    const std::array<TestData, 8> expected_data{{
+    const std::array<TestData, 5> expected_data{{
         // Previous search related suggestion chips are permitted in the omnibox
         // when the WebUI omnibox popup feature is enabled.
         {0, 1, 500, false, {}, AutocompleteMatchType::SEARCH_SUGGEST, group1},
@@ -2844,15 +2844,11 @@ TEST_F(AutocompleteResultTest, Desktop_TwoColumnRealbox) {
         {2, 1, 480, false, {}, AutocompleteMatchType::SEARCH_SUGGEST, group1},
         {3, 1, 470, false, {}, AutocompleteMatchType::SEARCH_SUGGEST, group2},
         {4, 1, 460, false, {}, AutocompleteMatchType::SEARCH_SUGGEST, group2},
-        {5, 1, 450, false, {}, AutocompleteMatchType::SEARCH_SUGGEST, group3},
-        {6, 1, 440, false, {}, AutocompleteMatchType::SEARCH_SUGGEST, group3},
-        {7, 1, 430, false, {}, AutocompleteMatchType::SEARCH_SUGGEST, group3},
     }};
     AssertResultMatches(result, expected_data);
 
-    // Verify that the secondary zero-prefix suggestions were triggered.
-    VerifyTriggeredFeatures(triggered_feature_service(),
-                            {remote_secondary_zps_feature});
+    // Verify that the secondary zero-prefix suggestions were not triggered.
+    VerifyTriggeredFeatures(triggered_feature_service(), {});
   }
 
   // Set up input for zero-prefix suggestions from the realbox.
@@ -3713,12 +3709,9 @@ TEST_F(AutocompleteResultTest, AttachAimAction) {
 
   FakeAutocompleteProviderClient client;
   MockAimEligibilityService* mock_aim_eligibility_service =
-      static_cast<MockAimEligibilityService*>(client.GetAimEligibilityService());
-  EXPECT_CALL(*mock_aim_eligibility_service, IsServerEligibilityEnabled())
-      .WillRepeatedly(testing::Return(true));
+      static_cast<MockAimEligibilityService*>(
+          client.GetAimEligibilityService());
   EXPECT_CALL(*mock_aim_eligibility_service, IsAimLocallyEligible())
-      .WillRepeatedly(testing::Return(true));
-  EXPECT_CALL(*mock_aim_eligibility_service, IsAimEligible())
       .WillRepeatedly(testing::Return(true));
   result.AttachAimAction(&template_url_service(), &client);
 
@@ -3740,7 +3733,7 @@ TEST_F(AutocompleteResultTest, AttachAimAction) {
 
 TEST_F(AutocompleteResultTest, AttachAimAction_AimNotEligible) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(omnibox::kOmniboxAimShortcutTypedState);
+  // Not overriding the feature allows testing the eligibility service logic.
 
   TestData data[] = {
       {0, 1, 1300, true, {}, AutocompleteMatchType::SEARCH_SUGGEST},
@@ -3777,7 +3770,7 @@ TEST_F(AutocompleteResultTest, AttachAimAction_AimNotEligible) {
 
 TEST_F(AutocompleteResultTest, AttachAimAction_AimNotLocallyEligible) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(omnibox::kOmniboxAimShortcutTypedState);
+  // Not overriding the feature allows testing the eligibility service logic.
 
   TestData data[] = {
       {0, 1, 1300, true, {}, AutocompleteMatchType::SEARCH_SUGGEST},

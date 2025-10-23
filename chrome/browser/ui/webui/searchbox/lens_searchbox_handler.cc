@@ -106,13 +106,11 @@ LensSearchboxHandler::LensSearchboxHandler(
     mojo::PendingReceiver<searchbox::mojom::PageHandler> pending_page_handler,
     Profile* profile,
     content::WebContents* web_contents,
-    MetricsReporter* metrics_reporter,
     LensSearchboxClient* lens_searchbox_client)
     : SearchboxHandler(
           std::move(pending_page_handler),
           profile,
           web_contents,
-          metrics_reporter,
           std::make_unique<OmniboxController>(
               /*view=*/nullptr,
               std::make_unique<LensOmniboxClient>(profile,
@@ -126,7 +124,7 @@ LensSearchboxHandler::LensSearchboxHandler(
 LensSearchboxHandler::~LensSearchboxHandler() = default;
 
 std::string LensSearchboxHandler::AutocompleteIconToResourceName(
-    const gfx::VectorIcon& icon) {
+    const gfx::VectorIcon& icon) const {
   // The default icon for contextual suggestions is the subdirectory arrow right
   // icon. For the Lens searchbox, we want to stay consistent with the search
   // loupe instead.

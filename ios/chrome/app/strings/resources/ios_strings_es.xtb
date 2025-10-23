@@ -182,7 +182,7 @@
 <translation id="1668001730617725852">Abrir en un nuevo grupo de pestañas</translation>
 <translation id="1674504678466460478">De <ph name="SOURCE_LANGUAGE" /> a <ph name="TARGET_LANGUAGE" /></translation>
 <translation id="168389590065701766">Ahora puedes abrir Google Lens desde la barra de direcciones y buscar cualquier cosa que veas</translation>
-<translation id="1689333818294560261">Apodo</translation>
+<translation id="1689333818294560261">Sobrenombre</translation>
 <translation id="169048873465870056">¿Eliminar la pestaña y el grupo?</translation>
 <translation id="1698090540708020240">Importar contraseñas…</translation>
 <translation id="1700629756560807968"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> seleccionados</translation>
@@ -532,7 +532,7 @@ Usas el buscador <ph name="DSE_NAME" />. Consulta las instrucciones del buscador
 <translation id="3021342271734507256">Dibuja, resalta o toca cualquier elemento de la pantalla para buscarlo.</translation>
 <translation id="3023690182746510369">Espera mientras usamos la IA para mejorar tu evento del calendario con el contexto de la página web.</translation>
 <translation id="3030138564564344289">Reintentar descarga</translation>
-<translation id="3032704072014531631">Perderás inmediatamente el acceso al grupo de pestañas <ph name="GROUP_NAME" /> y <ph name="USER_NAME" /> (<ph name="USER_EMAIL" />) ya no podrá interactuar contigo en los servicios de Google.</translation>
+<translation id="3032704072014531631">Perderás inmediatamente el acceso al grupo de pestañas <ph name="GROUP_NAME" />, y <ph name="USER_NAME" /> (<ph name="USER_EMAIL" />) ya no podrá interactuar contigo en los servicios de Google.</translation>
 <translation id="3034496853223708513"><ph name="USER_NAME" /> (<ph name="USER_EMAIL" />) perderá inmediatamente el acceso al grupo de pestañas <ph name="GROUP_NAME" /> y ya no podrá interactuar contigo en los servicios de Google.</translation>
 <translation id="3037177537145227281">Siguiendo precio</translation>
 <translation id="3039671569659952257">Eliminar carpeta</translation>

@@ -1348,7 +1348,10 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     @CallSuper
     public void flushPersistentState() {
-        mUmaActivityObserver.flushUmaSession();
+        boolean flushSession =
+                ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                        ChromeFeatureList.UMA_SESSION_CORRECTNESS_FIXES, "flush_session", true);
+        if (flushSession) mUmaActivityObserver.flushUmaSession();
         ProfileManagerUtils.flushPersistentDataForAllProfiles();
     }
 
@@ -3145,8 +3148,17 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     // === START of ThemeResourceProvider functionality ===
 
     private void initializeThemeResourceWrapper() {
-        if (!ChromeFeatureList.sAndroidThemeResourceProvider.isEnabled()
-                || getActivityType() != ActivityType.TABBED) {
+        if (!ChromeFeatureList.sAndroidThemeResourceProvider.isEnabled()) {
+            return;
+        }
+
+        // TODO(crbug.com/450746738): Remove this try/catch once the bug is fixed.
+        try {
+            if (getActivityType() != ActivityType.TABBED) {
+                return;
+            }
+        } catch (NullPointerException e) {
+            Log.e(TAG, "initializeThemeResourceWrapper throws NPE.", e);
             return;
         }
 

@@ -9,13 +9,17 @@ import type {SearchboxElement} from './searchbox.js';
 export function getHtml(this: SearchboxElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
+${this.ntpRealboxNextEnabled ? html`
+<ntp-error-scrim id="errorScrim"
+    ?compact-mode="${this.realboxLayoutMode === 'Compact'}">
+</ntp-error-scrim>` : ''}
 <div id="inputWrapper" @focusout="${this.onInputWrapperFocusout_}"
     @keydown="${this.onInputWrapperKeydown_}">
   <input id="input" class="truncate" type="search" autocomplete="off"
       spellcheck="false" aria-live="${this.inputAriaLive_}" role="combobox"
       aria-expanded="${this.dropdownIsVisible}" aria-controls="matches"
       aria-description="${this.searchboxAriaDescription}"
-      placeholder="${this.computePlaceholderText_()}"
+      placeholder="${this.computePlaceholderText_(this.placeholderText)}"
       @copy="${this.onInputCutCopy_}"
       @cut="${this.onInputCutCopy_}" @focus="${this.onInputFocus_}"
       @input="${this.onInputInput_}" @keydown="${this.onInputKeydown_}"
@@ -76,21 +80,56 @@ export function getHtml(this: SearchboxElement) {
     ` : ''}
   ` : ''}
 
-  <cr-searchbox-dropdown id="matches" part="searchbox-dropdown"
-      exportparts="dropdown-content"
-      role="listbox" .result="${this.result_}"
-      selected-match-index="${this.selectedMatchIndex_}"
-      @selected-match-index-changed="${this.onSelectedMatchIndexChanged_}"
-      ?can-show-secondary-side="${this.canShowSecondarySide}"
-      ?had-secondary-side="${this.hadSecondarySide}"
-      @had-secondary-side-changed="${this.onHadSecondarySideChanged_}"
-      ?has-secondary-side="${this.hasSecondarySide}"
-      @has-secondary-side-changed="${this.onHasSecondarySideChanged_}"
-      @match-focusin="${this.onMatchFocusin_}"
-      @match-click="${this.onMatchClick_}"
-      ?hidden="${!this.dropdownIsVisible}"
-      ?show-thumbnail="${this.showThumbnail}">
-  </cr-searchbox-dropdown>
+  ${this.ntpRealboxNextEnabled ? html`
+    <div class="dropdownContainer">
+      <contextual-entrypoint-and-carousel id="context"
+          part="contextual-entrypoint-and-carousel"
+          exportparts="composebox-entrypoint"
+          .tabSuggestions_=${this.tabSuggestions_}
+          entrypoint-name="Realbox"
+          @add-tab-context="${this.addTabContext_}"
+          @add-file-context="${this.addFileContext_}"
+          @on-file-validation-error="${this.onFileValidationError_}"
+          @set-deep-search-mode="${this.setDeepSearchMode_}"
+          @set-create-image-mode="${this.setCreateImageMode_}"
+          @get-tab-preview="${this.getTabPreview_}"
+          ?show-dropdown="${this.dropdownIsVisible}"
+          realbox-layout-mode="${this.realboxLayoutMode}">
+        <cr-searchbox-dropdown id="matches" part="searchbox-dropdown"
+            exportparts="dropdown-content"
+            role="listbox" .result="${this.result_}"
+            selected-match-index="${this.selectedMatchIndex_}"
+            @selected-match-index-changed="${this.onSelectedMatchIndexChanged_}"
+            ?can-show-secondary-side="${this.canShowSecondarySide}"
+            ?had-secondary-side="${this.hadSecondarySide}"
+            @had-secondary-side-changed="${this.onHadSecondarySideChanged_}"
+            ?has-secondary-side="${this.hasSecondarySide}"
+            @has-secondary-side-changed="${this.onHasSecondarySideChanged_}"
+            @match-focusin="${this.onMatchFocusin_}"
+            @match-click="${this.onMatchClick_}"
+            ?hidden="${!this.dropdownIsVisible}"
+            ?show-thumbnail="${this.showThumbnail}">
+        </cr-searchbox-dropdown>
+      </contextual-entrypoint-and-carousel>
+    </div>
+  ` : html`
+    <cr-searchbox-dropdown class="dropdownContainer" id="matches"
+        part="searchbox-dropdown"
+        exportparts="dropdown-content"
+        role="listbox" .result="${this.result_}"
+        selected-match-index="${this.selectedMatchIndex_}"
+        @selected-match-index-changed="${this.onSelectedMatchIndexChanged_}"
+        ?can-show-secondary-side="${this.canShowSecondarySide}"
+        ?had-secondary-side="${this.hadSecondarySide}"
+        @had-secondary-side-changed="${this.onHadSecondarySideChanged_}"
+        ?has-secondary-side="${this.hasSecondarySide}"
+        @has-secondary-side-changed="${this.onHasSecondarySideChanged_}"
+        @match-focusin="${this.onMatchFocusin_}"
+        @match-click="${this.onMatchClick_}"
+        ?hidden="${!this.dropdownIsVisible}"
+        ?show-thumbnail="${this.showThumbnail}">
+    </cr-searchbox-dropdown>
+  `}
 </div>
 <!--_html_template_end_-->`;
   // clang-format on

@@ -23,7 +23,7 @@
 <translation id="100881991356161927">Nom du site</translation>
 <translation id="1009663062402466586">Commandes de jeu désormais disponibles</translation>
 <translation id="1010136228650201057">Chiffrement des données utilisateur</translation>
-<translation id="1010225406377140704">Contactez l'expéditeur pour lui demander un nouveau lien</translation>
+<translation id="1010225406377140704">Contactez la personne qui l'a envoyé pour lui demander un nouveau lien</translation>
 <translation id="1010833424573920260">{NUM_PAGES,plural, =1{Page ne répondant pas}one{Page ne répondant pas}other{Pages ne répondant pas}}</translation>
 <translation id="1011003645819296594">Appareils enregistrés</translation>
 <translation id="1011355516189274711">Volume de la synthèse vocale</translation>
@@ -1819,7 +1819,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="2236963250883149540">Supprimer votre adresse professionnelle de la saisie automatique Chrome ?</translation>
 <translation id="2238379619048995541">Données sur l'état de fréquence</translation>
 <translation id="2240582393605484605">Les données enregistrées uniquement sur cet appareil resteront dans le profil existant</translation>
-<translation id="2241053333139545397">Accéder aux données de plusieurs sites et les modifier</translation>
+<translation id="2241053333139545397">Lire et modifier vos données sur certains sites Web</translation>
 <translation id="2241634353105152135">Une seule fois</translation>
 <translation id="2242687258748107519">Informations sur le fichier</translation>
 <translation id="2243452222143104807">Onglet inactif</translation>
@@ -2381,7 +2381,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="2613535083491958306"><ph name="ORIGIN" /> pourra modifier <ph name="FILENAME" /></translation>
 <translation id="2613747923081026172">Créer un groupe</translation>
 <translation id="2615159404909536465">{FILE_COUNT,plural, =1{Ouvrir et modifier <ph name="FILE1" /> dans cette extension}one{Ouvrir et modifier <ph name="FILE1" />, … dans cette appli}other{Ouvrir et modifier <ph name="FILE1" />, … dans cette appli}}</translation>
-<translation id="2616366145935564096">Accéder aux données du site <ph name="WEBSITE_1" /> et les modifier</translation>
+<translation id="2616366145935564096">Lire et modifier vos données sur <ph name="WEBSITE_1" /></translation>
 <translation id="2618797463720777311">Configurer le Partage à proximité</translation>
 <translation id="2619305858360733464"><ph name="SHARED_STATE" /> groupe sans nom – <ph name="OPENED_STATE" /></translation>
 <translation id="2619340799655338321">lecture/pause</translation>
@@ -3869,6 +3869,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="3656328935986149999">Vitesse du curseur</translation>
 <translation id="3656701180077048004">Un délai est ajouté entre le moment où vous appuyez sur une touche et celui où elle s'active</translation>
 <translation id="3658871634334445293">Accélération de TrackPoint</translation>
+<translation id="3659483399659250379">Ajouter un onglet et plus</translation>
 <translation id="3659929705630080526">Vous avez saisi trop de codes d'accès incorrects. Réessayez plus tard</translation>
 <translation id="3661106764436337772">Écrivez plus vite et avec plus d'assurance</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{1 mot de passe existant trouvé}one{{NUM_PASSWORDS} mot de passe existant trouvé}other{{NUM_PASSWORDS} mots de passe existants trouvés}}</translation>
@@ -3998,7 +3999,6 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="3735039640698208086">Lors de la lecture audio…</translation>
 <translation id="3735740477244556633">Trier par</translation>
 <translation id="3735827758948958091">Impossible d'ouvrir <ph name="FILE_NAMES" /> lorsque la connexion est limitée</translation>
-<translation id="3736575924150462398">Ajouter des onglets ou plus</translation>
 <translation id="3737058101969549870">Séparer les données de navigation existantes de ce nouveau profil ?</translation>
 <translation id="3738632186060045350">Les données du <ph name="DEVICE_TYPE" /> seront supprimées dans 24 heures</translation>
 <translation id="3738924763801731196"><ph name="OID" /> :</translation>
@@ -4628,6 +4628,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4151503145138736576">Aucun espace de stockage hors connexion à nettoyer</translation>
 <translation id="4152011295694446843">Vos favoris s'afficheront ici</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 onglet}one{# onglet}other{# onglets}}</translation>
+<translation id="4153858337812834972">Onglets les plus récents</translation>
 <translation id="4154658846204884961">Comète</translation>
 <translation id="4154664944169082762">Empreintes</translation>
 <translation id="4156297721709710037"><ph name="WINDOW_TITLE" /> – Vue de gauche</translation>
@@ -5000,7 +5001,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4416582610654027550">Saisissez une URL valide</translation>
 <translation id="4417555042033340400">{NUM_TABS,plural, =1{Suspendre cet onglet}one{Suspendre cet onglet}other{Suspendre ces onglets}}</translation>
 <translation id="4419287616181386201">Les mots de passe peuvent être supprimés dans leurs paramètres de gestion</translation>
-<translation id="4421932172707401417">Les suggestions de texte dépendent de vos requêtes et du contenu de la page Web</translation>
+<translation id="4421932172707401417">Les suggestions de texte dépendent de vos prompts et du contenu de la page Web</translation>
 <translation id="4421932782753506458">Félix</translation>
 <translation id="4423376891418188461">Rétablir les paramètres</translation>
 <translation id="4423525817792153232">Montrer toutes vos dents</translation>
@@ -5065,7 +5066,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4472298120638043495">Vous pouvez utiliser la langue définie comme préférée dans votre compte Google (<ph name="NEW_LOCALE_FROM_GAIA" />)</translation>
 <translation id="447252321002412580">Contribuer à améliorer les fonctionnalités et performances de Chrome</translation>
 <translation id="4472533928615930332">Image générée <ph name="INDEX" /> sur <ph name="SUBJECT" />, style <ph name="STYLE" /></translation>
-<translation id="4472575034687746823">Premiers pas</translation>
+<translation id="4472575034687746823">Commencer</translation>
 <translation id="4473559657152613417">Effectuez un clic droit sur un onglet et sélectionnez "Ajouter l'onglet à un nouveau groupe"</translation>
 <translation id="4473996011558324141">durée estimée</translation>
 <translation id="4474155171896946103">Ajouter tous les onglets aux favoris...</translation>
@@ -5680,7 +5681,7 @@ Appuyez sur Ctrl+Alt+Baisser la luminosité pour faire un zoom arrière.</transl
 <translation id="4893522937062257019">Sur l'écran de verrouillage</translation>
 <translation id="4894055916816649664">Seulement pendant 10 minutes</translation>
 <translation id="4895799941222633551">Créer un &amp;raccourci…</translation>
-<translation id="4898913189644355814">Un site pourrait enregistrer votre langue préférée ou les articles que vous voulez acheter. Le site et ses sous-domaines peuvent accéder à ces informations.</translation>
+<translation id="4898913189644355814">Un site peut éventuellement enregistrer votre langue préférée ou les articles que vous voulez acheter. Le site et ses sous-domaines peuvent accéder à ces informations.</translation>
 <translation id="4899052647152077033">Inverser les couleurs</translation>
 <translation id="4899696330053002588">Contient des annonces</translation>
 <translation id="490031510406860025">Non autorisée sur ce site</translation>
@@ -6623,7 +6624,7 @@ Vous pouvez associer plusieurs contacteurs à cette action.</translation>
 <translation id="5575528586625653441">Un problème est survenu avec la demande d'enregistrement en mode de démonstration.</translation>
 <translation id="557722062034137776">La réinitialisation de votre appareil n'a aucune incidence sur vos comptes Google ni sur leurs données synchronisées. Toutefois, tous les fichiers enregistrés en local sur votre appareil vont être supprimés.</translation>
 <translation id="5578059481725149024">Connexion automatique</translation>
-<translation id="5578387000057347457">Saisissez une requête personnalisée ou mettez du texte en surbrillance pour créer une image</translation>
+<translation id="5578387000057347457">Saisissez un prompt personnalisé ou mettez du texte en surbrillance pour créer une image</translation>
 <translation id="5579225964082017560">Supprimer <ph name="SITE" /> de la liste <ph name="SECTION_HEADER" /></translation>
 <translation id="5581134892342029705">Traduction en <ph name="LANGUAGE" /> terminée</translation>
 <translation id="558170650521898289">Vérification de pilote matériel Microsoft Windows</translation>
@@ -7765,6 +7766,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6391131092053186625">Le code IMEI de votre appareil est <ph name="IMEI_NUMBER" />. Ce numéro peut servir à activer le service.</translation>
 <translation id="6393156038355142111">Suggérer un mot de passe sécurisé</translation>
 <translation id="6393550101331051049">Autorisé à afficher du contenu non sécurisé</translation>
+<translation id="6394634179843537518">Ajouter un fichier</translation>
 <translation id="6395423953133416962">Envoyer les <ph name="BEGIN_LINK1" />informations système<ph name="END_LINK1" /> et les <ph name="BEGIN_LINK2" />statistiques<ph name="END_LINK2" /></translation>
 <translation id="6397586889873084061">Oui, conserver mes données séparément du profil scolaire (recommandé)</translation>
 <translation id="6398715114293939307">Supprimer le Google Play Store</translation>
@@ -9304,7 +9306,6 @@ Vous avez # autres mots de passe compromis. Le Gestionnaire de mots de passe Go
 <translation id="747114903913869239">Erreur : impossible de décoder l'extension.</translation>
 <translation id="7471520329163184433">Plus lent</translation>
 <translation id="747312361841682912">Supprimer les données affichées</translation>
-<translation id="7473555040328423550">Ajouter un onglet</translation>
 <translation id="7473891865547856676">Non, merci</translation>
 <translation id="7474043404939621342">Personnaliser votre barre d'outils</translation>
 <translation id="747459581954555080">Tout restaurer</translation>
@@ -11883,7 +11884,6 @@ Cela peut inclure des informations sur les logiciels installés, les fichiers, v
 <translation id="9215293857209265904">"<ph name="EXTENSION_NAME" />" ajoutée</translation>
 <translation id="9215742531438648683">Désinstaller Google Play Store</translation>
 <translation id="9218430445555521422">Définir par défaut</translation>
-<translation id="9218536722110863203">Importer un fichier</translation>
 <translation id="9218842937876577955"><ph name="APP_NAME" /> (appli non compatible)</translation>
 <translation id="9219572436491982747">Les données envoyées à Google peuvent être consultées par des réviseurs humains afin d'améliorer la technologie d'IA de Chrome</translation>
 <translation id="9219741625496141320">Les données de navigation ont été supprimées automatiquement</translation>

@@ -257,8 +257,13 @@ size_t WhitespaceCount(const std::u16string& string) {
 }
 
 - (void)sendText:(NSString*)text {
-  GURL URL = _composeboxQueryController->CreateAimUrl(
-      base::SysNSStringToUTF8(text), base::Time::Now());
+  std::unique_ptr<ComposeboxQueryController::CreateSearchUrlRequestInfo>
+      search_url_request_info = std::make_unique<
+          ComposeboxQueryController::CreateSearchUrlRequestInfo>();
+  search_url_request_info->query_text = base::SysNSStringToUTF8(text);
+  search_url_request_info->query_start_time = base::Time::Now();
+  GURL URL = _composeboxQueryController->CreateSearchUrl(
+      std::move(search_url_request_info));
   // TODO(crbug.com/40280872): Handle AIM enabled in the query controller.
   if (!_AIModeEnabled) {
     URL = net::AppendOrReplaceQueryParameter(URL, "udm", "24");
@@ -333,6 +338,7 @@ size_t WhitespaceCount(const std::u16string& string) {
       break;
     case FileUploadStatus::kNotUploaded:
     case FileUploadStatus::kProcessing:
+    case FileUploadStatus::kProcessingSuggestSignalsReady:
     case FileUploadStatus::kUploadStarted:
       // No-op, as the state is already `Uploading`.
       return;
@@ -599,6 +605,9 @@ size_t WhitespaceCount(const std::u16string& string) {
               destinationURL:(const GURL&)destinationURL
                 isSearchType:(BOOL)isSearchType {
   if (isSearchType) {
+    if (IsAimURL(destinationURL)) {
+      [self.consumer setAIModeEnabled:YES];
+    }
     [self sendText:[NSString cr_fromString16:text]];
   } else {
     UrlLoadParams params = UrlLoadParams::InCurrentTab(destinationURL);

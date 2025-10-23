@@ -79,6 +79,7 @@ class RealboxSearchBrowserTestPage : public searchbox::mojom::Page {
       composebox_query::mojom::FileUploadStatus status,
       std::optional<composebox_query::mojom::FileUploadErrorType> error_type)
       override {}
+  void OnTabStripChanged() override {}
   mojo::PendingRemote<searchbox::mojom::Page> GetRemotePage() {
     return receiver_.BindNewPipeAndPassRemote();
   }
@@ -106,10 +107,10 @@ class RealboxSearchPreloadBrowserTest : public SearchPrefetchBaseBrowserTest {
   std::pair<GURL, GURL> StartPrefetchAndPrerender() {
     mojo::Remote<searchbox::mojom::PageHandler> remote_page_handler;
     RealboxSearchBrowserTestPage page;
-    RealboxHandler realbox_handler = RealboxHandler(
-        remote_page_handler.BindNewPipeAndPassReceiver(),
-        /*query_controller=*/nullptr, /*composebox_metrics_recorder=*/nullptr,
-        browser()->profile(), GetWebContents(), /*metrics_reporter=*/nullptr);
+    RealboxHandler realbox_handler =
+        RealboxHandler(remote_page_handler.BindNewPipeAndPassReceiver(),
+                       /*composebox_metrics_recorder=*/nullptr,
+                       browser()->profile(), GetWebContents());
     realbox_handler.SetPage(page.GetRemotePage());
     content::test::PrerenderHostRegistryObserver registry_observer(
         *GetWebContents());
@@ -236,10 +237,8 @@ class RealboxHandlerTest : public InProcessBrowserTest,
     InProcessBrowserTest::SetUpOnMainThread();
     handler_ = std::make_unique<RealboxHandler>(
         mojo::PendingReceiver<searchbox::mojom::PageHandler>(),
-        /*query_controller=*/nullptr, /*composebox_metrics_recorder=*/nullptr,
-        browser()->profile(),
-        /*web_contents=*/browser()->tab_strip_model()->GetActiveWebContents(),
-        /*metrics_reporter=*/nullptr);
+        /*composebox_metrics_recorder=*/nullptr, browser()->profile(),
+        /*web_contents=*/browser()->tab_strip_model()->GetActiveWebContents());
     handler_->SetPage(page_.BindAndGetRemote());
   }
 

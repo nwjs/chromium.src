@@ -64,7 +64,7 @@ export {DEFAULT_TEXTBOX_WIDTH, Ink2Manager, MIN_TEXTBOX_SIZE_PX, TextBoxInit} fr
 // </if>
 export {PdfPluginElement} from './internal_plugin.js';
 export {record, recordFitTo, resetForTesting, UserAction} from './metrics.js';
-export {NavigatorDelegate, PdfNavigator, WindowOpenDisposition} from './navigator.js';
+export {NavigatorDelegate, PdfNavigator, PdfNavigatorImpl, WindowOpenDisposition} from './navigator.js';
 export {OpenPdfParamsParser, ViewMode} from './open_pdf_params_parser.js';
 export {getFilenameFromURL, PdfViewerElement} from './pdf_viewer.js';
 export {PdfViewerBaseElement} from './pdf_viewer_base.js';
@@ -75,6 +75,9 @@ export {PdfViewerPrivateProxy, PdfViewerPrivateProxyImpl} from './pdf_viewer_pri
 export {hexToColor} from './pdf_viewer_utils.js';
 // </if>
 export {shouldIgnoreKeyEvents} from './pdf_viewer_utils.js';
+// <if expr="enable_pdf_save_to_drive">
+export {SaveToDriveBubbleAction, SaveToDriveBubbleState, SaveToDriveSaveType} from './save_to_drive_metrics.js';
+// </if>
 export {SwipeDetector, SwipeDirection} from './swipe_detector.js';
 export {DocumentDimensions, LayoutOptions, PAGE_SHADOW, Viewport} from './viewport.js';
 export {ZoomManager} from './zoom_manager.js';

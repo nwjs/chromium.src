@@ -58,7 +58,7 @@
 <translation id="1034484273907870301">டேப்லெட் பயன்முறையில் சிறுபடங்களைக் காட்டும் உலாவிப்பக்கப் பட்டி</translation>
 <translation id="1035289631433631911">உள்ளடக்கப் பரிமாற்றக் கருவி</translation>
 <translation id="1035875743511577452">கலைஞர்கள், இயற்கை மற்றும் பல தலைப்புகளின் அடிப்படையில் உள்ள தீம்களைக் கண்டறிய, “தீமினை மாற்று” என்பதைக் கிளிக் செய்யவும்</translation>
-<translation id="1036348656032585052">முடக்கு</translation>
+<translation id="1036348656032585052">ஆஃப் செய்</translation>
 <translation id="1036511912703768636">இந்த USB சாதனங்கள் எதையும் அணுகலாம்</translation>
 <translation id="1038168778161626396">என்சைபர் மட்டுமே</translation>
 <translation id="1038462104119736705">Linuxஸிற்குக் குறைந்தபட்சம் <ph name="INSTALL_SIZE" /> சேமிப்பகத்தைக் காலியாக வைத்திருப்பது சிறந்தது. சேமிப்பகத்தை அதிகரிக்க சாதனத்திலிருந்து கோப்புகளை நீக்கவும்.</translation>
@@ -3883,6 +3883,7 @@
 <translation id="3656328935986149999">கர்சர் வேகம்</translation>
 <translation id="3656701180077048004">பட்டனை நீங்கள் அழுத்தும் நேரத்திற்கும் அது செயல்படுத்தப்படும் நேரத்திற்கும் இடையே தாமதத்தைச் சேர்க்கும்</translation>
 <translation id="3658871634334445293">TrackPoint ஆக்ஸிலரேஷன்</translation>
+<translation id="3659483399659250379">பக்கம் மற்றும் பலவற்றைச் சேர்</translation>
 <translation id="3659929705630080526">தவறான அணுகல் குறியீட்டைப் பலமுறை டைப் செய்துள்ளீர்கள். பிறகு முயலவும்</translation>
 <translation id="3661106764436337772">விரைவாகவும் கூடுதல் நம்பிக்கையுடனும் எழுதுங்கள்</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{ஒரு கடவுச்சொல் ஏற்கெனவே உள்ளது}other{{NUM_PASSWORDS} கடவுச்சொற்கள் ஏற்கெனவே உள்ளன}}</translation>
@@ -4012,7 +4013,6 @@
 <translation id="3735039640698208086">ஆடியோவை இயக்கும் போது...</translation>
 <translation id="3735740477244556633">இதன்படி வரிசைப்படுத்து</translation>
 <translation id="3735827758948958091">வரம்புள்ள இணைப்பில் இருக்கும்போது <ph name="FILE_NAMES" /> ஃபைலைத் திறக்க முடியாது</translation>
-<translation id="3736575924150462398">பக்கங்கள் அல்லது மேலும் பலவற்றைச் சேருங்கள்</translation>
 <translation id="3737058101969549870">ஏற்கெனவே உள்ள பிரவுசிங் தரவை இந்தப் புதிய சுயவிவரத்தில் இருந்து தனிப்படுத்தி வைக்க வேண்டுமா?</translation>
 <translation id="3738632186060045350"><ph name="DEVICE_TYPE" /> தரவு 24 மணிநேரத்தில் நீக்கப்படும்</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
@@ -4642,6 +4642,7 @@
 <translation id="4151503145138736576">காலியாக்க ஆஃப்லைன் சேமிப்பகம் இல்லை</translation>
 <translation id="4152011295694446843">உங்கள் புக்மார்க்குகளை இங்கே பார்ப்பீர்கள்</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 தாவல்}other{# தாவல்கள்}}</translation>
+<translation id="4153858337812834972">மிகவும் சமீபத்திய பக்கங்கள்</translation>
 <translation id="4154658846204884961">வால் நட்சத்திரம்</translation>
 <translation id="4154664944169082762">விரல் அச்சுகள்</translation>
 <translation id="4156297721709710037"><ph name="WINDOW_TITLE" /> - இடது பக்கக் காட்சி</translation>
@@ -7781,6 +7782,7 @@
 <translation id="6391131092053186625">உங்கள் சாதனத்தின் IMEI: <ph name="IMEI_NUMBER" />. சேவையைச் செயல்படுத்த இந்த எண் உதவலாம்.</translation>
 <translation id="6393156038355142111">வலுவான கடவுச்சொல்லைப் பரிந்துரை</translation>
 <translation id="6393550101331051049">பாதுகாப்பற்ற உள்ளடக்கத்தைக் காட்டுவதற்கு அனுமதிக்கப்பட்டுள்ள தளங்கள்</translation>
+<translation id="6394634179843537518">ஃபைலைச் சேர்</translation>
 <translation id="6395423953133416962"><ph name="BEGIN_LINK1" />கணினியின் தகவல்<ph name="END_LINK1" /> மற்றும் <ph name="BEGIN_LINK2" />அளவீடுகளை<ph name="END_LINK2" /> அனுப்பு</translation>
 <translation id="6397586889873084061">ஆம், எனது தரவைப் பள்ளிக் கணக்கிலிருந்து தனிப்படுத்து (பரிந்துரைக்கப்படுவது)</translation>
 <translation id="6398715114293939307">Google Play Storeரை அகற்று</translation>
@@ -9318,7 +9320,6 @@
 <translation id="747114903913869239">பிழை: நீட்டிப்பை குறி இறக்கம் செய்ய முடியவில்லை</translation>
 <translation id="7471520329163184433">வேகத்தைக் குறை</translation>
 <translation id="747312361841682912">காட்டப்படும் தரவை நீக்கு</translation>
-<translation id="7473555040328423550">பக்கத்தைச் சேர்</translation>
 <translation id="7473891865547856676">வேண்டாம்</translation>
 <translation id="7474043404939621342">கருவிப்பட்டியைப் பிரத்தியேகமாக்கு</translation>
 <translation id="747459581954555080">எல்லாம் மீட்டெடு</translation>
@@ -11896,7 +11897,6 @@
 <translation id="9215293857209265904">"<ph name="EXTENSION_NAME" />" சேர்க்கப்பட்டது</translation>
 <translation id="9215742531438648683">Google Play Storeரை நிறுவல் நீக்கு</translation>
 <translation id="9218430445555521422">இயல்பானதாக அமை</translation>
-<translation id="9218536722110863203">ஃபைலைப் பதிவேற்று</translation>
 <translation id="9218842937876577955"><ph name="APP_NAME" /> (ஆதரிக்கப்படாத ஆப்ஸ்)</translation>
 <translation id="9219572436491982747">Chrome AI தொழில்நுட்பத்தை மேம்படுத்துவதற்காக Googleளுக்கு அனுப்பப்படும் தரவு மதிப்பாய்வாளர்களுக்குக் காட்டப்படலாம்</translation>
 <translation id="9219741625496141320">உலாவிய தரவு தானாக நீக்கப்பட்டது</translation>

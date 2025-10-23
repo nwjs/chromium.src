@@ -37,6 +37,9 @@ class CONTENT_EXPORT ServiceWorkerSyntheticResponseManager {
   using OnReceiveResponseCallback = base::RepeatingCallback<void(
       network::mojom::URLResponseHeadPtr response_head,
       mojo::ScopedDataPipeConsumerHandle body)>;
+  using OnReceiveRedirectCallback = base::OnceCallback<void(
+      const net::RedirectInfo& redirect_info,
+      network::mojom::URLResponseHeadPtr response_head)>;
   using OnCompleteCallback = base::OnceCallback<void(
       const network::URLLoaderCompletionStatus& status)>;
   using FetchCallback =
@@ -60,6 +63,7 @@ class CONTENT_EXPORT ServiceWorkerSyntheticResponseManager {
                     uint32_t options,
                     const network::ResourceRequest& request,
                     OnReceiveResponseCallback receive_response_callback,
+                    OnReceiveRedirectCallback receive_redirect_callback,
                     OnCompleteCallback complete_callback);
   void StartSyntheticResponse(FetchCallback callback);
   SyntheticResponseStatus Status() const { return status_; }
@@ -73,6 +77,8 @@ class CONTENT_EXPORT ServiceWorkerSyntheticResponseManager {
 
   void OnReceiveResponse(network::mojom::URLResponseHeadPtr response_head,
                          mojo::ScopedDataPipeConsumerHandle body);
+  void OnReceiveRedirect(const net::RedirectInfo& redirect_info,
+                         network::mojom::URLResponseHeadPtr response_head);
   void OnComplete(const network::URLLoaderCompletionStatus& status);
 
   void MaybeSetResponseHead(
@@ -104,10 +110,12 @@ class CONTENT_EXPORT ServiceWorkerSyntheticResponseManager {
   std::unique_ptr<SyntheticResponseURLLoaderClient> client_;
   scoped_refptr<ServiceWorkerVersion> version_;
   OnReceiveResponseCallback response_callback_;
+  OnReceiveRedirectCallback redirect_callback_;
   OnCompleteCallback complete_callback_;
   std::optional<RaceNetworkRequestWriteBufferManager> write_buffer_manager_;
   mojo::Remote<blink::mojom::ServiceWorkerStreamCallback> stream_callback_;
   std::optional<RaceNetworkRequestSimpleBufferManager> simple_buffer_manager_;
+  bool did_start_synthetic_response = false;
 
   static bool dry_run_mode_for_testing_;
 

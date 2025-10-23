@@ -20,9 +20,12 @@ import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
  * handler remote, resolving the browser call promises with named arguments.
  */
 class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
+  private results_: Map<string, any> = new Map();
+
   constructor() {
     super([
       'deleteAutocompleteMatch',
+      'activateKeyword',
       'executeAction',
       'onNavigationLikely',
       'onThumbnailRemoved',
@@ -34,7 +37,18 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       'getPlaceholderConfig',
       'getRecentTabs',
       'getTabPreview',
+      'notifySessionStarted',
+      'notifySessionAbandoned',
+      'addFileContext',
+      'addTabContext',
+      'deleteContext',
+      'clearFiles',
+      'submitQuery',
     ]);
+  }
+
+  setResultFor(methodName: string, result: any) {
+    this.results_.set(methodName, result);
   }
 
   setPage(page: PageRemote) {
@@ -47,6 +61,17 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
 
   deleteAutocompleteMatch(line: number, url: Url) {
     this.methodCalled('deleteAutocompleteMatch', {line, url});
+  }
+
+  activateKeyword(
+      line: number, url: Url, matchSelectionTimestamp: TimeTicks,
+      isMouseEvent: boolean) {
+    this.methodCalled('activateKeyword', {
+      line,
+      url,
+      matchSelectionTimestamp,
+      isMouseEvent,
+    });
   }
 
   executeAction(
@@ -115,6 +140,9 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
 
   getRecentTabs() {
     this.methodCalled('getRecentTabs');
+    if (this.results_.has('getRecentTabs')) {
+      return this.results_.get('getRecentTabs');
+    }
     return Promise.resolve({tabs: []});
   }
 
@@ -147,6 +175,14 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
 
   clearFiles() {
     this.methodCalled('clearFiles');
+  }
+
+  submitQuery(
+      queryText: string, mouseButton: number, altKey: boolean, ctrlKey: boolean,
+      metaKey: boolean, shiftKey: boolean) {
+    this.methodCalled(
+        'submitQuery',
+        {queryText, mouseButton, altKey, ctrlKey, metaKey, shiftKey});
   }
 }
 

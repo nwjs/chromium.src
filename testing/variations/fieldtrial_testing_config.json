@@ -658,6 +658,24 @@
             ]
         }
     ],
+    "AndroidBottomToolbarV2": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "params": {
+                        "force_bottom_for_focused_omnibox": "true"
+                    },
+                    "enable_features": [
+                        "AndroidBottomToolbarV2"
+                    ]
+                }
+            ]
+        }
+    ],
     "AndroidComposeplate": [
         {
             "platforms": [
@@ -11394,6 +11412,72 @@
             ]
         }
     ],
+    "GlicEntrypointVariations": [
+        {
+            "platforms": [
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Arm2_LabelOnly",
+                    "params": {
+                        "glic-entrypoint-variations-alt-icon": "false",
+                        "glic-entrypoint-variations-highlight-nudge": "false",
+                        "glic-entrypoint-variations-show-label": "true"
+                    },
+                    "enable_features": [
+                        "GlicEntrypointVariations"
+                    ]
+                },
+                {
+                    "name": "Arm1_HighlightOnly",
+                    "params": {
+                        "glic-entrypoint-variations-alt-icon": "false",
+                        "glic-entrypoint-variations-highlight-nudge": "true",
+                        "glic-entrypoint-variations-show-label": "false"
+                    },
+                    "enable_features": [
+                        "GlicEntrypointVariations"
+                    ]
+                },
+                {
+                    "name": "Arm3_LabelAndHighlight",
+                    "params": {
+                        "glic-entrypoint-variations-alt-icon": "false",
+                        "glic-entrypoint-variations-highlight-nudge": "true",
+                        "glic-entrypoint-variations-show-label": "true"
+                    },
+                    "enable_features": [
+                        "GlicEntrypointVariations"
+                    ]
+                },
+                {
+                    "name": "Arm4_LabelAndIcon",
+                    "params": {
+                        "glic-entrypoint-variations-alt-icon": "true",
+                        "glic-entrypoint-variations-highlight-nudge": "false",
+                        "glic-entrypoint-variations-show-label": "true"
+                    },
+                    "enable_features": [
+                        "GlicEntrypointVariations"
+                    ]
+                },
+                {
+                    "name": "Arm5_LabelAndIconAndHighlight",
+                    "params": {
+                        "glic-entrypoint-variations-alt-icon": "true",
+                        "glic-entrypoint-variations-highlight-nudge": "true",
+                        "glic-entrypoint-variations-show-label": "true"
+                    },
+                    "enable_features": [
+                        "GlicEntrypointVariations"
+                    ]
+                }
+            ]
+        }
+    ],
     "GlicExplicitBackgroundColor": [
         {
             "platforms": [
@@ -13778,6 +13862,42 @@
             ]
         }
     ],
+    "IOSTabResumptionShopCard": [
+        {
+            "platforms": [
+                "ios"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled_20251013",
+                    "params": {
+                        "ShopCardVariant": "arm_3"
+                    },
+                    "enable_features": [
+                        "TabResumptionShopCard"
+                    ]
+                },
+                {
+                    "name": "Enabled_20251013",
+                    "params": {
+                        "ShopCardVariant": "arm_4"
+                    },
+                    "enable_features": [
+                        "TabResumptionShopCard"
+                    ]
+                },
+                {
+                    "name": "Enabled_20251013",
+                    "params": {
+                        "ShopCardVariant": "arm_6"
+                    },
+                    "enable_features": [
+                        "TabResumptionShopCard"
+                    ]
+                }
+            ]
+        }
+    ],
     "IOSTabResumptionThumbnails": [
         {
             "platforms": [
@@ -15712,6 +15832,21 @@
             ]
         }
     ],
+    "MigrateAccountManagerDelegate": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "MigrateAccountManagerDelegate"
+                    ]
+                }
+            ]
+        }
+    ],
     "MigrateAccountPrefs": [
         {
             "platforms": [
@@ -16447,6 +16582,29 @@
                     },
                     "enable_features": [
                         "NtpSharepointModule"
+                    ]
+                }
+            ]
+        }
+    ],
+    "NtpRealboxNextDesktop": [
+        {
+            "platforms": [
+                "chromeos",
+                "chromeos_lacros",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "params": {
+                        "CyclingPlaceholders": "true",
+                        "RealboxLayoutMode": "TallBottomContext"
+                    },
+                    "enable_features": [
+                        "NtpRealboxNext"
                     ]
                 }
             ]
@@ -24332,6 +24490,24 @@
                     "name": "Enabled_20250728",
                     "enable_features": [
                         "StrictHighRankProcessLRU"
+                    ]
+                }
+            ]
+        }
+    ],
+    "StringWidthCache": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "StringWidthCache"
                     ]
                 }
             ]

@@ -10,21 +10,28 @@
  * #css_wrapper_metadata_end */
 
 #carousel {
-  padding-inline-start: var(--text-input-inline-start-spacing);
+  box-sizing: border-box;
   margin-bottom: 12px;
   margin-top: 13px;
+  padding-inline-end: var(--context-carousel-inline-end-spacing, 50px);
+  padding-inline-start: var(--context-carousel-inline-start-spacing, 50px);
 }
 
-#contextMenuContainer {
+.context-menu-container {
   align-items: center;
   display: flex;
   gap: 4px;
-  padding-inline-start: 8px;
+  padding-inline-start: 6px;
 }
 
 #contextEntrypoint {
   color: var(--color-searchbox-results-foreground);
   padding-inline-end: 8px;
+}
+
+#toolChipsContainer {
+  padding-top: 10px;
+  padding-inline-start: 16px;
 }
 
 #uploadContainer {

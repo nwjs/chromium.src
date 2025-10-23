@@ -2136,7 +2136,7 @@
 <translation id="4480760608050410381">‏فيديو MP4</translation>
 <translation id="448363931695049633">مطاعم بيتزا</translation>
 <translation id="4489023393592172404">‏ظرف Kaku 4</translation>
-<translation id="4489977488133295402">إثبات هويتك لملء بيانات طريقة الدفع تلقائيًا</translation>
+<translation id="4489977488133295402">إثبات هويتك لملء بيانات طرق الدفع تلقائيًا</translation>
 <translation id="4490717597759821841">A7</translation>
 <translation id="449126573531210296">‏ترميز كلمات المرور التي تمت مزامنتها باستخدام حسابك على Google</translation>
 <translation id="4493480324863638523">‏عنوان URL غير صحيح. يجب أن يحتوي عنوان URL على نظام عادي، مثل http://example.com أو https://example.com.</translation>
@@ -3655,7 +3655,6 @@
 <translation id="7020464868401003526">‏يتجاوز طول عنوان URL للاختصار الحدّ الأقصى المسموح به، وهو <ph name="MAX_LENGTH" /> حرف.</translation>
 <translation id="702275896380648118">‏يحدّد هذا الموقع الإلكتروني اهتماماتك، ثم يقدّم إلى المواقع الإلكترونية الأخرى اقتراحات عن الإعلانات ذات الصلة باهتماماتك. ويتعرّف أيضًا هذا الموقع الإلكتروني من خلال Chrome على مواضيع الإعلانات التي تهمّك، وذلك بهدف عرض إعلانات وثيقة الصلة باهتماماتك.</translation>
 <translation id="7023162328967545559">تحذير من المشرف</translation>
-<translation id="7023765275461720661">هل تريد ربط الحساب والدفع باستخدام <ph name="BNPL_ISSUER_NAME" />؟</translation>
 <translation id="7029809446516969842">كلمات المرور</translation>
 <translation id="7030164307377592766">تعديل الإعدادات لملء بيانات طُرق الدفع.</translation>
 <translation id="7031110846419387930">‏معلومات عن المتصفّح ونظام التشغيل والجهاز والبرامج المُثبَّتة والملفات وعناوين IP</translation>
@@ -3836,7 +3835,7 @@
 <translation id="7346062987309535530">أوعية لتناول الطعام</translation>
 <translation id="7346081071264046066">"الرد بنعم على دعوة الزفاف هذه بأسلوب حماسي"</translation>
 <translation id="7347640536700429009">الاسم المكتوب على البطاقة غير صالح</translation>
-<translation id="7352651011704765696">حدث خطأ ما</translation>
+<translation id="7352651011704765696">حدث خطأ</translation>
 <translation id="7353601530677266744">سطر الأوامر</translation>
 <translation id="7359588939039777303">تم حظر الإعلانات.</translation>
 <translation id="7360451453306104998">‏ستظهر لك عند الدفع أي خصومات متوفّرة بعد أن ترصدها Google.</translation>

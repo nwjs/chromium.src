@@ -24514,6 +24514,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileGeminiPromptSent">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy@google.com</owner>
+  <description>
+    Reported when the user sends a prompt in a Gemini session. This includes
+    both the first prompt and subsequent prompts in a conversation. iOS only.
+  </description>
+</action>
+
 <action name="MobileGeminiResponseReceived">
   <owner>kanouche@google.com</owner>
   <owner>bling-alchemy@google.com</owner>
@@ -46903,6 +46912,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="TabSwitcher.GroupSuggest">
+  <obsolete>
+    Switched to using enum histogram. See
+    &quot;GroupSuggestionService.SuggestionUiEvent&quot;.
+  </obsolete>
   <owner>mfiaz@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <description>

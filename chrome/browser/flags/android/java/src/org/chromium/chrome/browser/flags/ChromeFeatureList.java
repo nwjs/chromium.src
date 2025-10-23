@@ -738,7 +738,7 @@ public abstract class ChromeFeatureList {
     public static final CachedFlag sAndroidBottomToolbar =
             newCachedFlag(ANDROID_BOTTOM_TOOLBAR, true, true);
     public static final CachedFlag sAndroidBottomToolbarV2 =
-            newCachedFlag(ANDROID_BOTTOM_TOOLBAR_V2, false, false);
+            newCachedFlag(ANDROID_BOTTOM_TOOLBAR_V2, false, true);
     public static final CachedFlag sAndroidComposeplate =
             newCachedFlag(ANDROID_COMPOSEPLATE, false, true);
     public static final CachedFlag sAndroidDataImporterService =
@@ -1402,8 +1402,6 @@ public abstract class ChromeFeatureList {
     public static final BooleanCachedFeatureParam sAndroidThemeResourceProviderForceLight =
             newBooleanCachedFeatureParam(
                     ANDROID_THEME_RESOURCE_PROVIDER, "force_light_theme", false);
-    public static final BooleanCachedFeatureParam sCctAdaptiveButtonEnableOpenInBrowser =
-            newBooleanCachedFeatureParam(CCT_ADAPTIVE_BUTTON, "open_in_browser", false);
     public static final BooleanCachedFeatureParam sCctAdaptiveButtonEnableVoice =
             newBooleanCachedFeatureParam(CCT_ADAPTIVE_BUTTON, "voice", false);
     public static final BooleanCachedFeatureParam sCctAdaptiveButtonContextualOnly =
@@ -1443,6 +1441,10 @@ public abstract class ChromeFeatureList {
     public static final BooleanCachedFeatureParam sAndroidBottomToolbarDefaultToTop =
             newBooleanCachedFeatureParam(ANDROID_BOTTOM_TOOLBAR, "default_to_top", true);
 
+    public static final BooleanCachedFeatureParam
+            sAndroidBottomToolbarV2ForceBottomForFocusedOmnibox =
+                    newBooleanCachedFeatureParam(
+                            ANDROID_BOTTOM_TOOLBAR_V2, "force_bottom_for_focused_omnibox", false);
     public static final BooleanCachedFeatureParam
             sAndroidBottomToolbarV2ReverseOrderSuggestionsList =
                     newBooleanCachedFeatureParam(
@@ -1771,6 +1773,7 @@ public abstract class ChromeFeatureList {
                     sAndroidAppIntegrationMultiDataSourceSkipSchemaCheck,
                     sAndroidBookmarkBarShowBookmarkBar,
                     sAndroidBottomToolbarDefaultToTop,
+                    sAndroidBottomToolbarV2ForceBottomForFocusedOmnibox,
                     sAndroidBottomToolbarV2ReverseOrderSuggestionsList,
                     sAndroidComposeplateHideIncognitoButton,
                     sAndroidComposeplateSkipLocaleCheck,
@@ -1781,7 +1784,6 @@ public abstract class ChromeFeatureList {
                     sBatchTabRestoreBatchSize,
                     sCctAdaptiveButtonContextualOnly,
                     sCctAdaptiveButtonDefaultVariant,
-                    sCctAdaptiveButtonEnableOpenInBrowser,
                     sCctAdaptiveButtonEnableVoice,
                     sCctAuthTabEnableHttpsRedirectsVerificationTimeoutMs,
                     sCctAutoTranslateAllowAllFirstParties,
@@ -1864,8 +1866,6 @@ public abstract class ChromeFeatureList {
 
     public static final MutableBooleanParamWithSafeDefault sShowNewTabAnimationsLogs =
             sShowNewTabAnimations.newBooleanParam("logs", false);
-    public static final MutableBooleanParamWithSafeDefault sShowNewTabAnimationsListeners =
-            sShowNewTabAnimations.newBooleanParam("listeners", false);
 
     public static final MutableBooleanParamWithSafeDefault sAndroidTabHighlightingForceCtrlClick =
             sAndroidTabHighlighting.newBooleanParam("force_ctrl_click", false);

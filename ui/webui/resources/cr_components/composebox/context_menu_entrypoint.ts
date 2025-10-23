@@ -15,9 +15,8 @@ import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
-import type {PageHandlerRemote as SearchboxPageHandlerRemote, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
-import {ComposeboxProxyImpl} from './composebox_proxy.js';
 import {getCss} from './context_menu_entrypoint.css.js';
 import {getHtml} from './context_menu_entrypoint.html.js';
 
@@ -50,7 +49,17 @@ export class ContextMenuEntrypointElement extends
   static override get properties() {
     return {
       inputsDisabled: {type: Boolean},
+      fileNum: {type: Number},
       showContextMenuDescription: {type: Boolean},
+      inCreateImageMode: {
+        reflect: true,
+        type: Boolean,
+      },
+      hasImageFiles: {
+        reflect: true,
+        type: Boolean,
+      },
+      disabledTabIds: {type: Object},
       tabSuggestions_: {type: Array},
       tabPreviewUrl_: {type: String},
       tabPreviewsEnabled_: {type: Boolean},
@@ -58,41 +67,78 @@ export class ContextMenuEntrypointElement extends
         reflect: true,
         type: Boolean,
       },
+      showCreateImage_: {
+        reflect: true,
+        type: Boolean,
+      },
+      entrypointName: {type: String},
     };
   }
 
   accessor inputsDisabled: boolean = false;
+  accessor fileNum: number = 0;
   accessor showContextMenuDescription: boolean = false;
+  accessor inCreateImageMode: boolean = false;
+  accessor hasImageFiles: boolean = false;
+  accessor disabledTabIds: Set<number> = new Set();
+  accessor entrypointName: string = '';
   protected accessor tabSuggestions_: TabInfo[] = [];
   protected accessor tabPreviewUrl_: string = '';
-  protected accessor showDeepSearch_: boolean =
-      loadTimeData.getBoolean('composeboxShowDeepSearchButton');
   protected accessor tabPreviewsEnabled_: boolean =
       loadTimeData.getBoolean('composeboxShowContextMenuTabPreviews');
-
-  private searchboxHandler_: SearchboxPageHandlerRemote;
+  protected accessor showDeepSearch_: boolean =
+      loadTimeData.getBoolean('composeboxShowDeepSearchButton');
+  protected accessor showCreateImage_: boolean =
+      loadTimeData.getBoolean('composeboxShowCreateImageButton');
+  protected maxFileCount_: number =
+      loadTimeData.getInteger('composeboxFileMaxCount');
 
   constructor() {
     super();
-    this.searchboxHandler_ = ComposeboxProxyImpl.getInstance().searchboxHandler;
+  }
+
+  // Checks if the image upload item in the context menu should be disabled.
+  protected get imageUploadDisabled_(): boolean {
+    return this.fileNum >= this.maxFileCount_ ||
+        (this.inCreateImageMode && this.hasImageFiles);
+  }
+
+  // Checks if the file upload item in the context menu should be disabled.
+  protected get fileUploadDisabled_(): boolean {
+    return this.inCreateImageMode || this.fileNum >= this.maxFileCount_;
+  }
+
+  // Checks if the deep search item in the context menu should be disabled.
+  protected get deepSearchDisabled_(): boolean {
+    return this.inCreateImageMode || this.fileNum === 1 || this.fileNum > 1;
+  }
+
+  // Checks if the create image item in the context menu should be disabled.
+  protected get createImageDisabled_(): boolean {
+    return this.fileNum > 1 || ((this.fileNum === 1) && !this.hasImageFiles);
+  }
+
+  // Checks if a tab item in the context menu should be disabled.
+  protected isTabDisabled_(tab: TabInfo): boolean {
+    return this.inCreateImageMode || this.fileNum >= this.maxFileCount_ ||
+        this.disabledTabIds.has(tab.tabId);
   }
 
   protected onEntrypointClick_() {
-    this.fire('refresh-tab-suggestions', {
-      onRefreshComplete: (tabs: TabInfo[]) => {
-        this.tabSuggestions_ = tabs;
-        const entrypoint =
-            this.shadowRoot.querySelector<HTMLElement>('#entrypoint');
-        assert(entrypoint);
-        this.$.menu.showAt(entrypoint, {
-          top: entrypoint.getBoundingClientRect().bottom,
-          width: MENU_WIDTH_PX,
-          anchorAlignmentX: AnchorAlignment['AFTER_START'],
-        });
-      }});
+    const metricName =
+        'NewTabPage.' + this.entrypointName + '.ContextMenuEntry.Clicked';
+    chrome.metricsPrivate.recordBoolean(metricName, true);
+    const entrypoint =
+        this.shadowRoot.querySelector<HTMLElement>('#entrypoint');
+    assert(entrypoint);
+    this.$.menu.showAt(entrypoint, {
+      top: entrypoint.getBoundingClientRect().bottom,
+      width: MENU_WIDTH_PX,
+      anchorAlignmentX: AnchorAlignment['AFTER_START'],
+    });
   }
 
-  protected addTabContext(e: Event) {
+  protected addTabContext_(e: Event) {
     e.stopPropagation();
 
     const tabElement = e.currentTarget! as HTMLButtonElement;
@@ -108,7 +154,7 @@ export class ContextMenuEntrypointElement extends
     this.$.menu.close();
   }
 
-  protected async onTabPointerenter_(e: Event) {
+  protected onTabPointerenter_(e: Event) {
     if (!this.tabPreviewsEnabled_) {
       return;
     }
@@ -120,28 +166,35 @@ export class ContextMenuEntrypointElement extends
     // Clear the preview URL before fetching the new one to make sure an old
     // or incorrect preview doesn't show while the new one is loading.
     this.tabPreviewUrl_ = '';
-    const {previewDataUrl} =
-        await this.searchboxHandler_.getTabPreview(tabInfo.tabId);
-    this.tabPreviewUrl_ = previewDataUrl || '';
+    this.fire('get-tab-preview', {
+      tabId: tabInfo.tabId,
+      onPreviewFetched: (previewDataUrl: string) => {
+        this.tabPreviewUrl_ = previewDataUrl;
+      },
+    });
   }
 
-  protected shouldShowTabPreview(): boolean {
+  protected shouldShowTabPreview_(): boolean {
     return this.tabPreviewsEnabled_ && this.tabPreviewUrl_ !== '';
   }
 
-  protected openImageUpload() {
+  protected openImageUpload_() {
     this.fire('open-image-upload');
     this.$.menu.close();
   }
 
-  protected openFileUpload() {
+  protected openFileUpload_() {
     this.fire('open-file-upload');
     this.$.menu.close();
   }
 
   protected onDeepSearchClick_() {
-    this.inputsDisabled = !this.inputsDisabled;
     this.fire('deep-search-click');
+    this.$.menu.close();
+  }
+
+  protected onCreateImageClick_() {
+    this.fire('create-image-click');
     this.$.menu.close();
   }
 }

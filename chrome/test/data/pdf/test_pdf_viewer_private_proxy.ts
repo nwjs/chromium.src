@@ -12,7 +12,7 @@ import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 const SaveToDriveStatus = chrome.pdfViewerPrivate.SaveToDriveStatus;
 const SaveToDriveErrorType = chrome.pdfViewerPrivate.SaveToDriveErrorType;
 
-class TestPdfViewerPrivateProxy extends TestBrowserProxy implements
+export class TestPdfViewerPrivateProxy extends TestBrowserProxy implements
     PdfViewerPrivateProxy {
   onSaveToDriveProgress: FakeChromeEvent;
   private streamUrl_: string = '';
@@ -43,11 +43,12 @@ class TestPdfViewerPrivateProxy extends TestBrowserProxy implements
     this.streamUrl_ = streamUrl;
   }
 
-  sendQuotaExceededError(): void {
+  sendQuotaExceededError(accountIsManaged: boolean): void {
     this.sendSaveToDriveProgress({
       status: SaveToDriveStatus.UPLOAD_IN_PROGRESS,
       errorType: SaveToDriveErrorType.QUOTA_EXCEEDED,
       accountEmail: 'test@gmail.com',
+      accountIsManaged: accountIsManaged,
     });
   }
 

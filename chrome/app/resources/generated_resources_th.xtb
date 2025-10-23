@@ -1051,7 +1051,7 @@
 <translation id="1700201317341192482">นำบัตรเสมือนออก</translation>
 <translation id="1700517974991662022">เคยเข้าชม</translation>
 <translation id="1703331064825191675">ไม่ต้องกังวลเกี่ยวกับรหัสผ่านอีกต่อไป</translation>
-<translation id="1703666494654169921">ไม่อนุญาตให้เว็บไซต์ใช้อุปกรณ์หรือข้อมูล Virtual Reality</translation>
+<translation id="1703666494654169921">ไม่อนุญาตให้เว็บไซต์ใช้อุปกรณ์หรือข้อมูลเทคโนโลยีความจริงเสมือน (VR)</translation>
 <translation id="1704097193565924901">Capitalize</translation>
 <translation id="1704230497453185209">ไม่อนุญาตให้เว็บไซต์เล่นเสียง</translation>
 <translation id="1706586824377653884">เพิ่มโดยผู้ดูแลระบบ</translation>
@@ -3619,7 +3619,7 @@
 <translation id="3491171603443463516">กู้คืนข้อมูลในเครื่องได้หากคุณลืม PIN หรือรหัสผ่าน</translation>
 <translation id="3491616972057195633">Bounce Key</translation>
 <translation id="3491669675709357988">บัญชีของบุตรหลานยังไม่ได้ตั้งค่าสำหรับการควบคุมโดยผู้ปกครองของ Family Link คุณจะเพิ่มการควบคุมโดยผู้ปกครองได้เมื่อตั้งค่าเรียบร้อยแล้ว ดูข้อมูลเกี่ยวกับการควบคุมโดยผู้ปกครองได้ในแอปสำรวจ</translation>
-<translation id="3491678231052507920">โดยปกติแล้วเว็บไซต์จะใช้อุปกรณ์และข้อมูล Virtual Reality ของคุณเพื่ออนุญาตให้คุณเข้าสู่เซสชัน VR</translation>
+<translation id="3491678231052507920">โดยปกติแล้วเว็บไซต์จะใช้อุปกรณ์และข้อมูลเทคโนโลยีความจริงเสมือน (VR) ของคุณเพื่ออนุญาตให้คุณเข้าสู่เซสชัน VR</translation>
 <translation id="3493043608231401654">นำ <ph name="TAB_TITLE" /> ออกจากกลุ่มแท็บ</translation>
 <translation id="3493486281776271508">ต้องเชื่อมต่ออินเทอร์เน็ต</translation>
 <translation id="3493881266323043047">ความถูกต้อง</translation>
@@ -3868,6 +3868,7 @@
 <translation id="3656328935986149999">ความเร็วของเคอร์เซอร์</translation>
 <translation id="3656701180077048004">เพิ่มการหน่วงเวลาระหว่างที่คุณกดปุ่มกับเมื่อปุ่มเปิดใช้งาน</translation>
 <translation id="3658871634334445293">การเร่งความเร็วของ TrackPoint</translation>
+<translation id="3659483399659250379">เพิ่มแท็บและอื่นๆ</translation>
 <translation id="3659929705630080526">คุณป้อนรหัสการเข้าถึงไม่ถูกต้องหลายครั้งเกินไป ลองอีกครั้งในภายหลัง</translation>
 <translation id="3661106764436337772">เขียนได้เร็วขึ้นและมั่นใจมากขึ้น</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{มีรหัสผ่านอยู่ 1 รายการ}other{มีรหัสผ่านอยู่ {NUM_PASSWORDS} รายการ}}</translation>
@@ -3997,7 +3998,6 @@
 <translation id="3735039640698208086">เมื่อเล่นเสียง...</translation>
 <translation id="3735740477244556633">จัดเรียงตาม</translation>
 <translation id="3735827758948958091">ไม่สามารถเปิด <ph name="FILE_NAMES" /> ขณะใช้การเชื่อมต่อแบบจำกัดปริมาณอินเทอร์เน็ต</translation>
-<translation id="3736575924150462398">เพิ่มแท็บหรืออื่นๆ</translation>
 <translation id="3737058101969549870">แยกข้อมูลการท่องเว็บที่มีอยู่ออกจากโปรไฟล์ใหม่นี้ไหม</translation>
 <translation id="3738632186060045350">ระบบจะลบข้อมูลของ <ph name="DEVICE_TYPE" /> ใน 24 ชั่วโมง</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
@@ -4627,6 +4627,7 @@
 <translation id="4151503145138736576">ไม่มีพื้นที่เก็บข้อมูลออฟไลน์ให้ล้าง</translation>
 <translation id="4152011295694446843">คุณจะเห็นบุ๊กมาร์กที่นี่</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 แท็บ}other{# แท็บ}}</translation>
+<translation id="4153858337812834972">แท็บล่าสุด</translation>
 <translation id="4154658846204884961">ดาวหาง</translation>
 <translation id="4154664944169082762">ลายนิ้วมือ</translation>
 <translation id="4156297721709710037"><ph name="WINDOW_TITLE" /> - มุมมองด้านซ้าย</translation>
@@ -5776,7 +5777,7 @@
 <translation id="4971412780836297815">เปิดเมื่อเสร็จสิ้น</translation>
 <translation id="4972129977812092092">แก้ไขเครื่องพิมพ์</translation>
 <translation id="4972164225939028131">รหัสผ่านไม่ถูกต้อง</translation>
-<translation id="4972737347717125191">เว็บไซต์ขอใช้อุปกรณ์และข้อมูล Virtual Reality ได้</translation>
+<translation id="4972737347717125191">เว็บไซต์ขอใช้อุปกรณ์และข้อมูลเทคโนโลยีความจริงเสมือน (VR) ได้</translation>
 <translation id="4973325300212422370">{NUM_TABS,plural, =1{ปิดเสียงเว็บไซต์}other{ปิดเสียงเว็บไซต์}}</translation>
 <translation id="497403230787583386">ตรวจสอบความปลอดภัยเสร็จแล้ว ระบบจะพิมพ์เอกสารของคุณ</translation>
 <translation id="4975543297921324897">แบบอักษรที่มีความกว้างอักษรขนาดเดียว</translation>
@@ -7760,6 +7761,7 @@
 <translation id="6391131092053186625">IMEI ของอุปกรณ์คือ <ph name="IMEI_NUMBER" /> คุณใช้หมายเลขนี้เพื่อช่วยเปิดใช้งานบริการได้</translation>
 <translation id="6393156038355142111">แนะนำรหัสผ่านที่รัดกุม</translation>
 <translation id="6393550101331051049">ได้รับอนุญาตให้แสดงเนื้อหาที่ไม่ปลอดภัย</translation>
+<translation id="6394634179843537518">เพิ่มไฟล์</translation>
 <translation id="6395423953133416962">ส่ง<ph name="BEGIN_LINK1" />ข้อมูลระบบ<ph name="END_LINK1" />และ<ph name="BEGIN_LINK2" />เมตริก<ph name="END_LINK2" /></translation>
 <translation id="6397586889873084061">ใช่ แยกข้อมูลของฉันออกจากข้อมูลโรงเรียน (แนะนำ)</translation>
 <translation id="6398715114293939307">นำ Google Play Store ออก</translation>
@@ -9296,7 +9298,6 @@
 <translation id="747114903913869239">ข้อผิดพลาด: ไม่สามารถถอดรหัสส่วนขยาย</translation>
 <translation id="7471520329163184433">ช้าลง</translation>
 <translation id="747312361841682912">ลบข้อมูลที่แสดง</translation>
-<translation id="7473555040328423550">เพิ่มแท็บ</translation>
 <translation id="7473891865547856676">ไม่เป็นไร</translation>
 <translation id="7474043404939621342">ปรับแต่งแถบเครื่องมือ</translation>
 <translation id="747459581954555080">คืนค่าทั้งหมด</translation>
@@ -11874,7 +11875,6 @@
 <translation id="9215293857209265904">เพิ่ม "<ph name="EXTENSION_NAME" />" แล้ว</translation>
 <translation id="9215742531438648683">ถอนการติดตั้ง Google Play Store</translation>
 <translation id="9218430445555521422">ตั้งเป็นค่าเริ่มต้น</translation>
-<translation id="9218536722110863203">อัปโหลดไฟล์</translation>
 <translation id="9218842937876577955"><ph name="APP_NAME" /> (แอปที่ไม่รองรับ)</translation>
 <translation id="9219572436491982747">เจ้าหน้าที่ตรวจสอบอาจเห็นข้อมูลที่ส่งไปยัง Google เพื่อนำไปใช้ปรับปรุงเทคโนโลยี AI ของ Chrome</translation>
 <translation id="9219741625496141320">มีการลบข้อมูลการท่องเว็บโดยอัตโนมัติ</translation>

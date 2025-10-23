@@ -213,6 +213,17 @@ public class MiniOriginBarControllerTest {
     }
 
     @Test
+    public void testFormFieldFocusWithOmniboxFocused() {
+        doReturn(ControlsPosition.BOTTOM).when(mBrowserControlsSizer).getControlsPosition();
+        mMiniOriginBarController.onControlsPositionChanged(ControlsPosition.BOTTOM);
+        mKeyboardVisibilityDelegate.setVisibilityForTests(true);
+        mOmniboxFocused = true;
+        mIsFormFieldFocused.onNodeAttributeUpdated(true, false);
+        Assert.assertEquals(
+                MiniOriginState.NOT_READY, mMiniOriginBarController.getCurrentStateForTesting());
+    }
+
+    @Test
     public void testAnimateWithKeyboard_notReadyForAnimation() {
         doReturn(ControlsPosition.BOTTOM).when(mBrowserControlsSizer).getControlsPosition();
         mMiniOriginBarController.onControlsPositionChanged(ControlsPosition.BOTTOM);
@@ -581,6 +592,18 @@ public class MiniOriginBarControllerTest {
         animationListener.onPrepare(mImeAnimation);
         mKeyboardVisibilityDelegate.setVisibilityForTests(true);
         verify(mLocationBar, never()).setShowOriginOnly(anyBoolean());
+    }
+
+    @Test
+    public void testOmniboxFocusCausesPositionChangeToBottom() {
+        mIsFormFieldFocused.onNodeAttributeUpdated(true, false);
+        mKeyboardVisibilityDelegate.setVisibilityForTests(true);
+        mOmniboxFocused = true;
+        doReturn(ControlsPosition.BOTTOM).when(mBrowserControlsSizer).getControlsPosition();
+        mMiniOriginBarController.onControlsPositionChanged(ControlsPosition.BOTTOM);
+
+        Assert.assertEquals(
+                MiniOriginState.NOT_READY, mMiniOriginBarController.getCurrentStateForTesting());
     }
 
     @Test

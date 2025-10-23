@@ -273,7 +273,9 @@ void LensOverlayController::CloseUI(
   // it gets cleaned up to prevent dangling ptrs. This needs to be done even
   // when the overlay state is kOff because the overlay may have been used for
   // contextual suggestions.
-  lens_overlay_query_controller_->ResetPageContentData();
+  if (lens_overlay_query_controller_) {
+    lens_overlay_query_controller_->ResetPageContentData();
+  }
   lens_overlay_query_controller_ = nullptr;
 
   if (state_ == State::kOff) {
@@ -350,6 +352,7 @@ void LensOverlayController::CloseUI(
 
   lens_selection_type_ = lens::UNKNOWN_SELECTION_TYPE;
 
+  NotifyIsOverlayShowing(false);
   state_ = State::kOff;
 
   // Update the entrypoints now that the controller is closed.
@@ -829,7 +832,7 @@ void LensOverlayController::ShowUI(
   // Grab reference to the side panel coordinator it not already done so.
   if (!results_side_panel_coordinator_) {
     results_side_panel_coordinator_ =
-        lens_search_controller_->lens_overlay_side_panel_coordinator();
+        GetLensOverlaySidePanelCoordinator();
   }
 
   Profile* profile =
@@ -1498,6 +1501,7 @@ void LensOverlayController::ShowOverlay() {
   auto* contents_web_view = tab_->GetBrowserWindowInterface()->GetWebView();
   CHECK(contents_web_view);
 
+  NotifyIsOverlayShowing(true);
   // If the view already exists, we just need to reshow it.
   if (overlay_view_) {
     // Restore the state to show the overlay.
@@ -1581,7 +1585,8 @@ void LensOverlayController::MaybeHideSharedOverlayView() {
 }
 
 void LensOverlayController::MaybeOpenSidePanel() {
-  results_side_panel_coordinator_->RegisterEntryAndShow();
+  GetLensOverlaySidePanelCoordinator()
+      ->RegisterEntryAndShow();
 }
 
 void LensOverlayController::InitializeOverlay(
@@ -1631,16 +1636,22 @@ void LensOverlayController::InitializeOverlay(
             live_page_widget_host);
   }
 
-  state_ = State::kOverlay;
+  const bool is_side_panel_open =
+      GetLensOverlaySidePanelCoordinator()
+          ->IsEntryShowing();
+  // TODO(crbug.com/450638028): Stop using kOverlayAndResults now that overlay
+  // controller should be separated from the side panel.
+  state_ = is_side_panel_open ? State::kOverlayAndResults : State::kOverlay;
   lens_search_controller_->NotifyOverlayOpened();
 
   // Update the entry points state to ensure that the entry points are disabled
   // now that the overlay is showing.
   UpdateEntryPointsState();
 
-  // Only start the query flow again if we don't already have a full image
-  // response, unless the early start query flow optimization is enabled.
-  if (!initialization_data_->has_full_image_response()) {
+  // Only start the query flow again if there is no full image response and the
+  // side panel is not open. The side panel being open indicates that a full
+  // image response could have been received and not passed to the overlay.
+  if (lens_overlay_query_controller_->IsOff()) {
     if (!GetContextualizationController()->GetCurrentPageContextEligibility()) {
       initialization_data_->initial_screenshot_ = SkBitmap();
       initialization_data_->page_url_ = GURL();
@@ -2035,13 +2046,8 @@ void LensOverlayController::RenderProcessExited(
 void LensOverlayController::TabForegrounded(tabs::TabInterface* tab) {
   // Ignore the event if the overlay is not backgrounded.
   if (state_ != State::kBackground) {
-    // TODO(crbug.com/404941800): This is a temporary DCHECK. This should be a
-    // CHECK and the if statement above should be removed once the root cause
-    // causing the CHECK(state_ == State::kBackground) to fail is found and
-    // fixed.
-    DCHECK(state_ == State::kBackground)
-        << "State should be kBackground but is instead "
-        << static_cast<int>(state_);
+    // If the side panel is open without the overlay, exit early to avoid
+    // showing the overlay.
     return;
   }
 
@@ -2486,9 +2492,11 @@ void LensOverlayController::HandleStartQueryResponse(
 void LensOverlayController::HandleInteractionURLResponse(
     lens::proto::LensOverlayUrlResponse response) {
   MaybeOpenSidePanel();
-  results_side_panel_coordinator_->SetLatestPageUrlWithResponse(
+  auto* results_side_panel_coordinator =
+      GetLensOverlaySidePanelCoordinator();
+  results_side_panel_coordinator->SetLatestPageUrlWithResponse(
       GURL(response.page_url()));
-  results_side_panel_coordinator_->LoadURLInResultsFrame(GURL(response.url()));
+  results_side_panel_coordinator->LoadURLInResultsFrame(GURL(response.url()));
 }
 
 void LensOverlayController::HandleInteractionResponse(
@@ -2552,6 +2560,8 @@ void LensOverlayController::HideOverlay() {
   }
   SetLiveBlur(false);
   HidePreselectionBubble();
+
+  NotifyIsOverlayShowing(false);
 }
 
 void LensOverlayController::HideOverlayAndMaybeSetHiddenState() {
@@ -2561,7 +2571,7 @@ void LensOverlayController::HideOverlayAndMaybeSetHiddenState() {
   }
 
   // If the side panel is open, set the overlay state to kHidden.
-  if (results_side_panel_coordinator_->IsSidePanelBound()) {
+  if (state_ == State::kOverlayAndResults) {
     state_ = State::kHidden;
   }
 }
@@ -2787,6 +2797,12 @@ void LensOverlayController::UpdateEntryPointsState() {
           /*hide_toolbar_entrypoint=*/false);
 }
 
+void LensOverlayController::NotifyIsOverlayShowing(bool is_showing) {
+  if (results_side_panel_coordinator_) {
+    results_side_panel_coordinator_->SetIsOverlayShowing(is_showing);
+  }
+}
+
 void LensOverlayController::OnPdfPartialPageTextRetrieved(
     std::vector<std::u16string> pdf_pages_text) {
   initialization_data_->pdf_pages_text_ = std::move(pdf_pages_text);
@@ -2817,7 +2833,7 @@ void LensOverlayController::OnPageContextUpdatedForSuggestion(
   // side panel.
   if (!results_side_panel_coordinator_) {
     results_side_panel_coordinator_ =
-        lens_search_controller_->lens_overlay_side_panel_coordinator();
+        GetLensOverlaySidePanelCoordinator();
   }
 
   CHECK(lens_overlay_query_controller_);
@@ -2896,6 +2912,11 @@ void LensOverlayController::ReshowOverlayPart3(const SkBitmap& rgb_screenshot) {
 lens::LensSearchboxController*
 LensOverlayController::GetLensSearchboxController() {
   return lens_search_controller_->lens_searchbox_controller();
+}
+
+lens::LensOverlaySidePanelCoordinator*
+LensOverlayController::GetLensOverlaySidePanelCoordinator() {
+  return lens_search_controller_->lens_overlay_side_panel_coordinator();
 }
 
 lens::LensSearchContextualizationController*

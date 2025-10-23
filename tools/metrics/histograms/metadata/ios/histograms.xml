@@ -2063,7 +2063,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.FirstRun.BestFeatures.MainScreen.Action"
-    enum="IOSBestFeaturesMainScreenActionType" expires_after="2025-10-26">
+    enum="IOSBestFeaturesMainScreenActionType" expires_after="2026-04-08">
   <owner>hiramahmood@google.com</owner>
   <owner>bling-pandamonium@google.com</owner>
   <summary>
@@ -2073,7 +2073,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.FirstRun.BestFeatures.{FeatureName}.Action"
-    enum="IOSBestFeaturesDetailScreenActionType" expires_after="2025-10-26">
+    enum="IOSBestFeaturesDetailScreenActionType" expires_after="2026-04-08">
   <owner>hiramahmood@google.com</owner>
   <owner>bling-pandamonium@google.com</owner>
   <summary>
@@ -5438,6 +5438,17 @@ chromium-metrics-reviews@google.com.
     This histogram is logged when the user performs the respective action on the
     passwords conflict page. Pertentages of the total count are NOT meaningful
     since actions are not mutually exclusive.
+  </summary>
+</histogram>
+
+<histogram name="IOS.SafariImport.Import.TapBackOnStage"
+    enum="SafariDataImportStage" expires_after="2026-03-29">
+  <owner>ginnyhuang@chromium.org</owner>
+  <owner>bling-pandamonium@google.com</owner>
+  <summary>
+    Logs the import stage when the user taps the &quot;back&quot; button import
+    screen. Should only be applicable for &quot;not started&quot; and
+    &quot;ready to import&quot; stages.
   </summary>
 </histogram>
 

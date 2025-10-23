@@ -817,7 +817,7 @@
 <translation id="1552752544932680961">נהל תוספים</translation>
 <translation id="1553538517812678578">לא מוגבל</translation>
 <translation id="1553947773881524342">‏<ph name="LINK_BEGIN" />מידע נוסף<ph name="LINK_END" /> על Microsoft 365 ב-Chromebook.</translation>
-<translation id="1554640914375980459">המסך יהבהב כשיתקבלו התראות. אם יש לכם רגישות לאור, כדאי להשתמש בהתראות ההבהוב בזהירות.</translation>
+<translation id="1554640914375980459">המסך יהבהב כשיתקבלו התראות. אם יש לכם רגישות לאור, לא בטוח שהתכונה הזאת מתאימה לכם.</translation>
 <translation id="1555130319947370107">כחול</translation>
 <translation id="1556127816860282890">פעילות ברקע ואפקטים חזותיים מסוימים, כמו גלילה חלקה, עשויים להיות מוגבלים</translation>
 <translation id="1556537182262721003">לא היתה אפשרות להעביר ספריית תוספים לפרופיל.</translation>
@@ -3271,7 +3271,7 @@
 <translation id="3239373508713281971">מגבלת הזמן של <ph name="APP_NAME" /> הוסרה</translation>
 <translation id="3240299564104448052">נראה שאין חיבור לאינטרנט.</translation>
 <translation id="3240426699337459095">הקישור הועתק</translation>
-<translation id="3240718227457961717">‏כדי לקבל את הכרטיסיות מהמכשירים האחרים שלך, צריך לסנכרן את ההיסטוריה ואת הכרטיסיות עם <ph name="ACCOUNT_EMAIL" />. בהגדרות אפשר תמיד להפסיק את הסנכרון. ‫Google עשויה להתאים אישית את החיפוש ושירותים נוספים על סמך ההיסטוריה שלך.</translation>
+<translation id="3240718227457961717">‏כדי לראות כרטיסיות מהמכשירים האחרים שלך, צריך לסנכרן את ההיסטוריה ואת הכרטיסיות עם <ph name="ACCOUNT_EMAIL" />. בהגדרות אפשר תמיד להפסיק את הסנכרון. ‫Google עשויה להתאים אישית את החיפוש ושירותים נוספים על סמך ההיסטוריה שלך.</translation>
 <translation id="3241638166094654466">תאים בכל שורה:</translation>
 <translation id="3241680850019875542">יש לבחור את ספריית הבסיס של התוסף שיש לארוז. כדי לעדכן תוסף, יש לבחור גם את קובץ המפתח הפרטי שבו ניתן להשתמש שוב.</translation>
 <translation id="3241810535741601486">השינוי הזה הוא קבוע ואי אפשר לבטל אותו. העדכונים המורחבים יחולו על כל המשתמשים במכשיר הזה. <ph name="LINK_START" />מידע נוסף<ph name="LINK_END" /></translation>
@@ -3882,6 +3882,7 @@
 <translation id="3656328935986149999">מהירות הסמן</translation>
 <translation id="3656701180077048004">הוספת השהיה בין הלחיצה על מקש לבין ההפעלה שלו</translation>
 <translation id="3658871634334445293">‏האצה של TrackPoint</translation>
+<translation id="3659483399659250379">הוספת כרטיסייה ועוד</translation>
 <translation id="3659929705630080526">הזנת קוד גישה שגוי יותר מדי פעמים. עליך לנסות שוב מאוחר יותר</translation>
 <translation id="3661106764436337772">לכתוב מהר יותר ועם יותר ביטחון</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{נמצאה סיסמה אחת קיימת}one{נמצאו {NUM_PASSWORDS} סיסמאות קיימות}two{נמצאו {NUM_PASSWORDS} סיסמאות קיימות}other{נמצאו {NUM_PASSWORDS} סיסמאות קיימות}}</translation>
@@ -4011,7 +4012,6 @@
 <translation id="3735039640698208086">בהשמעת אודיו...</translation>
 <translation id="3735740477244556633">מיון לפי</translation>
 <translation id="3735827758948958091">לא ניתן לפתוח את הקובץ <ph name="FILE_NAMES" /> במהלך חיבור עם חיוב לפי שימוש בנתונים</translation>
-<translation id="3736575924150462398">הוספת כרטיסיות ועוד</translation>
 <translation id="3737058101969549870">לשמור את נתוני הגלישה הקיימים בנפרד מהפרופיל החדש?</translation>
 <translation id="3738632186060045350">הנתונים של <ph name="DEVICE_TYPE" /> יימחקו בתוך 24 שעות</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
@@ -4641,6 +4641,7 @@
 <translation id="4151503145138736576">אין אחסון אופליין לניקוי</translation>
 <translation id="4152011295694446843">הסימניות זמינות כאן</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{כרטיסייה אחת}one{# כרטיסיות}two{# כרטיסיות}other{# כרטיסיות}}</translation>
+<translation id="4153858337812834972">הכרטיסיות האחרונות</translation>
 <translation id="4154658846204884961">כוכב שביט</translation>
 <translation id="4154664944169082762">טביעות אצבע</translation>
 <translation id="4156297721709710037">‫<ph name="WINDOW_TITLE" /> – תצוגה ימנית</translation>
@@ -6288,7 +6289,7 @@
 <translation id="5327248766486351172">שם</translation>
 <translation id="5327570636534774768">המכשיר הזה מסומן כמנוהל על ידי דומיין אחר. צריך לבטל את ניהול התצורה שלו מהדומיין הזה לפני ההגדרה של מצב ההדגמה.</translation>
 <translation id="5327912693242073631">תכונות שצריכות התראות לא יפעלו</translation>
-<translation id="5328551442597731838">רוצה לראות כרטיסיות ממכשירים אחרים?</translation>
+<translation id="5328551442597731838">כרטיסיות ממכשירים אחרים</translation>
 <translation id="532943162177641444">יש ללחוץ על ההודעה בטלפון <ph name="PHONE_NAME" /> כדי להגדיר את הנקודה לשיתוף אינטרנט בנייד שבה המכשיר הזה יכול להשתמש.</translation>
 <translation id="5329858601952122676">&amp;מחיקה</translation>
 <translation id="5331568967879689647">‏אפליקציית מערכת של ChromeOS</translation>
@@ -7623,7 +7624,7 @@
 <translation id="6274089201566806618">מתבצע חיבור אל <ph name="HOST_DEVICE_NAME" /></translation>
 <translation id="6274108044476515407">‏יוצגו מודעות עם או בלי התאמה אישית בהתאם להגדרה הזו, ל<ph name="BEGIN_LINK1" />מודעות שאתרים מציעים<ph name="LINK_END1" />, ל<ph name="BEGIN_LINK2" />הגדרות קובצי ה-Cookie<ph name="LINK_END2" />, למצב ההתאמה האישית של מודעות באתר (פעילה או מושבתת) ולגורמים נוספים. <ph name="BEGIN_LINK3" />מידע נוסף על קביעת ההגדרות לפרטיות בפרסום<ph name="LINK_END3" /></translation>
 <translation id="6274202259872570803">הקלטת מסך</translation>
-<translation id="627581157848786026">רוצה לראות כרטיסיות ממכשירים אחרים?</translation>
+<translation id="627581157848786026">כרטיסיות ממכשירים אחרים</translation>
 <translation id="6276210637549544171">‏לשרת ה-proxy ‏<ph name="PROXY_SERVER" /> נדרשים שם משתמש וסיסמה.</translation>
 <translation id="6277105963844135994">תם הזמן הקצוב לתפוגה של הרשת</translation>
 <translation id="6277518330158259200">צ&amp;ילום מסך</translation>
@@ -7780,6 +7781,7 @@
 <translation id="6391131092053186625">‏ה-IMEI של המכשיר הוא <ph name="IMEI_NUMBER" />. המספר הזה יכול לשמש להפעלת השירות.</translation>
 <translation id="6393156038355142111">הצעת סיסמה חזקה</translation>
 <translation id="6393550101331051049">מורשים להציג תוכן לא מאובטח</translation>
+<translation id="6394634179843537518">הוספה של קובץ</translation>
 <translation id="6395423953133416962">שליחת <ph name="BEGIN_LINK1" />פרטי מערכת<ph name="END_LINK1" /> ו<ph name="BEGIN_LINK2" />ערכים<ph name="END_LINK2" /></translation>
 <translation id="6397586889873084061">כן, אני רוצה לשמור את הנתונים שלי בנפרד מפרופיל בית הספר (מומלץ)</translation>
 <translation id="6398715114293939307">‏הסרה של חנות Google Play</translation>
@@ -8663,7 +8665,7 @@
 <translation id="7001066449188684145">נדרש מזהה להדפסה ב-<ph name="PRINTER_NAME" />. צריך לפנות למנהל המערכת.</translation>
 <translation id="7001397294201412227">שימוש בטלפון, בטאבלט או במפתח אבטחה</translation>
 <translation id="7001556399332161712">חיפוש והצעות</translation>
-<translation id="7001809623433867903">למחוק את הסימניות?</translation>
+<translation id="7001809623433867903">לארגן את הסימניות?</translation>
 <translation id="7003339318920871147">מסדי נתונים באינטרנט</translation>
 <translation id="7003454175711353260">{COUNT,plural, =1{קובץ אחד ({COUNT})}one{{COUNT} קבצים}two{{COUNT} קבצים}other{{COUNT} קבצים}}</translation>
 <translation id="7003644704445046755">הורדת קובצי קול באיכות גבוהה <ph name="LANGUAGE" /></translation>
@@ -9321,7 +9323,6 @@
 <translation id="747114903913869239">שגיאה: לא ניתן לפענח תוסף</translation>
 <translation id="7471520329163184433">איטי יותר</translation>
 <translation id="747312361841682912">מחיקת הנתונים המוצגים</translation>
-<translation id="7473555040328423550">הוספת כרטיסייה</translation>
 <translation id="7473891865547856676">לא, תודה</translation>
 <translation id="7474043404939621342">עריכת סרגל הכלים</translation>
 <translation id="747459581954555080">שחזור הכול</translation>
@@ -11903,7 +11904,6 @@
 <translation id="9215293857209265904">"<ph name="EXTENSION_NAME" />" נוסף</translation>
 <translation id="9215742531438648683">‏הסרה של 'חנות Google Play'</translation>
 <translation id="9218430445555521422">הגדרה כברירת מחדל</translation>
-<translation id="9218536722110863203">העלאת קובץ</translation>
 <translation id="9218842937876577955"><ph name="APP_NAME" /> (האפליקציה לא נתמכת)</translation>
 <translation id="9219572436491982747">‏יכול להיות שבודקים אנושיים יראו את הנתונים שנשלחים אל Google כדי לשפר את טכנולוגיית ה-AI של Chrome</translation>
 <translation id="9219741625496141320">נתוני הגלישה נמחקו באופן אוטומטי</translation>

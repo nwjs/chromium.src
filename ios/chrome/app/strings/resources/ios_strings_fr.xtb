@@ -59,7 +59,7 @@
 <translation id="1207493287814084192">17:30</translation>
 <translation id="1217294226280635614">Vue fractionnée</translation>
 <translation id="1219674500290482172">Impossible de se connecter à Internet.</translation>
-<translation id="1223498995510244364">Résumer</translation>
+<translation id="1223498995510244364">Obtenez un résumé</translation>
 <translation id="1227113644794103810">Onglets inactifs</translation>
 <translation id="1231733316453485619">Activer la synchronisation ?</translation>
 <translation id="1253032109800629289">Masquer "Recevoir des notifications de suivi des prix"</translation>
@@ -880,7 +880,7 @@ Lisez les instructions du moteur de recherche pour supprimer l'historique de vos
 <translation id="446314443268698477">Achetez, traduisez et identifiez ce que vous voyez à l'aide de votre appareil photo ou de vos photos.</translation>
 <translation id="4469324811108161144">Les notes peuvent contenir jusqu'à <ph name="CHARACTER_LIMIT" /> caractères.</translation>
 <translation id="4471472356135655769">Impossible d'exporter les mots de passe</translation>
-<translation id="4472575034687746823">Premiers pas</translation>
+<translation id="4472575034687746823">Commencer</translation>
 <translation id="4473608001744970767">Masquer "Suivre le prix"</translation>
 <translation id="4474142134969976028">Aucun résultat</translation>
 <translation id="4474494258097106883">Conçu pour votre iPhone</translation>
@@ -1164,7 +1164,7 @@ Handoff doit également être activé dans la section "Général" des paramètre
 <translation id="555749644339804659">Vérif. des mots de passe…</translation>
 <translation id="5559567453458728487">Convertir les unités de mesure trouvées sur le Web</translation>
 <translation id="556042886152191864">Bouton</translation>
-<translation id="5565871407246142825">Cartes de paiement</translation>
+<translation id="5565871407246142825">Cartes de crédit</translation>
 <translation id="5567439033041178034">EN SAVOIR PLUS</translation>
 <translation id="5572648434713976849">Vous obtiendrez des suggestions améliorées dans la barre d'adresse</translation>
 <translation id="5578795271662203820">Rechercher l'image sur <ph name="SEARCH_ENGINE" /></translation>

@@ -526,7 +526,7 @@ Arama motorunuz <ph name="DSE_NAME" />. Arama geçmişinizi silmek için arama m
 <translation id="3010025794097054078">Veri ihlallerine, güvenli olmayan web sitelerine ve diğer tehditlere karşı güvende kalın.</translation>
 <translation id="301080557829842765">Gizlilik kılavuzu</translation>
 <translation id="3012310354105716927">Bazı veriler henüz kaydedilmedi</translation>
-<translation id="3013922155552460252">Sohbetleriniz, geri bildirimleriniz ve istemleriniz gibi Gemini Etkinliği'ni görüntüleyip yönetin</translation>
+<translation id="3013922155552460252">Sohbetleriniz, geri bildirimleriniz ve istemleriniz gibi Gemini etkinliklerini görüntüleyip yönetin</translation>
 <translation id="3016518775797983090">Sayfa paylaşılamıyor</translation>
 <translation id="3020183492814296499">Kısayollar</translation>
 <translation id="3021342271734507256">Aramak için ekranınızdaki herhangi bir öğeyi daire içine alın, vurgulayın veya öğeye dokunun.</translation>
@@ -720,7 +720,7 @@ Arama geçmişinizi silmek için arama motorunuzun bununla ilgili talimatların�
 <translation id="3850952228519377137">"Sekmelerinizdeki fiyatları takip edin" seçeneğini gizle</translation>
 <translation id="3851938967634752633"><ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" /> ve <ph name="NUMBER_OF_ACCOUNTS" /> sitenin daha şifresi silinecek. Hesaplarınız silinmeyecek.</translation>
 <translation id="3853162385423733133">Şifreleri Google Hesabınızda (<ph name="EMAIL" />) kullanmaya ve kaydetmeye devam edin</translation>
-<translation id="3853873210696342070">İçe aktarın</translation>
+<translation id="3853873210696342070">İçe aktar</translation>
 <translation id="3857113360369572832"><ph name="BEGIN_BOLD" />Safari Ayarları<ph name="END_BOLD" />'nı açın</translation>
 <translation id="3858860766373142691">Ad</translation>
 <translation id="3868495844258915202">Tam URL'yi göster</translation>
@@ -1155,7 +1155,7 @@ Arama geçmişinizi silmek için arama motorunuzun bununla ilgili talimatların�
 <translation id="5524590039848017563">Daraltılmış birincil araç çubuğu düğmesi</translation>
 <translation id="553151287733286479">{COUNT,plural, =1{{COUNT} zayıf şifre}other{{COUNT} zayıf şifre}}</translation>
 <translation id="5532545557415295622">Boşta kalma zaman aşımı iletişim kutusu</translation>
-<translation id="5547868626772433490">Gemini'a sorun</translation>
+<translation id="5547868626772433490">Gemini'a Sorun</translation>
 <translation id="5548760955356983418">Handoff, web sitelerine göz atmaya bu cihazda başlamanıza ve sonra kolayca Mac'te devam etmenize olanak sağlar. Geçerli olarak açık olan web sitesi Mac bilgisayarınızın Dock bölümünde görünür.
 
 Handoff'un ayrıca, Ayarlar'ın Genel bölümünde de etkinleştirilmesi ve cihazlarınızın aynı iCloud hesabını kullanması gerekir.</translation>
@@ -1241,7 +1241,7 @@ Handoff'un ayrıca, Ayarlar'ın Genel bölümünde de etkinleştirilmesi ve ciha
 <translation id="5803566855766646066">Bu yeni kartı silmek istediğinizden emin misiniz?</translation>
 <translation id="5804012843049740908">Chrome'dan en iyi şekilde yararlanmanıza yardımcı olacak kurulum ipuçları</translation>
 <translation id="5804241973901381774">İzinler</translation>
-<translation id="58081802114142635">Etkinlikleriniz, Google'ın Yapay Zekası'nı daha iyi hale getirir</translation>
+<translation id="58081802114142635">Etkinlikleriniz, Google AI'ı daha iyi hale getirir</translation>
 <translation id="5813223718099710537">Bu özelliği kullandığınızda sayfa içeriği ve URL'ler Google'a gönderilir. Bu özelliği ayarlarda istediğiniz zaman kapatabilirsiniz.</translation>
 <translation id="5817176759448082654">Şifre Güvenliği</translation>
 <translation id="5818161931099046557">Google Hesabı'nda düzenle</translation>
@@ -2129,7 +2129,7 @@ Handoff'un ayrıca, Ayarlar'ın Genel bölümünde de etkinleştirilmesi ve ciha
 <translation id="9066097352053395362">Yer İşaretini Düzenle Seçeneğini Gizle</translation>
 <translation id="9070824521421603770">Oturumunuz ve sekmeler kapatılacak</translation>
 <translation id="9072837124205571418">Tüm cihazlardaki sekme grupları</translation>
-<translation id="9075970015528364598">Sohbetler incelenir ve Google'ın Yapay Zekasını daha iyi hale getirmek için kullanılır. <ph name="LEARN_ABOUT_CHOICES" /> <ph name="INFO_ABOUT_LOCATION" /> de etkinliğinizle birlikte saklanır.</translation>
+<translation id="9075970015528364598">Sohbetler incelenir ve Google AI'ı daha iyi hale getirmek için kullanılır. <ph name="LEARN_ABOUT_CHOICES" /> <ph name="INFO_ABOUT_LOCATION" /> de etkinliğinizle birlikte saklanır.</translation>
 <translation id="9081058212938299310"><ph name="USERNAME" /> hesabının şifresi güncellensin mi?</translation>
 <translation id="9083838294503912307">Cihazlar arasında senkronizasyon ve kişiselleştirme yapmak için senkronizasyonu etkinleştirin.</translation>
 <translation id="9084367296493549256">{count,plural, =1{Güvenliğinizi riske atabilecek {count} tane zayıf şifreniz var. Güvende kalmak için sorunu hemen giderin.}other{Güvenliğinizi riske atabilecek {count} tane zayıf şifreniz var. Güvende kalmak için bunları hemen düzeltin.}}</translation>

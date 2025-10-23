@@ -68,7 +68,8 @@ import {Ink2Manager} from './ink2_manager.js';
 import {LocalStorageProxyImpl} from './local_storage_proxy.js';
 import {convertDocumentDimensionsMessage, convertFormFocusChangeMessage, convertLoadProgressMessage} from './message_converter.js';
 import {record, recordEnumeration, UserAction} from './metrics.js';
-import {NavigatorDelegateImpl, PdfNavigator, WindowOpenDisposition} from './navigator.js';
+import {NavigatorDelegateImpl, PdfNavigatorImpl, WindowOpenDisposition} from './navigator.js';
+import type {PdfNavigator} from './navigator.js';
 import {deserializeKeyEvent, LoadState} from './pdf_scripting_api.js';
 import {getCss} from './pdf_viewer.css.js';
 import {getHtml} from './pdf_viewer.html.js';
@@ -80,6 +81,9 @@ import type {DocumentDimensionsMessageData} from './pdf_viewer_utils.js';
 import {getSaveToDriveManageStorageUrl, getSaveToDriveOpenInDriveUrl} from './pdf_viewer_utils.js';
 // </if> enable_pdf_save_to_drive
 import {hasCtrlModifier, hasCtrlModifierOnly, shouldIgnoreKeyEvents, verifyPdfHeader} from './pdf_viewer_utils.js';
+// <if expr="enable_pdf_save_to_drive">
+import {recordSaveToDriveBubbleActionMetrics, recordSaveToDriveBubbleRetryMetrics, recordSaveToDriveMetrics, recordShowSaveToDriveBubbleMetrics} from './save_to_drive_metrics.js';
+// </if> enable_pdf_save_to_drive
 // clang-format on
 
 // <if expr="enable_pdf_save_to_drive">
@@ -494,7 +498,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         this.originalUrl, this.sidenavCollapsed_);
     this.sidenavCollapsed_ = !showSidenav;
 
-    this.navigator_ = new PdfNavigator(
+    this.navigator_ = new PdfNavigatorImpl(
         this.originalUrl, this.viewport, this.paramsParser,
         new NavigatorDelegateImpl(browserApi));
 
@@ -1193,6 +1197,18 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   }
   // </if>
 
+  /**
+   * Returns whether the PDF has entered editing mode or has committed ink2
+   * edits.
+   */
+  private hasCommittedEdits_(): boolean {
+    let hasEdits = this.hasEdits_;
+    // <if expr="enable_pdf_ink2">
+    hasEdits ||= this.hasCommittedInk2Edits_;
+    // </if>
+    return hasEdits;
+  }
+
   /** Sets the document attachment data. */
   private setAttachments_(attachments: Attachment[]) {
     this.attachments_ = attachments;
@@ -1327,6 +1343,10 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         this.handleSaveToDriveProgress_.bind(this));
   }
 
+  setPdfNavigatorForTesting(navigator: PdfNavigator) {
+    this.navigator_ = navigator;
+  }
+
   // Calculates the save to Drive progress in percentage. Returns 0 if the PDF
   // is not uploading to Drive.
   protected getSaveToDriveProgress_(): number {
@@ -1346,22 +1366,25 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   }
 
   protected onSaveToDrive_(e: CustomEvent<SaveRequestType>) {
-    // TODO(crbug.com/427449996): Implement logics to reset the SaveToDriveState
-    // back to UNINITIALIZED after the bubble is closed from the finish or error
-    // state, so the next `onSaveToDrive_` call can re-trigger the upload flow.
-    // Also implement the logic to close the bubble if it was already open when
-    // the event is fired.
     if (this.saveToDriveState_ === SaveToDriveState.UNINITIALIZED) {
       PdfViewerPrivateProxyImpl.getInstance().saveToDrive(e.detail);
       this.saveToDriveRequestType_ = e.detail;
+      let pdfInk2Enabled = false;
+      // <if expr="enable_pdf_ink2">
+      pdfInk2Enabled = this.pdfInk2Enabled_;
+      // </if>
+      recordSaveToDriveMetrics(
+          e.detail, this.hasCommittedEdits_(), pdfInk2Enabled);
       return;
     }
     this.getSaveToDriveBubble_().showAt(
         this.$.toolbar.getSaveToDriveBubbleAnchor());
+    recordShowSaveToDriveBubbleMetrics(this.saveToDriveState_);
   }
 
   protected onSaveToDriveBubbleAction_(
       e: CustomEvent<SaveToDriveBubbleRequestType>) {
+    recordSaveToDriveBubbleActionMetrics(e.detail);
     switch (e.detail) {
       case SaveToDriveBubbleRequestType.CANCEL_UPLOAD:
         PdfViewerPrivateProxyImpl.getInstance().saveToDrive(
@@ -1392,6 +1415,8 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       case SaveToDriveBubbleRequestType.RETRY:
         PdfViewerPrivateProxyImpl.getInstance().saveToDrive(
             this.saveToDriveRequestType_);
+        recordSaveToDriveBubbleRetryMetrics(
+            this.saveToDriveRequestType_, this.hasCommittedEdits_());
         break;
       case SaveToDriveBubbleRequestType.DIALOG_CLOSED:
         if (saveToDriveStateIsFinalState(this.saveToDriveState_)) {
@@ -1413,10 +1438,26 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     return bubble;
   }
 
-  private onSaveToDriveStateChanged_(oldSaveToDriveState: SaveToDriveState) {
-    // Transition from UNINITIALIZED to UPLOADING.
-    if (oldSaveToDriveState === SaveToDriveState.UNINITIALIZED &&
-        this.isSaveToDriveUploading_()) {
+  private onSaveToDriveStateChanged_(oldState: SaveToDriveState) {
+    const newState = this.saveToDriveState_;
+    if (saveToDriveStateIsFinalState(newState)) {
+      if (newState === SaveToDriveState.SUCCESS) {
+        this.onSaveSuccessful_(this.saveToDriveRequestType_);
+      } else if (oldState === SaveToDriveState.UPLOADING) {
+        // TODO(crbug.com/450600664): Fix an edge case where beforeunload dialog
+        // is still blocking if an EDITED upload is cancelled after a successful
+        // EDITED disk save.
+        // <if expr="enable_pdf_ink2">
+        this.onSaveFailedOrCancelled_(this.saveToDriveRequestType_);
+        // </if>
+      }
+      this.getSaveToDriveBubble_().showAt(
+          this.$.toolbar.getSaveToDriveBubbleAnchor(),
+          /*autoDismiss=*/ true);
+      return;
+    }
+
+    if (newState === SaveToDriveState.UPLOADING) {
       // Block unloading the window if upload is in progress.
       this.setShowBeforeUnloadDialog_(true);
       if (isEditedSaveRequestType(this.saveToDriveRequestType_)) {
@@ -1424,37 +1465,15 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       }
       return;
     }
-    // Transition from a final state (COMPLETE, or any error state) to
-    // UNINITIALIZED.
-    if (oldSaveToDriveState !== SaveToDriveState.UPLOADING) {
-      // TODO(crbug.com/427449996): Add an assertion to check that the current
-      // state is UNINITIALIZED. Also update the tests to accommodate the
-      // change.
+
+    assert(
+        newState === SaveToDriveState.UNINITIALIZED,
+        `Unexpected state: ${newState}`);
+    if (oldState !== SaveToDriveState.UPLOADING) {
+      // TODO(crbug.com/427449996): Update the tests to make sure they all end
+      // with an UNINITIALIZED state.
       this.setShowBeforeUnloadDialog_(this.hasUnsavedEdits_);
-      return;
     }
-    // Transition from UPLOADING to SUCCESS, cancelled, or error state.
-    if (this.saveToDriveState_ === SaveToDriveState.SUCCESS) {
-      this.onSaveSuccessful_(this.saveToDriveRequestType_);
-    } else {
-      // TODO(crbug.com/427449996): Fix an edge case where beforeunload dialog
-      // is still blocking if an EDITED upload is cancelled after a successful
-      // EDITED disk save. This could happen in the following order:
-      // 1. Make an edit.
-      // 2. Initiate an EDITED save to Drive.
-      // 3. Initiate an EDITED disk save.
-      // 4. Cancel the EDITED save to Drive upload.
-      // 5. `hasUnsavedEdits_` is restored to true from step 4.
-      // <if expr="enable_pdf_ink2">
-      this.onSaveFailedOrCancelled_(this.saveToDriveRequestType_);
-      // </if>
-      if (this.saveToDriveState_ === SaveToDriveState.UNINITIALIZED) {
-        return;
-      }
-    }
-    this.getSaveToDriveBubble_().showAt(
-        this.$.toolbar.getSaveToDriveBubbleAnchor(),
-        /*autoDismiss=*/ true);
   }
   // </if> enable_pdf_save_to_drive
 
@@ -1827,15 +1846,9 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         // </if>
         break;
       case SaveRequestType.ORIGINAL:
-        // <if expr="enable_pdf_ink2">
-        if (this.hasCommittedInk2Edits_) {
-          record(UserAction.SAVE_ORIGINAL);
-          break;
-        }
-        // </if>
         record(
-            this.hasEdits_ ? UserAction.SAVE_ORIGINAL :
-                             UserAction.SAVE_ORIGINAL_ONLY);
+            this.hasCommittedEdits_() ? UserAction.SAVE_ORIGINAL :
+                                        UserAction.SAVE_ORIGINAL_ONLY);
         break;
       case SaveRequestType.EDITED:
         record(UserAction.SAVE_EDITED);

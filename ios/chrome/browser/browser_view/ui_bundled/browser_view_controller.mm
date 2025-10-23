@@ -74,6 +74,8 @@
 #import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_ui_controller_delegate.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/swipe_view.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
+#import "ios/chrome/browser/snapshots/model/snapshot_kind.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/browser/tab_switcher/tab_strip/coordinator/tab_strip_coordinator.h"
 #import "ios/chrome/browser/tab_switcher/tab_strip/ui/swift_constants_for_objective_c.h"
@@ -89,6 +91,7 @@
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/browser/voice/ui_bundled/voice_search_notification_names.h"
+#import "ios/chrome/browser/web/model/page_placeholder_browser_agent.h"
 #import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
 #import "ios/chrome/browser/web/model/web_navigation_util.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
@@ -235,6 +238,9 @@ const CGFloat kTopDynamicIslandInset = 24;
   // Used to report usage of a single Browser's tab.
   raw_ptr<TabUsageRecorderBrowserAgent, DanglingUntriaged>
       _tabUsageRecorderBrowserAgent;
+
+  // Used to fetch snapshots.
+  raw_ptr<SnapshotBrowserAgent> _snapshotBrowserAgent;
 
   // Used to get the layout guide center.
   LayoutGuideCenter* _layoutGuideCenter;
@@ -388,6 +394,7 @@ const CGFloat kTopDynamicIslandInset = 24;
     _visibilityState = BrowserViewVisibilityState::kNotInViewHierarchy;
     _urlLoadingBrowserAgent = dependencies.urlLoadingBrowserAgent;
     _tabUsageRecorderBrowserAgent = dependencies.tabUsageRecorderBrowserAgent;
+    _snapshotBrowserAgent = dependencies.snapshotBrowserAgent;
     _layoutGuideCenter = dependencies.layoutGuideCenter;
     _webStateList = dependencies.webStateList;
     _voiceSearchController = dependencies.voiceSearchController;
@@ -822,6 +829,11 @@ const CGFloat kTopDynamicIslandInset = 24;
   [_voiceSearchController disconnect];
   [[NSNotificationCenter defaultCenter] removeObserver:self];
   _bookmarksCoordinator = nil;
+
+  // Clears the pointer to C++ objects.
+  _urlLoadingBrowserAgent = nullptr;
+  _tabUsageRecorderBrowserAgent = nullptr;
+  _snapshotBrowserAgent = nullptr;
 }
 
 #pragma mark - UIAccessibilityAction
@@ -1140,7 +1152,10 @@ const CGFloat kTopDynamicIslandInset = 24;
       // view controller uses information that it should not know or care about:
       // this BVC is contained and its parent bounds to the full screen.
       launchScreenView.frame = self.parentViewController.view.bounds;
+      [self.parentViewController addChildViewController:launchScreenController];
       [self.parentViewController.view addSubview:launchScreenView];
+      [launchScreenController
+          didMoveToParentViewController:self.parentViewController];
       [launchScreenView setNeedsLayout];
       [launchScreenView layoutIfNeeded];
 
@@ -1403,15 +1418,17 @@ const CGFloat kTopDynamicIslandInset = 24;
 
   if (initialLayout) {
     // Add the toolbars as child view controllers.
-    [self addChildViewController:self.toolbarCoordinator
-                                     .primaryToolbarViewController];
-    [self addChildViewController:self.toolbarCoordinator
-                                     .secondaryToolbarViewController];
+    UIViewController* primaryToolbarViewController =
+        self.toolbarCoordinator.primaryToolbarViewController;
+    [self addChildViewController:primaryToolbarViewController];
+
+    UIViewController* secondaryToolbarViewController =
+        self.toolbarCoordinator.secondaryToolbarViewController;
+    [self addChildViewController:secondaryToolbarViewController];
 
     // Add the primary toolbar. On iPad, it should be in front of the tab strip
     // because the tab strip slides behind it when showing the thumb strip.
-    UIView* primaryToolbarView =
-        self.toolbarCoordinator.primaryToolbarViewController.view;
+    UIView* primaryToolbarView = primaryToolbarViewController.view;
     if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
       if (self.tabStripCoordinator) {
         UIViewController* tabStripViewController =
@@ -1433,9 +1450,11 @@ const CGFloat kTopDynamicIslandInset = 24;
     } else {
       [self.view addSubview:primaryToolbarView];
     }
-    [self.view insertSubview:self.toolbarCoordinator
-                                 .secondaryToolbarViewController.view
+    [self.view insertSubview:secondaryToolbarViewController.view
                 aboveSubview:primaryToolbarView];
+
+    [primaryToolbarViewController didMoveToParentViewController:self];
+    [secondaryToolbarViewController didMoveToParentViewController:self];
 
     // TODO(crbug.com/40270239): Migrate kContentAreaGuide to LayoutGuideCenter.
     // Add guide kContentAreaGuide to the browser view.
@@ -1491,15 +1510,6 @@ const CGFloat kTopDynamicIslandInset = 24;
     }
 
     AddSameConstraintsToSides(self.view, contentAreaGuide, contentSides);
-
-    // Complete child UIViewController containment flow now that the views are
-    // finished being added.
-    [self.tabStripCoordinator.viewController
-        didMoveToParentViewController:self];
-    [self.toolbarCoordinator.primaryToolbarViewController
-        didMoveToParentViewController:self];
-    [self.toolbarCoordinator.secondaryToolbarViewController
-        didMoveToParentViewController:self];
   }
 
   // Resize the typing shield to cover the entire browser view and bring it to
@@ -2376,7 +2386,6 @@ const CGFloat kTopDynamicIslandInset = 24;
 
 - (void)switchToTabWithWebState:(web::WebState*)webState
               animationPosition:(SwitchToTabAnimationPosition)position
-             willAddPlaceholder:(BOOL)willAddPlaceholder
                 topToolbarImage:(UIImage*)topToolbarImage
              bottomToolbarImage:(UIImage*)bottomToolbarImage {
   if (CanShowTabStrip(self)) {
@@ -2393,10 +2402,15 @@ const CGFloat kTopDynamicIslandInset = 24;
   [swipeView setTopToolbarImage:topToolbarImage];
   [swipeView setBottomToolbarImage:bottomToolbarImage];
 
-  auto* snapshotTabHelper = SnapshotTabHelper::FromWebState(webState);
-  snapshotTabHelper->RetrieveColorSnapshot(^(UIImage* image) {
-    willAddPlaceholder ? [swipeView setImage:nil] : [swipeView setImage:image];
-  });
+  const BOOL willAddPlaceholder =
+      PagePlaceholderBrowserAgent::IsPagePlaceholderPlannedForWebState(
+          webState);
+
+  _snapshotBrowserAgent->RetrieveSnapshotWithID(
+      SnapshotID(webState->GetUniqueIdentifier()), SnapshotKindColor,
+      ^(UIImage* image) {
+        [swipeView setImage:(willAddPlaceholder ? nil : image)];
+      });
 
   SwitchToTabAnimationView* animationView =
       [[SwitchToTabAnimationView alloc] initWithFrame:self.view.bounds];

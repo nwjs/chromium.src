@@ -39,7 +39,7 @@ enum AcMatchClassificationStyle {
 const ENTITY_MATCH_TYPE: string = 'search-suggest-entity';
 
 type ActionEvent = CustomEvent<{
-  event: MouseEvent | KeyboardEvent,
+  event: PointerEvent | KeyboardEvent,
   actionIndex: number,
 }>;
 
@@ -90,6 +90,11 @@ export class SearchboxMatchElement extends CrLitElement {
         reflect: true,
       },
 
+      hasKeyword: {
+        type: Boolean,
+        reflect: true,
+      },
+
       /**
        * Whether the match is an entity suggestion (with or without an image).
        */
@@ -108,6 +113,8 @@ export class SearchboxMatchElement extends CrLitElement {
       },
 
       match: {type: Object},
+
+      selection: {type: Object},
 
       /**
        * Index of the match in the autocomplete result. Used to inform embedder
@@ -166,9 +173,15 @@ export class SearchboxMatchElement extends CrLitElement {
   override accessor ariaLabel: string = '';
   accessor hasAction: boolean = false;
   accessor hasImage: boolean = false;
+  accessor hasKeyword: boolean = false;
   accessor isEntitySuggestion: boolean = false;
   accessor isRichSuggestion: boolean = false;
   accessor match: AutocompleteMatch = createAutocompleteMatch();
+  accessor selection: OmniboxPopupSelection = {
+    line: -1,
+    state: SelectionLineState.kNormal,
+    actionIndex: 0,
+  };
   accessor matchIndex: number = -1;
   accessor sideType: SideType = SideType.kDefaultPrimary;
   accessor showThumbnail: boolean = false;
@@ -212,6 +225,7 @@ export class SearchboxMatchElement extends CrLitElement {
       this.contentsHtml_ = this.computeContentsHtml_();
       this.descriptionHtml_ = this.computeDescriptionHtml_();
       this.hasAction = this.computeHasAction_();
+      this.hasKeyword = this.computeHasKeyword_();
       this.hasImage = this.computeHasImage_();
       this.isEntitySuggestion = this.computeIsEntitySuggestion_();
       this.isRichSuggestion = this.computeIsRichSuggestion_();
@@ -233,6 +247,16 @@ export class SearchboxMatchElement extends CrLitElement {
   //============================================================================
   // Event handlers
   //============================================================================
+
+  protected onActivateKeyword_(e: ActionEvent) {
+    // Keyboard activation isn't possible because when the keyword chip is
+    // focused, focus is redirected to the omnibox view.
+    const event = e.detail.event as PointerEvent;
+    this.pageHandler_.activateKeyword(
+        this.matchIndex, this.match.destinationUrl, mojoTimeTicks(Date.now()),
+        // Distinguish mouse and touch or pen events for logging purposes.
+        event.pointerType === 'mouse');
+  }
 
   /**
    * containing index of the action that was removed as well as modifier key
@@ -341,6 +365,10 @@ export class SearchboxMatchElement extends CrLitElement {
     return this.match?.actions?.length > 0;
   }
 
+  private computeHasKeyword_(): boolean {
+    return this.match && !!this.match.keywordChipHint;
+  }
+
   private computeHasImage_(): boolean {
     return this.match && !!this.match.imageUrl;
   }
@@ -390,7 +418,7 @@ export class SearchboxMatchElement extends CrLitElement {
   }
 
   /**
-   * Decodes the AcMatchClassificationStyle enteries encoded in the given
+   * Decodes the AcMatchClassificationStyle entries encoded in the given
    * ACMatchClassification style field, maps each entry to a CSS
    * class and returns them.
    */
@@ -436,27 +464,6 @@ export class SearchboxMatchElement extends CrLitElement {
           container.appendChild(currentElement);
           return container;
         }, document.createElement('span'));
-  }
-
-  updateSelection(selection: OmniboxPopupSelection) {
-    this.$['focus-indicator'].classList.toggle(
-        'selected-within',
-        selection.state !== SelectionLineState.kNormal &&
-            selection.line === this.matchIndex);
-
-    this.$.remove.classList.toggle(
-        'selected',
-        selection.state === SelectionLineState.kFocusedButtonRemoveSuggestion &&
-            selection.line === this.matchIndex);
-
-    [...this.shadowRoot.querySelectorAll('cr-searchbox-action')].forEach(
-        (action, index) => {
-          action.classList.toggle(
-              'selected',
-              selection.state === SelectionLineState.kFocusedButtonAction &&
-                  selection.actionIndex === index &&
-                  selection.line === this.matchIndex);
-        });
   }
 
   private getMatchContents_(): string {
@@ -505,6 +512,37 @@ export class SearchboxMatchElement extends CrLitElement {
     const match = this.match;
     return match.swapContentsAndDescription ? match.contentsClass :
                                               match.descriptionClass;
+  }
+
+  protected getFocusIndicatorCssClass_(): string {
+    return this.selection.line === this.matchIndex &&
+            this.selection.state !== SelectionLineState.kNormal &&
+            !this.match.hasInstantKeyword ?
+        'selected-within' :
+        '';
+  }
+
+  protected getKeywordCssClass_(): string {
+    return this.selection.line === this.matchIndex &&
+            this.selection.state === SelectionLineState.kKeywordMode ?
+        'selected' :
+        '';
+  }
+
+  protected getActionCssClass_(actionIndex: number): string {
+    return this.selection.line === this.matchIndex &&
+            this.selection.state === SelectionLineState.kFocusedButtonAction &&
+            this.selection.actionIndex === actionIndex ?
+        'selected' :
+        '';
+  }
+
+  protected getRemoveCssClass_(): string {
+    return this.selection.line === this.matchIndex &&
+            this.selection.state ===
+                SelectionLineState.kFocusedButtonRemoveSuggestion ?
+        'selected' :
+        '';
   }
 }
 

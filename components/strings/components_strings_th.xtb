@@ -2225,7 +2225,7 @@
 <translation id="4664084870155869900">ป้อนข้อมูลอัตโนมัติในครั้งถัดไป บันทึกบัตรไว้ในอุปกรณ์ของคุณแล้ว</translation>
 <translation id="466561305373967878">เกมกระดาน</translation>
 <translation id="4668929960204016307">,</translation>
-<translation id="4670064810192446073">Virtual Reality</translation>
+<translation id="4670064810192446073">เทคโนโลยีความจริงเสมือน (VR)</translation>
 <translation id="4671339777629075741">Envelope DL</translation>
 <translation id="4675391562155186035">พาสคีย์ • โปรไฟล์ Chrome ของคุณ</translation>
 <translation id="467662567472608290">เซิร์ฟเวอร์นี้ไม่สามารถพิสูจน์ได้ว่าเป็น <ph name="DOMAIN" /> เพราะใบรับรองความปลอดภัยมีข้อผิดพลาด โดยอาจเกิดจากการกำหนดค่าผิดหรือผู้บุกรุกที่ขัดขวางการเชื่อมต่อของคุณ</translation>
@@ -2501,7 +2501,7 @@
 <translation id="5112422516732747637">A5</translation>
 <translation id="5114288597538800140">ถาด 18</translation>
 <translation id="511431458895937675">รูปภาพ DSC</translation>
-<translation id="5114987907971894280">Virtual Reality</translation>
+<translation id="5114987907971894280">เทคโนโลยีความจริงเสมือน (VR)</translation>
 <translation id="5115232566827194440">ลบล้างเซสชันผู้เยี่ยมชมที่มีการจัดการและถูกจำกัด</translation>
 <translation id="5115563688576182185">(64 บิต)</translation>
 <translation id="5120526915373271910">ภาพยนตร์ครอบครัว</translation>
@@ -3654,7 +3654,6 @@
 <translation id="7020464868401003526">URL ของทางลัดมีความยาวเกินจำนวนสูงสุดที่อนุญาต <ph name="MAX_LENGTH" /> อักขระ</translation>
 <translation id="702275896380648118">เว็บไซต์นี้จะระบุสิ่งที่คุณชื่นชอบแล้วแนะนําโฆษณาในเว็บไซต์อื่น เว็บไซต์นี้ยังรับหัวข้อโฆษณาของคุณจาก Chrome เพื่อแสดงโฆษณาที่เกี่ยวข้องมากขึ้นด้วย</translation>
 <translation id="7023162328967545559">คำเตือนจากผู้ดูแลระบบ</translation>
-<translation id="7023765275461720661">ลิงก์บัญชีและชำระเงินด้วย <ph name="BNPL_ISSUER_NAME" /> ไหม</translation>
 <translation id="7029809446516969842">รหัสผ่าน</translation>
 <translation id="7030164307377592766">แก้ไขการตั้งค่าสำหรับการกรอกวิธีการชำระเงิน</translation>
 <translation id="7031110846419387930">ข้อมูลเกี่ยวกับเบราว์เซอร์ ระบบปฏิบัติการ อุปกรณ์ ซอฟต์แวร์ที่ติดตั้งไว้ ไฟล์ และที่อยู่ IP</translation>

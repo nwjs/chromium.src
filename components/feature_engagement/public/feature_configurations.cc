@@ -2030,9 +2030,13 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     FeatureConfig config;
     config.valid = true;
     config.availability = Comparator(ANY, 0);
-    config.session_rate = Comparator(EQUAL, 0);
+    config.session_rate = Comparator(ANY, 0);
+    config.blocked_by.type = BlockedBy::Type::NONE;
+
+    // Show max of one time per week.
     config.trigger = EventConfig("reader_mode_distill_in_app_iph_triggered",
                                  Comparator(EQUAL, 0), 7, 7);
+    // Show max of three times per year.
     config.event_configs.insert(
         EventConfig("reader_mode_distill_in_app_iph_triggered",
                     Comparator(LESS_THAN, 3), 360, 360));
@@ -2879,6 +2883,29 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                     Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
                     feature_engagement::kMaxStoragePeriod);
 
+    return config;
+  }
+
+  if (kIPHIOSPageActionMenu.name == feature->name) {
+    // Show the promo only once when the conditions are met.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(ANY, 0);
+
+    // This IPH showing does not affect the session count for other IPHs.
+    config.session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config.blocked_by.type = BlockedBy::Type::NONE;
+    config.blocking.type = Blocking::Type::NONE;
+
+    config.trigger =
+        EventConfig(feature_engagement::events::kIOSPageActionMenuIPHTrigger,
+                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    config.used =
+        EventConfig(feature_engagement::events::kIOSPageActionMenuIPHUsed,
+                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
     return config;
   }
 

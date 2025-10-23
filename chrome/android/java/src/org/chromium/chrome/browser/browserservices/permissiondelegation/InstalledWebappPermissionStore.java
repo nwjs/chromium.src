@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.browserservices.permissiondelegation;
 
-import static org.chromium.components.permissions.PermissionUtil.getGeolocationType;
-
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Base64;
@@ -195,8 +193,12 @@ public class InstalledWebappPermissionStore {
                 .putStringSet(KEY_ALL_ORIGINS, origins)
                 .remove(createPermissionKey(ContentSettingsType.NOTIFICATIONS, origin))
                 .remove(createPermissionSettingKey(ContentSettingsType.NOTIFICATIONS, origin))
-                .remove(createPermissionKey(getGeolocationType(), origin))
-                .remove(createPermissionSettingKey(getGeolocationType(), origin))
+                .remove(createPermissionKey(ContentSettingsType.GEOLOCATION, origin))
+                .remove(createPermissionSettingKey(ContentSettingsType.GEOLOCATION, origin))
+                .remove(createPermissionKey(ContentSettingsType.GEOLOCATION_WITH_OPTIONS, origin))
+                .remove(
+                        createPermissionSettingKey(
+                                ContentSettingsType.GEOLOCATION_WITH_OPTIONS, origin))
                 .remove(createAppNameKey(origin))
                 .remove(createPackageNameKey(origin))
                 .remove(createAllDelegateAppsKey(origin))

@@ -80,7 +80,7 @@
 <translation id="1138458427267715730">웹에 가격이 인하된 사이트가 있으면 알림이 전송됩니다.</translation>
 <translation id="1142713751288681188">용지 종류</translation>
 <translation id="1144136880160289237">아직 활성 주제가 없습니다.</translation>
-<translation id="1149617035358809955">본인 인증을 해야 결제 정보를 입력할 수 있습니다.</translation>
+<translation id="1149617035358809955">결제 정보를 입력하기 위해 본인 인증을 시도 중입니다.</translation>
 <translation id="1150565364351027703">선글라스</translation>
 <translation id="1150979032973867961">이 서버가 <ph name="DOMAIN" />임을 입증할 수 없으며 컴퓨터의 운영체제에서 신뢰하는 보안 인증서가 아닙니다. 서버를 잘못 설정했거나 불법 사용자가 연결을 가로채고 있기 때문일 수 있습니다.</translation>
 <translation id="1151972924205500581">비밀번호를 입력해야 합니다.</translation>
@@ -2396,7 +2396,7 @@
 <translation id="4929871932072157101"><ph name="KEYWORD_FOCUSED_FRIENDLY_MATCH_TEXT" />, Tab을 누른 다음 Enter를 눌러 검색</translation>
 <translation id="4930153903256238152">대용량</translation>
 <translation id="4930714375720679147">사용 설정</translation>
-<translation id="4932035752129140860">붙여넣거나 첨부하는 텍스트는 분석을 위해 Google Cloud 또는 타사로 전송됩니다. 예를 들어, 민감한 정보를 찾기 위해 텍스트를 스캔할 수 있으며 회사 정책에 따라 보관되어 관리자가 볼 수도 있습니다.</translation>
+<translation id="4932035752129140860">붙여넣거나 첨부하는 텍스트는 분석을 위해 Google Cloud 또는 서드 파티로 전송됩니다. 예를 들어, 민감한 정보를 찾기 위해 텍스트를 스캔할 수 있으며 회사 정책에 따라 보관되어 관리자가 볼 수도 있습니다.</translation>
 <translation id="4933788293078559286">Pix로 결제</translation>
 <translation id="4934780484581617878">창 관리</translation>
 <translation id="4936134414789135531">삽입된 <ph name="VALUE_NAME" />을(를) 찾을 수 없습니다.</translation>
@@ -3106,7 +3106,7 @@
 <translation id="612178891608320683">비건 요리</translation>
 <translation id="6122181661879998141">카드 앞면</translation>
 <translation id="6124058285696691147">첨부파일 다운로드</translation>
-<translation id="6124432979022149706">Chrome Enterprise Connectors</translation>
+<translation id="6124432979022149706">Chrome Enterprise 커넥터</translation>
 <translation id="6124996493718543728">선구매 후지불 진행 상황 화면이 전체 높이로 열렸습니다.</translation>
 <translation id="6126565365696310362">봉투 Chinese @2</translation>
 <translation id="6131824478727057281">위치</translation>
@@ -3655,7 +3655,6 @@
 <translation id="7020464868401003526">바로가기의 URL이 최대 허용 길이인 <ph name="MAX_LENGTH" />자(영문 기준)를 초과합니다.</translation>
 <translation id="702275896380648118">이 사이트는 내 관심분야를 파악한 후 다른 사이트에 광고를 추천합니다. Chrome에 저장된 내 광고 주제를 기반으로 더 관련성 있는 광고를 표시합니다.</translation>
 <translation id="7023162328967545559">관리자 경고</translation>
-<translation id="7023765275461720661">계정을 연결하고 <ph name="BNPL_ISSUER_NAME" /> 시스템을 통해 결제하시겠어요?</translation>
 <translation id="7029809446516969842">비밀번호</translation>
 <translation id="7030164307377592766">결제 수단 입력 설정을 수정합니다.</translation>
 <translation id="7031110846419387930">브라우저, OS, 기기, 설치된 소프트웨어, 파일, IP 주소에 관한 정보</translation>
@@ -4367,7 +4366,7 @@
 <translation id="8202370299023114387">충돌</translation>
 <translation id="8207625368992715508">모터스포츠</translation>
 <translation id="8208363704094329105">300x400mm</translation>
-<translation id="8208629719488976364">인쇄하는 페이지의 콘텐츠와 프린터 정보가 분석을 위해 Google Cloud 또는 서드 파티로 전송됩니다. 예를 들어, 민감한 정보를 찾기 위해 텍스트를 스캔할 수 있으며 회사 정책에 따라 보관되어 관리자가 볼 수도 있습니다.</translation>
+<translation id="8208629719488976364">인쇄하는 페이지의 콘텐츠와 프린터 정보가 분석을 위해 Google Cloud 또는 서드 파티로 전송됩니다. 예를 들어, 민감한 정보를 찾기 위해 내용을 스캔할 수 있으며 회사 정책에 따라 보관되어 관리자가 볼 수도 있습니다.</translation>
 <translation id="8210490490377416373">정책 이름 선택</translation>
 <translation id="8211406090763984747">이 연결은 안전합니다.</translation>
 <translation id="8213853114485953510">JIS Exec</translation>
@@ -4431,7 +4430,7 @@
 <translation id="8289355894181816810">잘 모르는 경우 네트워크 관리자에게 문의하시기 바랍니다.</translation>
 <translation id="829335040383910391">소리</translation>
 <translation id="8294431847097064396">출처</translation>
-<translation id="8297545700510100061">예를 들어 로그인하거나 광고를 맞춤설정하기 위해 사용자 정보를 저장하는 데 쿠키와 기타 사이트 데이터가 사용됩니다. 모든 사이트의 쿠키를 관리하려면 <ph name="SETTINGS" /> 페이지를 확인하세요.</translation>
+<translation id="8297545700510100061">예를 들어 로그인하거나 광고를 맞춤설정하기 위해 사용자를 기억하는 데 쿠키와 기타 사이트 데이터가 사용됩니다. 모든 사이트의 쿠키를 관리하려면 <ph name="SETTINGS" /> 페이지를 확인하세요.</translation>
 <translation id="8298115750975731693">사용 중인 Wi-Fi(<ph name="WIFI_NAME" />)에서 <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> 방문을 요청할 수 있습니다.</translation>
 <translation id="8298399736867690281">카드가 기기에만 저장됨</translation>
 <translation id="8301894345671534559">코드 입력</translation>

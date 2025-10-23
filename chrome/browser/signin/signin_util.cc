@@ -400,20 +400,11 @@ bool IsSyncingUserSelectableTypesAllowedByPolicy(
 }
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-bool ShouldShowHistorySyncOptinScreen(Profile& profile) {
-  if (GetSignedInState(IdentityManagerFactory::GetForProfile(&profile)) !=
-      signin_util::SignedInState::kSignedIn) {
-    return false;
-  }
-
-  syncer::UserSelectableTypeSet required_types(
-      {syncer::UserSelectableType::kHistory, syncer::UserSelectableType::kTabs,
-       syncer::UserSelectableType::kSavedTabGroups});
-
-  if (!IsSyncingUserSelectableTypesAllowedByPolicy(
-          SyncServiceFactory::GetForProfile(&profile), required_types)) {
-    return false;
-  }
+bool HasExplicitlyDisabledHistorySync(Profile& profile) {
+  // If the user is signed out, we cannot know if the toggles were interacted
+  // with or not.
+  CHECK(GetSignedInState(IdentityManagerFactory::GetForProfile(&profile)) ==
+        signin_util::SignedInState::kSignedIn);
 
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(&profile);
@@ -421,13 +412,47 @@ bool ShouldShowHistorySyncOptinScreen(Profile& profile) {
     return false;
   }
 
+  for (auto type :
+       {syncer::UserSelectableType::kHistory, syncer::UserSelectableType::kTabs,
+        syncer::UserSelectableType::kSavedTabGroups}) {
+    if (sync_service->GetUserSettings()->GetTypePrefStateForAccount(type) ==
+        syncer::SyncUserSettings::UserSelectableTypePrefState::kDisabled) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+ShouldShowHistorySyncOptinResult ShouldShowHistorySyncOptinScreen(
+    Profile& profile) {
+  if (GetSignedInState(IdentityManagerFactory::GetForProfile(&profile)) !=
+      signin_util::SignedInState::kSignedIn) {
+    return ShouldShowHistorySyncOptinResult::kSkipUserNotSignedIn;
+  }
+
+  syncer::UserSelectableTypeSet required_types(
+      {syncer::UserSelectableType::kHistory, syncer::UserSelectableType::kTabs,
+       syncer::UserSelectableType::kSavedTabGroups});
+  syncer::SyncService* sync_service =
+      SyncServiceFactory::GetForProfile(&profile);
+  if (!IsSyncingUserSelectableTypesAllowedByPolicy(sync_service,
+                                                   required_types)) {
+    return ShouldShowHistorySyncOptinResult::kSkipSyncForbidden;
+  }
+
+  // Sync service must exist, otherwise the method would have exited already.
+  CHECK(sync_service);
   // Note: Post migration these preferences will be set by a single
   // settings toggle and are expected to have the same value.
   bool all_types_enabled =
       sync_service->GetUserSettings()->GetSelectedTypes().HasAll(
           required_types);
+  if (all_types_enabled) {
+    return ShouldShowHistorySyncOptinResult::kSkipUserAlreadyOptedIn;
+  }
 
-  return !all_types_enabled;
+  return ShouldShowHistorySyncOptinResult::kShow;
 }
 
 void EnableHistorySync(syncer::SyncService* sync_service) {

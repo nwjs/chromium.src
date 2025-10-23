@@ -3881,6 +3881,7 @@
 <translation id="3656328935986149999">ល្បឿនទស្សន៍ទ្រនិច</translation>
 <translation id="3656701180077048004">បញ្ចូល​ការពន្យារ​ពេល​រវាង​ពេលដែលអ្នក​ចុចគ្រាប់ចុច និង​ពេល​ដែលវា​បើកដំណើរការ</translation>
 <translation id="3658871634334445293">ការបង្កើនល្បឿន TrackPoint</translation>
+<translation id="3659483399659250379">បញ្ចូល​ផ្ទាំង និង​អ្វីៗជា​ច្រើនទៀត</translation>
 <translation id="3659929705630080526">អ្នកបានបញ្ចូល​លេខកូដចូល​ប្រើប្រាស់មិនត្រឹមត្រូវ​ច្រើនដងពេក។ សូមព្យាយាម​ម្ដងទៀត​នៅពេលក្រោយ</translation>
 <translation id="3661106764436337772">សរសេរបានកាន់តែលឿន និងកាន់តែមានទំនុកចិត្ត</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{បានរកឃើញ​ពាក្យសម្ងាត់​ដែលមាន​ស្រាប់ 1}other{បានរកឃើញ​ពាក្យសម្ងាត់​ដែលមាន​ស្រាប់ {NUM_PASSWORDS}}}</translation>
@@ -4010,7 +4011,6 @@
 <translation id="3735039640698208086">នៅ​ពេល​ចាក់​សំឡេង...</translation>
 <translation id="3735740477244556633">តម្រៀបតាម</translation>
 <translation id="3735827758948958091">មិនអាច​បើក <ph name="FILE_NAMES" /> នៅពេលប្រើ​ការ​តភ្ជាប់អ៊ីនធឺណិតផ្អែកតាមទិន្នន័យដែលប្រើ​បានទេ</translation>
-<translation id="3736575924150462398">បញ្ចូល​ផ្ទាំង ឬ​អ្វីៗជា​ច្រើនទៀត</translation>
 <translation id="3737058101969549870">រក្សា​ទិន្នន័យរុករក​ដែលមាន​ស្រាប់​ដាច់ដោយ​ឡែកពី​កម្រងព័ត៌មាន​ថ្មីនេះឬ?</translation>
 <translation id="3738632186060045350">ទិន្នន័យ <ph name="DEVICE_TYPE" /> នឹងត្រូវលុបក្នុងរយៈពេល 24 ម៉ោង</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
@@ -4640,6 +4640,7 @@
 <translation id="4151503145138736576">មិនមានទំហំផ្ទុកក្រៅអ៊ីនធឺណិតដែលត្រូវសម្អាតទេ</translation>
 <translation id="4152011295694446843">អ្នក​នឹងឃើញ​ចំណាំ​របស់អ្នក​នៅទីនេះ</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{ផ្ទាំង 1}other{ផ្ទាំង #}}</translation>
+<translation id="4153858337812834972">ផ្ទាំង​ថ្មីៗបំផុត</translation>
 <translation id="4154658846204884961">ផ្កាយដុះកន្ទុយ</translation>
 <translation id="4154664944169082762">ស្នាមម្រាមដៃ</translation>
 <translation id="4156297721709710037"><ph name="WINDOW_TITLE" /> - ទិដ្ឋភាព​ខាងឆ្វេង</translation>
@@ -7777,6 +7778,7 @@
 <translation id="6391131092053186625">IMEI នៃ​ឧបករណ៍​របស់​អ្នក​គឺ <ph name="IMEI_NUMBER" />។ លេខ​​នេះ​អាច​ត្រូវ​បាន​ប្រើប្រាស់​ដើម្បី​ជួយ​បើក​ដំណើរការ​សេវាកម្ម។</translation>
 <translation id="6393156038355142111">ណែនាំ​ពាក្យ​សម្ងាត់​ខ្លាំង</translation>
 <translation id="6393550101331051049">អនុញ្ញាតឱ្យបង្ហាញខ្លឹមសារគ្មានសុវត្ថិភាព</translation>
+<translation id="6394634179843537518">បញ្ចូល​ឯកសារ</translation>
 <translation id="6395423953133416962">ផ្ញើ <ph name="BEGIN_LINK1" />ព័ត៌មានប្រព័ន្ធ<ph name="END_LINK1" /> និង <ph name="BEGIN_LINK2" />ម៉ាទ្រិក<ph name="END_LINK2" /></translation>
 <translation id="6397586889873084061">បាទ/ចាស រក្សាទិន្នន័យ​របស់ខ្ញុំ​ដាច់ដោយ​ឡែកពី​សាលា (បានណែនាំ)</translation>
 <translation id="6398715114293939307">លុប Google Play Store</translation>
@@ -9313,7 +9315,6 @@
 <translation id="747114903913869239">កំហុសឆ្គង៖ មិនអាចបម្លែងកម្មវិធីបន្ថែម</translation>
 <translation id="7471520329163184433">យឺត​ជាង</translation>
 <translation id="747312361841682912">លុប​ទិន្នន័យ​ដែលបង្ហាញ</translation>
-<translation id="7473555040328423550">បញ្ចូលផ្ទាំង</translation>
 <translation id="7473891865547856676">ទេ អរគុណ</translation>
 <translation id="7474043404939621342">ប្ដូរ​របារឧបករណ៍របស់អ្នកតាម​បំណង</translation>
 <translation id="747459581954555080">ស្តារទាំងអស់</translation>
@@ -11891,7 +11892,6 @@
 <translation id="9215293857209265904">"<ph name="EXTENSION_NAME" />" បានបន្ថែម</translation>
 <translation id="9215742531438648683">លុប Google Play Store</translation>
 <translation id="9218430445555521422">កំណត់ជាលំនាំដើម</translation>
-<translation id="9218536722110863203">បង្ហោះឯកសារ</translation>
 <translation id="9218842937876577955"><ph name="APP_NAME" /> (កម្មវិធី​ដែលមិនស្គាល់)</translation>
 <translation id="9219572436491982747">ទិន្នន័យដែលបានបញ្ជូនឱ្យ Google ប្រហែល​ត្រូវអ្នកត្រួតពិនិត្យជាមនុស្សមើលឃើញ​ក្នុងការកែលម្អ​បច្ចេកវិទ្យារបស់ Chrome AI</translation>
 <translation id="9219741625496141320">ទិន្នន័យរុករក​ត្រូវបានលុប​ដោយស្វ័យប្រវត្តិ</translation>

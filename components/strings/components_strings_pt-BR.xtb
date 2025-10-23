@@ -1678,7 +1678,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="3740447166056383374">Revise antes de copiar os arquivos</translation>
 <translation id="374325029554577103">Eletrônicos para atividade física</translation>
 <translation id="3744111561329211289">Sincronização em segundo plano</translation>
-<translation id="3744212718085287312">Quer ter mais segurança com um cartão virtual?</translation>
+<translation id="3744212718085287312">Que tal proteção extra para suas compras?</translation>
 <translation id="3744899669254331632">Você não pode visitar <ph name="SITE" /> agora porque o website enviou credenciais embaralhadas que o Chromium não consegue processar. Erros de rede e ataques são geralmente temporários, de modo que esta página provavelmente funcionará mais tarde.</translation>
 <translation id="3745599309295009257">O texto, o conteúdo e o URL da página em que você está escrevendo serão enviados ao Google, revisados por humanos e usados para melhorar esse recurso. Evite inserir informações pessoais, como detalhes médicos ou financeiros. Evite também usar essa ferramenta em sites que contenham informações particulares ou sensíveis.</translation>
 <translation id="3748009735914587286">Metal (alto brilho)</translation>
@@ -2078,7 +2078,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="4363222835916186793">Os alertas para este produto foram desativados</translation>
 <translation id="4366943895537458493">Chapa</translation>
 <translation id="4369179505195332608">Editar carteira de habilitação</translation>
-<translation id="437040971055499437">Acontece uma ocorrência de segurança</translation>
+<translation id="437040971055499437">Há uma ocorrência de segurança</translation>
 <translation id="4371591986692297148">Inativos</translation>
 <translation id="4372948949327679948">Valor <ph name="VALUE_TYPE" /> esperado.</translation>
 <translation id="437620492464254965">Portas e janelas</translation>
@@ -3106,7 +3106,7 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="612178891608320683">Culinária vegana</translation>
 <translation id="6122181661879998141">parte da frente do cartão</translation>
 <translation id="6124058285696691147">Baixar o anexo</translation>
-<translation id="6124432979022149706">Conectores do Chrome Enterprise</translation>
+<translation id="6124432979022149706">Chrome Enterprise Connectors</translation>
 <translation id="6124996493718543728">A tela de progresso da opção "Compre agora, pague depois" está aberta no tamanho máximo.</translation>
 <translation id="6126565365696310362">Envelope chinês 2</translation>
 <translation id="6131824478727057281">local</translation>
@@ -3655,7 +3655,6 @@ Se não fizer isso, a permissão será bloqueada pelas configurações de privac
 <translation id="7020464868401003526">O URL do atalho excede o tamanho máximo permitido de <ph name="MAX_LENGTH" /> caracteres.</translation>
 <translation id="702275896380648118">Este site determina seus interesses e sugere anúncios para outros sites. Ele também usa seus temas de anúncios do Chrome para mostrar anúncios mais relevantes.</translation>
 <translation id="7023162328967545559">Aviso do administrador</translation>
-<translation id="7023765275461720661">Vincular a conta e pagar com <ph name="BNPL_ISSUER_NAME" />?</translation>
 <translation id="7029809446516969842">Senhas</translation>
 <translation id="7030164307377592766">modificar as configurações para preenchimento de formas de pagamento</translation>
 <translation id="7031110846419387930">Informações sobre seu navegador, SO, dispositivo, softwares instalados, arquivos e endereços IP</translation>
@@ -4226,7 +4225,7 @@ Mais detalhes:
 <translation id="7952192831285741665">EDP (Europa)</translation>
 <translation id="7952250633095257243">O atalho não pode ficar vazio</translation>
 <translation id="7952327717479677595">Botão "Gerenciar mecanismos de pesquisa". Ative para gerenciar a pesquisa no site e o mecanismo de pesquisa padrão</translation>
-<translation id="7953236668995583915">Atualize a página para aplicar as configurações atualizadas ao site</translation>
+<translation id="7953236668995583915">Recarregue esta página para aplicar as configurações atualizadas ao site.</translation>
 <translation id="7953569069500808819">Costura na parte superior</translation>
 <translation id="7955105108888461311">Perguntar diretamente</translation>
 <translation id="7956713633345437162">Dispositivos Móveis</translation>
@@ -5030,7 +5029,7 @@ incomuns e incorretas. Isso pode acontecer quando um invasor está fingindo ser 
 <translation id="989988560359834682">Editar endereço</translation>
 <translation id="991413375315957741">sensores de luz ou movimento</translation>
 <translation id="991936891556421157">Calçados</translation>
-<translation id="992110854164447044">Este cartão oculta o físico e protege você contra fraudes. <ph name="IDS_AUTOFILL_VIRTUAL_CARD_ENROLLMENT_LEARN_MORE_LINK_LABEL" /></translation>
+<translation id="992110854164447044">O cartão virtual oculta os dados do cartão físico e protege você contra fraudes. <ph name="IDS_AUTOFILL_VIRTUAL_CARD_ENROLLMENT_LEARN_MORE_LINK_LABEL" /></translation>
 <translation id="992115559265932548"><ph name="MICROSOFT_ACTIVE_DIRECTORY" /></translation>
 <translation id="992256792861109788">Rosa</translation>
 <translation id="992432478773561401">O software "<ph name="SOFTWARE_NAME" />" não foi instalado corretamente no computador ou na rede:

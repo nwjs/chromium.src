@@ -65,7 +65,6 @@ import org.chromium.chrome.browser.toolbar.ToolbarPositionController.StateTransi
 import org.chromium.chrome.browser.toolbar.ToolbarPositionController.ToolbarPositionAndSource;
 import org.chromium.chrome.browser.toolbar.top.ToolbarLayout;
 import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.url.GURL;
@@ -278,6 +277,8 @@ public class ToolbarPositionControllerTest {
             new ObservableSupplierImpl<>(0);
     private final ObservableSupplierImpl<Integer> mControlContainerHeightSupplier =
             new ObservableSupplierImpl<>(TOOLBAR_HEIGHT);
+    private final ObservableSupplierImpl<Integer> mKeyboardHeightSupplier =
+            new ObservableSupplierImpl<>(0);
     private final ObservableSupplierImpl<TopInsetCoordinator> mTopInsetCoordinatorSupplier =
             new ObservableSupplierImpl<>();
     private HistogramWatcher mStartupExpectation;
@@ -353,7 +354,8 @@ public class ToolbarPositionControllerTest {
                         mTopInsetCoordinatorSupplier,
                         new Handler(Looper.getMainLooper()),
                         mContext,
-                        mToolbarPosition);
+                        mToolbarPosition,
+                        mKeyboardHeightSupplier);
 
         mSharedPreferencesManager = ChromeSharedPreferences.getInstance();
     }
@@ -498,6 +500,7 @@ public class ToolbarPositionControllerTest {
     @Test
     @Config(qualifiers = "sw400dp")
     @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_TOOLBAR)
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_TOOLBAR_V2)
     public void testUpdatePositionChangesWithOmniboxFocusState() {
         setUserToolbarAnchorPreference(/* showToolbarOnTop= */ false);
         assertControlsAtBottom();
@@ -609,6 +612,7 @@ public class ToolbarPositionControllerTest {
     @Test
     @Config(qualifiers = "sw400dp")
     @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_TOOLBAR)
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_TOOLBAR_V2)
     public void testBottomControlsStacker_visibilityChanges() {
         setUserToolbarAnchorPreference(/* showToolbarOnTop= */ false);
         assertControlsAtBottom();
@@ -643,7 +647,10 @@ public class ToolbarPositionControllerTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_TOOLBAR)
-    @DisableFeatures(ChromeFeatureList.MINI_ORIGIN_BAR)
+    @DisableFeatures({
+        ChromeFeatureList.MINI_ORIGIN_BAR,
+        ChromeFeatureList.ANDROID_BOTTOM_TOOLBAR_V2
+    })
     public void testCalculateStateTransition() {
         boolean prefStateChanged = false;
         boolean ntpShowing = false;
@@ -821,15 +828,31 @@ public class ToolbarPositionControllerTest {
     }
 
     @Test
-    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_TOOLBAR_V2)
     public void testForceBottomForFocusedOmnibox() {
+        ChromeFeatureList.sAndroidBottomToolbarV2ForceBottomForFocusedOmnibox.setForTesting(true);
         boolean prefStateChanged = false;
-        boolean ntpShowing = false;
+        boolean ntpShowing = true;
         boolean tabSwitcherShowing = false;
         boolean isOmniboxFocused = true;
         boolean isFindInPageShowing = false;
         boolean isFormFieldFocusedWithKeyboardVisible = false;
-        boolean doesUserPreferTopToolbar = false;
+        boolean doesUserPreferTopToolbar = true;
+
+        assertEquals(
+                StateTransition.SNAP_TO_BOTTOM,
+                ToolbarPositionController.calculateStateTransition(
+                        prefStateChanged,
+                        ntpShowing,
+                        tabSwitcherShowing,
+                        isOmniboxFocused,
+                        isFindInPageShowing,
+                        isFormFieldFocusedWithKeyboardVisible,
+                        doesUserPreferTopToolbar,
+                        ControlsPosition.TOP));
+
+        ChromeFeatureList.sAndroidBottomToolbarV2ForceBottomForFocusedOmnibox.setForTesting(false);
+        doesUserPreferTopToolbar = false;
 
         assertEquals(
                 StateTransition.SNAP_TO_BOTTOM,
@@ -1052,6 +1075,9 @@ public class ToolbarPositionControllerTest {
         setUserToolbarAnchorPreference(/* showToolbarOnTop= */ false);
         mIsOmniboxFocused.set(true);
         assertControlsAtBottom();
+
+        mKeyboardHeightSupplier.set(400);
+        verify(mControlContainerView).setTranslationY(-400f);
     }
 
     @Test

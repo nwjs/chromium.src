@@ -14,7 +14,7 @@ export function getHtml(this: ComposeboxFileThumbnailElement) {
   ${this.file.url ? html`
     <div id="tabChip" class="chip">
       <div id="tabThumbnail" class="thumbnail">
-        <composebox-tab-favicon .url="${this.file.url.url}" .size="${33}">
+        <composebox-tab-favicon .url="${this.file.url.url}" .size="${24}">
         </composebox-tab-favicon>
         <div class="overlay">
           <cr-icon-button
@@ -28,6 +28,7 @@ export function getHtml(this: ComposeboxFileThumbnailElement) {
         </div>
       </div>
       <p class="title">${this.file.name}</p>
+      <div class="chip-overlay"></div>
     </div>
   ` : this.file.objectUrl ? html`
     <div id="imgChip">
@@ -71,6 +72,7 @@ export function getHtml(this: ComposeboxFileThumbnailElement) {
         </div>
       </div>
       <p class="title" id="pdfTitle">${this.file.name}</p>
+      <div class="chip-overlay"></div>
     </div>
   `}
 </div>

@@ -1832,6 +1832,9 @@ extern const char kOmniboxZpsSuggestionLimitDescription[];
 extern const char kOmniboxUIMaxAutocompleteMatchesName[];
 extern const char kOmniboxUIMaxAutocompleteMatchesDescription[];
 
+extern const char kWebUIOmniboxFullPopupName[];
+extern const char kWebUIOmniboxFullPopupDescription[];
+
 extern const char kWebUIOmniboxPopupName[];
 extern const char kWebUIOmniboxPopupDescription[];
 
@@ -3057,6 +3060,9 @@ extern const char kMediaCodecLowDelayModeDescription[];
 extern const char kMediaPickerAdoptionStudyName[];
 extern const char kMediaPickerAdoptionStudyDescription[];
 
+extern const char kMigrateAccountManagerDelegateName[];
+extern const char kMigrateAccountManagerDelegateDescription[];
+
 extern const char kMigrateAccountPrefsOnMobileName[];
 extern const char kMigrateAccountPrefsOnMobileDescription[];
 
@@ -3372,6 +3378,9 @@ extern const char kNtpCalendarModuleDescription[];
 
 extern const char kNtpComposeboxName[];
 extern const char kNtpComposeboxDescription[];
+
+extern const char kNtpRealboxNextName[];
+extern const char kNtpRealboxNextDescription[];
 
 extern const char kNtpComposeboxUsesChromeComposeClientName[];
 extern const char kNtpComposeboxUsesChromeComposeClientDescription[];

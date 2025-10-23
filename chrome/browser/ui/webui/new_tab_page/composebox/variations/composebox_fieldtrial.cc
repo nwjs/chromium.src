@@ -138,6 +138,61 @@ bool IsNtpComposeboxEnabled(Profile* profile) {
       AimEligibilityServiceFactory::GetForProfile(profile), kNtpComposebox);
 }
 
+bool IsDeepSearchEnabled(Profile* profile) {
+  if (!profile) {
+    return false;
+  }
+
+  if (!IsNtpComposeboxEnabled(profile)) {
+    return false;
+  }
+
+  if (kShowToolsAndModels.Get() && kForceToolsAndModels.Get()) {
+    return true;
+  }
+
+  AimEligibilityService* aim_eligibility_service =
+      AimEligibilityServiceFactory::GetForProfile(profile);
+  return kShowToolsAndModels.Get() && aim_eligibility_service &&
+         aim_eligibility_service->IsDeepSearchEligible();
+}
+
+bool IsCreateImagesEnabled(Profile* profile) {
+  if (!profile) {
+    return false;
+  }
+
+  if (!IsNtpComposeboxEnabled(profile)) {
+    return false;
+  }
+
+  if (kShowToolsAndModels.Get() && kShowCreateImageTool.Get() &&
+      kForceToolsAndModels.Get()) {
+    return true;
+  }
+
+  AimEligibilityService* aim_eligibility_service =
+      AimEligibilityServiceFactory::GetForProfile(profile);
+  return kShowToolsAndModels.Get() && kShowCreateImageTool.Get() &&
+         aim_eligibility_service &&
+         aim_eligibility_service->IsCreateImagesEligible();
+}
+
+std::unique_ptr<ComposeboxQueryController::QueryControllerConfigParams>
+CreateQueryControllerConfigParams() {
+  auto config_params = std::make_unique<
+      ComposeboxQueryController::QueryControllerConfigParams>();
+  config_params->send_lns_surface = kSendLnsSurfaceParam.Get();
+  config_params->suppress_lns_surface_param_if_no_image =
+      kSuppressLnsSurfaceParamIfNoImage.Get();
+  config_params->enable_multi_context_input_flow = kMaxNumFiles.Get() > 1;
+  config_params->enable_viewport_images = kEnableViewportImages.Get();
+  config_params->use_separate_request_ids_for_multi_context_viewport_images =
+      kUseSeparateRequestIdsForMultiContextViewportImages.Get();
+  config_params->clear_previous_state_on_session_start = true;
+  return config_params;
+}
+
 BASE_FEATURE(kNtpComposebox, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<std::string> kConfigParam(&kNtpComposebox,
@@ -146,7 +201,18 @@ const base::FeatureParam<std::string> kConfigParam(&kNtpComposebox,
 
 const base::FeatureParam<bool> kSendLnsSurfaceParam(&kNtpComposebox,
                                                     "SendLnsSurfaceParam",
-                                                    false);
+                                                    true);
+
+const base::FeatureParam<bool> kSuppressLnsSurfaceParamIfNoImage(
+    &kNtpComposebox,
+    "SuppressLnsSurfaceParamIfNoImage",
+    true);
+
+const base::FeatureParam<bool>
+    kUseSeparateRequestIdsForMultiContextViewportImages(
+        &kNtpComposebox,
+        "UseSeparateRequestIdsForMultiContextViewportImages",
+        true);
 
 const base::FeatureParam<bool> kShowComposeboxZps(&kNtpComposebox,
                                                   "ShowComposeboxZps",
@@ -165,6 +231,9 @@ const base::FeatureParam<bool> kShowComposeboxImageSuggestions(
 const base::FeatureParam<bool> kShowContextMenu(&kNtpComposebox,
                                                 "ShowContextMenu",
                                                 false);
+const base::FeatureParam<bool> kShowRecentTabChip(&kNtpComposebox,
+                                                  "ShowRecentTabChip",
+                                                  false);
 const base::FeatureParam<bool> kShowContextMenuTabPreviews(
     &kNtpComposebox,
     "ShowContextMenuTabPreviews",
@@ -174,32 +243,30 @@ const base::FeatureParam<bool> kShowContextMenuDescription(
     &kNtpComposebox,
     "ShowContextMenuDescription",
     true);
+const base::FeatureParam<bool> kEnableViewportImages(&kNtpComposebox,
+                                                     "EnableViewportImages",
+                                                     true);
 
 const base::FeatureParam<bool> kShowToolsAndModels(&kNtpComposebox,
                                                    "ShowToolsAndModels",
                                                    false);
+
+const base::FeatureParam<bool> kShowCreateImageTool(&kNtpComposebox,
+                                                    "ShowCreateImageTool",
+                                                    false);
+
+const base::FeatureParam<bool> kShowSubmit(&kNtpComposebox, "ShowSubmit", true);
+
+const base::FeatureParam<bool> kForceToolsAndModels(&kNtpComposebox,
+                                                    "ForceToolsAndModels",
+                                                    false);
 
 const base::FeatureParam<int> kContextMenuMaxTabSuggestions(
     &kNtpComposebox,
     "ContextMenuMaxTabSuggestions",
     5);
 
-const base::FeatureParam<RealboxLayoutMode>::Option
-    kRealboxLayoutModeOptions[] = {
-        {RealboxLayoutMode::kDefault, kRealboxLayoutModeDefault},
-        {RealboxLayoutMode::kTall, kRealboxLayoutModeTall},
-        {RealboxLayoutMode::kCompact, kRealboxLayoutModeCompact}};
-const base::FeatureParam<RealboxLayoutMode> kRealboxLayoutMode(
-    &kNtpComposebox,
-    "RealboxLayoutMode",
-    RealboxLayoutMode::kDefault,
-    &kRealboxLayoutModeOptions);
-
 const base::FeatureParam<int> kMaxNumFiles(&kNtpComposebox, "MaxNumFiles", 1);
-
-const base::FeatureParam<bool> kCyclingPlaceholders(&kNtpComposebox,
-                                                    "CyclingPlaceholders",
-                                                    false);
 
 FeatureConfig::FeatureConfig() : config(GetNTPComposeboxConfig()) {}
 
@@ -209,16 +276,61 @@ FeatureConfig& FeatureConfig::operator=(const FeatureConfig&) = default;
 FeatureConfig& FeatureConfig::operator=(FeatureConfig&&) = default;
 FeatureConfig::~FeatureConfig() = default;
 
+}  // namespace ntp_composebox
+
+namespace ntp_realbox {
+
+bool IsNtpRealboxNextEnabled(Profile* profile) {
+  if (!profile) {
+    return false;
+  }
+
+  if (!ntp_composebox::IsNtpComposeboxEnabled(profile)) {
+    return false;
+  }
+
+  // The `AimEligibilityService` depends on the `TemplateURLService`. If the
+  // `TemplateURLService` does not exist for this profile, then the
+  // `AimEligibilityService` cannot be created.
+  if (!TemplateURLServiceFactory::GetForProfile(profile)) {
+    return false;
+  }
+
+  return AimEligibilityService::GenericKillSwitchFeatureCheck(
+      AimEligibilityServiceFactory::GetForProfile(profile), kNtpRealboxNext);
+}
+
+BASE_FEATURE(kNtpRealboxNext, base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<bool> kCyclingPlaceholders(&kNtpRealboxNext,
+                                                    "CyclingPlaceholders",
+                                                    false);
+
+const base::FeatureParam<RealboxLayoutMode>::Option
+    kRealboxLayoutModeOptions[] = {
+        {RealboxLayoutMode::kTallBottomContext,
+         kRealboxLayoutModeTallBottomContext},
+        {RealboxLayoutMode::kTallTopContext, kRealboxLayoutModeTallTopContext},
+        {RealboxLayoutMode::kCompact, kRealboxLayoutModeCompact}};
+
+const base::FeatureParam<RealboxLayoutMode> kRealboxLayoutMode(
+    &kNtpRealboxNext,
+    "RealboxLayoutMode",
+    RealboxLayoutMode::kCompact,
+    &kRealboxLayoutModeOptions);
+
 std::string_view RealboxLayoutModeToString(
     RealboxLayoutMode realbox_layout_mode) {
   switch (realbox_layout_mode) {
-    case RealboxLayoutMode::kDefault:
-      return kRealboxLayoutModeDefault;
-    case RealboxLayoutMode::kTall:
-      return kRealboxLayoutModeTall;
+    case RealboxLayoutMode::kTallBottomContext:
+      return kRealboxLayoutModeTallBottomContext;
+    case RealboxLayoutMode::kTallTopContext:
+      return kRealboxLayoutModeTallTopContext;
     case RealboxLayoutMode::kCompact:
       return kRealboxLayoutModeCompact;
+    default:
+      NOTREACHED();
   }
 }
 
-}  // namespace ntp_composebox
+}  // namespace ntp_realbox

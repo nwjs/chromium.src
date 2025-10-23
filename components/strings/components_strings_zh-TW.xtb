@@ -381,7 +381,7 @@
 <translation id="1615402009686901181">當畫面上出現機密內容，系統管理員政策就會停用螢幕畫面擷取功能</translation>
 <translation id="161612500287664753">問問 Google 搜尋關於本頁的資訊</translation>
 <translation id="1617276713587758852">跨界車</translation>
-<translation id="1619007254056372606">管理裝置端網站資料</translation>
+<translation id="1619007254056372606">管理網站在裝置端的資料</translation>
 <translation id="1619648179761984213"><ph name="USER_DISPLAY_NAME" />已移除分頁</translation>
 <translation id="1620510694547887537">攝影機</translation>
 <translation id="1622966923835127638">商業金融</translation>
@@ -569,7 +569,7 @@
 <translation id="1939059826036755332">自動進入子母畫面</translation>
 <translation id="1939175642807587452">可以要求傳送通知</translation>
 <translation id="1940441167050915935">刪除已儲存的安全碼</translation>
-<translation id="194174710521904357">你已暫時允許這個網站使用第三方 Cookie。換言之，瀏覽防護的強度會降低，但網站功能正常運作的機率會提高。</translation>
+<translation id="194174710521904357">你已暫時允許這個網站使用第三方 Cookie。此時瀏覽防護程度較低，但會增加網站功能正常運作的機率。</translation>
 <translation id="1942498996464084801">圖書與文學</translation>
 <translation id="1943994668912612445">設計</translation>
 <translation id="1945968466830820669">你可能會失去貴機構帳戶的存取權，或身分遭到冒用。Chromium 建議你立即變更密碼。</translation>
@@ -1676,7 +1676,7 @@
 <translation id="3740447166056383374">複製檔案前請務必確認</translation>
 <translation id="374325029554577103">健身科技產品</translation>
 <translation id="3744111561329211289">背景同步處理</translation>
-<translation id="3744212718085287312">下次要使用更安全的虛擬卡片嗎？</translation>
+<translation id="3744212718085287312">下次要使用虛擬卡片，強化安全保障嗎？</translation>
 <translation id="3744899669254331632"><ph name="SITE" /> 傳送的憑證受到干擾，造成 Chromium 無法處理，因此你目前無法造訪該網站。網路錯誤和攻擊通常是暫時性狀態，因此這個網頁可能稍後就會恢復正常運作。</translation>
 <translation id="3745599309295009257">你在頁面上的文字和該頁內容與網址都會傳送給 Google，並由人工進行審查，用來改善這項功能。因此，請勿輸入醫療或財務資料等個人資訊，也不要在含有私密資訊的網站上使用這項工具。</translation>
 <translation id="3748009735914587286">金屬 (高光面)</translation>
@@ -3653,7 +3653,6 @@
 <translation id="7020464868401003526">捷徑網址長度超過上限 (<ph name="MAX_LENGTH" /> 個半形字元)。</translation>
 <translation id="702275896380648118">這個網站會判斷你喜歡的內容，然後向其他網站建議廣告。這個網站也會從 Chrome 取得你的廣告主題，為你顯示更貼近需求的廣告。</translation>
 <translation id="7023162328967545559">管理員警告</translation>
-<translation id="7023765275461720661">要連結帳戶並透過「<ph name="BNPL_ISSUER_NAME" />」付款嗎？</translation>
 <translation id="7029809446516969842">密碼</translation>
 <translation id="7030164307377592766">修改填入付款方式的設定</translation>
 <translation id="7031110846419387930">瀏覽器、OS、裝置、已安裝軟體、檔案和 IP 位址的相關資訊</translation>
@@ -4224,7 +4223,7 @@
 <translation id="7952192831285741665">歐洲 EDP</translation>
 <translation id="7952250633095257243">搜尋捷徑不可留空</translation>
 <translation id="7952327717479677595">「管理搜尋引擎」按鈕，啟動後即可管理預設搜尋引擎和站內搜尋</translation>
-<translation id="7953236668995583915">重新載入這個頁面，即可將更新後的設定套用到此網站</translation>
+<translation id="7953236668995583915">重新載入這個頁面，將更新後的設定套用到此網站</translation>
 <translation id="7953569069500808819">邊緣裝訂 (右側)</translation>
 <translation id="7955105108888461311">當面詢問</translation>
 <translation id="7956713633345437162">行動版書籤</translation>
@@ -4762,7 +4761,7 @@
 <translation id="8870700989640064057">要列印機密檔案嗎？</translation>
 <translation id="8871485335898060555">古董與收藏品</translation>
 <translation id="8871553383647848643">自訂瀏覽器外觀</translation>
-<translation id="8874790741333031443">請嘗試暫時允許使用第三方 Cookie，這代表網頁瀏覽保護程度較低，但網站功能較容易正常運作。</translation>
+<translation id="8874790741333031443">請嘗試暫時允許使用第三方 Cookie。這個操作會降低瀏覽防護程度，但會增加網站功能正常運作的機率。</translation>
 <translation id="8874824191258364635">請輸入有效的信用卡號碼</translation>
 <translation id="8877780815363510165">釣魚</translation>
 <translation id="888117890813270681">「<ph name="DATA_CONTROLS_RESTRICTION" />」無法設為「<ph name="DATA_CONTROLS_LEVEL" />」</translation>

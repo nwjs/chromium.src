@@ -6,7 +6,7 @@
 <translation id="1008557486741366299">Pas maintenant</translation>
 <translation id="100957008357583611">Utiliser votre position ?</translation>
 <translation id="1010200102790553230">Charger la page plus tard</translation>
-<translation id="1010225406377140704">Contactez l'expéditeur pour lui demander un nouveau lien</translation>
+<translation id="1010225406377140704">Contactez la personne qui l'a envoyé pour lui demander un nouveau lien</translation>
 <translation id="1011206368273183593">Préparation des fichiers…</translation>
 <translation id="1014509239502131234">Annulation du résultat…</translation>
 <translation id="1015730422737071372">Fournir des informations supplémentaires</translation>
@@ -204,7 +204,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="1329916999021038454">Envoyer un rapport</translation>
 <translation id="1330449323196174374">Pli du volet gauche</translation>
 <translation id="1333745675627230582">Jouer au jeu Chrome Dino</translation>
-<translation id="1333989956347591814">Votre activité <ph name="BEGIN_EMPHASIS" />pourra rester visible<ph name="END_EMPHASIS" /> par :
+<translation id="1333989956347591814">Pourront <ph name="BEGIN_EMPHASIS" />encore voir<ph name="END_EMPHASIS" /> votre activité :
         <ph name="BEGIN_LIST" />
           <ph name="LIST_ITEM" />Les sites Web que vous consultez
           <ph name="LIST_ITEM" />Votre employeur ou votre établissement scolaire
@@ -740,7 +740,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="2210794033760923560">Importer le rapport</translation>
 <translation id="2212735316055980242">Règle introuvable.</translation>
 <translation id="2213606439339815911">Obtention des entrées en cours…</translation>
-<translation id="2213612003795704869">La page est imprimée</translation>
+<translation id="2213612003795704869">Page imprimée</translation>
 <translation id="2214086901479959524">Mettez à jour Chrome pour continuer à utiliser vos groupes d'onglets partagés</translation>
 <translation id="2215368073167343359">Saisie automatique avec Google</translation>
 <translation id="2215539479425228550">Escalade et alpinisme</translation>
@@ -883,11 +883,11 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="243815215670139125">Impossible d'enregistrer cette carte dans votre compte Google. Elle a été enregistrée dans Chrome sur cet appareil à la place.</translation>
 <translation id="2438874542388153331">Quadruple perforation à droite</translation>
 <translation id="2441854154602066476">Liste des modes de paiement à saisir de façon tactile. Clavier masqué.</translation>
-<translation id="2442865686365739754">Chrome <ph name="BEGIN_EMPHASIS" />n'enregistrera pas<ph name="END_EMPHASIS" /> ce qui suit :
+<translation id="2442865686365739754">Chrome <ph name="BEGIN_EMPHASIS" />n'enregistrera pas<ph name="END_EMPHASIS" /> :
           <ph name="BEGIN_LIST" />
             <ph name="LIST_ITEM" />Votre historique de navigation
             <ph name="LIST_ITEM" />Les cookies et les données des sites
-            <ph name="LIST_ITEM" />Les informations saisies dans formulaires
+            <ph name="LIST_ITEM" />Les infos saisies dans les formulaires
           <ph name="END_LIST" /></translation>
 <translation id="2448295565072560657">Périphériques connectés à cet appareil pendant la session</translation>
 <translation id="2450019289047528273">Modes de paiement et autres infos provenant de Google Wallet</translation>
@@ -1678,7 +1678,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="3740447166056383374">Examen requis avant la copie</translation>
 <translation id="374325029554577103">Produits technologiques de remise en forme</translation>
 <translation id="3744111561329211289">Synchronisation en arrière-plan</translation>
-<translation id="3744212718085287312">Renforcer la sécurité avec une carte virtuelle la prochaine fois ?</translation>
+<translation id="3744212718085287312">Payer avec une carte virtuelle pour plus de sécurité la prochaine fois ?</translation>
 <translation id="3744899669254331632"><ph name="SITE" /> est actuellement inaccessible. Le site Web a envoyé des identifiants brouillés inutilisables par Chromium. Les erreurs de réseau et les attaques étant généralement temporaires, cette page devrait à nouveau fonctionner ultérieurement.</translation>
 <translation id="3745599309295009257">Votre texte ainsi que le contenu et l'URL de la page sur laquelle vous écrivez seront envoyés à Google, examinés par des réviseurs et utilisés pour améliorer cette fonctionnalité. Évitez de saisir des informations personnelles (comme des données médicales ou financières) et d'utiliser cet outil sur des sites contenant des informations privées ou sensibles.</translation>
 <translation id="3748009735914587286">Métal (haute brillance)</translation>
@@ -2078,7 +2078,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4363222835916186793">Les alertes pour ce produit ont été désactivées</translation>
 <translation id="4366943895537458493">Plaque</translation>
 <translation id="4369179505195332608">Modifier le permis de conduire</translation>
-<translation id="437040971055499437">Un événement lié à la sécurité se produit</translation>
+<translation id="437040971055499437">Événement lié à la sécurité</translation>
 <translation id="4371591986692297148">Inactifs</translation>
 <translation id="4372948949327679948">Valeur attendue : <ph name="VALUE_TYPE" />.</translation>
 <translation id="437620492464254965">Portes et fenêtres</translation>
@@ -2136,7 +2136,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="4480760608050410381">Vidéo MP4</translation>
 <translation id="448363931695049633">Pizzerias</translation>
 <translation id="4489023393592172404">Enveloppe Kaku 4</translation>
-<translation id="4489977488133295402">Confirmer votre identité pour compléter automatiquement les modes de paiement</translation>
+<translation id="4489977488133295402">Confirmer votre identité pour saisir automatiquement les modes de paiement</translation>
 <translation id="4490717597759821841">A7</translation>
 <translation id="449126573531210296">Chiffrer les mots de passe synchronisés avec votre compte Google</translation>
 <translation id="4493480324863638523">URL non valide : vous devez saisir une URL avec un schéma standard, comme http://example.com ou https://example.com.</translation>
@@ -2685,7 +2685,7 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="5414306071315087019">Acheter maintenant, payer plus tard est disponible avec Google Pay</translation>
 <translation id="5414446060143308245">Examen requis avant le transfert</translation>
 <translation id="5414511064953050917">Déplacer quand même</translation>
-<translation id="5418700249417444482">Les URL des pages que vous consultez sont envoyées à Google Cloud ou à des tiers pour analyse et peuvent être visibles par votre administrateur. Par exemple, elles peuvent être analysées à la recherche de sites dangereux ou les sites Web peuvent être filtrés en fonction des règles définies par l'administrateur.</translation>
+<translation id="5418700249417444482">Les URL des pages que vous consultez sont envoyées à Google Cloud ou à des tiers pour analyse et peuvent être visibles par votre administrateur. Par exemple, elles peuvent être analysées pour détecter des sites Web dangereux ou filtrer des sites Web en fonction de règles définies par l'administrateur.</translation>
 <translation id="5419311651396341287">Il est possible que votre administrateur voie :</translation>
 <translation id="5421408724705443535">Rock</translation>
 <translation id="5423269318075950257">Suivre les prix</translation>
@@ -3655,7 +3655,6 @@ Par défaut, ce type d'accès est bloqué par vos paramètres de confidentialit�
 <translation id="7020464868401003526">L'URL du raccourci dépasse la longueur maximale autorisée de <ph name="MAX_LENGTH" /> caractères.</translation>
 <translation id="702275896380648118">Ce site détermine ce que vous aimez, puis suggère des annonces à d'autres sites. Il obtient aussi vos thèmes publicitaires par l'intermédiaire de Chrome pour vous montrer des annonces plus pertinentes.</translation>
 <translation id="7023162328967545559">Avertissement de l'administrateur</translation>
-<translation id="7023765275461720661">Associer votre compte et payer avec <ph name="BNPL_ISSUER_NAME" /> ?</translation>
 <translation id="7029809446516969842">Mots de passe</translation>
 <translation id="7030164307377592766">modifier les paramètres de saisie des modes de paiement</translation>
 <translation id="7031110846419387930">Informations sur vos navigateur, système d'exploitation, appareil, logiciels installés, fichiers et adresses IP</translation>
@@ -4411,7 +4410,7 @@ Informations supplémentaires :
 <translation id="8269703227894255363">{0,plural, =1{Ouverture bloquée pour le fichier}one{Ouverture bloquée pour <ph name="FILE_COUNT" /> fichier}other{Ouverture bloquée pour <ph name="FILE_COUNT" /> fichiers}}</translation>
 <translation id="8270173610195068258">Justice et criminalité</translation>
 <translation id="8270242299912238708">Documents PDF</translation>
-<translation id="8272426682713568063">Cartes de paiement</translation>
+<translation id="8272426682713568063">Cartes de crédit</translation>
 <translation id="8277900682056760511">La feuille du gestionnaire de paiement est ouverte</translation>
 <translation id="827820107214076967">Actualiser les journaux</translation>
 <translation id="8278544367771164040">Prêts commerciaux</translation>
@@ -4786,7 +4785,7 @@ Informations supplémentaires :
 <translation id="8918062451146297192">Code CVC pour la carte virtuelle</translation>
 <translation id="8919740778133505789">Voitures de sport</translation>
 <translation id="8919895429178014996">Masquer tous les éléments</translation>
-<translation id="8919989290032064330">Confirmer votre identité pour compléter automatiquement les modes de paiement ?</translation>
+<translation id="8919989290032064330">Confirmer votre identité pour saisir automatiquement les modes de paiement ?</translation>
 <translation id="8922013791253848639">Toujours autoriser les annonces sur ce site</translation>
 <translation id="8922734931659847428">Liste limitée des URL des pages que vous consultez sur lesquelles ont lieu des <ph name="BEGIN_LINK" />événements technologiques anciens<ph name="END_LINK" /></translation>
 <translation id="892588693504540538">Perforation en haut à droite</translation>

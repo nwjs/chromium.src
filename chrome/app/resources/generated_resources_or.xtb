@@ -3868,6 +3868,7 @@
 <translation id="3656328935986149999">କର୍ସର ସ୍ପିଡ</translation>
 <translation id="3656701180077048004">ଆପଣ ଏକ କୀ'କୁ ଦବାଇବା ବେଳେ ଏବଂ ଏହା କେବେ ସକ୍ରିୟ ହୁଏ ତାହା ମଧ୍ୟରେ ଏକ ବିଳମ୍ବ ଯୋଗ କରେ</translation>
 <translation id="3658871634334445293">TrackPoint ଆକ୍ସଲରେସନ୍</translation>
+<translation id="3659483399659250379">ଏକ ଟାବ ଏବଂ ଆହୁରି ଅନେକ କିଛି ଯୋଗ କରନ୍ତୁ</translation>
 <translation id="3659929705630080526">ଆପଣ ବହୁତ ଥର ଏକ ଭୁଲ ଆକ୍ସେସ କୋଡ ଲେଖିଛନ୍ତି। ପରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ</translation>
 <translation id="3661106764436337772">ଶୀଘ୍ର ଏବଂ ଅଧିକ ଆତ୍ମବିଶ୍ୱାସର ସହ ଲେଖନ୍ତୁ</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{1ଟି ପୂର୍ବରୁ ଥିବା ପାସୱାର୍ଡ ମିଳିଲା}other{{NUM_PASSWORDS}ଟି ପୂର୍ବରୁ ଥିବା ପାସୱାର୍ଡ ମିଳିଲା}}</translation>
@@ -3997,7 +3998,6 @@
 <translation id="3735039640698208086">ଯେତେବେଳେ ଅଡ଼ିଓ ଚଲାଉଛି...</translation>
 <translation id="3735740477244556633">ଏହି କ୍ରମରେ ସଜାନ୍ତୁ</translation>
 <translation id="3735827758948958091">ଏକ ମିଟରଯୁକ୍ତ କନେକ୍ସନରେ ଥିବା ସମୟରେ <ph name="FILE_NAMES" />କୁ ଖୋଲାଯାଇପାରିବ ନାହିଁ</translation>
-<translation id="3736575924150462398">ଟାବ କିମ୍ବା ଆହୁରି ଅନେକ କିଛି ଯୋଗ କରନ୍ତୁ</translation>
 <translation id="3737058101969549870">ପୂର୍ବରୁ ଥିବା ବ୍ରାଉଜିଂ ଡାଟାକୁ ଏହି ନୂଆ ପ୍ରୋଫାଇଲରୁ ଅଲଗା ରଖିବେ?</translation>
 <translation id="3738632186060045350"><ph name="DEVICE_TYPE" />ର ଡାଟା 24 ଘଣ୍ଟାରେ ଡିଲିଟ୍ କରିଦିଆଯିବ</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
@@ -4626,6 +4626,7 @@
 <translation id="4151503145138736576">ଖାଲି କରିବା ପାଇଁ କୌଣସି ଅଫଲାଇନ ଷ୍ଟୋରେଜ ନାହିଁ</translation>
 <translation id="4152011295694446843">ଆପଣ ଏଠାରେ ଆପଣଙ୍କ ବୁକମାର୍କଗୁଡ଼ିକ ପାଇବେ</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1ଟି ଟାବ୍‌}other{#ଟି ଟାବ୍‌}}</translation>
+<translation id="4153858337812834972">ବର୍ତ୍ତମାନର ଟାବ</translation>
 <translation id="4154658846204884961">କୋମେଟ</translation>
 <translation id="4154664944169082762">ଟିପଚିହ୍ନ</translation>
 <translation id="4156297721709710037"><ph name="WINDOW_TITLE" /> - ବାମପଟ ଭ୍ୟୁ</translation>
@@ -7760,6 +7761,7 @@
 <translation id="6391131092053186625">ଆପଣଙ୍କ ଡିଭାଇସ IMEI <ph name="IMEI_NUMBER" /> ଅଟେ। ସେବାକୁ ସକ୍ରିୟ କରିବାରେ ସାହାଯ୍ୟ କରିବା ପାଇଁ ଏହି ନମ୍ବରକୁ ବ୍ୟବହାର କରାଯାଇପାରିବ।</translation>
 <translation id="6393156038355142111">ଜଟିଳ ପାସ୍‌ୱର୍ଡ ପରାମର୍ଶ କରନ୍ତୁ</translation>
 <translation id="6393550101331051049">ଅସୁରକ୍ଷିତ ବିଷୟବସ୍ତୁ ଦେଖାଇବାକୁ ଅନୁମତି ଦିଆଯାଇଛି</translation>
+<translation id="6394634179843537518">ଫାଇଲ ଯୋଗ କରନ୍ତୁ</translation>
 <translation id="6395423953133416962"><ph name="BEGIN_LINK1" />ସିଷ୍ଟମ୍ ସୂଚନା<ph name="END_LINK1" /> ଓ <ph name="BEGIN_LINK2" />ମେଟ୍ରିକ୍ସ<ph name="END_LINK2" /> ପଠାନ୍ତୁ</translation>
 <translation id="6397586889873084061">ହଁ, ମୋ ଡାଟାକୁ ସ୍କୁଲରୁ ଅଲଗା ରଖନ୍ତୁ (ସୁପାରିଶ କରାଯାଇଛି)</translation>
 <translation id="6398715114293939307">Google Play ଷ୍ଟୋର୍‌କୁ କାଢ଼ନ୍ତୁ</translation>
@@ -9298,7 +9300,6 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="747114903913869239">ତ୍ରୁଟି: ଏକ୍ସଟେନ୍‌ସନ୍ ଡିକୋଡ୍ କରିବାରେ ଅକ୍ଷମ</translation>
 <translation id="7471520329163184433">ଆହୁରି ଧୀର</translation>
 <translation id="747312361841682912">ଡିସପ୍ଲେ କରାଯାଇଥିବା ଡାଟାକୁ ଡିଲିଟ କରନ୍ତୁ</translation>
-<translation id="7473555040328423550">ଟାବ ଯୋଗ କରନ୍ତୁ</translation>
 <translation id="7473891865547856676">ନା, ଧନ୍ୟବାଦ</translation>
 <translation id="7474043404939621342">ଆପଣଙ୍କ ଟୁଲବାରକୁ କଷ୍ଟମାଇଜ କରନ୍ତୁ</translation>
 <translation id="747459581954555080">ସବୁ ରିଷ୍ଟୋର୍ କରନ୍ତୁ</translation>
@@ -11874,7 +11875,6 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="9215293857209265904">"<ph name="EXTENSION_NAME" />" ଯୋଗ କରାଗଲା</translation>
 <translation id="9215742531438648683">Google Play Store ଅନଇନଷ୍ଟଲ୍ କରନ୍ତୁ</translation>
 <translation id="9218430445555521422">ଡିଫଲ୍ଟ ଭାବେ ସେଟ କରନ୍ତୁ</translation>
-<translation id="9218536722110863203">ଫାଇଲ ଅପଲୋଡ କରନ୍ତୁ</translation>
 <translation id="9218842937876577955"><ph name="APP_NAME" /> (ଅସମର୍ଥିତ ଆପ୍)</translation>
 <translation id="9219572436491982747">Chrome AIର ଟେକ୍ନୋଲୋଜିରେ ଉନ୍ନତି ଆଣିବା ପାଇଁ Googleକୁ ପଠାଯାଇଥିବା ଡାଟା ମାନବ ସମୀକ୍ଷକମାନେ ଦେଖିପାରନ୍ତି</translation>
 <translation id="9219741625496141320">ବ୍ରାଉଜିଂ ଡାଟା ସ୍ୱତଃ ଡିଲିଟ ହୋଇଯାଇଛି</translation>

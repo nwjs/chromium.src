@@ -171,6 +171,9 @@ BASE_FEATURE(kMostVisitedTilesHorizontalRenderGroup,
 // accommodate the autocompletions.
 BASE_FEATURE(kRichAutocompletion, "OmniboxRichAutocompletion", ENABLED);
 
+// If enabled, removes the cutout for the location bar and fills the entire
+// popup content with the WebUI WebView.
+BASE_FEATURE(kWebUIOmniboxFullPopup, DISABLED);
 // If enabled, shows the omnibox suggestions in the popup in WebUI.
 BASE_FEATURE(kWebUIOmniboxPopup, DISABLED);
 // Enables the WebUI for omnibox suggestions without modifying the popup UI.
@@ -326,7 +329,7 @@ BASE_FEATURE(kNumSrpZpsRelatedSearches,
 // the Settings page.
 BASE_FEATURE(kEnableSearchAggregatorPolicy, ENABLED);
 
-BASE_FEATURE(kUseAgentspace25Logo, DISABLED);
+BASE_FEATURE(kUseAgentspace25Logo, ENABLED);
 
 // If enabled, site search engines, defined by the `SiteSearchSettings` policy,
 // can be marked as user-overridable by administrators using an

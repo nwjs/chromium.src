@@ -33,14 +33,12 @@ LensComposeboxHandler::LensComposeboxHandler(
           std::move(pending_searchbox_handler),
           profile,
           web_contents,
-          /*metrics_reporter=*/nullptr,
           std::make_unique<OmniboxController>(
               /*view=*/nullptr,
               std::make_unique<composebox::ComposeboxOmniboxClient>(
                   profile,
                   web_contents,
-                  this,
-                  /*query_controller=*/nullptr))),
+                  this))),
       lens_composebox_controller_(parent_controller),
       page_{std::move(pending_page)},
       handler_(this, std::move(pending_handler)) {
@@ -75,6 +73,12 @@ void LensComposeboxHandler::FocusChanged(bool focused) {
 
 void LensComposeboxHandler::SetDeepSearchMode(bool enabled) {
   // Ignore, intentionally unimplemented for Lens. Deep search not implemented
+  // in Lens.
+}
+
+void LensComposeboxHandler::SetCreateImageMode(bool enabled,
+                                               bool image_present) {
+  // Ignore, intentionally unimplemented for Lens. Create image not implemented
   // in Lens.
 }
 

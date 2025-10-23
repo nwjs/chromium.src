@@ -21,10 +21,8 @@ suite('ContextMenuEntrypoint', () => {
   let searchboxPageHandler: TestMock<SearchboxPageHandlerRemote>;
 
   async function openContextMenuWithSuggestions(suggestions: TabInfo[]) {
-    const refreshTabs = eventToPromise('refresh-tab-suggestions', entrypoint);
+    (entrypoint as any).tabSuggestions_ = suggestions;
     $$(entrypoint, '#entrypoint')!.click();
-    const e = await refreshTabs;
-    e.detail.onRefreshComplete(suggestions);
     await microtasksFinished();
   }
 
@@ -45,6 +43,7 @@ suite('ContextMenuEntrypoint', () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     loadTimeData.overrideValues({
       composeboxShowContextMenuTabPreviews: true,
+      composeboxFileMaxCount: 10,
     });
 
     searchboxPageHandler = TestMock.fromClass(SearchboxPageHandlerRemote);
@@ -66,10 +65,7 @@ suite('ContextMenuEntrypoint', () => {
 
   test('clicking entrypoint shows context menu', async () => {
     // Act.
-    const refreshTabs = eventToPromise('refresh-tab-suggestions', entrypoint);
     $$(entrypoint, '#entrypoint')!.click();
-    const e = await refreshTabs;
-    e.detail.onRefreshComplete();
     await microtasksFinished();
 
     // Assert.
@@ -80,11 +76,8 @@ suite('ContextMenuEntrypoint', () => {
       'tab header is not displayed when there are no tab suggestions',
       async () => {
         // Arrange & Act.
-        const refreshTabs =
-            eventToPromise('refresh-tab-suggestions', entrypoint);
+        (entrypoint as any).tabSuggestions_ = [];
         $$(entrypoint, '#entrypoint')!.click();
-        const e = await refreshTabs;
-        e.detail.onRefreshComplete();
         await microtasksFinished();
         assertTrue(entrypoint.$.menu.open);
 
@@ -100,24 +93,21 @@ suite('ContextMenuEntrypoint', () => {
   test(
       'clicking entrypoint shows context menu with correct items', async () => {
         // Arrange.
-        const refreshTabs =
-            eventToPromise('refresh-tab-suggestions', entrypoint);
-        $$(entrypoint, '#entrypoint')!.click();
-        const e = await refreshTabs;
-        e.detail.onRefreshComplete([
+        (entrypoint as any).tabSuggestions_ = [
           {
             title: 'Tab 1',
             url: {url: 'https://www.google.com'},
             tabId: 1,
-            lastActive: { internalValue: BigInt(1) },
+            lastActive: {internalValue: BigInt(1)},
           },
           {
             title: 'Tab 2',
             url: {url: 'https://www.google.com'},
             tabId: 2,
-            lastActive: { internalValue: BigInt(2) },
+            lastActive: {internalValue: BigInt(2)},
           },
-        ]);
+        ];
+        $$(entrypoint, '#entrypoint')!.click();
         await microtasksFinished();
         assertTrue(entrypoint.$.menu.open);
 
@@ -128,9 +118,44 @@ suite('ContextMenuEntrypoint', () => {
         assertEquals(4, items.length);
         assertEquals('Tab 1', items[0]!.getAttribute('title'));
         assertEquals('Tab 2', items[1]!.getAttribute('title'));
+        assertEquals(
+            'Most recent tabs, Tab 1', items[0]!.getAttribute('aria-label'));
+        assertEquals(
+            'Most recent tabs, Tab 2', items[1]!.getAttribute('aria-label'));
         assertEquals('imageUpload', items[2]!.id);
         assertEquals('fileUpload', items[3]!.id);
       });
+
+  test('disabled tabs cannot be added as context', async () => {
+    // Arrange.
+    $$(entrypoint, '#entrypoint')!.click();
+    (entrypoint as any).tabSuggestions_ = [
+      {
+        title: 'Tab 1',
+        url: {url: 'https://www.google.com'},
+        tabId: 1,
+        lastActive: {internalValue: BigInt(1)},
+      },
+      {
+        title: 'Tab 2',
+        url: {url: 'https://www.google.com'},
+        tabId: 2,
+        lastActive: {internalValue: BigInt(2)},
+      },
+    ];
+    entrypoint.disabledTabIds = new Set([2]);
+    await microtasksFinished();
+    assertTrue(entrypoint.$.menu.open);
+
+    // Assert.
+    const items = entrypoint.$.menu.querySelectorAll('.dropdown-item');
+    const tab1 = items[0]! as HTMLButtonElement;
+    assertEquals('Tab 1', tab1.getAttribute('title'));
+    assertFalse(tab1.disabled);
+    const tab2 = items[1]! as HTMLButtonElement;
+    assertEquals('Tab 2', tab2.getAttribute('title'));
+    assertTrue(tab2.disabled);
+  });
 
   ([
     ['#fileUpload', 'open-file-upload'],
@@ -141,11 +166,7 @@ suite('ContextMenuEntrypoint', () => {
             `clicking ${selector} propagates ${eventName} before closing menu`,
             async () => {
               // Arrange.
-              const refreshTabs =
-                  eventToPromise('refresh-tab-suggestions', entrypoint);
               $$(entrypoint, '#entrypoint')!.click();
-              const e = await refreshTabs;
-              e.detail.onRefreshComplete();
               await microtasksFinished();
               assertTrue(entrypoint.$.menu.open);
 
@@ -166,8 +187,7 @@ suite('ContextMenuEntrypoint', () => {
   test('tab thumbnail is shown on pointerenter', async () => {
     // Arrange.
     const previewUrl = 'data:image/png;base64,sometestdata';
-    const tabPreviewPromise = Promise.resolve({previewDataUrl: previewUrl});
-    searchboxPageHandler.setResultFor('getTabPreview', tabPreviewPromise);
+    const tabPreviewPromise = eventToPromise('get-tab-preview', entrypoint);
     await openContextMenuWithSuggestions(createTabInfo(1));
 
     // Assert that thumbnail is not shown initially.
@@ -179,15 +199,14 @@ suite('ContextMenuEntrypoint', () => {
         entrypoint, '.suggestion-container .dropdown-item');
     assertTrue(!!tabItem);
     tabItem.dispatchEvent(new PointerEvent('pointerenter', {bubbles: true}));
-    await tabPreviewPromise;
+    const e = await tabPreviewPromise;
+    e.detail.onPreviewFetched(previewUrl);
     await microtasksFinished();
 
     // Assert that thumbnail is shown.
     preview = $$<HTMLImageElement>(entrypoint, '.tab-preview');
     assertTrue(!!preview);
     assertEquals(previewUrl, preview.src);
-    assertEquals(1, searchboxPageHandler.getCallCount('getTabPreview'));
-    assertEquals(1, searchboxPageHandler.getArgs('getTabPreview')[0]);
   });
 
   test('tab thumbnail is updated on pointerenter on another tab', async () => {
@@ -202,11 +221,11 @@ suite('ContextMenuEntrypoint', () => {
     assertEquals(2, tabItems.length);
 
     // Act & Assert for first tab.
-    const tabPreviewPromise1 = Promise.resolve({previewDataUrl: previewUrl1});
-    searchboxPageHandler.setResultFor('getTabPreview', tabPreviewPromise1);
+    const tabPreviewPromise1 = eventToPromise('get-tab-preview', entrypoint);
     tabItems[0]!.dispatchEvent(
         new PointerEvent('pointerenter', {bubbles: true}));
-    await tabPreviewPromise1;
+    const e1 = await tabPreviewPromise1;
+    e1.detail.onPreviewFetched(previewUrl1);
     await microtasksFinished();
 
     let previews = entrypoint.shadowRoot.querySelectorAll<HTMLImageElement>(
@@ -214,15 +233,13 @@ suite('ContextMenuEntrypoint', () => {
     assertEquals(2, previews.length);
     assertEquals(previewUrl1, previews[0]!.src);
     assertEquals(previewUrl1, previews[1]!.src);
-    assertEquals(1, searchboxPageHandler.getCallCount('getTabPreview'));
-    assertEquals(1, searchboxPageHandler.getArgs('getTabPreview')[0]);
 
     // Act & Assert for second tab.
-    const tabPreviewPromise2 = Promise.resolve({previewDataUrl: previewUrl2});
-    searchboxPageHandler.setResultFor('getTabPreview', tabPreviewPromise2);
+    const tabPreviewPromise2 = eventToPromise('get-tab-preview', entrypoint);
     tabItems[1]!.dispatchEvent(
         new PointerEvent('pointerenter', {bubbles: true}));
-    await tabPreviewPromise2;
+    const e2 = await tabPreviewPromise2;
+    e2.detail.onPreviewFetched(previewUrl2);
     await microtasksFinished();
 
     previews = entrypoint.shadowRoot.querySelectorAll<HTMLImageElement>(
@@ -230,8 +247,6 @@ suite('ContextMenuEntrypoint', () => {
     assertEquals(2, previews.length);
     assertEquals(previewUrl2, previews[0]!.src);
     assertEquals(previewUrl2, previews[1]!.src);
-    assertEquals(2, searchboxPageHandler.getCallCount('getTabPreview'));
-    assertEquals(2, searchboxPageHandler.getArgs('getTabPreview')[1]);
   });
 
   test('tab thumbnail is not shown when feature is disabled', async () => {
@@ -258,6 +273,263 @@ suite('ContextMenuEntrypoint', () => {
     // Assert that thumbnail is not shown.
     const preview = $$<HTMLImageElement>(entrypoint, '.tab-preview');
     assertFalse(!!preview);
-    assertEquals(0, searchboxPageHandler.getCallCount('getTabPreview'));
+  });
+
+  test('create image mode disables file upload and other tools', async () => {
+    // Arrange.
+    loadTimeData.overrideValues({
+      composeboxShowDeepSearchButton: true,
+      composeboxShowCreateImageButton: true,
+    });
+
+    entrypoint.remove();
+    entrypoint = document.createElement('composebox-context-menu-entrypoint');
+    document.body.appendChild(entrypoint);
+    await microtasksFinished();
+
+    await openContextMenuWithSuggestions([]);
+
+    const fileUploadButton = $$<HTMLButtonElement>(entrypoint, '#fileUpload');
+    const deepSearchButton = $$<HTMLButtonElement>(entrypoint, '#deepSearch');
+    const createImageButton = $$<HTMLButtonElement>(entrypoint, '#createImage');
+    assertTrue(!!fileUploadButton);
+    assertTrue(!!deepSearchButton);
+    assertTrue(!!createImageButton);
+
+    // Assert buttons are enabled initially.
+    assertFalse(fileUploadButton.disabled);
+    assertFalse(deepSearchButton.disabled);
+
+    // Set `inCreateImageMode` to true.
+    entrypoint.inCreateImageMode = true;
+    await entrypoint.updateComplete;
+
+    // Assert buttons are disabled.
+    assertTrue(fileUploadButton.disabled);
+    assertTrue(deepSearchButton.disabled);
+
+    // Click create image.
+    const eventFired = eventToPromise('create-image-click', entrypoint);
+    createImageButton.click();
+    await eventFired;
+
+    // Assert menu is closed.
+    assertFalse(entrypoint.$.menu.open);
+
+    // Set `inCreateImageMode` to false.
+    await openContextMenuWithSuggestions([]);
+    entrypoint.inCreateImageMode = false;
+    await entrypoint.updateComplete;
+
+    // Assert buttons are enabled again.
+    assertFalse(fileUploadButton.disabled);
+    assertFalse(deepSearchButton.disabled);
+  });
+
+  test('deep search mode disables contextual inputs', async () => {
+    // Arrange.
+    loadTimeData.overrideValues({
+      composeboxShowDeepSearchButton: true,
+    });
+    entrypoint.remove();
+    entrypoint = document.createElement('composebox-context-menu-entrypoint');
+    document.body.appendChild(entrypoint);
+    // Simulate parent component behavior of listening for event and changing
+    // property.
+    entrypoint.addEventListener('deep-search-click', () => {
+      entrypoint.inputsDisabled = !entrypoint.inputsDisabled;
+    });
+    await entrypoint.updateComplete;
+
+    await openContextMenuWithSuggestions([]);
+
+    // Assert entrypoint is enabled initially.
+    const deepSearchButton = $$<HTMLButtonElement>(entrypoint, '#deepSearch');
+    assertTrue(!!deepSearchButton);
+    assertFalse(entrypoint.inputsDisabled);
+
+    // Click deep search button.
+    const eventFired = eventToPromise('deep-search-click', entrypoint);
+    deepSearchButton.click();
+    await eventFired;
+    await entrypoint.updateComplete;
+
+    // Assert menu is closed and entrypoint is disabled.
+    assertFalse(entrypoint.$.menu.open);
+    assertTrue(entrypoint.inputsDisabled);
+
+    // Toggle deep search button.
+    entrypoint['onDeepSearchClick_']();
+    await entrypoint.updateComplete;
+
+    // Assert entrypoint is enabled again.
+    assertFalse(entrypoint.inputsDisabled);
+  });
+
+  test('image upload is disabled based on state', async () => {
+    await openContextMenuWithSuggestions([]);
+    const imageUploadButton = $$<HTMLButtonElement>(entrypoint, '#imageUpload');
+    assertTrue(!!imageUploadButton);
+
+    // Initially enabled.
+    assertFalse(imageUploadButton.disabled);
+
+    // Disabled when max files are hit.
+    entrypoint.fileNum = 10;
+    await microtasksFinished();
+    assertTrue(imageUploadButton.disabled);
+
+    // Re-enabled.
+    entrypoint.fileNum = 0;
+    await microtasksFinished();
+    assertFalse(imageUploadButton.disabled);
+
+    // Disabled in create image mode with image files.
+    entrypoint.inCreateImageMode = true;
+    entrypoint.hasImageFiles = true;
+    await microtasksFinished();
+    assertTrue(imageUploadButton.disabled);
+
+    // Enabled in create image mode without image files.
+    entrypoint.hasImageFiles = false;
+    await microtasksFinished();
+    assertFalse(imageUploadButton.disabled);
+  });
+
+  test('file upload is disabled based on state', async () => {
+    await openContextMenuWithSuggestions([]);
+    const fileUploadButton = $$<HTMLButtonElement>(entrypoint, '#fileUpload');
+    assertTrue(!!fileUploadButton);
+
+    // Initially enabled.
+    assertFalse(fileUploadButton.disabled);
+
+    // Disabled when max files are hit.
+    entrypoint.fileNum = 10;
+    await microtasksFinished();
+    assertTrue(fileUploadButton.disabled);
+
+    // Re-enabled.
+    entrypoint.fileNum = 0;
+    await microtasksFinished();
+    assertFalse(fileUploadButton.disabled);
+
+    // Disabled in create image mode.
+    entrypoint.inCreateImageMode = true;
+    await microtasksFinished();
+    assertTrue(fileUploadButton.disabled);
+  });
+
+  test('deep search is disabled based on state', async () => {
+    loadTimeData.overrideValues({
+      composeboxShowDeepSearchButton: true,
+    });
+    entrypoint.remove();
+    entrypoint = document.createElement('composebox-context-menu-entrypoint');
+    document.body.appendChild(entrypoint);
+    await microtasksFinished();
+
+    await openContextMenuWithSuggestions([]);
+    const deepSearchButton = $$<HTMLButtonElement>(entrypoint, '#deepSearch');
+    assertTrue(!!deepSearchButton);
+
+    // Initially enabled.
+    assertFalse(deepSearchButton.disabled);
+
+    // Disabled in create image mode.
+    entrypoint.inCreateImageMode = true;
+    await microtasksFinished();
+    assertTrue(deepSearchButton.disabled);
+    entrypoint.inCreateImageMode = false;
+    await microtasksFinished();
+    assertFalse(deepSearchButton.disabled);
+
+    // Disabled with 1 file.
+    entrypoint.fileNum = 1;
+    await microtasksFinished();
+    assertTrue(deepSearchButton.disabled);
+    entrypoint.fileNum = 0;
+    await microtasksFinished();
+    assertFalse(deepSearchButton.disabled);
+
+    // Disabled with more than 1 file.
+    entrypoint.fileNum = 2;
+    await microtasksFinished();
+    assertTrue(deepSearchButton.disabled);
+  });
+
+  test('create image is disabled based on state', async () => {
+    loadTimeData.overrideValues({
+      composeboxShowCreateImageButton: true,
+    });
+    entrypoint.remove();
+    entrypoint = document.createElement('composebox-context-menu-entrypoint');
+    document.body.appendChild(entrypoint);
+    await microtasksFinished();
+
+    await openContextMenuWithSuggestions([]);
+    const createImageButton = $$<HTMLButtonElement>(entrypoint, '#createImage');
+    assertTrue(!!createImageButton);
+
+    // Initially enabled.
+    assertFalse(createImageButton.disabled);
+
+    // Disabled with more than 1 file.
+    entrypoint.fileNum = 2;
+    await microtasksFinished();
+    assertTrue(createImageButton.disabled);
+    entrypoint.fileNum = 0;
+    await microtasksFinished();
+    assertFalse(createImageButton.disabled);
+
+    // Disabled with 1 file and no image files.
+    entrypoint.fileNum = 1;
+    entrypoint.hasImageFiles = false;
+    await microtasksFinished();
+    assertTrue(createImageButton.disabled);
+
+    // Enabled with 1 file and image files.
+    entrypoint.hasImageFiles = true;
+    await microtasksFinished();
+    assertFalse(createImageButton.disabled);
+  });
+
+  test('tabs are disabled based on state', async () => {
+    await openContextMenuWithSuggestions(createTabInfo(2));
+    const tabItems = entrypoint.shadowRoot.querySelectorAll<HTMLButtonElement>(
+        '.suggestion-container .dropdown-item');
+    assertEquals(2, tabItems.length);
+    const tab1 = tabItems[0]!;
+    const tab2 = tabItems[1]!;
+
+    // Initially enabled.
+    assertFalse(tab1.disabled);
+    assertFalse(tab2.disabled);
+
+    // Disabled when max files are hit.
+    entrypoint.fileNum = 10;
+    await microtasksFinished();
+    assertTrue(tab1.disabled);
+    assertTrue(tab2.disabled);
+    entrypoint.fileNum = 0;
+    await microtasksFinished();
+    assertFalse(tab1.disabled);
+    assertFalse(tab2.disabled);
+
+    // Disabled in create image mode.
+    entrypoint.inCreateImageMode = true;
+    await microtasksFinished();
+    assertTrue(tab1.disabled);
+    assertTrue(tab2.disabled);
+    entrypoint.inCreateImageMode = false;
+    await microtasksFinished();
+    assertFalse(tab1.disabled);
+    assertFalse(tab2.disabled);
+
+    // Disabled via disabledTabIds.
+    entrypoint.disabledTabIds = new Set([1]);
+    await microtasksFinished();
+    assertTrue(tab1.disabled);
+    assertFalse(tab2.disabled);
   });
 });

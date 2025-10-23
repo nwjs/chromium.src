@@ -133,10 +133,10 @@ void GlicInstanceCoordinatorImpl::Toggle(BrowserWindowInterface* browser,
                                          bool prevent_close,
                                          mojom::InvocationSource source) {
   if (!browser) {
-    ToggleFloaty();
+    ToggleFloaty(prevent_close);
     return;
   }
-  ToggleSidePanel(browser);
+  ToggleSidePanel(browser, prevent_close);
 }
 
 bool GlicInstanceCoordinatorImpl::ActivateBrowser() {
@@ -209,14 +209,16 @@ const mojom::PanelState& GlicInstanceCoordinatorImpl::GetPanelState() const {
 }
 
 void GlicInstanceCoordinatorImpl::AddStateObserver(StateObserver* observer) {
-  // The StateObserver needs to be split into two: one for if the floating
-  // window is showing and one for the state of an individual panel.
+  // TODO(b:448604727): The StateObserver needs to be split into two: one for if
+  // the floating window is showing and one for the state of an individual
+  // panel.
   NOTIMPLEMENTED();
 }
 
 void GlicInstanceCoordinatorImpl::RemoveStateObserver(StateObserver* observer) {
-  // The StateObserver needs to be split into two: one for if the floating
-  // window is showing and one for the state of an individual panel.
+  // TODO(b:448604727): The StateObserver needs to be split into two: one for if
+  // the floating window is showing and one for the state of an individual
+  // panel.
   NOTIMPLEMENTED();
 }
 
@@ -409,24 +411,27 @@ void GlicInstanceCoordinatorImpl::CreateWarmedInstance() {
       GlicKeyedServiceFactory::GetGlicKeyedService(profile_)->metrics());
 }
 
-void GlicInstanceCoordinatorImpl::ToggleFloaty() {
+void GlicInstanceCoordinatorImpl::ToggleFloaty(bool prevent_close) {
   if (!floating_instance_key_.has_value()) {
     floating_instance_key_ = CreateGlicInstance()->id();
   }
   auto instance_iter = instances_.find(*floating_instance_key_);
   CHECK(instance_iter != instances_.end());
   GlicInstanceImpl* instance = instance_iter->second.get();
-  instance->Toggle(GlicInstanceImpl::EmbedderType::kFloating, nullptr);
+  instance->Toggle(GlicInstanceImpl::EmbedderType::kFloating, nullptr,
+                   prevent_close);
 }
 
 void GlicInstanceCoordinatorImpl::ToggleSidePanel(
-    BrowserWindowInterface* browser) {
+    BrowserWindowInterface* browser,
+    bool prevent_close) {
   auto* tab = browser->GetActiveTabInterface();
   if (!tab) {
     return;
   }
   auto* instance = GetOrCreateGlicInstanceImplForTab(tab);
-  instance->Toggle(GlicInstanceImpl::EmbedderType::kSidePanel, tab);
+  instance->Toggle(GlicInstanceImpl::EmbedderType::kSidePanel, tab,
+                   prevent_close);
 }
 
 void GlicInstanceCoordinatorImpl::RemoveInstance(GlicInstance* instance) {

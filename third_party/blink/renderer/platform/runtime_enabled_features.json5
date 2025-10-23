@@ -900,6 +900,11 @@
       status: "stable",
     },
     {
+      // crbug.com/450531794.
+      name: "CanvasTextTexImage2DFix",
+      status: "stable",
+    },
+    {
       // Kill switch for https://crbug.com/330506337.
       name: "CanvasUsesArcPaintOp",
       status: "stable",
@@ -1102,16 +1107,6 @@
       // selections.
       name: "ConsiderSubOrSuperScriptAncestorAlignForCaretSelection",
       status: "stable"
-    },
-    {
-      // See https://crbug.com/426067493 for details.
-      name: "ConsiderUpstreamPositionForFindingNextLine",
-      status: "stable",
-    },
-    {
-      // See https://crbug.com/40679713 for details.
-      name: "ConsiderUpstreamPositionForFindingPreviousLine",
-      status: "stable",
     },
     {
       name: "ContactsManager",
@@ -1402,12 +1397,6 @@
       // https://chromestatus.com/feature/6289894144212992
       name: "CSSKeyframesRuleLength",
       status: "stable",
-    },
-    {
-      // Support for extended language ranges in :lang()
-      // https://chromestatus.com/feature/5071058079055872
-      name: "CSSLangExtendedRanges",
-      status: "experimental",
     },
     {
       name: "CSSLayoutAPI",
@@ -4852,6 +4841,10 @@
       status: "stable",
     },
     {
+      name: "SvgFallBackToContainerSize",
+      status: "experimental",
+    },
+    {
       name: "SvgFeConvolveMatrixZeroDivisorBehavior",
       status: "stable",
     },
@@ -5940,7 +5933,8 @@
     },
     {
       name: "WidthAndHeightAsPresentationAttributesOnNestedSvg",
-      status: "stable",
+      // Disabled due to web compat issues, see https://crbug.com/449170647.
+      status: "experimental",
     },
     {
       name: "WidthAndHeightStylePropertiesOnUseAndSymbol",

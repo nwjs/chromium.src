@@ -3656,7 +3656,6 @@ De lo contrario, la configuración de privacidad bloqueará esta acción. Esto p
 <translation id="7020464868401003526">La URL del acceso directo supera la longitud máxima permitida de <ph name="MAX_LENGTH" /> caracteres.</translation>
 <translation id="702275896380648118">Este sitio determina lo que te gusta y, luego, sugiere anuncios a otros sitios. Este sitio también obtiene tus temas de anuncios de Chrome para mostrarte anuncios más relevantes.</translation>
 <translation id="7023162328967545559">Advertencia del administrador</translation>
-<translation id="7023765275461720661">¿Quieres vincular la cuenta y pagar con <ph name="BNPL_ISSUER_NAME" />?</translation>
 <translation id="7029809446516969842">Contraseñas</translation>
 <translation id="7030164307377592766">modificar los parámetros de configuración para completar formas de pago</translation>
 <translation id="7031110846419387930">Información sobre tu navegador, SO, dispositivo, software instalado, archivos y direcciones IP</translation>
@@ -4937,7 +4936,7 @@ Detalles adicionales:
 <translation id="9166851138617700776">Obtén más información sobre los anuncios sugeridos por sitios y la medición de anuncios</translation>
 <translation id="9167054383925257837">Información del navegador y el SO del dispositivo (como las versiones del navegador y el SO)</translation>
 <translation id="9167594211215946097">Tener acceso directo a tus impresoras</translation>
-<translation id="9168814207360376865">Permitir que los sitios comprueben si tienes formas de pago guardadas.</translation>
+<translation id="9168814207360376865">Permitir que los sitios comprueben si tienes formas de pago guardadas</translation>
 <translation id="9169664750068251925">Bloquear siempre en este sitio</translation>
 <translation id="9169931577761441333">Agrega <ph name="APP_NAME" /> a la pantalla principal</translation>
 <translation id="9170848237812810038">&amp;Deshacer</translation>

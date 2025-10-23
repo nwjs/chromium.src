@@ -59,7 +59,7 @@
 <translation id="1207493287814084192">오후 5시 30분</translation>
 <translation id="1217294226280635614">분할 보기</translation>
 <translation id="1219674500290482172">인터넷에 연결할 수 없습니다.</translation>
-<translation id="1223498995510244364">요약</translation>
+<translation id="1223498995510244364">요약해 보세요</translation>
 <translation id="1227113644794103810">비활성된 탭</translation>
 <translation id="1231733316453485619">동기화를 사용하시겠습니까?</translation>
 <translation id="1253032109800629289">'가격 추적 알림 받기' 숨기기</translation>
@@ -1309,7 +1309,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6074656473835429958">알림 받기</translation>
 <translation id="607620096698446287"><ph name="FILENAME" />(<ph name="FILESIZE" />) 업로드 실패함</translation>
 <translation id="6077126322656614846">카메라 액세스가 허용됨</translation>
-<translation id="607730456154980869">Chrome의 Gemini로 더 빠르게 답변을 받으세요</translation>
+<translation id="607730456154980869">Chrome의 Gemini로 더 빠르게 답변을 받아 보세요</translation>
 <translation id="6078236141387574983">시트 높이 재조정</translation>
 <translation id="6084848228346514841">탭 선택</translation>
 <translation id="6089212833343035912">Google 비밀번호 관리자 PIN</translation>
@@ -1573,7 +1573,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6980507581230208647">장미 테마</translation>
 <translation id="6983306615164277634">주소 표시줄을 길게 터치하여 위치를 변경할 수도 있습니다.</translation>
 <translation id="6987201788018524855">미처 놓친 유용한 기능을 살펴보세요</translation>
-<translation id="6989636517316575338">모든 페이지에 관해 질문해 보세요</translation>
+<translation id="6989636517316575338">원하는 페이지에 관해 질문해 보세요</translation>
 <translation id="6990519590575500580">FaceTime</translation>
 <translation id="6998251471716094661">제품 가격을 추적하고 사이트에서 가격이 인하되면 알림을 받습니다</translation>
 <translation id="7004032350256606903">조직에서 비공개로 탐색할 것을 요구합니다.
@@ -1716,7 +1716,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7582666837709186351">카메라를 사용하여 사진 또는 주변에 있는 텍스트를 번역하세요.</translation>
 <translation id="7582857256643797524">기기에서 사용 설정된 설정입니다</translation>
 <translation id="7583004045319035904">시크릿 탭을 잠금 해제하려면 <ph name="BIOMETRIC_AUTHENITCATION_TYPE" /> 인증을 사용하세요.</translation>
-<translation id="7588149553568293500">선택 사항에 관해 알아보기</translation>
+<translation id="7588149553568293500">선택 사항에 관해 알아보기.</translation>
 <translation id="7596103009408415410">{COUNT,plural, =1{비활성 탭 {COUNT}개를 닫으시겠습니까?}other{비활성 탭 {COUNT}개를 닫으시겠습니까?}}</translation>
 <translation id="7598439272585186139">보안 강화</translation>
 <translation id="7600965453749440009"><ph name="LANGUAGE" /> 번역 안함</translation>
@@ -1853,7 +1853,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="8059312861912872211">{count,plural, =1{북마크 {count}개}other{북마크 {count}개}}</translation>
 <translation id="8059533439631660104">섹션을 접습니다.</translation>
 <translation id="8061584726507121204">방문 기록</translation>
-<translation id="8069168488983557089">모든 주제를 이해하는 데 도움이 되는 주요 요점과 인사이트를 확인해 보세요.</translation>
+<translation id="8069168488983557089">원하는 주제를 이해하는 데 도움이 되는 주요 요점과 유용한 정보를 확인해 보세요.</translation>
 <translation id="8069394452933076548">최근에 사용하지 않은 탭을 비활성 탭 섹션으로 이동할 시점을 선택합니다</translation>
 <translation id="8073670137947914548">다운로드가 완료되었습니다</translation>
 <translation id="8076492880354921740">탭</translation>

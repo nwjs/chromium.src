@@ -244,8 +244,7 @@ IN_PROC_BROWSER_TEST_F(GlicFreControllerUiTest, PreconnectOnButtonHover) {
   EXPECT_EQ(connection_tracker.GetAcceptedSocketCount(), 1u);
 }
 
-// TODO(crbug.com/436190211): Fix and re-enable.
-IN_PROC_BROWSER_TEST_F(GlicFreControllerUiTest, DISABLED_PressNoThanksButton) {
+IN_PROC_BROWSER_TEST_F(GlicFreControllerUiTest, PressNoThanksButton) {
   auto server_running = fre_server().StartAcceptingConnectionsAndReturnHandle();
 
   // Tests that pressing the "No Thanks" button in the FRE closes the FRE
@@ -265,6 +264,9 @@ IN_PROC_BROWSER_TEST_F(GlicFreControllerUiTest, DISABLED_PressNoThanksButton) {
         histogram_tester().ExpectUniqueSample(
             "Glic.FreModalWebUiState.FinishState2",
             mojom::FreWebUiState::kReady, 1);
+        histogram_tester().ExpectTotalCount("Glic.Fre.InteractionTime.NoThanks",
+                                            1);
+        histogram_tester().ExpectTotalCount("Glic.Fre.TotalTime.NoThanks", 1);
       }));
 }
 
@@ -285,6 +287,9 @@ IN_PROC_BROWSER_TEST_F(GlicFreControllerUiTest, PressContinueButton) {
         histogram_tester().ExpectUniqueSample(
             "Glic.FreModalWebUiState.FinishState2",
             mojom::FreWebUiState::kReady, 1);
+        histogram_tester().ExpectTotalCount("Glic.Fre.InteractionTime.Accepted",
+                                            1);
+        histogram_tester().ExpectTotalCount("Glic.Fre.TotalTime.Accepted", 1);
       }));
 }
 
@@ -618,6 +623,9 @@ IN_PROC_BROWSER_TEST_F(GlicFreControllerUiTest, CloseWithToggle) {
       InAnyContext(Do([&]() {
         EXPECT_EQ(
             user_action_tester().GetActionCount("Glic.Fre.CloseWithToggle"), 1);
+        histogram_tester().ExpectTotalCount(
+            "Glic.Fre.InteractionTime.Dismissed", 1);
+        histogram_tester().ExpectTotalCount("Glic.Fre.TotalTime.Dismissed", 1);
       })));
 }
 

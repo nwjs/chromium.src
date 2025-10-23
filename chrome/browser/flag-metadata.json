@@ -1592,12 +1592,12 @@
   {
     "name": "cct-adaptive-button",
     "owners": [ "jinsukkim@google.com", "chrome-connective-tissue@google.com" ],
-    "expiry_milestone": 142
+    "expiry_milestone": 145
   },
   {
     "name": "cct-adaptive-button-test-switch",
     "owners": [ "jinsukkim@google.com", "clank-app-team@google.com" ],
-    "expiry_milestone": 142
+    "expiry_milestone": 145
   },
   {
     "name": "cct-auth-tab",
@@ -6928,6 +6928,11 @@
     "expiry_milestone": 94
   },
   {
+    "name": "migrate-account-manager-delegate",
+    "owners": ["mlbipin@google.com", "chrome-signin-mobile-team@google.com"],
+    "expiry_milestone":150
+  },
+  {
     "name": "migrate-account-prefs-on-mobile",
     "owners": ["ankushkush@google.com", "chrome-sync-dev@google.com"],
     "expiry_milestone": 150
@@ -7332,6 +7337,11 @@
     "name": "ntp-realbox-match-searchbox-theme",
     "owners": [ "mahmadi@chromium.org", "mfacey@chromium.org" ],
     "expiry_milestone": 125
+  },
+  {
+    "name": "ntp-realbox-next",
+    "owners": [ "romanarora@chromium.com", "chrome-desktop-ntp@google.com" ],
+    "expiry_milestone": 155
   },
   {
     "name": "ntp-realbox-pedals",
@@ -10745,6 +10755,11 @@
     // This flag is used by developers to debug applications
     // using WebTransport locally.
     "expiry_milestone": -1
+  },
+  {
+    "name": "webui-omnibox-full-popup",
+    "owners": [ "mahmadi@chromium.org", "kylixrd@chromium.org", "chrome-desktop-search@google.com" ],
+    "expiry_milestone": 150
   },
   {
     "name": "webui-omnibox-popup",

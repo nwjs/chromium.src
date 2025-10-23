@@ -3140,6 +3140,11 @@ const char kOmniboxZpsSuggestionLimitDescription[] =
     "Enables limits on the total number of suggestions, as well as separate "
     "limits for search and URL suggestions in the omnibox.";
 
+const char kWebUIOmniboxFullPopupName[] = "WebUI Omnibox Full Popup";
+const char kWebUIOmniboxFullPopupDescription[] =
+    "If enabled, shows the omnibox suggestions and the search input in the "
+    "popup in WebUI.";
+
 const char kWebUIOmniboxPopupName[] = "WebUI Omnibox Popup";
 const char kWebUIOmniboxPopupDescription[] =
     "If enabled, shows the omnibox suggestions in the popup in WebUI.";
@@ -5272,6 +5277,12 @@ const char kMediaPickerAdoptionStudyDescription[] =
     "Controls how to launch the Android Media Picker (note: This flag is "
     "ignored as of Android U)";
 
+const char kMigrateAccountManagerDelegateName[] =
+    "Migrate Account Manager Delegate";
+const char kMigrateAccountManagerDelegateDescription[] =
+    "Enables a refactoring of the Account Manager Delegate to use "
+    "PlatformAccounts";
+
 const char kMigrateAccountPrefsOnMobileName[] =
     "Migrate account prefs on mobile";
 const char kMigrateAccountPrefsOnMobileDescription[] =
@@ -5848,6 +5859,10 @@ const char kNtpComposeboxUsesChromeComposeClientName[] =
 const char kNtpComposeboxUsesChromeComposeClientDescription[] =
     "Composebox will use chrome-compose client when querying suggest for "
     "unimodal typed inputs instead of chrome-omni.";
+
+const char kNtpRealboxNextName[] = "NTP Realbox Next";
+const char kNtpRealboxNextDescription[] =
+    "Enables the Realbox 'Next' experience.";
 
 const char kNtpSearchboxComposeEntrypointName[] = "NTP Compose Entrypoint";
 const char kNtpSearchboxComposeEntrypointDescription[] =

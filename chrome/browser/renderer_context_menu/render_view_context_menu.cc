@@ -240,6 +240,7 @@
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/image/image.h"
+#include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "url/origin.h"
@@ -277,6 +278,7 @@
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 #if BUILDFLAG(ENABLE_PDF)
@@ -396,6 +398,7 @@ const std::map<int, int>& GetIdcToUmaMap(UmaEnumIdLookupType type) {
   // These maps are from IDC_* -> UMA value. Never alter UMA ids. You may remove
   // items, but add a line to keep the old value from being reused.
 
+  // LINT.IfChange(RenderViewContextMenuItem)
   // These UMA values are for the RenderViewContextMenuItem enum, used for
   // the RenderViewContextMenu.Shown and RenderViewContextMenu.Used histograms.
   static const base::NoDestructor<std::map<int, int>> kGeneralMap(
@@ -551,14 +554,17 @@ const std::map<int, int>& GetIdcToUmaMap(UmaEnumIdLookupType type) {
        {IDC_CONTENT_CONTEXT_RELOAD_GLIC, 154},
        {IDC_CONTENT_CONTEXT_CLOSE_GLIC, 155},
        {IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW, 156},
+       {IDC_CONTENT_CONTEXT_GLICSHAREIMAGE, 157},
        // To add new items:
        //   - Add one more line above this comment block, using the UMA value
        //     from the line below this comment block.
        //   - Increment the UMA value in that latter line.
        //   - Add the new item to the RenderViewContextMenuItem enum in
        //     tools/metrics/histograms/metadata/ui/enums.xml.
-       {0, 157}});
+       {0, 158}});
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/ui/enums.xml:RenderViewContextMenuItem)
 
+  // LINT.IfChange(ContextMenuOptionDesktop)
   // These UMA values are for the ContextMenuOptionDesktop enum, used for
   // the ContextMenu.SelectedOptionDesktop histograms.
   static const base::NoDestructor<std::map<int, int>> kSpecificMap(
@@ -594,13 +600,15 @@ const std::map<int, int>& GetIdcToUmaMap(UmaEnumIdLookupType type) {
        {IDC_CONTENT_CONTEXT_SEARCHWEBFORNEWTAB, 29},
        {IDC_CONTENT_CONTEXT_OPENLINKPREVIEW, 30},
        {IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW, 31},
+       {IDC_CONTENT_CONTEXT_GLICSHAREIMAGE, 32},
        // To add new items:
        //   - Add one more line above this comment block, using the UMA value
        //     from the line below this comment block.
        //   - Increment the UMA value in that latter line.
        //   - Add the new item to the ContextMenuOptionDesktop enum in
        //     tools/metrics/histograms/metadata/enums.xml.
-       {0, 31}});
+       {0, 32}});
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/ui/enums.xml:ContextMenuOptionDesktop)
 
   return *(type == UmaEnumIdLookupType::GeneralEnumId ? kGeneralMap
                                                       : kSpecificMap);
@@ -875,6 +883,8 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(RenderViewContextMenu,
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(RenderViewContextMenu,
                                       kGlicReloadMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(RenderViewContextMenu,
+                                      kGlicShareImageMenuItem);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(RenderViewContextMenu,
                                       kOpenLinkInSplitMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(RenderViewContextMenu, kRegionSearchItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(RenderViewContextMenu,
@@ -1084,6 +1094,11 @@ void RenderViewContextMenu::InitMenu() {
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_SEARCHWEBFORIMAGE)) {
     AppendSearchWebForImageItems();
+  }
+
+  if (content_type_->SupportsGroup(
+          ContextMenuContentType::ITEM_GROUP_GLICSHAREIMAGE)) {
+    AppendGlicShareImageItem();
   }
 
   if (content_type_->SupportsGroup(
@@ -2054,6 +2069,33 @@ void RenderViewContextMenu::AppendSearchWebForImageItems() {
   MaybePrepareForLensQuery();
 }
 
+void RenderViewContextMenu::AppendGlicShareImageItem() {
+#if BUILDFLAG(ENABLE_GLIC)
+  if (glic::GlicEnabling::IsEnabledForProfile(GetProfile()) &&
+      base::FeatureList::IsEnabled(features::kGlicShareImage) &&
+      !IsGlicWindow(this, browser_context_)) {
+    tabs::TabInterface* tab =
+        tabs::TabInterface::MaybeGetFromContents(source_web_contents_);
+    // Ensure we're in a tab for these items.
+    if (tab) {
+      menu_model_.AddItemWithIcon(
+          IDC_CONTENT_CONTEXT_GLICSHAREIMAGE,
+          l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_GLICSHAREIMAGE),
+          ui::ImageModel::FromImageSkia(
+              gfx::ImageSkiaOperations::CreateResizedImage(
+                  *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+                      IDR_GLIC_SHARE_IMAGE_ICON),
+                  skia::ImageOperations::RESIZE_BEST,
+                  gfx::Size(gfx::kFaviconSize, gfx::kFaviconSize))));
+      menu_model_.SetElementIdentifierAt(
+          menu_model_.GetIndexOfCommandId(IDC_CONTENT_CONTEXT_GLICSHAREIMAGE)
+              .value(),
+          kGlicShareImageMenuItem);
+    }
+  }
+#endif  // BUILDFLAG(ENABLE_GLIC)
+}
+
 void RenderViewContextMenu::AppendAudioItems() {
   AppendMediaItems();
   menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
@@ -2924,6 +2966,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
     case IDC_CONTENT_CONTEXT_OPENIMAGENEWTAB:
     case IDC_CONTENT_CONTEXT_SEARCHWEBFORIMAGE:
     case IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE:
+    case IDC_CONTENT_CONTEXT_GLICSHAREIMAGE:
       return navigation_allowed && params_.src_url.is_valid() &&
              (params_.src_url.scheme() != content::kChromeUIScheme);
 
@@ -3310,6 +3353,10 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
 
     case IDC_CONTENT_CONTEXT_SEARCHWEBFORIMAGE:
       ExecSearchWebForImage();
+      break;
+
+    case IDC_CONTENT_CONTEXT_GLICSHAREIMAGE:
+      ExecGlicShareImage();
       break;
 
     case IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE:
@@ -4313,6 +4360,21 @@ void RenderViewContextMenu::ExecSaveAs() {
   source_web_contents_->SaveFrameWithHeaders(url, referrer, headers.ToString(),
                                              params_.suggested_filename,
                                              target_frame_host, is_subresource);
+}
+
+void RenderViewContextMenu::ExecGlicShareImage() {
+#if BUILDFLAG(ENABLE_GLIC)
+  if (!glic::GlicEnabling::IsEnabledForProfile(GetProfile()) ||
+      !base::FeatureList::IsEnabled(features::kGlicShareImage)) {
+    // If this has changed since the context menu was summoned, bail early.
+    return;
+  }
+  if (auto* glic_service = glic::GlicKeyedService::Get(browser_context_)) {
+    glic_service->ShareContextImage(
+        tabs::TabInterface::MaybeGetFromContents(source_web_contents_),
+        GetRenderFrameHost(), params().src_url);
+  }
+#endif  // BUILDLFLAG(ENABLE_GLIC)
 }
 
 void RenderViewContextMenu::ExecExitFullscreen() {

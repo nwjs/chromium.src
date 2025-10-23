@@ -3882,6 +3882,7 @@ A(z) <ph name="DOMAIN" /> megköveteli, hogy ne távolítsa el az intelligens k�
 <translation id="3656328935986149999">Kurzor sebessége</translation>
 <translation id="3656701180077048004">Késleltetést állít be a billentyű lenyomása és aktiválódása között</translation>
 <translation id="3658871634334445293">TrackPoint gyorsítása</translation>
+<translation id="3659483399659250379">Lap és egyebek hozzáadása</translation>
 <translation id="3659929705630080526">Túl sokszor adott meg helytelen hozzáférési kódot. Próbálkozzon később.</translation>
 <translation id="3661106764436337772">Gyorsabb és magabiztosabb írás</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{1 meglévő jelszó található}other{{NUM_PASSWORDS} meglévő jelszó található}}</translation>
@@ -4011,7 +4012,6 @@ A(z) <ph name="DOMAIN" /> megköveteli, hogy ne távolítsa el az intelligens k�
 <translation id="3735039640698208086">Hang lejátszásakor…</translation>
 <translation id="3735740477244556633">Rendezés</translation>
 <translation id="3735827758948958091">A(z) <ph name="FILE_NAMES" /> nem nyitható meg forgalomkorlátos kapcsolattal</translation>
-<translation id="3736575924150462398">Lapok vagy más elemek hozzáadása</translation>
 <translation id="3737058101969549870">Elkülönítve legyenek a meglévő böngészési adatai ettől az új profiltól?</translation>
 <translation id="3738632186060045350">A(z) <ph name="DEVICE_TYPE" /> eszközön lévő adatok 24 órán belül törlődnek</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
@@ -4640,6 +4640,7 @@ Elindítja a következőt: <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation
 <translation id="4151503145138736576">Nincs felszabadítható offline tárhely</translation>
 <translation id="4152011295694446843">Itt láthatja majd a könyvjelzőit</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 lap}other{# lap}}</translation>
+<translation id="4153858337812834972">Legutóbbi lapok</translation>
 <translation id="4154658846204884961">Üstökös</translation>
 <translation id="4154664944169082762">Ujjlenyomatok</translation>
 <translation id="4156297721709710037"><ph name="WINDOW_TITLE" /> – bal oldali nézet</translation>
@@ -6747,7 +6748,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="5648166631817621825">Az elmúlt 7 napból</translation>
 <translation id="5651308944918885595">Közeli megosztás felfedezhetőség</translation>
 <translation id="5653154844073528838"><ph name="PRINTER_COUNT" /> mentett nyomtató található.</translation>
-<translation id="565461030474814383">Mentés a fiókba?</translation>
+<translation id="565461030474814383">Menti a fiókba?</translation>
 <translation id="5654669866168491665">További információ azokról a webhelyekről, amelyek nem feltétlenül működnek a harmadik féltől származó cookie-k letiltásakor</translation>
 <translation id="5654751240928365405">Ez a bővítmény ki lett kapcsolva, mert már nem támogatott</translation>
 <translation id="5654848283274615843">{NUM_SITES,plural, =1{Az Ön adatainak védelme érdekében a rendszer eltávolította egy webhely engedélyeit}other{Az Ön adatainak védelme érdekében a rendszer eltávolította bizonyos webhelyek engedélyeit}}</translation>
@@ -7779,6 +7780,7 @@ A(z) <ph name="DOMAIN" /> megköveteli, hogy ne távolítsa el az intelligens k�
 <translation id="6391131092053186625">Az eszköz IMEI-azonosítója: <ph name="IMEI_NUMBER" />. Ez a szám a szolgáltatás aktiválására használható.</translation>
 <translation id="6393156038355142111">Erős jelszó ajánlása</translation>
 <translation id="6393550101331051049">Megjeleníthetnek nem biztonságos tartalmakat</translation>
+<translation id="6394634179843537518">Fájl hozzáadása</translation>
 <translation id="6395423953133416962"><ph name="BEGIN_LINK1" />Rendszer-információk<ph name="END_LINK1" /> és <ph name="BEGIN_LINK2" />mutatószámok<ph name="END_LINK2" /> küldése</translation>
 <translation id="6397586889873084061">Igen, legyenek elkülönítve az adataim az iskolai adatoktól (ajánlott)</translation>
 <translation id="6398715114293939307">A Google Play Áruház eltávolítása</translation>
@@ -9315,7 +9317,6 @@ A(z) <ph name="DOMAIN" /> megköveteli, hogy ne távolítsa el az intelligens k�
 <translation id="747114903913869239">Hiba: nem lehet dekódolni a bővítményt</translation>
 <translation id="7471520329163184433">Lassabb</translation>
 <translation id="747312361841682912">Megjelenített adatok törlése</translation>
-<translation id="7473555040328423550">Lap hozzáadása</translation>
 <translation id="7473891865547856676">Nem, köszönöm</translation>
 <translation id="7474043404939621342">Eszköztár személyre szabása</translation>
 <translation id="747459581954555080">Összes visszaállítása</translation>
@@ -11893,7 +11894,6 @@ A(z) <ph name="DOMAIN" /> megköveteli, hogy ne távolítsa el az intelligens k�
 <translation id="9215293857209265904">„<ph name="EXTENSION_NAME" />” hozzáadva</translation>
 <translation id="9215742531438648683">A Google Play Áruház eltávolítása</translation>
 <translation id="9218430445555521422">Alapbeállítás</translation>
-<translation id="9218536722110863203">Fájl feltöltése</translation>
 <translation id="9218842937876577955"><ph name="APP_NAME" /> (nem támogatott alkalmazás)</translation>
 <translation id="9219572436491982747">A Google-nak elküldött adatokat felülvizsgálatot végző emberek is megtekinthetik a Chrome AI technológiájának továbbfejlesztése érdekében</translation>
 <translation id="9219741625496141320">A böngészési adatok automatikusan törlésre kerültek</translation>

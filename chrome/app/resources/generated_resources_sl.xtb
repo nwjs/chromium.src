@@ -3886,6 +3886,7 @@ Domena <ph name="DOMAIN" /> zahteva, da je pametna kartica vstavljena.</translat
 <translation id="3656328935986149999">Hitrost kazalca</translation>
 <translation id="3656701180077048004">Doda zamik med pritiskom tipke in njenim aktiviranjem</translation>
 <translation id="3658871634334445293">Pospeševanje sledilne palčke</translation>
+<translation id="3659483399659250379">Dodajte zavihek in drugo</translation>
 <translation id="3659929705630080526">Prevečkrat ste vnesli napačno kodo za dostop. Poskusite znova pozneje.</translation>
 <translation id="3661106764436337772">Pišite hitreje in z več samozavesti</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{Najdeno je bilo 1 obstoječe geslo}one{Najdeno je bilo {NUM_PASSWORDS} obstoječe geslo}two{Najdeni sta bili {NUM_PASSWORDS} obstoječi gesli}few{Najdena so bila {NUM_PASSWORDS} obstoječa gesla}other{Najdenih je bilo {NUM_PASSWORDS} obstoječih gesel}}</translation>
@@ -4015,7 +4016,6 @@ Domena <ph name="DOMAIN" /> zahteva, da je pametna kartica vstavljena.</translat
 <translation id="3735039640698208086">Ko se predvaja zvok …</translation>
 <translation id="3735740477244556633">Razvrsti po</translation>
 <translation id="3735827758948958091">Datotek <ph name="FILE_NAMES" /> ni mogoče odpreti, ko je vzpostavljena povezava z omejenim prenosom podatkov</translation>
-<translation id="3736575924150462398">Dodajanje zavihkov ali drugega</translation>
 <translation id="3737058101969549870">Želite, da so obstoječi podatki brskanja ločeni od tega novega profila?</translation>
 <translation id="3738632186060045350">Podatki v napravi <ph name="DEVICE_TYPE" /> bodo izbrisani v 24 urah</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
@@ -4645,6 +4645,7 @@ Domena <ph name="DOMAIN" /> zahteva, da je pametna kartica vstavljena.</translat
 <translation id="4151503145138736576">Ni shrambe brez povezave za čiščenje</translation>
 <translation id="4152011295694446843">Tukaj bodo prikazani zavihki</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 zavihek}one{# zavihek}two{# zavihka}few{# zavihki}other{# zavihkov}}</translation>
+<translation id="4153858337812834972">Nazadnje odprti zavihki</translation>
 <translation id="4154658846204884961">Komet</translation>
 <translation id="4154664944169082762">Prstni odtisi</translation>
 <translation id="4156297721709710037"><ph name="WINDOW_TITLE" /> – levi del zaslona</translation>
@@ -6435,7 +6436,7 @@ Temu dejanju lahko dodelite več stikal.</translation>
 <translation id="5432223177001837288">Če želite deliti zvok, namesto tega delite zavihek</translation>
 <translation id="5432872710261597882">S palcem gor pošljete povratne informacije, da vam je to všeč.</translation>
 <translation id="543338862236136125">Uredi geslo</translation>
-<translation id="5433865420958136693">Uporabi grafično pospeševanje, ko je na voljo</translation>
+<translation id="5433865420958136693">Uporabi pospeševanje grafike, ko je na voljo</translation>
 <translation id="5434065355175441495">PKCS #1 s šifriranjem RSA</translation>
 <translation id="5435274640623994081">Omogočanje beleženja zvočnih ikon</translation>
 <translation id="5435779377906857208">Vedno dovoli gostitelju <ph name="HOST" /> dostop do lokacije</translation>
@@ -7785,6 +7786,7 @@ Domena <ph name="DOMAIN" /> zahteva, da je pametna kartica vstavljena.</translat
 <translation id="6391131092053186625">IMEI naprave je <ph name="IMEI_NUMBER" />. To številko je mogoče uporabiti pri aktiviranju storitve.</translation>
 <translation id="6393156038355142111">Predlagaj močno geslo</translation>
 <translation id="6393550101331051049">Dovoljeno je prikazovanje vsebine, ki ni varna</translation>
+<translation id="6394634179843537518">Dodaj datoteko</translation>
 <translation id="6395423953133416962">Pošlji <ph name="BEGIN_LINK1" />podatke o sistemu<ph name="END_LINK1" /> in <ph name="BEGIN_LINK2" />meritve<ph name="END_LINK2" /></translation>
 <translation id="6397586889873084061">Da, naj bodo moji podatki ločeni od šolskih (priporočeno)</translation>
 <translation id="6398715114293939307">Odstranitev Trgovine Google Play</translation>
@@ -9328,7 +9330,6 @@ Imate še # ogroženih gesel. Googlov upravitelj gesel priporoča, da takoj prev
 <translation id="747114903913869239">Napaka: Razširitve ni bilo mogoče dekodirati</translation>
 <translation id="7471520329163184433">Počasneje</translation>
 <translation id="747312361841682912">Izbriši prikazane podatke</translation>
-<translation id="7473555040328423550">Dodaj zavihek</translation>
 <translation id="7473891865547856676">Ne, hvala</translation>
 <translation id="7474043404939621342">Prilagodi orodno vrstico</translation>
 <translation id="747459581954555080">Obnovi vse</translation>
@@ -11909,7 +11910,6 @@ Domena <ph name="DOMAIN" /> zahteva, da je pametna kartica vstavljena.}}</transl
 <translation id="9215293857209265904">Razširitev »<ph name="EXTENSION_NAME" />« je dodana</translation>
 <translation id="9215742531438648683">Odstranjevanje Trgovine Google Play</translation>
 <translation id="9218430445555521422">Nastavi kot privzeto</translation>
-<translation id="9218536722110863203">Naloži datoteko</translation>
 <translation id="9218842937876577955"><ph name="APP_NAME" /> (aplikacija ni podprta)</translation>
 <translation id="9219572436491982747">Podatke, poslane Googlu, bodo morda videli pregledovalci zaradi izboljšanja tehnologije umetne inteligence v Chromu</translation>
 <translation id="9219741625496141320">Podatki brskanja so bili samodejno izbrisani</translation>

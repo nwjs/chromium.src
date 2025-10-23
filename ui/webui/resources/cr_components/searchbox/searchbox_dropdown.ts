@@ -20,9 +20,6 @@ import {decodeString16, renderTypeToClass, sideTypeToClass} from './utils.js';
 // The '%' operator in JS returns negative numbers. This workaround avoids that.
 const remainder = (lhs: number, rhs: number) => ((lhs % rhs) + rhs) % rhs;
 
-const CHAR_TYPED_TO_PAINT = 'Realbox.CharTypedToRepaintLatency.ToPaint';
-const RESULT_CHANGED_TO_PAINT = 'Realbox.ResultChangedToRepaintLatency.ToPaint';
-
 export interface SearchboxDropdownElement {
   $: {
     content: HTMLElement,
@@ -176,12 +173,16 @@ export class SearchboxDropdownElement extends CrLitElement {
     // If the updated selection is a new match, remove any remaining selection
     // on the previously selected match.
     if (oldSelection.line !== selection.line) {
-      this.selectableMatchElements[this.selectedMatchIndex]?.updateSelection(
-          selection);
+      const oldMatch = this.selectableMatchElements[this.selectedMatchIndex];
+      if (oldMatch) {
+        oldMatch.selection = selection;
+      }
     }
     this.selectIndex(selection.line);
-    this.selectableMatchElements[this.selectedMatchIndex]?.updateSelection(
-        selection);
+    const newMatch = this.selectableMatchElements[this.selectedMatchIndex];
+    if (newMatch) {
+      newMatch.selection = selection;
+    }
   }
 
   /**
@@ -223,26 +224,31 @@ export class SearchboxDropdownElement extends CrLitElement {
   }
 
   private onResultRepaint_() {
-    if (loadTimeData.getBoolean('reportMetrics')) {
-      const metricsReporter = MetricsReporterImpl.getInstance();
-      metricsReporter.measure('CharTyped')
-          .then(duration => {
-            metricsReporter.umaReportTime(CHAR_TYPED_TO_PAINT, duration);
-          })
-          .then(() => {
-            metricsReporter.clearMark('CharTyped');
-          })
-          .catch(() => {});  // Fail silently if 'CharTyped' is not marked.
-
-      metricsReporter.measure('ResultChanged')
-          .then(duration => {
-            metricsReporter.umaReportTime(RESULT_CHANGED_TO_PAINT, duration);
-          })
-          .then(() => {
-            metricsReporter.clearMark('ResultChanged');
-          })
-          .catch(() => {});  // Fail silently if 'ResultChanged' is not marked.
+    if (!loadTimeData.getBoolean('reportMetrics')) {
+      return;
     }
+
+    const metricsReporter = MetricsReporterImpl.getInstance();
+    metricsReporter.measure('CharTyped')
+        .then(duration => {
+          metricsReporter.umaReportTime(
+              loadTimeData.getString('charTypedToPaintMetricName'), duration);
+        })
+        .then(() => {
+          metricsReporter.clearMark('CharTyped');
+        })
+        .catch(() => {});  // Fail silently if 'CharTyped' is not marked.
+
+    metricsReporter.measure('ResultChanged')
+        .then(duration => {
+          metricsReporter.umaReportTime(
+              loadTimeData.getString('resultChangedToPaintMetricName'),
+              duration);
+        })
+        .then(() => {
+          metricsReporter.clearMark('ResultChanged');
+        })
+        .catch(() => {});  // Fail silently if 'ResultChanged' is not marked.
   }
 
   //============================================================================
@@ -282,7 +288,7 @@ export class SearchboxDropdownElement extends CrLitElement {
    */
   protected groupIdsForSideType_(side: SideType): number[] {
     return [...new Set<number>(
-        this.result?.matches?.map(match => match.suggestionGroupId)
+        this.result?.matches.map(match => match.suggestionGroupId)
             .filter(groupId => this.sideTypeForGroup_(groupId) === side))];
   }
 
@@ -307,7 +313,7 @@ export class SearchboxDropdownElement extends CrLitElement {
    *     so it knows its position in the list of matches.
    */
   protected matchIndex_(match: AutocompleteMatch): number {
-    return this.result?.matches?.indexOf(match) ?? -1;
+    return this.result?.matches.indexOf(match) ?? -1;
   }
 
   /**

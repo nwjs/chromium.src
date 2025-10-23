@@ -721,7 +721,7 @@
 <translation id="3851938967634752633">系統會刪除 <ph name="WEBSITE" />、<ph name="SECOND_WEBSITE" /> 和另外 <ph name="NUMBER_OF_ACCOUNTS" /> 個帳戶的密碼，但不會刪除你的帳戶。</translation>
 <translation id="3853162385423733133">請繼續將密碼儲存到 Google 帳戶 (<ph name="EMAIL" />)，或使用帳戶中的密碼</translation>
 <translation id="3853873210696342070">匯入</translation>
-<translation id="3857113360369572832">開啟 <ph name="BEGIN_BOLD" />Safari 設定<ph name="END_BOLD" /></translation>
+<translation id="3857113360369572832">開啟「Safari 設定」<ph name="BEGIN_BOLD" /><ph name="END_BOLD" /></translation>
 <translation id="3858860766373142691">名稱</translation>
 <translation id="3868495844258915202">顯示完整網址</translation>
 <translation id="3875783148670536197">顯示操作說明</translation>
@@ -1198,7 +1198,7 @@
 <translation id="5652623411397330904">你追蹤的產品會顯示在這裡。</translation>
 <translation id="5656431592348714536">加強型日曆</translation>
 <translation id="5659593005791499971">電子郵件</translation>
-<translation id="5665739277590037307">適用《<ph name="GOOGLE_TERMS" />》和《<ph name="GEMINI_APPS_PRIVACY" />》。Gemini 可能會出錯，因此請查證回覆內容。</translation>
+<translation id="5665739277590037307">適用《<ph name="GOOGLE_TERMS" />》和《<ph name="GEMINI_APPS_PRIVACY" />》。Gemini 可能會&lt;br&gt;出錯，因此請查證回覆內容。</translation>
 <translation id="5666313630530585305">登入網站。</translation>
 <translation id="5669335982068190158">你已在重設 iPhone 時登出，輕觸下方的「繼續」即可登入。</translation>
 <translation id="5669528293118408608">www</translation>
@@ -1309,7 +1309,7 @@
 <translation id="6074656473835429958">接收通知</translation>
 <translation id="607620096698446287">無法上傳 <ph name="FILENAME" /> (<ph name="FILESIZE" />)</translation>
 <translation id="6077126322656614846">已允許存取相機</translation>
-<translation id="607730456154980869">使用 Gemini 版 Chrome，更快取得答案</translation>
+<translation id="607730456154980869">使用 Chrome 內建 Gemini，更快取得答案</translation>
 <translation id="6078236141387574983">重新調整功能表高度</translation>
 <translation id="6084848228346514841">選取分頁</translation>
 <translation id="6089212833343035912">Google 密碼管理工具 PIN 碼</translation>
@@ -1573,7 +1573,7 @@
 <translation id="6980507581230208647">玫瑰粉主題</translation>
 <translation id="6983306615164277634">你也可以按住網址列來變更位置。</translation>
 <translation id="6987201788018524855">瀏覽你可能沒注意到的實用功能</translation>
-<translation id="6989636517316575338">詢問有關任何頁面的問題</translation>
+<translation id="6989636517316575338">詢問頁面相關問題</translation>
 <translation id="6990519590575500580">FaceTime</translation>
 <translation id="6998251471716094661">追蹤商品價格，並在任何網站降價時透過快訊通知你</translation>
 <translation id="7004032350256606903">貴機構要求你使用私密瀏覽模式。
@@ -1995,7 +1995,7 @@
 <translation id="8601611099293226919">使用 Google 智慧鏡頭搜尋你的螢幕畫面</translation>
 <translation id="8605219856220328675">關閉分頁。</translation>
 <translation id="8609743333007776886">將 ${url} 加入書籤</translation>
-<translation id="8611922158252451755">知道連結的使用者都可以編輯所有分頁，因此請謹慎選擇共用對象。連結將在 48 小時後失效。</translation>
+<translation id="8611922158252451755">知道連結的使用者可以編輯所有分頁，請慎選共用對象。連結將在 48 小時後失效。</translation>
 <translation id="8614671330774943747">前往分頁切換工具</translation>
 <translation id="8620640915598389714">編輯</translation>
 <translation id="8625706492572042370">編輯主畫面</translation>

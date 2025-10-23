@@ -544,44 +544,22 @@ const FeatureEntry::Choice KWebXrHandAnonymizationChoices[] = {
 #endif  // ENABLE_VR
 
 #if BUILDFLAG(IS_ANDROID)
-const FeatureEntry::FeatureParam kCCTAdaptiveButtonEnable[] = {
-    {"open_in_browser", "true"}};
-const FeatureEntry::FeatureParam kCCTAdaptiveButtonCPAOnly[] = {
-    {"contextual_only", "true"}};
-const FeatureEntry::FeatureParam kCCTAdaptiveButtonOpenInBrowserCPA[] = {
-    {"open_in_browser", "true"},
+const FeatureEntry::FeatureParam kCCTAdaptiveButton_CPA[] = {
     {"default_variant", "15"},  // 15 == Open In Browser
     {"contextual_only", "true"}};
-const FeatureEntry::FeatureParam kCCTAdaptiveButtonMenuOpenInBrowserTop[] = {
-    {"open_in_browser", "true"},
+const FeatureEntry::FeatureParam kCCTAdaptiveButton_CPA_RMFallbackMenu[] = {
+    {"default_variant", "15"},
+    {"contextual_only", "true"},
+    {"reader_mode_fallback_menu", "true"}};
+const FeatureEntry::FeatureParam kCCTAdaptiveButton_MenuOIB[] = {
     {"show_open_in_browser_menu_top", "true"}};
-const FeatureEntry::FeatureParam kCCTAdaptiveButtonMenuRemoval[] = {
-    {"open_in_browser", "true"},
-    {"remove_find_in_page_menu_item", "true"},
-    {"remove_desktop_site_menu_item", "true"}};
-const FeatureEntry::FeatureParam kCCTAdaptiveButtonMenuCombo[] = {
-    {"open_in_browser", "true"},
-    {"show_open_in_browser_menu_top", "true"},
-    {"remove_find_in_page_menu_item", "true"},
-    {"remove_desktop_site_menu_item", "true"}};
-const FeatureEntry::FeatureParam kCCTAdaptiveButtonMLTraining[] = {
-    {"ml_training", "true"},
-    {"open_in_browser", "true"}};
 const FeatureEntry::FeatureVariation kCCTAdaptiveButtonVariations[] = {
-    {"+OpenInBrowser", kCCTAdaptiveButtonEnable,
-     std::size(kCCTAdaptiveButtonEnable), nullptr},
-    {"CPA only", kCCTAdaptiveButtonCPAOnly,
-     std::size(kCCTAdaptiveButtonCPAOnly), nullptr},
-    {"CPA+OpenInBrowser", kCCTAdaptiveButtonOpenInBrowserCPA,
-     std::size(kCCTAdaptiveButtonOpenInBrowserCPA), nullptr},
-    {"Menu: OpenInBrowser at Top", kCCTAdaptiveButtonMenuOpenInBrowserTop,
-     std::size(kCCTAdaptiveButtonMenuOpenInBrowserTop), nullptr},
-    {"Menu: Remove FineInPage/DesktopSite", kCCTAdaptiveButtonMenuRemoval,
-     std::size(kCCTAdaptiveButtonMenuRemoval), nullptr},
-    {"Menu: Combine above 2", kCCTAdaptiveButtonMenuCombo,
-     std::size(kCCTAdaptiveButtonMenuCombo), nullptr},
-    {"for ML training", kCCTAdaptiveButtonMLTraining,
-     std::size(kCCTAdaptiveButtonMLTraining), nullptr},
+    {"Menu OIB moved up", kCCTAdaptiveButton_MenuOIB,
+     std::size(kCCTAdaptiveButton_MenuOIB), nullptr},
+    {"CPA+OIB", kCCTAdaptiveButton_CPA, std::size(kCCTAdaptiveButton_CPA),
+     nullptr},
+    {"CPA+OIB+RMFallbackMenu", kCCTAdaptiveButton_CPA_RMFallbackMenu,
+     std::size(kCCTAdaptiveButton_CPA_RMFallbackMenu), nullptr},
 };
 
 const FeatureEntry::FeatureParam kCCTAdaptiveButtonTestSwitchHide[] = {
@@ -687,12 +665,25 @@ const FeatureEntry::FeatureVariation
          std::size(kCCTSingleDeckerBottomBarWithButtonsOnRightParam), nullptr},
 };
 
+const FeatureEntry::FeatureParam
+    kAndroidBottomToolbarV2ForceBottomForFocusedOmniboxParam[] = {
+        {"force_bottom_for_focused_omnibox", "true"}};
 const FeatureEntry::FeatureParam kAndroidBottomToolbarV2ReverseListParam[] = {
+    {"reverse_order_suggestions_list", "true"}};
+const FeatureEntry::FeatureParam kAndroidBottomToolbarV2ReverseAndForce[] = {
+    {"force_bottom_for_focused_omnibox", "true"},
     {"reverse_order_suggestions_list", "true"}};
 
 const FeatureEntry::FeatureVariation kAndroidBottomToolbarV2Variations[] = {
+    {"Force bottom for focused omnibox",
+     kAndroidBottomToolbarV2ForceBottomForFocusedOmniboxParam,
+     std::size(kAndroidBottomToolbarV2ForceBottomForFocusedOmniboxParam),
+     nullptr},
     {"Reverse List", kAndroidBottomToolbarV2ReverseListParam,
-     std::size(kAndroidBottomToolbarV2ReverseListParam), nullptr}};
+     std::size(kAndroidBottomToolbarV2ReverseListParam), nullptr},
+    {"Reverse list and force bottom for focused omnibox",
+     kAndroidBottomToolbarV2ReverseAndForce,
+     std::size(kAndroidBottomToolbarV2ReverseAndForce), nullptr}};
 
 const FeatureEntry::Choice kReaderModeHeuristicsChoices[] = {
     {flags_ui::kGenericExperimentChoiceDefault, "", ""},
@@ -1315,47 +1306,6 @@ const FeatureEntry::FeatureVariation kOmniboxStarterPackExpansionVariations[] =
      {"staging url", kOmniboxStarterPackExpansionStagingUrl,
       std::size(kOmniboxStarterPackExpansionStagingUrl), nullptr}};
 
-const FeatureEntry::FeatureParam kOmniboxSearchAggregatorProdParams[] = {
-    {"name", "Agentspace"},
-    {"shortcut", "agentspace"},
-    {"search_url",
-     "https://vertexaisearch.cloud.google.com/home/cid/"
-     "fdd1e98d-1f52-4407-98fd-80e27c61fbc9?q={searchTerms}"},
-    {"suggest_url",
-     "https://discoveryengine.googleapis.com/v1alpha/projects/670560280865/"
-     "locations/global/collections/default_collection/engines/"
-     "spark_dogfood_search_assistant_v1/completionConfig:completeQuery"}};
-const FeatureEntry::FeatureParam kOmniboxSearchAggregatorStagingParams[] = {
-    {"name", "Agentspace (staging)"},
-    {"shortcut", "agentspace"},
-    {"icon_url", "https://gstatic.com/vertexaisearch/favicon.png"},
-    {"search_url",
-     "https://vertexaisearch.cloud.google.com/home/cid/"
-     "3abd7045-7845-4f83-b204-e39fcbca3494?q={searchTerms}&mods=widget_staging_"
-     "api_mod"},
-    {"suggest_url",
-     "https://staging-discoveryengine.sandbox.googleapis.com/v1alpha/projects/"
-     "862721868538/locations/global/collections/default_collection/engines/"
-     "teamfood-v11/completionConfig:completeQuery"}};
-const FeatureEntry::FeatureParam kOmniboxSearchAggregatorDemoParams[] = {
-    {"name", "Neuravibe"},
-    {"shortcut", "neura"},
-    {"icon_url", "https://gstatic.com/vertexaisearch/favicon.png"},
-    {"search_url",
-     "https://vertexaisearch.cloud.google.com/home/cid/"
-     "8e21c7cd-cbfe-4162-baf4-3381fc43546e?q={searchTerms}"},
-    {"suggest_url",
-     "https://discoveryengine.googleapis.com/v1alpha/projects/977834784893/"
-     "locations/global/collections/default_collection/engines/"
-     "neuravibeenterprisesearch_1732204320742/completionConfig:completeQuery"}};
-const FeatureEntry::FeatureVariation kOmniboxSearchAggregatorVariations[] = {
-    {"prod", kOmniboxSearchAggregatorProdParams,
-     std::size(kOmniboxSearchAggregatorProdParams), nullptr},
-    {"staging", kOmniboxSearchAggregatorStagingParams,
-     std::size(kOmniboxSearchAggregatorStagingParams), nullptr},
-    {"demo", kOmniboxSearchAggregatorDemoParams,
-     std::size(kOmniboxSearchAggregatorDemoParams), nullptr}};
-
 const FeatureEntry::FeatureParam kOmniboxUrlSuggestionsOnFocusTwoDayWindow[] = {
     {"OnFocusMostVisitedRecencyWindow", "1"},
 };
@@ -1658,36 +1608,56 @@ const FeatureEntry::FeatureParam kComposeboxNoEscClosure[] = {
 };
 const FeatureEntry::FeatureParam kComposeboxShowContextMenu[] = {
     {"ShowContextMenu", "true"},
+    {"ShowRecentTabChip", "true"},
 };
 const FeatureEntry::FeatureParam kComposeboxShowContextMenuAndZps[] = {
     {"ShowComposeboxZps", "true"},
     {"ShowContextMenu", "true"},
-};
-const FeatureEntry::FeatureParam kShowNextRealboxTall[] = {
-    {"ShowContextMenu", "true"},
-    {"RealboxLayoutMode", ntp_composebox::kRealboxLayoutModeTall},
-    {"CyclingPlaceholders", "true"},
-};
-const FeatureEntry::FeatureParam kShowNextRealboxCompact[] = {
-    {"ShowContextMenu", "true"},
-    {"RealboxLayoutMode", ntp_composebox::kRealboxLayoutModeCompact},
-    {"CyclingPlaceholders", "true"},
+    {"ShowRecentTabChip", "true"},
 };
 const FeatureEntry::FeatureParam kComposeboxShowContextMenuAndZpsMultiFile[] = {
     {"MaxNumFiles", "5"},
     {"ShowComposeboxZps", "true"},
     {"ShowContextMenu", "true"},
+    {"ShowRecentTabChip", "true"},
+};
+const FeatureEntry::FeatureParam
+    kComposeboxShowContextMenuAndZpsMultiFileNoViewport[] = {
+        {"MaxNumFiles", "5"},
+        {"ShowComposeboxZps", "true"},
+        {"ShowContextMenu", "true"},
+        {"ShowRecentTabChip", "true"},
+        {"EnableViewportImages", "false"},
 };
 const FeatureEntry::FeatureParam
     kComposeboxShowContextMenuAndZpsMultiFileAndTabPreviews[] = {
         {"MaxNumFiles", "5"},
         {"ShowComposeboxZps", "true"},
         {"ShowContextMenu", "true"},
+        {"ShowRecentTabChip", "true"},
         {"ShowContextMenuTabPreviews", "true"},
 };
 const FeatureEntry::FeatureParam kShowToolsAndModels[] = {
     {"ShowContextMenu", "true"},
     {"ShowToolsAndModels", "true"},
+    {"ShowComposeboxZps", "true"},
+    {"ForceToolsAndModels", "true"},
+};
+const FeatureEntry::FeatureParam kShowCreateImageTool[] = {
+    {"ShowContextMenu", "true"},
+    {"ShowToolsAndModels", "true"},
+    {"ShowCreateImageTool", "true"},
+    {"ShowComposeboxZps", "true"},
+    {"ForceToolsAndModels", "true"},
+};
+const FeatureEntry::FeatureParam kComposeboxNext[] = {
+    {"MaxNumFiles", "5"},
+    {"ShowContextMenu", "true"},
+    {"ShowContextMenuTabPreviews", "true"},
+    {"ShowComposeboxZps", "true"},
+    {"ShowToolsAndModels", "true"},
+    {"ShowCreateImageTool", "true"},
+    {"ForceToolsAndModels", "true"},
 };
 
 const FeatureEntry::FeatureVariation kNtpComposeboxVariations[] = {
@@ -1702,19 +1672,42 @@ const FeatureEntry::FeatureVariation kNtpComposeboxVariations[] = {
      std::size(kComposeboxShowContextMenu), nullptr},
     {"- Show Contextual Input Menu and ZPS", kComposeboxShowContextMenuAndZps,
      std::size(kComposeboxShowContextMenuAndZps), nullptr},
-    {"- Show Next Realbox (Tall)", kShowNextRealboxTall,
-     std::size(kShowNextRealboxTall), nullptr},
-    {"- Show Next Realbox (Compact)", kShowNextRealboxCompact,
-     std::size(kShowNextRealboxCompact), nullptr},
     {"- Show Contextual Input Menu and ZPS 5 File Limit",
      kComposeboxShowContextMenuAndZpsMultiFile,
      std::size(kComposeboxShowContextMenuAndZpsMultiFile), nullptr},
+    {"- Show Contextual Input Menu and ZPS 5 File Limit, no viewport uploading",
+     kComposeboxShowContextMenuAndZpsMultiFileNoViewport,
+     std::size(kComposeboxShowContextMenuAndZpsMultiFileNoViewport), nullptr},
     {"- Show Contextual Input Menu, ZPS 5 File Limit and Tab Previews",
      kComposeboxShowContextMenuAndZpsMultiFileAndTabPreviews,
      std::size(kComposeboxShowContextMenuAndZpsMultiFileAndTabPreviews),
      nullptr},
-    {"- Show Context Menu with Tools and Models", kShowToolsAndModels,
+    {"- Show Context Menu with Tools and Models, ZPS", kShowToolsAndModels,
      std::size(kShowToolsAndModels), nullptr},
+    {"- Show Create Image in Context Menu, ZPS", kShowCreateImageTool,
+     std::size(kShowCreateImageTool), nullptr},
+    {"- Next Experience", kComposeboxNext, std::size(kComposeboxNext), nullptr},
+};
+
+const FeatureEntry::FeatureParam kShowNextRealboxTallBottomContext[] = {
+    {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeTallBottomContext},
+};
+const FeatureEntry::FeatureParam kShowNextRealboxTallTopContext[] = {
+    {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeTallTopContext},
+};
+const FeatureEntry::FeatureParam kShowNextRealboxCompact[] = {
+    {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeCompact},
+};
+
+const FeatureEntry::FeatureVariation kNtpRealboxNextVariations[] = {
+    {"- Show Next Realbox with Bottom Context Button (TallBottomContext)",
+     kShowNextRealboxTallBottomContext,
+     std::size(kShowNextRealboxTallBottomContext), nullptr},
+    {"- Show Next Realbox with Top Context Button (TallTopContext)",
+     kShowNextRealboxTallTopContext, std::size(kShowNextRealboxTallTopContext),
+     nullptr},
+    {"- Show Next Realbox (Compact)", kShowNextRealboxCompact,
+     std::size(kShowNextRealboxCompact), nullptr},
 };
 
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) ||
@@ -2878,7 +2871,6 @@ const FeatureEntry::FeatureVariation
          std::size(kPhotoPickerAdoptionStudyChromePickerWithoutBrowse),
          nullptr}};
 
-
 const FeatureEntry::FeatureParam
     kAndroidAppIntegrationModule_ForceCardShown_Pixel[] = {
         {"force_card_shown", "true"}};
@@ -2997,17 +2989,10 @@ const FeatureEntry::FeatureVariation kBoardingPassDetectorVariations[] = {
 #if BUILDFLAG(IS_ANDROID)
 
 const FeatureEntry::FeatureParam kShowNewTabAnimationsLogs[] = {
-    {"logs", "true"},
-    {"listeners", "false"}};
-const FeatureEntry::FeatureParam kShowNewTabAnimationsListeners[] = {
-    {"logs", "true"},
-    {"listeners", "true"}};
+    {"logs", "true"}};
 const FeatureEntry::FeatureVariation kShowNewTabAnimationsVariations[] = {
     {"- Add logs", kShowNewTabAnimationsLogs,
-     std::size(kShowNewTabAnimationsLogs), nullptr},
-    {"- Add logs and listeners", kShowNewTabAnimationsListeners,
-     std::size(kShowNewTabAnimationsListeners), nullptr},
-};
+     std::size(kShowNewTabAnimationsLogs), nullptr}};
 
 const FeatureEntry::FeatureParam
     kTabStorageSqlitePrototypeAuthoritativeReads[] = {
@@ -7072,11 +7057,8 @@ const FeatureEntry kFeatureEntries[] = {
     {"omnibox-enterprise-search-aggregator",
      flag_descriptions::kOmniboxSearchAggregatorName,
      flag_descriptions::kOmniboxSearchAggregatorDescription, kOsDesktop,
-     FEATURE_WITH_PARAMS_VALUE_TYPE(
-         omnibox_feature_configs::SearchAggregatorProvider::
-             kSearchAggregatorProvider,
-         kOmniboxSearchAggregatorVariations,
-         "SearchAggregatorProvider")},
+     FEATURE_VALUE_TYPE(omnibox_feature_configs::SearchAggregatorProvider::
+                            kSearchAggregatorProvider)},
 
     {"omnibox-adjust-indentation",
      flag_descriptions::kOmniboxAdjustIndentationName,
@@ -7550,6 +7532,12 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_WITH_PARAMS_VALUE_TYPE(ntp_composebox::kNtpComposebox,
                                     kNtpComposeboxVariations,
                                     "NtpComposebox")},
+
+    {"ntp-realbox-next", flag_descriptions::kNtpRealboxNextName,
+     flag_descriptions::kNtpRealboxNextDescription, kOsDesktop,
+     FEATURE_WITH_PARAMS_VALUE_TYPE(ntp_realbox::kNtpRealboxNext,
+                                    kNtpRealboxNextVariations,
+                                    "NtpRealboxNext")},
 
     {"composebox-uses-chrome-compose-client",
      flag_descriptions::kNtpComposeboxUsesChromeComposeClientName,
@@ -10255,6 +10243,10 @@ const FeatureEntry kFeatureEntries[] = {
     {"webui-omnibox-popup", flag_descriptions::kWebUIOmniboxPopupName,
      flag_descriptions::kWebUIOmniboxPopupDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(omnibox::kWebUIOmniboxPopup)},
+
+    {"webui-omnibox-full-popup", flag_descriptions::kWebUIOmniboxFullPopupName,
+     flag_descriptions::kWebUIOmniboxFullPopupDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(omnibox::kWebUIOmniboxFullPopup)},
 
     {"webui-omnibox-popup-debug",
      flag_descriptions::kWebUIOmniboxPopupDebugName,
@@ -13381,6 +13373,12 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(
          autofill::features::kAutofillPrioritizeSaveCardOverMandatoryReauth)},
 
+#if BUILDFLAG(IS_ANDROID)
+    {"migrate-account-manager-delegate",
+     flag_descriptions::kMigrateAccountManagerDelegateName,
+     flag_descriptions::kMigrateAccountManagerDelegateDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(switches::kMigrateAccountManagerDelegate)},
+#endif
     // Add new entries above this line.
 
     // NOTE: Adding a new flag requires adding a corresponding entry to enum

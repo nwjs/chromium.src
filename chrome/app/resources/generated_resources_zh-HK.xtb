@@ -3880,6 +3880,7 @@
 <translation id="3656328935986149999">游標速度</translation>
 <translation id="3656701180077048004">在按下按鍵與啟動按鍵間加入延遲時間</translation>
 <translation id="3658871634334445293">TrackPoint 加速</translation>
+<translation id="3659483399659250379">加入分頁和其他項目</translation>
 <translation id="3659929705630080526">您輸入不正確存取碼的次數過多。請稍後再試</translation>
 <translation id="3661106764436337772">更有自信地快速編寫</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{找到 1 個現有密碼}other{找到 {NUM_PASSWORDS} 個現有密碼}}</translation>
@@ -4009,7 +4010,6 @@
 <translation id="3735039640698208086">播放音訊時…</translation>
 <translation id="3735740477244556633">排序方式</translation>
 <translation id="3735827758948958091">使用 metered connection 時無法開啟「<ph name="FILE_NAMES" />」</translation>
-<translation id="3736575924150462398">加入分頁或其他項目</translation>
 <translation id="3737058101969549870">要將現有瀏覽資料與新設定檔分開嗎？</translation>
 <translation id="3738632186060045350"><ph name="DEVICE_TYPE" /> 資料將在 24 小時後被刪除</translation>
 <translation id="3738924763801731196"><ph name="OID" />：</translation>
@@ -4636,6 +4636,7 @@
 <translation id="4151503145138736576">沒有可清理的離線儲存空間</translation>
 <translation id="4152011295694446843">您可在此查看書籤</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 個分頁}other{# 個分頁}}</translation>
+<translation id="4153858337812834972">最近的分頁</translation>
 <translation id="4154658846204884961">彗星</translation>
 <translation id="4154664944169082762">指紋</translation>
 <translation id="4156297721709710037"><ph name="WINDOW_TITLE" /> - 左邊畫面</translation>
@@ -6419,7 +6420,7 @@
 <translation id="542948651837270806">需要安裝信任平台模組韌體的更新。請參閱 <ph name="TPM_FIRMWARE_UPDATE_LINK" /></translation>
 <translation id="5429818411180678468">全形</translation>
 <translation id="5430931332414098647">即時網絡共享</translation>
-<translation id="5431318178759467895">顏色</translation>
+<translation id="5431318178759467895">彩色</translation>
 <translation id="5432145523462851548">喺資料夾入面顯示 <ph name="FILE_NAME" /></translation>
 <translation id="5432223177001837288">如要分享音訊，請改為分享分頁</translation>
 <translation id="5432872710261597882">㩒一下鍾意就可以俾正評。</translation>
@@ -7769,6 +7770,7 @@
 <translation id="6391131092053186625">你嘅裝置 IMEI 係 <ph name="IMEI_NUMBER" />。呢個數字可以用嚟啟用服務。</translation>
 <translation id="6393156038355142111">建議安全性強的密碼</translation>
 <translation id="6393550101331051049">已允許顯示不安全的內容</translation>
+<translation id="6394634179843537518">新增檔案</translation>
 <translation id="6395423953133416962">傳送<ph name="BEGIN_LINK1" />系統資料<ph name="END_LINK1" />和<ph name="BEGIN_LINK2" />指標<ph name="END_LINK2" /></translation>
 <translation id="6397586889873084061">是，分開儲存個人和學校資料 (建議設定)</translation>
 <translation id="6398715114293939307">移除 Google Play 商店</translation>
@@ -8543,7 +8545,7 @@
 <translation id="6922763095098248079">您的裝置由您的機構管理。管理員可以存取此裝置上任何設定檔中的資料。</translation>
 <translation id="6923633482430812883">連接共用裝置時發生錯誤。請檢查您正連接的檔案伺服器是否支援 SMBv2 或以上版本。</translation>
 <translation id="6924109527536857168">需要同步</translation>
-<translation id="6927200998271693557">如想快速重溫你瀏覽過的網站，可將記錄和分頁同步至 <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="6927200998271693557">如要快速重溫你瀏覽過的網站，可將記錄和分頁同步至 <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6928650056523249512">自動移除未使用網站的權限</translation>
 <translation id="6929126689972602640">學校帳戶不支援家長監控設定。如要新增學校帳戶，以便在家中存取 Google Classroom 和其他學校作業用的網站，請先使用子女的個人帳戶登入。您稍後可在設定新增學校帳戶。</translation>
 <translation id="6930161297841867798">{NUM_EXTENSIONS,plural, =1{已拒絕 1 個擴充程式}other{已拒絕 # 個擴充程式}}</translation>
@@ -9305,7 +9307,6 @@
 <translation id="747114903913869239">錯誤：無法為擴充功能解碼</translation>
 <translation id="7471520329163184433">減速</translation>
 <translation id="747312361841682912">刪除顯示的資料</translation>
-<translation id="7473555040328423550">新增分頁</translation>
 <translation id="7473891865547856676">不用了，謝謝</translation>
 <translation id="7474043404939621342">自訂工具列</translation>
 <translation id="747459581954555080">全部還原</translation>
@@ -11877,7 +11878,6 @@
 <translation id="9215293857209265904">已新增「<ph name="EXTENSION_NAME" />」</translation>
 <translation id="9215742531438648683">解除安裝「Google Play 商店」</translation>
 <translation id="9218430445555521422">設定為預設</translation>
-<translation id="9218536722110863203">上載檔案</translation>
 <translation id="9218842937876577955"><ph name="APP_NAME" /> (不支援的應用程式)</translation>
 <translation id="9219572436491982747">傳送至 Google 的資料可能會送交人手審查以改善 Chrome AI 技術</translation>
 <translation id="9219741625496141320">瀏覽資料已自動刪除</translation>

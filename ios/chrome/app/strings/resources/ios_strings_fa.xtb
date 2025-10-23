@@ -199,7 +199,7 @@
 <translation id="1749733017156547309">گذرواژه الزامی است</translation>
 <translation id="174998178145075354">{count,plural, =1{‫{count} گزینه برای نشانی در بالای صفحه‌کلید وجود دارد.}one{‫{count} گزینه برای نشانی در بالای صفحه‌کلید وجود دارد.}other{‫{count} گزینه برای نشانی در بالای صفحه‌کلید وجود دارد.}}</translation>
 <translation id="1750238553597293878">‏همچنان از گذرواژه‌های ذخیره‌شده در «حساب Google» خود استفاده کنید</translation>
-<translation id="17513872634828108">بازکردن برگه‌ها</translation>
+<translation id="17513872634828108">زبانه‌های باز</translation>
 <translation id="1752547299766512813">ذخیره گذرواژه‌ها</translation>
 <translation id="1764070164487214210">مسیرها</translation>
 <translation id="1767766085187034454">‏ترجمه Google</translation>
@@ -438,7 +438,7 @@
 <translation id="264215785133931186">آخرین بررسی: همین‌حالا</translation>
 <translation id="2647434099613338025">افزودن زبان</translation>
 <translation id="2649592894792404568">‏در آستانه حذف داده‌هایتان از «مدیر گذرواژه Google» هستید</translation>
-<translation id="2652129567809778422">گذرواژه را انتخاب کنید</translation>
+<translation id="2652129567809778422">انتخاب گذرواژه</translation>
 <translation id="2658056020748144467">فایل باز نشد</translation>
 <translation id="2661809266906115479">‫<ph name="TITLE" />، <ph name="STATE" />، فقط در این دستگاه، <ph name="URL" /></translation>
 <translation id="2664621323652615289">توقف</translation>
@@ -1243,7 +1243,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="5804241973901381774">اجازه‌ها</translation>
 <translation id="58081802114142635">‏فعالیت شما هوش مصنوعی Google را بهبود می‌بخشد</translation>
 <translation id="5813223718099710537">‏وقتی از این ویژگی استفاده می‌کنید، محتوای صفحه و نشانی‌های وب به Google ارسال می‌شوند. هرزمان خواستید می‌توانید آن را در تنظیمات خاموش کنید.</translation>
-<translation id="5817176759448082654">بازبینی گذرواژه</translation>
+<translation id="5817176759448082654">بازرسی گذرواژه</translation>
 <translation id="5818161931099046557">‏ویرایش در «حساب Google»</translation>
 <translation id="5819208479324046259">توسط <ph name="MANAGER" /> مدیریت می‌شود. <ph name="BEGIN_LINK" />بیشتر بدانید<ph name="END_LINK" /></translation>
 <translation id="5827266244928330802">Safari</translation>
@@ -1672,7 +1672,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="7431851541687113774">غیرفعال کردن تشخیص نشانی</translation>
 <translation id="7431991332293347422">کنترل نحوه استفاده از سابقه مرور برای شخصی‌سازی «جستجو» و موارد دیگر</translation>
 <translation id="7435356471928173109">سرپرستتان آن را خاموش کرده است</translation>
-<translation id="7437712592381799950">برای دیدن محتوای بیشتری که متناسب با سلیقه شما است، می‌توانید تند به بالا بکشید.</translation>
+<translation id="7437712592381799950">برای دیدن محتوای بیشتری که مناسب با سلیقه شما است، می‌توانید تند به بالا بکشید.</translation>
 <translation id="7438473148803748807">همه دسترسی به گروه زبانه‌های «<ph name="GROUP_NAME" />» را فوراً ازدست می‌دهند و همه پیوندهای دعوت غیرفعال می‌شود</translation>
 <translation id="7438481509621345350">اکنون وقتی زبانه جدیدی باز می‌کنید، داستان‌هایی از <ph name="CHANNEL_NAME" /> خواهید دید.</translation>
 <translation id="7451023311965289370">{count,plural, =1{نشانک در «{title}» ذخیره شد}one{نشانک در «{title}» ذخیره شد}other{نشانک‌ها در «{title}» ذخیره شد}}</translation>
@@ -1868,7 +1868,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="8105368624971345109">خاموش کردن</translation>
 <translation id="8106442513853561174">هم‌رسانی مکان دقیق</translation>
 <translation id="8114753159095730575">بارگیری فایل دردسترس است. گزینه‌ها نزدیک انتهای صفحه دردسترس است.</translation>
-<translation id="8123502380991596210">پنهان کردن «ویژگی‌های جدید»</translation>
+<translation id="8123502380991596210">پنهان کردن «تازه‌ها»</translation>
 <translation id="8123953306357309250">همگام‌سازی لغو شود؟ هرزمان بخواهید می‌توانید همگام‌سازی را در تنظیمات روشن کنید.</translation>
 <translation id="81313319706244542">۲. روی «گذرواژه‌ها» تک‌ضرب بزنید</translation>
 <translation id="8131740175452115882">تأیید کردن</translation>
@@ -2058,7 +2058,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="8803526663383843427">وقتی روشن است</translation>
 <translation id="8803639129939845298">ایمن</translation>
 <translation id="8813277370772331957">بعداً به من یادآوری شود</translation>
-<translation id="8814719628147284151">ادامه دادن</translation>
+<translation id="8814719628147284151">ادامه</translation>
 <translation id="8819155700324279105">اضافه شدن لایه محافظتی بیشتر دربرابر تهدیدهای آنلاین</translation>
 <translation id="8820817407110198400">نشانک‌ها</translation>
 <translation id="8822421075653507124">برای اطمینان از اینکه می‌توان به‌طور ایمن از این دستگاه استفاده کرد، شاید لازم باشد سازمانتان اطلاعاتی درباره سیستم‌عامل، مرورگر، تنظیمات خود، و نرم‌افزارهایی که در دستگاه نصب شده است ببیند.</translation>

@@ -81,6 +81,26 @@
 
   --glif-rotation-duration: 1000ms;
 
+  --icon-entry-transition: opacity var(--expand-ease-out-duration) linear 800ms;
+  --icon-exit-transition: opacity var(--collapse-ease-in-duration)
+    var(--emphasized-accelerate);
+
+  --height-expand-duration: 600ms;
+  --submit-enabled-transition: opacity 255ms;
+
+  --border-radius-transition: border-radius var(--collapse-duration)
+    var(--emphasized-curve);
+
+  --lens-icon-animation-duration: 1100ms;
+
+  border-radius: 30px;
+  box-shadow: var(--cr-searchbox-shadow);
+  font-size: var(--cr-composebox-font-size, 18px);
+  transition: var(--border-radius-transition);
+  width: var(--ntp-composebox-width, 337px);
+}
+
+:host(:not([ntp-realbox-next-enabled])) {
   --expand-ease-in-duration: 400ms;
   --expand-delay: 300ms;
   --expand-ease-out-duration: 300ms;
@@ -93,22 +113,10 @@
   --collapse-duration: calc(
     var(--collapse-ease-in-duration) + var(--collapse-ease-out-duration)
   );
+}
 
-  --icon-entry-transition: opacity var(--expand-ease-out-duration) linear 800ms;
-  --icon-exit-transition: opacity var(--collapse-ease-in-duration)
-    var(--emphasized-accelerate);
-
-  --height-expand-duration: 600ms;
-  --submit-enabled-transition: opacity 255ms;
-
-  --border-radius-transition: border-radius var(--collapse-duration)
-    var(--emphasized-curve);
-
-  border-radius: 30px;
-  box-shadow: var(--cr-searchbox-shadow);
-  font-size: var(--cr-composebox-font-size, 18px);
-  transition: var(--border-radius-transition);
-  width: var(--ntp-composebox-width, 337px);
+:host([ntp-realbox-next-enabled]) {
+  --input-bottom-spacing: 12px;
 }
 
 :host([expanded_]) {
@@ -116,40 +124,7 @@
 }
 
 #errorScrim {
-  align-items: center;
-  background-color: var(--color-new-tab-page-composebox-error-scrim-background);
   border-radius: inherit;
-  color: var(--color-new-tab-page-composebox-error-scrim-foreground);
-  display: flex;
-  font-size: 16px;
-  flex-direction: column;
-  gap: 12px;
-  justify-content: center;
-  height: 100%;
-  position: absolute;
-  opacity: 0.90;
-  width: 100%;
-  z-index: 1;
-}
-
-#errorScrim > p {
-  margin: 0;
-}
-
-#dismissErrorButton {
-  --cr-button-background-color:
-      var(--color-new-tab-page-composebox-error-scrim-button-background);
-  --cr-button-border-color:
-      var(--color-new-tab-page-composebox-error-scrim-foreground);
-  --cr-button-text-color:
-      var(--color-new-tab-page-composebox-error-scrim-button-text);
-  --cr-icon-button-hover-background-color:
-      var(--color-new-tab-page-composebox-error-scrim-button-background-hover);
-  border: none;
-  font-size: 14px;
-  gap: 4px;
-  height: 44px;
-  width: 122px;
 }
 
 #composebox {
@@ -239,6 +214,10 @@
   width: 100%;
 }
 
+:host(:not[ntp-realbox-next-enabled]) #input {
+  transition: padding var(--height-expand-duration) var(--standard-curve);
+}
+
 #input {
   animation: color-change 5s infinite;
   background-color: inherit;
@@ -251,7 +230,6 @@
   outline: none;
   position: relative;
   resize: none;
-  transition: padding var(--height-expand-duration) var(--standard-curve);
 }
 
 #input::placeholder {
@@ -357,14 +335,25 @@
   pointer-events: none;
 }
 
+@keyframes fade-out-in {
+  0% {
+    opacity: 0;
+  }
+
+  73% {
+    opacity: 0;
+  }
+}
+
 #lensIcon {
   --cr-icon-button-icon-size: 20px;
   --cr-icon-image: url(//resources/cr_components/searchbox/icons/camera.svg);
   bottom: var(--input-bottom-spacing);
   display: none;
-  pointer-events: auto;
+  opacity: 1;
   position: absolute;
-  right: 68px;
+  right: 16px;
+  top: 6px;
 }
 
 #lensIcon:focus-visible:focus {
@@ -373,12 +362,24 @@
   outline-offset: 2px;
 }
 
+:host([expanded_]) #lensIcon {
+  animation: fade-out-in var(--lens-icon-animation-duration) linear;
+  right: 68px;
+  top: auto;
+}
+
+:host([lens-button-disabled_]) #lensIcon {
+  opacity: 0.3;
+}
+
 :host-context([dir='rtl']) #lensIcon {
   left: 68px;
   right: unset;
 }
 
-#submitContainer {
+:host(:not([show-submit_])) #submitContainer,
+:host([ntp-realbox-next-enabled]) #submitContainer,
+:host([show-submit_]:not([submit-enabled_])) #submitContainer{
   display: none;
 }
 
@@ -387,8 +388,8 @@
   --cr-icon-button-icon-size: 16px;
   background-color: var(--color-new-tab-page-composebox-submit-button);
   bottom: var(--input-bottom-spacing);
-  cursor: default;
-  opacity: 30%;
+  cursor: default; /* For Lens side panel. */
+  opacity: 30%; /* For Lens side panel. */
   transition: var(--submit-enabled-transition);
 }
 
@@ -398,9 +399,10 @@
   outline-offset: 2px;
 }
 
-:host([submit-enabled_]) #submitIcon {
+:host([show-submit_][submit-enabled_]:not([ntp-realbox-next-enabled])) #submitIcon {
   cursor: pointer;
-  opacity: 100%;
+  display: block;
+  opacity: 100%; /* For Lens side panel. */
 }
 
 /* Controls the opacity of the icons when the composebox is expanded/collapsed. */
@@ -598,4 +600,45 @@
   margin-top: 20px;
   position: absolute;
   transform: translate(-50%);
+}
+
+.carousel-divider {
+  border-radius: 100px;
+  border-top: 1px solid
+    var(--color-new-tab-page-composebox-file-carousel-divider);
+  margin-inline-end: 16px;
+  margin-inline-start: var(--text-input-inline-start-spacing);
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+:host([ntp-realbox-next-enabled][realbox-layout-mode="Compact"]) #iconContainer {
+  display: none;
+}
+
+:host([ntp-realbox-next-enabled][realbox-layout-mode="Compact"]) #textContainer {
+  --text-input-inline-start-spacing: 40px;
+}
+
+:host([ntp-realbox-next-enabled]) #input,
+:host([ntp-realbox-next-enabled]) #smartCompose {
+  --text-input-top-spacing: 14px;
+}
+
+:host([ntp-realbox-next-enabled][realbox-layout-mode="Compact"]) #input,
+:host([ntp-realbox-next-enabled][realbox-layout-mode="Compact"]) #smartCompose {
+  --text-input-top-spacing: 8px;
+}
+
+:host([ntp-realbox-next-enabled][realbox-layout-mode="Compact"]) #context {
+  margin-top: -48px;
+}
+
+:host([expanded_][show-dropdown_][ntp-realbox-next-enabled][realbox-layout-mode="Compact"]) ntp-composebox-dropdown {
+  padding-bottom: 0;
+  padding-top: 8px;
+}
+
+:host-context([realbox-layout-mode='TallTopContext']) contextual-entrypoint-and-carousel::part(carousel-divider) {
+  margin-top: 10px;
 }

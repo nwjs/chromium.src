@@ -36,6 +36,8 @@
 #include "chrome/browser/new_tab_page/modules/v2/most_relevant_tab_resumption/most_relevant_tab_resumption_page_handler.h"
 #include "chrome/browser/new_tab_page/modules/v2/tab_groups/tab_groups_page_handler.h"
 #include "chrome/browser/new_tab_page/new_tab_page_util.h"
+#include "chrome/browser/omnibox/contextual_session_service_factory.h"
+#include "chrome/browser/omnibox/contextual_session_web_contents_helper.h"
 #include "chrome/browser/page_image_service/image_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/background/ntp_custom_background_service_factory.h"
@@ -56,7 +58,6 @@
 #include "chrome/browser/ui/webui/cr_components/most_visited/most_visited_handler.h"
 #include "chrome/browser/ui/webui/customize_buttons/customize_buttons_handler.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
-#include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter_service.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/composebox_handler.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/aim_entrypoint_fieldtrial.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
@@ -96,6 +97,7 @@
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/composebox/composebox_metrics_recorder.h"
 #include "components/omnibox/composebox/composebox_query_controller.h"
+#include "components/omnibox/composebox/contextual_session_service.h"
 #include "components/page_image_service/image_service.h"
 #include "components/page_image_service/image_service_handler.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -244,6 +246,17 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
           ntp_features::kNtpMostRelevantTabResumptionModuleFallbackToHost));
   source->AddBoolean("footerEnabled",
                      base::FeatureList::IsEnabled(ntp_features::kNtpFooter));
+
+  source->AddString("realboxLayoutMode",
+                    ntp_realbox::IsNtpRealboxNextEnabled(profile)
+                        ? ntp_realbox::RealboxLayoutModeToString(
+                              ntp_realbox::kRealboxLayoutMode.Get())
+                        : "");
+  source->AddBoolean("ntpRealboxNextEnabled",
+                     ntp_realbox::IsNtpRealboxNextEnabled(profile));
+  source->AddBoolean("searchboxCyclingPlaceholders",
+                     ntp_realbox::IsNtpRealboxNextEnabled(profile) &&
+                         ntp_realbox::kCyclingPlaceholders.Get());
 
   static constexpr webui::LocalizedString kStrings[] = {
       {"doneButton", IDS_DONE},
@@ -552,8 +565,17 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
       "searchboxShowComposeEntrypoint",
       (ntp_composebox::IsNtpSearchboxComposeEntrypointEnabled(profile) ||
        ntp_composebox::IsNtpComposeboxEnabled(profile)));
+  source->AddLocalizedString(
+      "searchBoxPlaceholder",
+      ntp_realbox::IsNtpRealboxNextEnabled(profile)
+          ? IDS_NTP_SEARCH_BOX_DYNAMIC_PLACEHOLDER_ASK_GOOGLE
+          : IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_MD);
   source->AddBoolean("composeboxShowContextMenu",
                      ntp_composebox::kShowContextMenu.Get());
+  source->AddBoolean("composeboxShowRecentTabChip",
+                     ntp_composebox::kShowRecentTabChip.Get());
+  source->AddLocalizedString("askAboutThisTabAriaLabel",
+                             IDS_NTP_COMPOSE_ASK_ABOUT_THIS_TAB_ARIA_LABEL);
   source->AddBoolean("composeboxShowContextMenuTabPreviews",
                      ntp_composebox::kShowContextMenuTabPreviews.Get());
   source->AddBoolean("searchboxShowComposebox",
@@ -562,10 +584,6 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
                      ntp_composebox::kShowComposeboxZps.Get());
   source->AddBoolean("composeboxShowTypedSuggest",
                      ntp_composebox::kShowComposeboxTypedSuggest.Get());
-  source->AddString(
-      "realboxLayoutMode",
-      ntp_composebox::RealboxLayoutModeToString(
-          ntp_composebox::kRealboxLayoutMode.Get()));
   source->AddBoolean("composeboxShowImageSuggest",
                      ntp_composebox::kShowComposeboxImageSuggestions.Get());
   source->AddBoolean("composeboxShowContextMenuDescription",
@@ -576,15 +594,19 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
   source->AddBoolean("composeboxCloseByClickOutside",
                      composebox_config.close_by_click_outside());
   source->AddBoolean("composeboxSmartComposeEnabled", true);
-  source->AddBoolean("composeboxShowDeepSearchButton",
-                     ntp_composebox::kShowToolsAndModels.Get());
-
   const auto* aim_eligibility_service =
       AimEligibilityServiceFactory::GetForProfile(profile);
+  source->AddBoolean("composeboxShowDeepSearchButton",
+                     ntp_composebox::IsDeepSearchEnabled(profile));
+  source->AddBoolean("composeboxShowCreateImageButton",
+                     ntp_composebox::IsCreateImagesEnabled(profile));
+
   bool show_pdf_upload = aim_eligibility_service &&
                          aim_eligibility_service->IsPdfUploadEligible() &&
                          composebox_config.is_pdf_upload_enabled();
   source->AddBoolean("composeboxShowPdfUpload", show_pdf_upload);
+
+  source->AddBoolean("composeboxShowSubmit", ntp_composebox::kShowSubmit.Get());
 
   // User education browser promos.
   int browser_promo_limit = 0;
@@ -835,29 +857,29 @@ void NewTabPageUI::BindInterface(
 
 void NewTabPageUI::BindInterface(
     mojo::PendingReceiver<searchbox::mojom::PageHandler> pending_page_handler) {
-  MetricsReporterService* service =
-      MetricsReporterService::GetFromWebContents(web_ui()->GetWebContents());
-  std::unique_ptr<ComposeboxQueryController> query_controller;
   std::unique_ptr<ComposeboxMetricsRecorder> composebox_metrics_recorder;
   // Only create the composebox query controller and metrics recorder needed for
   // contextual search if realbox next is enabled.
-  if (ntp_composebox::kRealboxLayoutMode.Get() !=
-      ntp_composebox::RealboxLayoutMode::kDefault) {
-    query_controller = std::make_unique<ComposeboxQueryController>(
-        IdentityManagerFactory::GetForProfile(profile_),
-        g_browser_process->shared_url_loader_factory(), chrome::GetChannel(),
-        g_browser_process->GetApplicationLocale(),
-        TemplateURLServiceFactory::GetForProfile(profile_),
-        profile_->GetVariationsClient(),
-        ntp_composebox::kSendLnsSurfaceParam.Get(),
-        ntp_composebox::kMaxNumFiles.Get() > 1);
+  if (ntp_realbox::IsNtpRealboxNextEnabled(profile_)) {
+    // Create a contextual session for this WebContents if one does not exist.
+    if (auto* contextual_session_web_contents_helper =
+            ContextualSessionWebContentsHelper::GetOrCreateForWebContents(
+                web_contents());
+        !contextual_session_web_contents_helper->session_handle()) {
+      auto* contextual_session_service =
+          ContextualSessionServiceFactory::GetForProfile(profile_);
+      auto contextual_session_handle =
+          contextual_session_service->CreateSession(
+              ntp_composebox::CreateQueryControllerConfigParams());
+      contextual_session_web_contents_helper->set_session_handle(
+          std::move(contextual_session_handle));
+    }
     composebox_metrics_recorder = std::make_unique<ComposeboxMetricsRecorder>(
         kComposeboxMetricsReporterPrefName);
   }
   realbox_handler_ = std::make_unique<RealboxHandler>(
-      std::move(pending_page_handler), std::move(query_controller),
-      std::move(composebox_metrics_recorder), profile_, web_contents(),
-      service->metrics_reporter());
+      std::move(pending_page_handler), std::move(composebox_metrics_recorder),
+      profile_, web_contents());
 }
 
 void NewTabPageUI::BindInterface(
@@ -1057,24 +1079,26 @@ void NewTabPageUI::CreatePageHandler(
     mojo::PendingReceiver<searchbox::mojom::PageHandler>
         pending_searchbox_handler) {
   DCHECK(pending_page.is_valid());
-  MetricsReporterService* service =
-      MetricsReporterService::GetFromWebContents(web_ui()->GetWebContents());
-  bool enable_multi_context_input_flow =
-      ntp_composebox::kMaxNumFiles.Get() > 1;
+
+  // Create a contextual session for this WebContents if one does not exist.
+  if (auto* contextual_session_web_contents_helper =
+          ContextualSessionWebContentsHelper::GetOrCreateForWebContents(
+              web_contents());
+      !contextual_session_web_contents_helper->session_handle()) {
+    auto* contextual_session_service =
+        ContextualSessionServiceFactory::GetForProfile(profile_);
+    auto contextual_session_handle = contextual_session_service->CreateSession(
+        ntp_composebox::CreateQueryControllerConfigParams());
+    contextual_session_web_contents_helper->set_session_handle(
+        std::move(contextual_session_handle));
+  }
+
   composebox_handler_ = std::make_unique<ComposeboxHandler>(
       std::move(pending_page_handler), std::move(pending_page),
       std::move(pending_searchbox_handler),
-      std::make_unique<ComposeboxQueryController>(
-          IdentityManagerFactory::GetForProfile(profile_),
-          g_browser_process->shared_url_loader_factory(), chrome::GetChannel(),
-          g_browser_process->GetApplicationLocale(),
-          TemplateURLServiceFactory::GetForProfile(profile_),
-          profile_->GetVariationsClient(),
-          ntp_composebox::kSendLnsSurfaceParam.Get(),
-          enable_multi_context_input_flow),
       std::make_unique<ComposeboxMetricsRecorder>(
           kComposeboxMetricsReporterPrefName),
-      profile_, web_contents(), service->metrics_reporter());
+      profile_, web_contents());
 
   // TODO(crbug.com/435288212): Move searchbox mojom to use factory pattern.
   composebox_handler_->SetPage(std::move(pending_searchbox_page));
