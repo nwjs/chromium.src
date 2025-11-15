@@ -104,7 +104,7 @@
 <translation id="1175393348063009671">Фотобумага (матовая)</translation>
 <translation id="1175875016430184367">Три скобы справа</translation>
 <translation id="1177548198167638471">Больше не спрашивать</translation>
-<translation id="1177863135347784049">Персонализированные</translation>
+<translation id="1177863135347784049">Свой вариант</translation>
 <translation id="1178581264944972037">Пауза</translation>
 <translation id="1178821169867863726">12 x 16 дюймов</translation>
 <translation id="1181037720776840403">Удалить</translation>
@@ -254,7 +254,7 @@
 <translation id="1407135791313364759">Открыть все</translation>
 <translation id="1408696301184924537">Чтобы в следующий раз этот код IBAN подставился автоматически, сохраните его в аккаунте Google.</translation>
 <translation id="1408787208417187241">Три скобы сверху</translation>
-<translation id="1410365862999780287">Информация о ваших действиях в браузере будет недоступна другим пользователям этого устройства. Сайты, которые вы посещаете, и используемые ими сервисы, в том числе продукты Google, продолжат собирать данные как прежде. Закладки, скачанные файлы и объекты из списка для чтения сохранятся.</translation>
+<translation id="1410365862999780287">Другие пользователи этого устройства не увидят, что вы делали, поэтому вы можете пользоваться браузером с большей приватностью. Сайты, которые вы посещаете, и используемые ими сервисы, в том числе продукты Google, продолжат собирать данные как прежде. Новые закладки, скачанные файлы и страницы в списке для чтения будут сохранены.</translation>
 <translation id="1410941016594047814">Конверт Invite</translation>
 <translation id="1413809658975081374">Ошибка нарушения конфиденциальности</translation>
 <translation id="1414134146594747368">Образование детей от 0 до 5 лет</translation>
@@ -1210,7 +1210,7 @@
 <translation id="299990983510665749">Автомобили типа "хетчбэк"</translation>
 <translation id="3002501248619246229">Проверить данные входного лотка</translation>
 <translation id="3005723025932146533">Открыть сохраненную копию</translation>
-<translation id="300580149047131921">Разрешение использовалось недавно</translation>
+<translation id="300580149047131921">Использовалось недавно</translation>
 <translation id="3006864083554020786">домашний адрес</translation>
 <translation id="3009036448238594149"><ph name="ACTION_IN_SUGGEST_FOCUSED_FRIENDLY_MATCH_TEXT" />. Нажмите Tab, чтобы посмотреть доступные действия, затем Ввод, чтобы выполнить выбранное.</translation>
 <translation id="3010991137650052245">Чтобы использовать функцию "<ph name="PERMISSION" />" на этом сайте, предоставьте доступ браузеру <ph name="SHORT_PRODUCT_NAME" />.</translation>
@@ -4016,7 +4016,7 @@
 <translation id="7598391785903975535">Менее <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="759889825892636187">Сайт <ph name="HOST_NAME" /> пока не может обработать этот запрос.</translation>
 <translation id="7599089013883397081">Превышено время ожидания</translation>
-<translation id="7602868996817972616">Спросите Google об этой странице</translation>
+<translation id="7602868996817972616">Спросить Google об этой странице</translation>
 <translation id="7610193165460212391">Значение <ph name="VALUE" /> лежит за пределами разрешенного диапазона.</translation>
 <translation id="761261689936461781">Толстая</translation>
 <translation id="7613889955535752492">Срок действия: <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>

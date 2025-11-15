@@ -134,8 +134,10 @@ bool IsNtpComposeboxEnabled(Profile* profile) {
     return false;
   }
 
-  return AimEligibilityService::GenericKillSwitchFeatureCheck(
-      AimEligibilityServiceFactory::GetForProfile(profile), kNtpComposebox);
+  return base::FeatureList::IsEnabled(kNtpComposebox) &&
+         AimEligibilityService::GenericKillSwitchFeatureCheck(
+             AimEligibilityServiceFactory::GetForProfile(profile),
+             kNtpComposebox);
 }
 
 bool IsDeepSearchEnabled(Profile* profile) {
@@ -256,6 +258,10 @@ const base::FeatureParam<bool> kShowCreateImageTool(&kNtpComposebox,
                                                     false);
 
 const base::FeatureParam<bool> kShowSubmit(&kNtpComposebox, "ShowSubmit", true);
+
+const base::FeatureParam<bool> kShowSmartCompose(&kNtpComposebox,
+                                                 "ShowSmartCompose",
+                                                 true);
 
 const base::FeatureParam<bool> kForceToolsAndModels(&kNtpComposebox,
                                                     "ForceToolsAndModels",

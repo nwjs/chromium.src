@@ -322,7 +322,7 @@
 <translation id="219283042927675668">Onglets dans le groupe</translation>
 <translation id="2194856509914051091">Éléments à prendre en compte</translation>
 <translation id="2196428379625389579">Rechercher sur le Web</translation>
-<translation id="2198001751007276170">Remplacer les mots de passe</translation>
+<translation id="2198001751007276170">Remplacer mots de passe</translation>
 <translation id="2199562093267256223">Le groupe sera supprimé de tous les appareils connectés à <ph name="USER_EMAIL" />.</translation>
 <translation id="2202084845446535117">Aucun compte messag.</translation>
 <translation id="2214453882118345682">Achetez, traduisez et identifiez ce que vous voyez avec votre appareil photo.</translation>
@@ -526,7 +526,7 @@ Votre moteur de recherche est <ph name="DSE_NAME" />. Lisez les instructions pou
 <translation id="3010025794097054078">Protégez-vous contre les violations de données, les sites Web dangereux et plus encore.</translation>
 <translation id="301080557829842765">Guide sur la confidentialité</translation>
 <translation id="3012310354105716927">Certaines données ne sont pas encore enregistrées</translation>
-<translation id="3013922155552460252">Affichez et gérez votre activité Gemini, comme vos discussions, vos retours et vos prompts</translation>
+<translation id="3013922155552460252">Affichez et gérez votre activité Gemini, comme vos discussions, vos commentaires et vos prompts</translation>
 <translation id="3016518775797983090">Partage page impos.</translation>
 <translation id="3020183492814296499">Raccourcis</translation>
 <translation id="3021342271734507256">Dessinez ou mettez en surbrillance n'importe quel élément à l'écran, ou appuyez dessus, pour effectuer une recherche</translation>
@@ -721,7 +721,7 @@ Lisez les instructions du moteur de recherche pour supprimer l'historique de vos
 <translation id="3851938967634752633">Les mots de passe pour <ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" /> et <ph name="NUMBER_OF_ACCOUNTS" /> autres seront supprimés. Vos comptes ne seront pas supprimés.</translation>
 <translation id="3853162385423733133">Continuez à utiliser et à enregistrer les mots de passe dans votre compte Google <ph name="EMAIL" /></translation>
 <translation id="3853873210696342070">Importer</translation>
-<translation id="3857113360369572832">Ouvrez les <ph name="BEGIN_BOLD" />paramètres de Safari<ph name="END_BOLD" /></translation>
+<translation id="3857113360369572832">Ouvrez les <ph name="BEGIN_BOLD" />réglages de Safari<ph name="END_BOLD" /></translation>
 <translation id="3858860766373142691">Nom</translation>
 <translation id="3868495844258915202">Afficher l'URL complète</translation>
 <translation id="3875783148670536197">Démonstration</translation>

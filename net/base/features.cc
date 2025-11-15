@@ -805,6 +805,11 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kExtendQuicHandshakeTimeout,
                    "QuicHandshakeTimeout",
                    base::Seconds(quic::kMaxTimeForCryptoHandshakeSecs));
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kMaxIdleTimeBeforeCryptoHandshake,
+                   &kExtendQuicHandshakeTimeout,
+                   "MaxIdleTimeBeforeCryptoHandshake",
+                   base::Seconds(quic::kInitialIdleTimeoutSecs));
 
 BASE_FEATURE(kQuicLongerIdleConnectionTimeout,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -838,5 +843,13 @@ BASE_FEATURE_PARAM(size_t,
                    &kUpdateIsMainFrameOriginRecentlyAccessed,
                    "cache_size",
                    64);
+
+BASE_FEATURE(kTryQuicByDefault, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(std::string,
+                   kQuicOptions,
+                   &kTryQuicByDefault,
+                   "quic_options",
+                   "");
 
 }  // namespace net::features

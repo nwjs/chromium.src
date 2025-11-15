@@ -260,6 +260,7 @@
   E_CPONLY(kColorNewTabPageComposeboxInputIcon) \
   E_CPONLY(kColorNewTabPageComposeboxLensButton) \
   E_CPONLY(kColorNewTabPageComposeboxOutlineHcm) \
+  E_CPONLY(kColorNewTabPageComposeboxRecentTabChipOutline) \
   E_CPONLY(kColorNewTabPageComposeboxResultsBackgroundHovered) \
   E_CPONLY(kColorNewTabPageComposeboxScrimBackground) \
   E_CPONLY(kColorNewTabPageComposeboxSubmitButton) \
@@ -269,6 +270,7 @@
   E_CPONLY(kColorNewTabPageComposeboxUploadButton) \
   E_CPONLY(kColorNewTabPageComposeboxUploadButtonDisabled) \
   E_CPONLY(kColorNewTabPageComposeboxFileChipBackground) \
+  E_CPONLY(kColorNewTabPageComposeboxFileChipFaviconBackground) \
   E_CPONLY(kColorNewTabPageComposeboxFileChipText) \
   E_CPONLY(kColorNewTabPageComposeboxPdfChipIcon) \
   E_CPONLY(kColorNewTabPageComposeboxFileImageOverlay) \
@@ -315,6 +317,15 @@
   E_CPONLY(kColorNewTabPageModuleTabGroupsPurple) \
   E_CPONLY(kColorNewTabPageModuleTabGroupsCyan) \
   E_CPONLY(kColorNewTabPageModuleTabGroupsOrange) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsDotGrey) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsDotBlue) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsDotRed) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsDotYellow) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsDotGreen) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsDotPink) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsDotPurple) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsDotCyan) \
+  E_CPONLY(kColorNewTabPageModuleTabGroupsDotOrange) \
   E_CPONLY(kColorNewTabPageMostVisitedForeground) \
   E_CPONLY(kColorNewTabPageMostVisitedTileBackground) \
   E_CPONLY(kColorNewTabPageMostVisitedTileBackgroundThemed) \

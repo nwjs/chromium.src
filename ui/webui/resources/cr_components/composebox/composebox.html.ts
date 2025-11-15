@@ -37,7 +37,8 @@ export function getHtml(this: ComposeboxElement) {
             .value="${this.input_}"
             @input=${this.handleInput_}
             @scroll="${this.handleScroll_}"
-            @focusin="${this.handleInputFocusIn_}"></textarea>
+            @focusin="${this.handleInputFocusIn_}"
+            @focusout="${this.handleInputFocusOut_}"></textarea>
           ${this.shouldShowSmartComposeInlineHint_() ? html`
             <div id="smartCompose">
               <!-- Comments in between spans to eliminate spacing between
@@ -50,7 +51,8 @@ export function getHtml(this: ComposeboxElement) {
         </div>
       </div>
       <contextual-entrypoint-and-carousel id="context" part="context-entrypoint"
-          .tabSuggestions_=${this.tabSuggestions_}
+          exportparts="context-menu-entrypoint-icon, composebox-file-carousel"
+          .tabSuggestions="${this.tabSuggestions_}"
           entrypoint-name="Composebox"
           @add-tab-context="${this.addTabContext_}"
           @add-file-context="${this.addFileContext_}"
@@ -60,9 +62,9 @@ export function getHtml(this: ComposeboxElement) {
           @set-create-image-mode="${this.setCreateImageMode_}"
           @get-tab-preview="${this.getTabPreview_}"
           ?show-dropdown="${this.showDropdown_}"
-          ?inputs-disabled="${this.inputsDisabled_}"
           ?show-context-menu-description="${this.showContextMenuDescription_}"
-          realbox-layout-mode="${this.realboxLayoutMode}">
+          realbox-layout-mode="${this.realboxLayoutMode}"
+          .parentFocused="${true}">
         <ntp-composebox-dropdown
             id="matches"
             part="dropdown"
@@ -102,15 +104,18 @@ export function getHtml(this: ComposeboxElement) {
     <!-- A seperate container is needed for the submit button so the
        expand/collapse animation can be applied without affecting the submit
        button enabled/disabled state. -->
-    <div id="submitContainer" class="icon-fade" part="submit">
+    <div id="submitContainer" class="icon-fade" part="submit"
+         tabindex="0"
+         title="${this.i18n('composeboxSubmitButtonTitle')}"
+         @click="${this.submitQuery_}"
+         ?disabled="${!this.submitEnabled_}"
+         @focusin="${this.handleSubmitFocusIn_}">
+      <div id="submitOverlay"></div>
       <cr-icon-button
         class="action-icon icon-arrow-upward"
         id="submitIcon"
         part="action-icon submit-icon"
-        title="${this.i18n('composeboxSubmitButtonTitle')}"
-        @click="${this.submitQuery_}"
-        ?disabled="${!this.submitEnabled_}"
-        @focusin="${this.handleSubmitFocusIn_}">
+        tabindex="-1">
       </cr-icon-button>
     </div>
   </div>

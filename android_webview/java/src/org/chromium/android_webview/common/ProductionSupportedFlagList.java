@@ -223,6 +223,9 @@ public final class ProductionSupportedFlagList {
                 "Enables the ability to use Document Policy header to control feature"
                         + " ExpectNoLinkedResources."),
         Flag.baseFeature(
+                BlinkFeatures.HIT_TEST_BORDER_RADIUS_FOR_STACKING_CONTEXT,
+                "Hit testing should respect border-radius clips when creating a stacking context."),
+        Flag.baseFeature(
                 BlinkFeatures.WEBVIEW_ACCELERATE_SMALL_CANVASES,
                 "Accelerate all canvases in webview."),
         Flag.baseFeature(
@@ -233,6 +236,9 @@ public final class ProductionSupportedFlagList {
                 BlinkFeatures.GMS_CORE_EMOJI,
                 "Enables retrieval of the emoji font through GMS Core "
                         + "improving emoji glyph coverage."),
+        Flag.baseFeature(
+                BlinkFeatures.PAINT_OFFSET_TRANSLATION_FOR_COMPOSITED,
+                "Creates a paint offset translation for composited objects."),
         Flag.baseFeature(
                 AndroidAutofillFeatures.ANDROID_AUTOFILL_LAZY_FRAMEWORK_WRAPPER_NAME,
                 "Enable lazily initializing framework Autofill wrapper."),

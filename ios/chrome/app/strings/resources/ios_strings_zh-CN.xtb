@@ -302,7 +302,7 @@
 <translation id="21133533946938348">固定标签页</translation>
 <translation id="2117650889962717098">切换到无痕模式，保持浏览数据的私密性</translation>
 <translation id="2119636449201577317">打开方式…</translation>
-<translation id="2120553909046681540">您的组织关闭了无痕浏览。</translation>
+<translation id="2120553909046681540">您的组织关闭了私密浏览功能。</translation>
 <translation id="2122754583996902531">您的浏览器处于受管理状态。<ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">我们不会使用您的组织的对话内容来改进模型。Gemini 显示的信息（包括与人相关的信息）不一定准确，请注意核查。<ph name="YOUR_PRIVACY_GEMINI" /></translation>
 <translation id="2139867232736819575">搜索您复制的文字</translation>
@@ -963,7 +963,7 @@
 <translation id="4769198578611055647">有助于您在任意设备上访问已保存的通行密钥</translation>
 <translation id="4782952780741793211">确认码：</translation>
 <translation id="4787847736989526091"><ph name="VALUE" />，<ph name="ADDITIONAL_INFO" /></translation>
-<translation id="478808905805139173">在无痕模式下打开？</translation>
+<translation id="478808905805139173">要在无痕模式下打开吗？</translation>
 <translation id="479208892659046780">您最常访问的网站</translation>
 <translation id="4792385443586519711">公司名称</translation>
 <translation id="479628432297359449">停止下载？</translation>
@@ -1463,7 +1463,7 @@
 <translation id="6596481460663245319">使用 Google 搜索图片</translation>
 <translation id="6598432073497341323">{COUNT,plural, =1{1 个密码}other{# 个密码}}</translation>
 <translation id="6601302169302852717">已将此图片保存到 <ph name="USER_EMAIL" /> 所用的 Google 相册</translation>
-<translation id="6603393121510733479">贵单位关闭了无痕浏览。
+<translation id="6603393121510733479">您的组织关闭了私密浏览功能。
 <ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
 <translation id="6606914854592108404">正在运行安全检查…</translation>
 <translation id="6609890790934458793">用于登录 <ph name="WEBSITE" />、<ph name="SECOND_WEBSITE" /> 和 <ph name="THIRD_WEBSITE" /> 的密码将被删除。您的相关账号不会被删除。</translation>
@@ -1617,7 +1617,7 @@
 <translation id="7186568385131859684">控制 Google 服务如何使用浏览记录及您的其他数据</translation>
 <translation id="719133302483559673">管理您的兴趣和偏好设置。</translation>
 <translation id="7191382490098297347">相机胶卷中的图片</translation>
-<translation id="7203496777391039568">组织数据的保密性和安全性有保障</translation>
+<translation id="7203496777391039568">组织数据的隐私性和安全性有保障</translation>
 <translation id="720399613139435155">翻译失败</translation>
 <translation id="7204922488054642675">个性化新闻</translation>
 <translation id="7206979415662233817">服务条款</translation>
@@ -1643,7 +1643,7 @@
 <translation id="7300448350764260141">增添一层额外的安全保障，防范在线威胁。</translation>
 <translation id="7311244614769792472">找不到任何结果</translation>
 <translation id="7313347584264171202">您已打开的无痕模式标签页会显示在此处</translation>
-<translation id="7334364820047587268">Google 密码管理工具中已有这些账号的密码。如果您选择导入以下某个密码，导入的密码会替换现有密码。</translation>
+<translation id="7334364820047587268">您的 Google 密码管理工具中已有这些账号的密码。如果选择导入以下某个密码，则导入的密码会替换现有密码。</translation>
 <translation id="7336264872878993241">已下载<ph name="PERCENT" />%</translation>
 <translation id="7346909386216857016">知道了</translation>
 <translation id="7352651011704765696">出了点问题</translation>
@@ -1891,7 +1891,7 @@
 <translation id="8206354486702514201">此设置是由您的管理员执行的。</translation>
 <translation id="8209050860603202033">打开图片</translation>
 <translation id="8211030355252954494">您收到了多个用于登录 <ph name="WEBSITE" /> 的密码</translation>
-<translation id="8211406090763984747">连接安全</translation>
+<translation id="8211406090763984747">连接是安全的</translation>
 <translation id="8214293972734702249">已固定 <ph name="TAB_TITLE" /></translation>
 <translation id="8219424187226230983">在新标签页中查看离线版本</translation>
 <translation id="8221665793629393739">重新访问提醒</translation>

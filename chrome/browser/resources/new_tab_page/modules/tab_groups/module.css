@@ -162,7 +162,6 @@ cr-button:focus-visible {
 }
 
 cr-icon {
-  --iron-icon-fill-color: currentColor;
   width: 20px;
   height: 20px;
   flex-shrink: 0;
@@ -184,9 +183,23 @@ cr-icon {
   align-items: stretch;
   flex: 1 1 0;
   min-width: 0;
+  gap: 4px;
 }
 
-.tab-group-title,
+.color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tab-group-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-group-title-row,
 .tab-group-description {
   overflow: hidden;
   position: relative;

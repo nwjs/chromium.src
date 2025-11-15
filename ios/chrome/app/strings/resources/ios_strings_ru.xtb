@@ -747,7 +747,7 @@
 <translation id="3940195383040445971">Отслеживать цены на вкладках</translation>
 <translation id="3941941395924123592">{COUNT,plural, =1{Закрыть {COUNT} вкладку}one{Закрыть {COUNT} вкладку}few{Закрыть {COUNT} вкладки}many{Закрыть {COUNT} вкладок}other{Закрыть {COUNT} вкладки}}</translation>
 <translation id="3948600256434252210">Чтобы перейти в режим инкогнито, проведите по экрану вправо.</translation>
-<translation id="3949712484278252781">Специалисты не проверяют ваши чаты с Gemini и <ph name="GOOGLE_WORKSPACE_DATA" />, и мы не используем эту информацию для улучшения моделей генеративного ИИ.</translation>
+<translation id="3949712484278252781">Наши специалисты не читают ваши чаты с Gemini и <ph name="GOOGLE_WORKSPACE_DATA" />, и мы не используем эту информацию для улучшения моделей генеративного ИИ.</translation>
 <translation id="3950479158728806902">Автоматически создавать ключи доступа для быстрого входа в аккаунт</translation>
 <translation id="3950820424414687140">Войти</translation>
 <translation id="3955740319737378355">Готово</translation>
@@ -1523,7 +1523,7 @@
 <translation id="6794476726485507147">Выберите дату и время, когда хотите получить напоминание о необходимости вернуться на эту страницу.</translation>
 <translation id="6795481620482106033">Недопустимые данные</translation>
 <translation id="6797543908718012274">Включить режим чтения</translation>
-<translation id="6806550742467879742">Инструменты управления страницей</translation>
+<translation id="6806550742467879742">Для этой страницы</translation>
 <translation id="6807287147325542056">Пароли в других приложениях</translation>
 <translation id="681368974849482173">Сохранено</translation>
 <translation id="6825078212112407882">{count,plural, =1{Закладка сохранена в аккаунте Google ({email}).}one{{count} закладка сохранена в аккаунте Google ({email}).}few{{count} закладки сохранено в аккаунте Google ({email}).}many{{count} закладок сохранено в аккаунте Google ({email}).}other{{count} закладки сохранено в аккаунте Google ({email}).}}</translation>

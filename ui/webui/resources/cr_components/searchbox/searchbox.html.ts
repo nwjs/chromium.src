@@ -41,51 +41,37 @@ ${this.ntpRealboxNextEnabled ? html`
       </cr-searchbox-thumbnail>
     </div>
   ` : ''}
-  ${this.searchboxChromeRefreshTheming ? html`
-    ${this.searchboxVoiceSearchEnabled_ ? html`
-      <div class="searchbox-icon-button-container voice">
-        <button id="voiceSearchButton" class="searchbox-icon-button"
-            @click="${this.onVoiceSearchClick_}"
-            title="${this.i18n('voiceSearchButtonLabel')}">
-        </button>
-      </div>
-    ` : ''}
-    ${this.searchboxLensSearchEnabled_ ? html`
-      <div class="searchbox-icon-button-container lens">
-        <button id="lensSearchButton" class="searchbox-icon-button"
-            @click="${this.onLensSearchClick_}"
-            title="${this.i18n('lensSearchButtonLabel')}">
-        </button>
-      </div>
-    ` : ''}
-  ` : ''}
 
-  ${!this.searchboxChromeRefreshTheming ? html`
-    ${this.searchboxVoiceSearchEnabled_ ? html`
+  ${this.searchboxVoiceSearchEnabled_ ? html`
+    <div class="searchbox-icon-button-container voice">
       <button id="voiceSearchButton" class="searchbox-icon-button"
           @click="${this.onVoiceSearchClick_}"
           title="${this.i18n('voiceSearchButtonLabel')}">
       </button>
-    ` : ''}
-    ${this.searchboxLensSearchEnabled_ ? html`
+    </div>
+  ` : ''}
+
+  ${this.searchboxLensSearchEnabled_ ? html`
+    <div class="searchbox-icon-button-container lens">
       <button id="lensSearchButton" class="searchbox-icon-button lens"
           @click="${this.onLensSearchClick_}"
           title="${this.i18n('lensSearchButtonLabel')}">
       </button>
-    ` : ''}
-    ${this.composeButtonEnabled ? html`
-      <cr-searchbox-compose-button id="composeButton"
-          @compose-click="${this.onComposeButtonClick_}">
-      </cr-searchbox-compose-button>
-    ` : ''}
+    </div>
+  ` : ''}
+
+  ${this.composeButtonEnabled ? html`
+    <cr-searchbox-compose-button id="composeButton"
+        @compose-click="${this.onComposeButtonClick_}">
+    </cr-searchbox-compose-button>
   ` : ''}
 
   ${this.ntpRealboxNextEnabled ? html`
     <div class="dropdownContainer">
       <contextual-entrypoint-and-carousel id="context"
           part="contextual-entrypoint-and-carousel"
-          exportparts="composebox-entrypoint"
-          .tabSuggestions_=${this.tabSuggestions_}
+          exportparts="composebox-entrypoint, context-menu-entrypoint-icon"
+          .tabSuggestions=${this.tabSuggestions_}
           entrypoint-name="Realbox"
           @add-tab-context="${this.addTabContext_}"
           @add-file-context="${this.addFileContext_}"
@@ -94,7 +80,8 @@ ${this.ntpRealboxNextEnabled ? html`
           @set-create-image-mode="${this.setCreateImageMode_}"
           @get-tab-preview="${this.getTabPreview_}"
           ?show-dropdown="${this.dropdownIsVisible}"
-          realbox-layout-mode="${this.realboxLayoutMode}">
+          realbox-layout-mode="${this.realboxLayoutMode}"
+          .parentFocused="${this.inputFocused_}">
         <cr-searchbox-dropdown id="matches" part="searchbox-dropdown"
             exportparts="dropdown-content"
             role="listbox" .result="${this.result_}"

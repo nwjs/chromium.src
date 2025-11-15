@@ -249,7 +249,6 @@ Comprueba tus contraseñas en cualquier momento en el <ph name="GOOGLE_PASSWORD_
 <translation id="1162479191445552288">Abrir al iniciar</translation>
 <translation id="1163931534039071049">&amp;Ver fuente del marco</translation>
 <translation id="1164015913575846413">Alt + clic</translation>
-<translation id="1164286072721995435">Comparte la pestaña actual con Gemini cada vez que empieces una conversación. Puedes pausar esta función en cualquier momento. Tus datos no se usan para mejorar modelos de IA generativa.</translation>
 <translation id="1164891049599601209">Introducida en un sitio web engañoso</translation>
 <translation id="1165039591588034296">Error</translation>
 <translation id="1166212789817575481">Cerrar pestañas a la derecha</translation>
@@ -538,7 +537,6 @@ Comprueba tus contraseñas en cualquier momento en el <ph name="GOOGLE_PASSWORD_
 <translation id="1353980523955420967">No se ha podido encontrar el archivo PPD. Comprueba que el Chromebook esté conectado y vuelve a intentarlo.</translation>
 <translation id="1354045473509304750">Permitir que <ph name="HOST" /> siga usando y moviendo tu cámara</translation>
 <translation id="1354148503392558902">Cambiando contraseña...</translation>
-<translation id="1354943694624358993">Compartir siempre la pestaña actual</translation>
 <translation id="1355088139103479645">¿Eliminar todos los datos?</translation>
 <translation id="1355088659320425659">Historial y pestañas</translation>
 <translation id="1356376170199999104">Permitido (<ph name="PERMISSION_DETAILS" />). Activa el micrófono con el interruptor físico.</translation>
@@ -2929,7 +2927,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="2990583317361835189">No permitir que los sitios usen sensores de movimiento</translation>
 <translation id="2991182900092497283">Introduce un motivo para pegar estos datos:</translation>
 <translation id="2992931425024192067">Mostrar todo el contenido de las notificaciones</translation>
-<translation id="2993517869960930405">Información de la app</translation>
+<translation id="2993517869960930405">Información de la aplicación</translation>
 <translation id="2995472388018163047">{NUM_GROUPS,plural, =1{Mantén este grupo para añadir pestañas más adelante o abandónalo si ya no quieres tener acceso}other{Mantén estos grupos para añadir pestañas más adelante o abandónalos si ya no quieres tener acceso}}</translation>
 <translation id="2996071302059856125">Más información sobre cómo la IA influye en tu experiencia y los controles que ofrece Chrome</translation>
 <translation id="2996108796702395498">El número de serie de tu dispositivo es <ph name="SERIAL_NUMBER" />. Este número se puede usar para ayudar a activar el servicio.</translation>
@@ -3413,7 +3411,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="3348131053948466246">Emoji sugerido. Pulsa arriba o abajo para desplazarte, e Intro para insertarlo.</translation>
 <translation id="3348973040180736882">Descomprimiendo</translation>
 <translation id="3349933790966648062">Uso de memoria</translation>
-<translation id="3350450887151703713">Volver a reproducir 10 segundos</translation>
+<translation id="3350450887151703713">Retroceder 10 segundos</translation>
 <translation id="3351472127384196879">Añadir o localizar botones en tu lápiz</translation>
 <translation id="3353786022389205125">Activa "Mostrar la pantalla de bloqueo al activar el dispositivo" y vuelve a intentarlo</translation>
 <translation id="3354768182971982851">Las versiones antiguas de las aplicaciones de Chrome no se abrirán en dispositivos Mac después de diciembre del 2022. Puedes comprobar si hay una versión nueva disponible.</translation>
@@ -5041,7 +5039,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="4443536555189480885">&amp;Ayuda</translation>
 <translation id="4444304522807523469">Acceder a escáneres de documentos conectados a través de USB o en la red local</translation>
 <translation id="4444512841222467874">Si no se libera espacio, es posible que se eliminen automáticamente usuarios y datos.</translation>
-<translation id="4445446646109808714">Contrato de licencia de usuario final: <ph name="EULA_LINK" /></translation>
+<translation id="4445446646109808714">Acuerdo de Licencia de Usuario Final: <ph name="EULA_LINK" /></translation>
 <translation id="4446933390699670756">Duplicado</translation>
 <translation id="4448560527907365660">Guardar y ver más</translation>
 <translation id="4448914100439890108">Ocultar contraseña de <ph name="USERNAME" /> en <ph name="DOMAIN" /></translation>
@@ -5757,7 +5755,6 @@ Usa Ctrl + Alt + Reducir el brillo para reducir la pantalla.</translation>
 <translation id="4956593309300508411">¿Dejar de compartir?</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">¿Guardar en una carpeta solo en este dispositivo?</translation>
-<translation id="4958916254663453555">Tu pestaña actual se compartirá automáticamente cuando abras Gemini en Chrome. El contenido completo y la URL de la pestaña actual se envían a Google.</translation>
 <translation id="4959262764292427323">Las contraseñas se guardan en tu cuenta de Google para que puedas utilizarlas en cualquier dispositivo</translation>
 <translation id="4960020053211143927">No compatible con algunas aplicaciones</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
@@ -5869,7 +5866,6 @@ Usa Ctrl + Alt + Reducir el brillo para reducir la pantalla.</translation>
 <translation id="5045367873597907704">Información sobre los dispositivos HID</translation>
 <translation id="5045550434625856497">Contraseña incorrecta</translation>
 <translation id="504561833207953641">Se está abriendo en una sesión de navegador existente.</translation>
-<translation id="5047544190872578914">Comparte la pestaña actual con Gemini cada vez que empieces una conversación. Puedes pausar esta función en cualquier momento.</translation>
 <translation id="504953514574706691">Pestaña excluida del grupo sugerido</translation>
 <translation id="5050330054928994520">Conversión de texto a voz</translation>
 <translation id="5051461727068120271">Descargar archivo sin verificar</translation>
@@ -8726,6 +8722,7 @@ Tienes # contraseñas vulneradas más. El Gestor de contraseñas de Google te re
 <translation id="7055451306017383754">No se ha podido dejar de compartir esta carpeta porque una aplicación está usándola. La carpeta dejará de compartirse la próxima vez que se apague Parallels Desktop.</translation>
 <translation id="7056418393177503237">{0,plural, =1{Incógnito}other{# ventanas de Incógnito abiertas}}</translation>
 <translation id="7056526158851679338">&amp;Inspeccionar dispositivos</translation>
+<translation id="7057567173736333354">Describe la imagen</translation>
 <translation id="70577934383983846">Usa esta contraseña en todos tus dispositivos</translation>
 <translation id="7058024590501568315">Red oculta</translation>
 <translation id="7059858479264779982">Establecer inicio automático</translation>
@@ -9927,6 +9924,7 @@ Pulsa un interruptor o una tecla con una acción asignada para quitársela.</tra
 <translation id="7899720074434636454">Rechazar solicitud de <ph name="EXTENSION_NAME" /></translation>
 <translation id="7900950034255258543">Para asegurarse de que este dispositivo se puede usar de forma segura, tu organización puede ver información sobre su sistema operativo, navegador, configuración y software instalado</translation>
 <translation id="7901405293566323524">Mi teléfono</translation>
+<translation id="7901728443188947649">Crear imágenes</translation>
 <translation id="7903429136755645827">Haz clic para personalizar los controles de juegos</translation>
 <translation id="7903481341948453971">Usar el bloqueo de pantalla para rellenar contraseñas</translation>
 <translation id="7903925330883316394">Utilidad: <ph name="UTILITY_TYPE" /></translation>
@@ -10165,7 +10163,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8045253504249021590">La sincronización se ha detenido mediante el Panel de Control de Google.</translation>
 <translation id="8045752459073395242">Más información sobre cómo usar la IA generativa en el trabajo</translation>
 <translation id="8045923671629973368">Introducir el ID de la aplicación o la URL de Chrome Web Store</translation>
-<translation id="804786196054284061">Contrato de licencia de usuario final</translation>
+<translation id="804786196054284061">Acuerdo de Licencia de Usuario Final</translation>
 <translation id="8048596485169033655">Descargando archivos de anotaciones del nodo principal… <ph name="PERCENT" /> %</translation>
 <translation id="8048728378294435881">Crea una copia de seguridad de tus cosas y úsala en cualquier dispositivo</translation>
 <translation id="8048977114738515028">Crea un acceso directo en el escritorio de tu dispositivo para acceder directamente a este perfil</translation>
@@ -10705,6 +10703,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8413795581997394485">Protege frente a sitios, descargas y extensiones que se sabe que son peligrosos. Cuando visitas un sitio, Chrome envía una parte ofuscada de la URL a Google a través de un servidor de privacidad que oculta tu dirección IP. Si un sitio hace algo sospechoso, también se envían URLs completas y fragmentos de contenido de la página.</translation>
 <translation id="8413956290606243087">¿Quieres activar ChromeVox, el lector de pantalla integrado de ChromeOS?</translation>
 <translation id="8414396119627470038">Iniciar sesión en <ph name="SITE_ETLD_PLUS_ONE" /> con <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /></translation>
+<translation id="8415120635186642416">Investiga lo que quieras</translation>
 <translation id="8416730306157376817"><ph name="BATTERY_PERCENTAGE" /> % (funda)</translation>
 <translation id="8417065541337558100">Vista previa de tu cámara</translation>
 <translation id="8417548266957501132">Contraseña parental</translation>
@@ -10825,7 +10824,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8496717697661868878">Ejecutar este complemento</translation>
 <translation id="8497219075884839166">Utilidades de Windows</translation>
 <translation id="8498214519255567734">Resulta más fácil ver la pantalla con poca luz</translation>
-<translation id="8499083585497694743">Activar el micrófono</translation>
+<translation id="8499083585497694743">Activar micrófono</translation>
 <translation id="8500044868721690197">Este sitio no tiene permiso para controlar ni reprogramar tus dispositivos MIDI</translation>
 <translation id="8500123638242682652">Ventana movida hacia arriba</translation>
 <translation id="8500132602331251964">Actualización de aplicación disponible</translation>

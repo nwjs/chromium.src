@@ -409,7 +409,7 @@ export class SearchboxElement extends SearchboxElementBase {
   accessor showThumbnail: boolean = false;
   accessor placeholderText: string = '';
   protected accessor inputAriaLive_: string = '';
-  private accessor inputFocused_: boolean = false;
+  protected accessor inputFocused_: boolean = false;
   private accessor isLensSearchbox_: boolean =
       loadTimeData.getBoolean('isLensSearchbox');
   protected accessor enableThumbnailSizingTweaks_: boolean =
@@ -527,13 +527,18 @@ export class SearchboxElement extends SearchboxElementBase {
       this.showThumbnail = !!this.thumbnailUrl_;
     }
 
-    if (this.ntpRealboxNextEnabled &&
-        changedPrivateProperties.has('dropdownIsVisible')) {
-      this.dispatchEvent(new CustomEvent('dropdown-visible-changed', {
-        bubbles: true,
-        composed: true,
-        detail: {value: this.dropdownIsVisible},
-      }));
+    if (this.ntpRealboxNextEnabled) {
+      if (changedPrivateProperties.has('dropdownIsVisible')) {
+        this.dispatchEvent(new CustomEvent('dropdown-visible-changed', {
+          bubbles: true,
+          composed: true,
+          detail: {value: this.dropdownIsVisible},
+        }));
+      }
+
+      if (changedPrivateProperties.has('inputFocused_')) {
+        this.fire('searchbox-input-focus-changed', {value: this.inputFocused_});
+      }
     }
   }
 

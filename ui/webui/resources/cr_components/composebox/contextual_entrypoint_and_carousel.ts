@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 import './context_menu_entrypoint.js';
 import './file_carousel.js';
+import './recent_tab_chip.js';
 import './icons.html.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 
@@ -77,14 +78,28 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
 
   static override get properties() {
     return {
+      // =========================================================================
+      // Public properties
+      // =========================================================================
       showDropdown: {type: Boolean},
       realboxLayoutMode: {type: String},
+      tabSuggestions: {type: Array},
+      entrypointName: {type: String},
+      parentFocused: {type: Boolean},
+
+      // =========================================================================
+      // Protected properties
+      // =========================================================================
       attachmentFileTypes_: {type: String},
       contextMenuEnabled_: {type: Boolean},
       files_: {type: Object},
       addedTabsIds_: {type: Object},
       imageFileTypes_: {type: String},
       inputsDisabled_: {
+        reflect: true,
+        type: Boolean,
+      },
+      recentTabChipDisabled_: {
         reflect: true,
         type: Boolean,
       },
@@ -106,8 +121,6 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
         reflect: true,
         type: Boolean,
       },
-      tabSuggestions_: {type: Array},
-      entrypointName: {type: String},
       recentTabInContext_: {type: Boolean},
     };
   }
@@ -115,6 +128,9 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
   accessor showDropdown: boolean = false;
   accessor realboxLayoutMode: string = '';
   accessor entrypointName: string = '';
+  accessor tabSuggestions: TabInfo[] = [];
+  accessor parentFocused: boolean = false;
+
   protected accessor attachmentFileTypes_: string =
       loadTimeData.getString('composeboxAttachmentFileTypes');
   protected accessor contextMenuEnabled_: boolean =
@@ -124,6 +140,7 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
   protected accessor imageFileTypes_: string =
       loadTimeData.getString('composeboxImageFileTypes');
   protected accessor inputsDisabled_: boolean = false;
+  protected accessor recentTabChipDisabled_: boolean = false;
   protected accessor composeboxShowPdfUpload_: boolean =
       loadTimeData.getBoolean('composeboxShowPdfUpload');
   protected accessor showContextMenuDescription_: boolean =
@@ -133,11 +150,10 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
   protected accessor showFileCarousel_: boolean = false;
   protected accessor inDeepSearchMode_: boolean = false;
   protected accessor inCreateImageMode_: boolean = false;
-  accessor tabSuggestions_: TabInfo[] = [];
   protected accessor recentTabInContext_: boolean = false;
 
   private hasTabSuggestions_(): boolean {
-    return this.tabSuggestions_?.length > 0;
+    return this.tabSuggestions?.length > 0;
   }
 
   protected get inToolMode_(): boolean {
@@ -145,14 +161,17 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
   }
 
   protected get shouldShowRecentTabChip_(): boolean {
-    return this.showRecentTabChip_ && this.hasTabSuggestions_() &&
-        !this.recentTabInContext_ && !this.inToolMode_;
+    return this.parentFocused && this.showRecentTabChip_ &&
+        this.hasTabSuggestions_() && !this.recentTabInContext_ &&
+        !this.inToolMode_;
   }
 
   private maxFileCount_: number =
       loadTimeData.getInteger('composeboxFileMaxCount');
   private maxFileSize_: number =
       loadTimeData.getInteger('composeboxFileMaxSize');
+  private createImageModeEnabled_: boolean =
+      loadTimeData.getBoolean('composeboxShowCreateImageButton');
 
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
@@ -161,28 +180,34 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
         changedProperties as Map<PropertyKey, unknown>;
     if (changedPrivateProperties.has('files_') ||
         changedPrivateProperties.has(`inCreateImageMode_`)) {
+      // If only 1 image is uploaded and the create image tool is enabled, we
+      // don't want to disable the context menu entrypoint because the user
+      // should still be able to use the tool within the context menu.
+      const isCreateImageToolAvailableWithImages =
+          this.createImageModeEnabled_ &&
+          this.hasImageFiles() && this.files_.size === 1;
       // `inputsDisabled_` decides whether or not the context menu entrypoint is
       // shown to the user. Only set `inputsDisabled_` to true if
-      // 1. The max number of files is reached and the file count is greater
-      // than one.
-      // 2. The max number of files is reached and there are no images uploaded.
-      // 3. The user has an image uploaded and is in create image mode.
+      // 1. The max number of files is reached, and the create image tool button
+      //    is not available.
+      // 2. The user has an image uploaded and is in create image mode.
       this.inputsDisabled_ =
           (this.files_.size >= this.maxFileCount_ &&
-           (this.maxFileCount_ > 1 || !this.hasImageFiles())) ||
+           !isCreateImageToolAvailableWithImages) ||
           (this.hasImageFiles() && this.inCreateImageMode_);
       this.showFileCarousel_ = this.files_.size > 0;
+      this.recentTabChipDisabled_ = this.files_.size >= this.maxFileCount_;
       this.fire('on-context-files-changed', {files: this.files_.size});
     }
 
     if (changedPrivateProperties.has('files_') ||
-        changedPrivateProperties.has('tabSuggestions_')) {
+        changedProperties.has('tabSuggestions')) {
       this.recentTabInContext_ = this.computeRecentTabInContext_();
     }
   }
 
   private computeRecentTabInContext_(): boolean {
-    const recentTab = this.tabSuggestions_?.[0];
+    const recentTab = this.tabSuggestions?.[0];
     if (!recentTab) {
       return false;
     }

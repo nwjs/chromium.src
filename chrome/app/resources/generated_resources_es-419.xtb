@@ -249,7 +249,6 @@ Puedes revisar las contraseñas en cualquier momento, en <ph name="GOOGLE_PASSWO
 <translation id="1162479191445552288">Ejecutar al inicio</translation>
 <translation id="1163931534039071049">&amp;Ver fuente de marco</translation>
 <translation id="1164015913575846413">Alt + clic</translation>
-<translation id="1164286072721995435">Comparte la pestaña actual con Gemini cada vez que inicias una conversación nueva. Puedes dejar de compartir la pestaña actual en cualquier momento. Tus datos no se usarán para mejorar modelos de IA generativa.</translation>
 <translation id="1164891049599601209">Se ingresó en un sitio engañoso</translation>
 <translation id="1165039591588034296">Error</translation>
 <translation id="1166212789817575481">Cerrar pestañas a la derecha</translation>
@@ -538,7 +537,6 @@ Puedes revisar las contraseñas en cualquier momento, en <ph name="GOOGLE_PASSWO
 <translation id="1353980523955420967">No se puede encontrar el archivo PPD. Comprueba que tu Chromebook esté en línea y vuelve a intentarlo.</translation>
 <translation id="1354045473509304750">Seguir permitiendo que <ph name="HOST" /> use y mueva la cámara</translation>
 <translation id="1354148503392558902">Cambiando la contraseña…</translation>
-<translation id="1354943694624358993">Compartir siempre la pestaña actual</translation>
 <translation id="1355088139103479645">¿Quieres borrar todos los datos?</translation>
 <translation id="1355088659320425659">Historial y pestañas</translation>
 <translation id="1356376170199999104">Permiso habilitado: <ph name="PERMISSION_DETAILS" />. Activa el micrófono con el interruptor físico.</translation>
@@ -4934,7 +4932,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="4378551569595875038">Conectando…</translation>
 <translation id="4378556263712303865">Solicitud del dispositivo</translation>
 <translation id="4378589147979399051">Controla el cursor del mouse con el teclado principal</translation>
-<translation id="4379097572583973456">Un sitio también puede incorporar contenido de otros sitios, como imágenes, anuncios y texto. Estos otros sitios también pueden ahorrar datos.</translation>
+<translation id="4379097572583973456">Un sitio también puede incorporar contenido de otros sitios, como imágenes, anuncios y texto. Estos otros sitios también pueden guardar datos.</translation>
 <translation id="4379281552162875326">¿Deseas desinstalar "<ph name="APP_NAME" />"?</translation>
 <translation id="4380055775103003110">Si el problema persiste, prueba otras formas de continuar en <ph name="SITE_ETLD_PLUS_ONE" />.</translation>
 <translation id="4380648069038809855">Accediste a la pantalla completa</translation>
@@ -5755,7 +5753,6 @@ Usa Ctrl + Alt + Disminuir brillo para alejarte.</translation>
 <translation id="4956593309300508411">¿Quieres dejar de compartir?</translation>
 <translation id="4956847150856741762">1</translation>
 <translation id="4958009531430054995">¿Quieres guardarlo en una carpeta solo en este dispositivo?</translation>
-<translation id="4958916254663453555">La pestaña actual se compartirá automáticamente cuando abras Gemini en Chrome. Se envían a Google la URL y todo el contenido de la pestaña actual.</translation>
 <translation id="4959262764292427323">Las contraseñas se guardan en tu cuenta de Google para que puedas usarlas en cualquier dispositivo</translation>
 <translation id="4960020053211143927">No es compatible con algunas apps</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
@@ -5813,7 +5810,7 @@ Usa Ctrl + Alt + Disminuir brillo para alejarte.</translation>
 <translation id="5001526427543320409">Cookies de terceros</translation>
 <translation id="5003070249435823986">Usa el gesto para ingresar al modo de desplazamiento y, luego, mueve la cabeza en la dirección en la que quieras desplazarte. Vuelve a usar el gesto para salir del modo de desplazamiento.</translation>
 <translation id="5003993274120026347">Oración siguiente</translation>
-<translation id="5005113238422129109">Usa el micrófono para chatear con Gemini. Cuando hablas con Gemini, el audio se almacena en la Actividad en las Apps con Gemini (si está activada)</translation>
+<translation id="5005113238422129109">Usa el micrófono para conversar con Gemini. Cuando le hablas a Gemini, el audio se almacena en la Actividad en las Apps con Gemini (si está activada)</translation>
 <translation id="5005311809885666699">Guardados de Chrome</translation>
 <translation id="5005498671520578047">Copiar contraseña</translation>
 <translation id="5006218871145547804">ADB de apps para Android en Crostini</translation>
@@ -5867,7 +5864,6 @@ Usa Ctrl + Alt + Disminuir brillo para alejarte.</translation>
 <translation id="5045367873597907704">Información acerca de los dispositivos HID</translation>
 <translation id="5045550434625856497">Contraseña incorrecta</translation>
 <translation id="504561833207953641">Abriendo en una sesión existente del navegador</translation>
-<translation id="5047544190872578914">Comparte la pestaña actual con Gemini cada vez que inicias una conversación nueva. Puedes dejar de compartir la pestaña actual en cualquier momento.</translation>
 <translation id="504953514574706691">Se excluyó la pestaña del grupo sugerido</translation>
 <translation id="5050330054928994520">Texto a voz</translation>
 <translation id="5051461727068120271">Descargar archivo sin verificar</translation>
@@ -7638,7 +7634,7 @@ Puedes asignar varios interruptores a esta acción.</translation>
 <translation id="6291953229176937411">Mo&amp;strar en Buscador</translation>
 <translation id="6293862149782163840">Se desactivó el dispositivo <ph name="DEVICE_NAME" />.</translation>
 <translation id="6294759976468837022">Velocidad de la búsqueda automática</translation>
-<translation id="6295140892595702619">Usa el micrófono para chatear con Gemini. Cuando hablas con Gemini, el audio se almacena en la Actividad en las Apps con Gemini (si está activada). Tus datos no se usan para mejorar modelos de IA generativa</translation>
+<translation id="6295140892595702619">Usa el micrófono para conversar con Gemini. Cuando le hablas a Gemini, el audio se almacena en la Actividad en las Apps con Gemini (si está activada). Tus datos no se usan para mejorar modelos de IA generativa</translation>
 <translation id="6295158916970320988">Todos los sitios</translation>
 <translation id="6295855836753816081">Guardando…</translation>
 <translation id="6296481987471548530">Usa tu ubicación precisa para obtener los resultados más exactos de Gemini, en lugar de una ubicación aproximada basada en tu dirección IP. Tus datos no se usan para mejorar modelos de IA generativa</translation>
@@ -8243,7 +8239,7 @@ Tienes # contraseñas hackeadas más. El Administrador de contraseñas de Go
 <translation id="6729192290958770680">Ingresa tu nombre de usuario</translation>
 <translation id="6729280095610283088">Corrientes brillantes de la aurora boreal sobre un bosque.</translation>
 <translation id="6729493062119577923">Actividad del grupo de pestañas compartido</translation>
-<translation id="6730744976532805323">Comparte la pestaña actual con Gemini, incluso cuando cambias de pestaña</translation>
+<translation id="6730744976532805323">Comparte la pestaña actual con Gemini, incluso cuando cambias de pestaña.</translation>
 <translation id="6731320427842222405">Esto puede demorar unos minutos</translation>
 <translation id="6732956960067639542">Abre una nueva sesión del navegador Chrome.</translation>
 <translation id="6734178081670810314"><ph name="EXTENSION_OR_APP_NAME" /> (ID: <ph name="EXTENSION_OR_APP_ID" />)</translation>
@@ -8725,6 +8721,7 @@ Tienes # contraseñas hackeadas más. El Administrador de contraseñas de Go
 <translation id="7055451306017383754">No se puede dejar de compartir esta carpeta porque una app la está usando. Dejará de compartirse la próxima vez que se cierre Parallels Desktop.</translation>
 <translation id="7056418393177503237">{0,plural, =1{Incógnito}other{# ventanas de incógnito abierta}}</translation>
 <translation id="7056526158851679338">&amp;Inspeccionar dispositivos</translation>
+<translation id="7057567173736333354">Describe la imagen</translation>
 <translation id="70577934383983846">Usa esta contraseña en todos tus dispositivos</translation>
 <translation id="7058024590501568315">Red oculta</translation>
 <translation id="7059858479264779982">Permitir inicio automático</translation>
@@ -9926,6 +9923,7 @@ Presiona un interruptor o tecla que ya esté asignado para quitar la asignación
 <translation id="7899720074434636454">Descarta la solicitud de <ph name="EXTENSION_NAME" /></translation>
 <translation id="7900950034255258543">Para garantizar que este dispositivo se pueda usar de forma segura, tu organización puede consultar información sobre el sistema operativo, el navegador, la configuración y el software instalado en el dispositivo.</translation>
 <translation id="7901405293566323524">Phone Hub</translation>
+<translation id="7901728443188947649">Crear imágenes</translation>
 <translation id="7903429136755645827">Haz clic para personalizar los controles de juego</translation>
 <translation id="7903481341948453971">Usar el bloqueo de pantalla para completar contraseñas</translation>
 <translation id="7903925330883316394">Utilidad: <ph name="UTILITY_TYPE" /></translation>
@@ -10091,7 +10089,7 @@ Archivo de clave: <ph name="KEY_FILE" />
 Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones de tu extensión.</translation>
 <translation id="8000020256436988724">Barra de herramientas</translation>
 <translation id="800117767980299235">Momento destacado de voz</translation>
-<translation id="8001561107130904792">Uso compartido de contenido de la página</translation>
+<translation id="8001561107130904792">Compartir el contenido de la página</translation>
 <translation id="8002274832045662704">Configuración avanzada de la impresora</translation>
 <translation id="8002597610026749658">Chrome puede crear subtítulos para los idiomas que se muestran aquí</translation>
 <translation id="8002670234429879764"><ph name="PRINTER_NAME" /> ya no está disponible</translation>
@@ -10704,6 +10702,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8413795581997394485">Te protege contra descargas, extensiones y sitios que se sabe que son peligrosos. Cuando visitas un sitio, Chrome envía una parte ofuscada de la URL a Google con un servidor de privacidad que oculta tu dirección IP. Si un sitio realiza alguna acción sospechosa, también se envían las URLs completas y partes del contenido de la página.</translation>
 <translation id="8413956290606243087">¿Deseas activar ChromeVox, el lector de pantalla integrado de ChromeOS?</translation>
 <translation id="8414396119627470038">Accede a <ph name="SITE_ETLD_PLUS_ONE" /> con <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /></translation>
+<translation id="8415120635186642416">Investiga sobre cualquier tema</translation>
 <translation id="8416730306157376817"><ph name="BATTERY_PERCENTAGE" />% (funda)</translation>
 <translation id="8417065541337558100">Vista previa de la cámara</translation>
 <translation id="8417548266957501132">Contraseña del padre o madre</translation>
@@ -10824,7 +10823,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8496717697661868878">Ejecutar este complemento</translation>
 <translation id="8497219075884839166">Utilidades de Windows</translation>
 <translation id="8498214519255567734">Te permite ver o leer mejor en lugares con luz tenue</translation>
-<translation id="8499083585497694743">Dejar de silenciar el micrófono</translation>
+<translation id="8499083585497694743">Activar el micrófono</translation>
 <translation id="8500044868721690197">Este sitio no tiene permiso para controlar ni reprogramar tus dispositivos MIDI</translation>
 <translation id="8500123638242682652">La ventana se movió hacia arriba</translation>
 <translation id="8500132602331251964">Actualización de app disponible</translation>
@@ -11188,7 +11187,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8742998548129056176">Aquí se muestra información general sobre tu dispositivo y cómo lo usas (como el nivel de batería, la actividad de las apps y el sistema, y errores). Los datos se usarán para mejorar Android, y la información agregada también permitirá que las apps y los socios de Google, como los desarrolladores de Android, mejoren sus apps y productos.</translation>
 <translation id="8743357966416354615">Entorno de desarrollo administrado (<ph name="GENERAL_NAME" />)</translation>
 <translation id="8744641000906923997">Romaji</translation>
-<translation id="8745034592125932220">No se pueden guardar datos en tu dispositivo</translation>
+<translation id="8745034592125932220">No tiene permiso para guardar datos en tu dispositivo</translation>
 <translation id="8746654918629346731">Ya solicitaste "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="874689135111202667">{0,plural, =1{¿Deseas cargar un archivo a este sitio?}other{¿Deseas cargar # archivos a este sitio?}}</translation>
 <translation id="8748916845823567967">Se borrarán todos los datos y las cookies almacenados por <ph name="SITE" />.</translation>

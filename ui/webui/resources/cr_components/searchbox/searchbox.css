@@ -100,6 +100,12 @@
 }
 
 input {
+  --cr-searchbox-input-start-padding: calc(52px +
+      var(--cr-searchbox-thumbnail-icon-offset, 0px));
+  --cr-searchbox-input-trailing-padding:
+      calc(var(--cr-searchbox-voice-icon-offset)
+      + var(--cr-searchbox-voice-search-button-width)
+      + var(--cr-searchbox-inner-icon-margin));
   background-color: var(--color-searchbox-background);
   border: none;
   border-radius: var(--cr-searchbox-border-radius);
@@ -108,18 +114,23 @@ input {
   font-size: inherit;
   height: 100%;
   outline: none;
-  /* Always include offset and margin padding, even if the voice search button
-   * is not being shown. */
-  padding-inline-end: calc(var(--cr-searchbox-voice-icon-offset) + var(--cr-searchbox-voice-search-button-width) + var(--cr-searchbox-inner-icon-margin));
-  padding-inline-start: calc(52px + var(--cr-searchbox-thumbnail-icon-offset, 0px));
+  padding-inline-end: var(--cr-searchbox-input-trailing-padding);
+  padding-inline-start: var(--cr-searchbox-input-start-padding);
   position: relative;
   width: 100%;
 }
 
 :host-context([dir='rtl']) input[dir='ltr'],
 :host-context([dir='ltr']) input[dir='rtl'] {
-  padding-inline-end: calc(52px + var(--cr-searchbox-thumbnail-icon-offset, 0px));
-  padding-inline-start: calc(var(--cr-searchbox-voice-icon-offset) + var(--cr-searchbox-voice-search-button-width) + var(--cr-searchbox-inner-icon-margin));
+  padding-inline-end: var(--cr-searchbox-input-start-padding);
+  padding-inline-start: var(--cr-searchbox-input-trailing-padding);
+}
+
+:host([compose-button-enabled][dropdown-is-visible]) input,
+:host([realbox-layout-mode^='Tall']) input {
+  --cr-searchbox-input-trailing-padding: calc(12px
+      + var(--cr-compose-button-width)
+      + var(--cr-searchbox-icon-spacing));
 }
 
 :host-context([is-back-arrow-visible]) input {
@@ -216,40 +227,28 @@ cr-searchbox-icon {
   outline: none;
   padding: 0;
   pointer-events: auto;
-  position: absolute;
+  position: static;
   right: 16px;
   width: var(--cr-searchbox-icon-width);
+
 }
 
-:host([searchbox-chrome-refresh-theming]) .searchbox-icon-button {
-  position: static;
-}
-
-:host([compose-button-enabled]) .searchbox-icon-button.lens {
+:host([compose-button-enabled]) .searchbox-icon-button-container.lens {
  /* Since there is a 4px padding because of the glow effect, add 12px to right instead of 16px. */
  right: calc(12px + var(--cr-compose-button-width) + var(--cr-searchbox-icon-spacing));
-}
-
-:host([compose-button-enabled]):host-context([dir='rtl']) .searchbox-icon-button {
- /* Since there is a 4px padding because of the glow effect, add 12px to left instead of 16px. */
-  left: calc(12px + var(--cr-compose-button-width) + var(--cr-searchbox-icon-spacing));
-  right: unset;
 }
 
 /* When voice/lens icons are monochrome, they are webkit mask images.
  * Webkit mask images hide borders so container rules are created to
  * show focus borders on these icons. */
 .searchbox-icon-button-container {
-  border-radius: 2px;
-  height: 100%;
+  border-radius: 4px;
+  display: flex;
+  height: 36px;
   position: absolute;
   right: 16px;
-  top: var(--cr-searchbox-icon-top-position);
+  top: 6px;
   z-index: 100;
-}
-
-.searchbox-icon-button-container.voice {
-  right: var(--cr-searchbox-voice-icon-offset);
 }
 
 :host-context(.focus-outline-visible) .searchbox-icon-button-container:focus-within {
@@ -285,17 +284,18 @@ cr-searchbox-icon {
   background-color: #1F1F1F;
 }
 
-:host([searchbox-lens-search-enabled_]):host-context([dir='rtl']) #voiceSearchButton {
+:host-context([dir='rtl'])
+    .searchbox-icon-button-container.voice {
   left: var(--cr-searchbox-voice-icon-offset);
   right: unset;
 }
 
-:host([searchbox-lens-search-enabled_]) #voiceSearchButton {
+:host .searchbox-icon-button-container.voice {
   right: var(--cr-searchbox-voice-icon-offset);
 }
 
-:host([compose-button-enabled][dropdown-is-visible]) #voiceSearchButton,
-:host([compose-button-enabled][dropdown-is-visible]) #lensSearchButton {
+:host([compose-button-enabled][dropdown-is-visible])
+    .searchbox-icon-button-container {
   display: none;
 }
 
@@ -304,22 +304,20 @@ cr-searchbox-icon {
   right: unset;
 }
 
-:host([searchbox-lens-search-enabled_]):host-context([dir='rtl']) .searchbox-icon-button-container.voice {
+:host-context([dir='rtl']) .searchbox-icon-button-container.voice {
   left: var(--cr-searchbox-voice-icon-offset);
   right: unset;
 }
 
-:host([compose-button-enabled]):host-context([dir='rtl']) .searchbox-icon-button-container.lens {
- left: calc(16px + 2 * (var(--cr-searchbox-icon-width) + var(--cr-searchbox-icon-spacing)));
- right: unset;
+:host([compose-button-enabled]):host-context([dir='rtl'])
+    .searchbox-icon-button-container.lens {
+  left: calc(12px + var(--cr-compose-button-width)
+    + var(--cr-searchbox-icon-spacing));
+  right: unset;
 }
 
 :host([compose-button-enabled][searchbox-lens-search-enabled_]) {
  --cr-searchbox-voice-icon-offset: calc(16px + 2 * var(--cr-searchbox-icon-spacing) + var(--cr-searchbox-icon-width) + var(--cr-compose-button-width));
-}
-
-:host-context(.focus-outline-visible) .searchbox-icon-button:focus {
-  box-shadow: var(--ntp-focus-shadow);
 }
 
 :-webkit-any(input, cr-searchbox-icon, .searchbox-icon-button) {
@@ -386,7 +384,16 @@ cr-searchbox-icon {
   padding-top: unset;
 }
 
+:host([ntp-realbox-next-enabled]) contextual-entrypoint-and-carousel::part(context-menu-entrypoint-icon) {
+  --cr-icon-button-icon-size: 24px;
+}
+
 :host([ntp-realbox-next-enabled]) contextual-entrypoint-and-carousel::part(composebox-entrypoint) {
+  z-index: 100;
+}
+
+:host([ntp-realbox-next-enabled]) contextual-entrypoint-and-carousel::part(tool-chips-container) {
+  position: relative;
   z-index: 100;
 }
 
@@ -402,6 +409,10 @@ cr-searchbox-icon {
   overflow: hidden;
   padding-bottom: var(--cr-searchbox-dropdown-padding-bottom);
   padding-top: var(--cr-searchbox-dropdown-padding-top);
+}
+
+:host([ntp-realbox-next-enabled][dropdown-is-visible]) {
+  --cr-searchbox-border-radius: 24px;
 }
 
 :host([ntp-realbox-next-enabled][dropdown-is-visible]),
@@ -478,7 +489,7 @@ cr-searchbox-icon {
   --cr-button-height: 36px;
 }
 
-:host([realbox-layout-mode='TallBottomContext'][dropdown-is-visible]) contextual-entrypoint-and-carousel::part(composebox-entrypoint) {
+:host([realbox-layout-mode='TallBottomContext'][dropdown-is-visible]) contextual-entrypoint-and-carousel::part(context-menu-and-tools) {
   margin-top: 10px;
 }
 
@@ -487,6 +498,7 @@ cr-searchbox-icon {
 }
 
 :host([realbox-layout-mode='Compact']) {
+  --cr-searchbox-border-radius: 30px;
   --cr-searchbox-dropdown-padding-top: 12px;
   --cr-searchbox-height: 56px;
 }

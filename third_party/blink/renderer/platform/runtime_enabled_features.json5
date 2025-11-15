@@ -1356,6 +1356,12 @@
       status: "experimental",
     },
     {
+      // https://chromestatus.com/feature/5157805733183488
+      name: "CSSGridGapSuppression",
+      status: "experimental",
+      depends_on: ["CSSGapDecoration"],
+    },
+    {
       // This needs to be kept as a runtime flag as long as we need to forcibly
       // disable it for WebView on Android versions older than P. See
       // https://crrev.com/f311a84728272e30979432e8474089b3db3c67df
@@ -2669,8 +2675,9 @@
       status: "stable",
     },
     {
+      // Moved from status stable to test due to https://crbug.com/456164629.
       name: "HitTestBorderRadiusForStackingContext",
-      status: "stable",
+      status: "test",
     },
     {
       name: "HrefTranslate",
@@ -3626,7 +3633,7 @@
       // Killswitch M142. Overrides the above to enable PaintOffsetTranslation
       // for all composited LayoutObjects.
       name: "PaintOffsetTranslationForComposited",
-      status: "stable",
+      status: "test",
     },
     {
       name: "PaintTimingMixin",
@@ -4287,15 +4294,6 @@
       name: "RunSnapshotPostLayoutStateSteps",
     },
     {
-      // This flag is for fixing validation error
-      // for valid email address using IDN.
-      // This may ship in M142, and this flag can be
-      // removed in M144 pending no issues.
-      // See https://issues.chromium.org/issues/429490608
-      name: "SanitizeIDNEmailFormInput",
-      status: "stable",
-    },
-    {
       // Spec: https://wicg.github.io/sanitizer-api/
       // Tracking bug: crbug.com/356601280
       name: "SanitizerAPI",
@@ -4459,6 +4457,14 @@
         "Android": "",
         "default": "test",
       },
+    },
+    {
+      // Replicates old behavior which removes selectedness from option
+      // elements when they are all removed from a select at the same time.
+      // https://issues.chromium.org/issues/444330901
+      // Enabled in M142, can be removed in M145.
+      name: "SelectChildrenRemovedFix",
+      status: "stable",
     },
     {
       // The selectedcontentelement attribute is for connecting select elements

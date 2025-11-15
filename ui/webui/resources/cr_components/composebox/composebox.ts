@@ -4,7 +4,6 @@
 import './composebox_tool_chip.js';
 import './context_menu_entrypoint.js';
 import './contextual_entrypoint_and_carousel.js';
-import './recent_tab_chip.js';
 import './composebox_dropdown.js';
 import './error_scrim.js';
 import './file_carousel.js';
@@ -44,7 +43,7 @@ export interface ComposeboxElement {
     cancelIcon: CrIconButtonElement,
     input: HTMLInputElement,
     composebox: HTMLElement,
-    submitIcon: CrIconButtonElement,
+    submitContainer: HTMLElement,
     matches: ComposeboxDropdownElement,
     context: ContextualEntrypointAndCarouselElement,
     errorScrim: ErrorScrimElement,
@@ -125,10 +124,6 @@ export class ComposeboxElement extends I18nMixinLit
         type: Boolean,
       },
       showContextMenuDescription_: {type: Boolean},
-      inputsDisabled_: {
-        reflect: true,
-        type: Boolean,
-      },
       lensButtonDisabled_: {
         reflect: true,
         type: Boolean,
@@ -177,7 +172,6 @@ export class ComposeboxElement extends I18nMixinLit
   protected accessor inCreateImageMode_: boolean = false;
   protected accessor inDeepSearchMode_: boolean = false;
   protected accessor showContextMenuDescription_: boolean = true;
-  protected accessor inputsDisabled_: boolean = false;
   protected accessor lensButtonDisabled_: boolean = false;
   protected accessor tabSuggestions_: TabInfo[] = [];
   protected accessor errorScrimVisible_: boolean = false;
@@ -388,8 +382,11 @@ export class ComposeboxElement extends I18nMixinLit
     }
 
     if (this.showTypedSuggest_ && this.input_.trim()) {
-      // Do not show dropdown for multiline input.
-      if (this.$.input.scrollHeight <= 48) {
+      // Do not show the dropdown for multiline input, if context is present, or
+      // if only the verbatim match is present (we always expect a verbatim
+      // match for typed suggest, so we ensure the length of the matches is >1).
+      if (this.$.input.scrollHeight <= 48 && this.contextFilesSize_ === 0 &&
+          this.result_?.matches.length > 1) {
         return true;
       }
     }
@@ -631,6 +628,7 @@ export class ComposeboxElement extends I18nMixinLit
     if (e.key === 'Escape' && this.composeboxCloseByEscape_) {
       this.closeComposebox_();
       e.preventDefault();
+      return;
     }
 
     // Do not handle the following keys if there are no matches available.
@@ -654,10 +652,14 @@ export class ComposeboxElement extends I18nMixinLit
     } else if (e.key === 'Tab') {
       // If focus goes past the last match, unselect the last match.
       if (this.selectedMatchIndex_ === this.result_.matches.length - 1) {
-        const focusedMatchElem =
-            this.shadowRoot.activeElement?.shadowRoot?.activeElement;
-        const focusedButtonElem = focusedMatchElem?.shadowRoot?.activeElement;
-        if (focusedButtonElem?.id === 'remove') {
+        if (this.selectedMatch_!.supportsDeletion) {
+          const focusedMatchElem =
+              this.shadowRoot.activeElement?.shadowRoot?.activeElement;
+          const focusedButtonElem = focusedMatchElem?.shadowRoot?.activeElement;
+          if (focusedButtonElem?.id === 'remove') {
+            this.$.matches.unselect();
+          }
+        } else {
           this.$.matches.unselect();
         }
       }
@@ -677,6 +679,15 @@ export class ComposeboxElement extends I18nMixinLit
     // the verbatim match will exist.
     if (this.lastQueriedInput_ && this.result_?.matches.length) {
       this.$.matches.selectFirst();
+    }
+    if (this.ntpRealboxNextEnabled) {
+      this.fire('composebox-input-focus-changed', {value: true});
+    }
+  }
+
+  protected handleInputFocusOut_() {
+    if (this.ntpRealboxNextEnabled) {
+      this.fire('composebox-input-focus-changed', {value: false});
     }
   }
 
@@ -863,7 +874,6 @@ export class ComposeboxElement extends I18nMixinLit
           this.queryAutocomplete(/* clearMatches= */ true);
         } else {
           this.showDropdown_ = false;
-          this.clearAutocompleteMatches_();
         }
       }
 
